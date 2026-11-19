@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BotBrawl Arena — Modular BattleBot Garage &amp; Neural ML</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070612;
+    --glass: rgba(22, 14, 34, 0.64);
+    --glass-strong: rgba(14, 10, 24, 0.86);
+    --card: rgba(244, 63, 94, 0.06);
+    --card-hover: rgba(244, 63, 94, 0.14);
+    --border: rgba(244, 63, 94, 0.24);
+    --spec: rgba(253, 164, 175, 0.28);
+    --text: #fff1f5;
+    --muted: #cbd5e1;
+    --red: #f43f5e;
+    --amber: #f59e0b;
+    --purple: #a855f7;
+    --blue: #38bdf8;
+    --green: #34d399;
+    --font-ui: "Space Grotesk", "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
+  }
+  button, input, select, textarea { font-family: var(--font-ui); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(244,63,94,0.5); }
+
+  body {
+    font-family: var(--font-ui);
+    background:
+      radial-gradient(circle at 14% 14%, rgba(244, 63, 94, 0.22), transparent 42%),
+      radial-gradient(circle at 86% 18%, rgba(168, 85, 247, 0.22), transparent 42%),
+      radial-gradient(circle at 50% 92%, rgba(245, 158, 11, 0.16), transparent 46%),
+      var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  header {
+    height: 54px;
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--border);
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.38);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; gap: 10px; flex-shrink: 0; z-index: 12;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 16px; letter-spacing: -0.3px; }
+  .brand .badge {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+    background: rgba(244,63,94,0.18); color: #fda4af; border: 1px solid rgba(244,63,94,0.45);
+    box-shadow: inset 0 1px 0 var(--spec);
+  }
+  .tabs { display: flex; gap: 4px; background: rgba(0,0,0,0.36); padding: 4px; border-radius: 13px; border: 1px solid var(--border); }
+  .tab-btn { border: none; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; padding: 6px 15px; border-radius: 9px; cursor: pointer; transition: all 0.15s; }
+  .tab-btn.active { background: linear-gradient(135deg, #f43f5e, #a855f7); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 14px rgba(244,63,94,0.42); }
+
+  .simp-group { display: flex; gap: 3px; background: rgba(0,0,0,0.34); padding: 3px; border-radius: 11px; border: 1px solid var(--border); }
+  .simp-btn { border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 8px; cursor: pointer; transition: all 0.14s; }
+  .simp-btn.active { background: linear-gradient(135deg, #f43f5e, #f59e0b); color: #1a050b; }
+  body[data-simplicity="simple"] .std-only, body[data-simplicity="simple"] .pro-only { display: none !important; }
+  body[data-simplicity="standard"] .pro-only { display: none !important; }
+
+  .header-actions { display: flex; align-items: center; gap: 6px; }
+  .btn {
+    border: 1px solid var(--border); background: var(--card); backdrop-filter: blur(14px);
+    color: var(--text); font-weight: 600; font-size: 12px; padding: 6px 10px; border-radius: 10px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); transition: all 0.13s;
+  }
+  .btn:hover { border-color: rgba(244,63,94,0.75); background: var(--card-hover); transform: translateY(-0.5px); }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary { background: linear-gradient(135deg, #f43f5e, #a855f7); color: #fff; border-color: rgba(255,255,255,0.34); font-weight: 800; box-shadow: 0 4px 16px rgba(244,63,94,0.36); }
+  .btn.green { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.48); color: #86efac; }
+  .btn.amber { background: rgba(245,158,11,0.18); border-color: rgba(245,158,11,0.48); color: #fcd34d; }
+  .btn.purple { background: rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.48); color: #e9d5ff; }
+  .btn.active { background: linear-gradient(135deg, rgba(244,63,94,0.36), rgba(168,85,247,0.36)); border-color: #fb7185; color: #fff; box-shadow: 0 0 14px rgba(244,63,94,0.45); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  select {
+    background: rgba(18, 12, 30, 0.92); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 5px 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+
+  main { flex: 1; display: flex; min-height: 0; overflow: hidden; position: relative; }
+  .view { display: none; width: 100%; height: 100%; }
+  .view.active { display: flex; }
+
+  /* GARAGE */
+  .sidebar { width: 342px; background: var(--glass-strong); backdrop-filter: blur(24px); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .sidebar-section { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .sidebar-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: #fda4af; font-weight: 700; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: center; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .preset-chip { font-size: 11px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-weight: 600; transition: all 0.12s; }
+  .preset-chip:hover, .preset-chip.active { border-color: var(--red); background: rgba(244,63,94,0.24); }
+
+  .search-wrap { position: relative; margin-bottom: 7px; }
+  .search-input { width: 100%; padding: 7px 26px 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.34); color: var(--text); font-size: 12px; outline: none; }
+  .search-input:focus { border-color: var(--red); }
+  .search-clear { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; }
+
+  .parts-scroll { flex: 1; overflow-y: auto; padding: 10px 12px; }
+  .cat-label { font-size: 11px; font-weight: 800; color: #fcd34d; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; }
+  .cat-label:first-child { margin-top: 0; }
+  .parts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .part-card { position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 11px; padding: 7px 8px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; transition: all 0.12s; }
+  .part-card:hover { border-color: rgba(244,63,94,0.65); background: var(--card-hover); transform: translateY(-1px); }
+  .part-card.op { border-color: rgba(250, 204, 21, 0.38); background: rgba(250, 204, 21, 0.06); }
+  .part-card.selected { border: 2px solid #f43f5e; background: linear-gradient(135deg, rgba(244,63,94,0.32), rgba(168,85,247,0.30)); box-shadow: 0 0 16px rgba(244,63,94,0.45); transform: scale(1.02); }
+  .part-card.selected::after { content: '✓'; position: absolute; top: 4px; right: 5px; background: linear-gradient(135deg,#f43f5e,#a855f7); color: #fff; font-size: 9px; font-weight: 900; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .part-card .top { display: flex; align-items: center; gap: 5px; font-weight: 700; font-size: 11.5px; }
+  .part-card .sub { font-size: 10px; color: var(--muted); line-height: 1.25; }
+
+  .garage-stage { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .toolbar { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--glass); backdrop-filter: blur(18px); gap: 8px; flex-wrap: wrap; }
+  .active-tool-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: rgba(244,63,94,0.18); border: 1.5px solid #f43f5e; color: #fff; font-size: 12px; font-weight: 800; box-shadow: 0 0 14px rgba(244,63,94,0.28); }
+  .canvas-wrap { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  .specs-panel { width: 295px; background: var(--glass-strong); border-left: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-shrink: 0; }
+  .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+  .stat-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+  .stat-row span:first-child { color: var(--muted); }
+  .stat-row span:last-child { font-weight: 700; }
+  .ai-chat-log { max-height: 145px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 6px 0; padding: 6px; background: rgba(0,0,0,0.32); border-radius: 10px; border: 1px solid var(--border); }
+  .ai-msg { font-size: 11.5px; line-height: 1.38; padding: 6px 8px; border-radius: 9px; }
+  .ai-msg.user { background: rgba(244,63,94,0.22); border: 1px solid rgba(244,63,94,0.45); align-self: flex-end; color: #ffe4e6; }
+  .ai-msg.bot { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); align-self: flex-start; }
+  .ai-chat-input-row { display: flex; gap: 5px; margin-top: 4px; }
+  .ai-chat-input-row input { flex: 1; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--border); background: rgba(0,0,0,0.36); color: var(--text); font-size: 11.5px; outline: none; }
+
+  /* ARENA */
+  .arena-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .arena-topbar { background: var(--glass-strong); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; z-index: 5; }
+  .arena-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .hud-overlay { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; align-items: flex-start; flex-wrap: wrap; }
+  .fighter-hud { background: rgba(14,10,24,0.72); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,0.18); border-radius: 14px; padding: 8px 12px; width: 205px; }
+  .hp-track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 5px; }
+  .hp-fill { height: 100%; border-radius: 999px; transition: width 0.08s linear; }
+  .center-hud { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .hud-pill { background: rgba(14, 10, 24, 0.7); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; padding: 6px 10px; text-align: center; min-width: 70px; }
+  .hud-pill .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+  .hud-pill .val { font-size: 14px; font-weight: 800; }
+
+  .arena-banner {
+    position: absolute; bottom: 12px; left: 12px;
+    background: rgba(14, 10, 24, 0.72); backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; padding: 7px 12px;
+    font-size: 11.5px; color: var(--muted); pointer-events: none; display: flex; gap: 12px; align-items: center;
+  }
+  .arena-banner strong { color: var(--text); }
+
+  .ml-panel { width: 325px; background: var(--glass-strong); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; padding: 12px; gap: 10px; flex-shrink: 0; }
+  canvas.mini-viz { width: 100%; background: rgba(8, 5, 16, 0.76); border: 1px solid var(--border); border-radius: 11px; display: block; }
+  #nnCanvas { height: 185px; }
+  #chartCanvas { height: 118px; }
+  .slider-row { display: flex; flex-direction: column; gap: 3px; font-size: 11px; margin-top: 5px; }
+  .slider-row .top { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; }
+  .slider-row input[type=range] { width: 100%; accent-color: var(--red); cursor: pointer; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(20,12,32,0.92); backdrop-filter: blur(18px); border: 1px solid rgba(244,63,94,0.7); color: #fff; padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 99; }
+  .toast.show { opacity: 1; }
+
+  /* === PHONE OPTIMIZED MODE + TOUCH CONTROLS === */
+  .touch-brawl-pad {
+    display: none;
+    position: absolute; bottom: 48px; left: 10px; right: 10px;
+    justify-content: space-between; align-items: flex-end;
+    pointer-events: none; z-index: 15;
+  }
+  .touch-dpad { display: grid; grid-template-columns: 46px 46px 46px; grid-template-rows: 46px 46px; gap: 5px; pointer-events: auto; }
+  .touch-actions { display: flex; gap: 8px; pointer-events: auto; }
+  .tb-btn {
+    border-radius: 14px; border: 1.5px solid rgba(253,164,175,0.55);
+    background: rgba(18, 12, 34, 0.76); backdrop-filter: blur(14px);
+    color: #fff; font-size: 17px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  .tb-btn.act { width: 64px; height: 64px; border-radius: 50%; font-size: 12px; background: linear-gradient(135deg, rgba(244,63,94,0.88), rgba(168,85,247,0.9)); }
+  .tb-btn.pressed { transform: scale(0.92); filter: brightness(1.25); }
+
+  body.mobile-mode { height: auto; min-height: 100dvh; overflow-y: auto; overflow-x: hidden; }
+  body.mobile-mode header { height: auto; flex-wrap: wrap; padding: 8px 10px; gap: 6px; }
+  body.mobile-mode .brand { font-size: 14px; }
+  body.mobile-mode .brand .badge { display: none; }
+  body.mobile-mode .tabs { order: 3; width: 100%; justify-content: center; }
+  body.mobile-mode .tab-btn { flex: 1; padding: 8px 10px; font-size: 12.5px; }
+  body.mobile-mode .simp-group { display: none; }
+  body.mobile-mode .header-actions { margin-left: auto; gap: 5px; }
+  body.mobile-mode main { overflow: visible; flex: none; }
+  body.mobile-mode .view.active { flex-direction: column; height: auto; }
+  body.mobile-mode .garage-stage { order: 1; width: 100%; }
+  body.mobile-mode .garage-stage .canvas-wrap { height: 50dvh; min-height: 300px; max-height: 430px; touch-action: none; }
+  body.mobile-mode .toolbar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px; gap: 6px; }
+  body.mobile-mode .toolbar > div { flex-wrap: nowrap !important; flex-shrink: 0; }
+  body.mobile-mode .active-tool-pill { flex-shrink: 0; font-size: 11px; }
+  body.mobile-mode .sidebar { order: 2; width: 100%; border-right: none; border-top: 1px solid var(--border); max-height: 48dvh; }
+  body.mobile-mode .specs-panel { order: 3; width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  body.mobile-mode .arena-main { order: 1; width: 100%; }
+  body.mobile-mode .arena-topbar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 7px 10px; gap: 6px; }
+  body.mobile-mode .arena-group { flex-wrap: nowrap; flex-shrink: 0; }
+  body.mobile-mode .arena-main .canvas-wrap { height: 56dvh; min-height: 330px; max-height: 520px; touch-action: none; }
+  body.mobile-mode .fighter-hud { width: 138px; padding: 6px 8px; font-size: 11px; }
+  body.mobile-mode .hud-pill { padding: 4px 6px; min-width: 52px; }
+  body.mobile-mode .hud-pill .val { font-size: 11.5px; }
+  body.mobile-mode .arena-banner { bottom: 6px; left: 6px; right: 6px; padding: 5px 8px; font-size: 10px; justify-content: space-between; }
+  body.mobile-mode .ml-panel { order: 2; width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  body.mobile-mode .btn, body.mobile-mode select { min-height: 36px; font-size: 12px; }
+  body.mobile-mode.manual-active .touch-brawl-pad { display: flex; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span>⚔️ BotBrawl Arena</span>
+    <span class="badge" id="partCountBadge">320 Parts • Neural BattleBot ML</span>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="garage">🔧 Bot Garage</button>
+    <button class="tab-btn" data-tab="arena">🏟️ Hazard Arena</button>
+  </div>
+  <div class="simp-group" title="UI Simplicity Level">
+    <button class="simp-btn" data-simp="simple">🟢 Simple</button>
+    <button class="simp-btn" data-simp="standard">🟡 Standard</button>
+    <button class="simp-btn active" data-simp="pro">🔴 Pro</button>
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="btnMobileToggle" title="Toggle Phone/Desktop Layout">📱 Phone</button>
+    <button class="btn active" id="btnSound">🔊 SFX: ON</button>
+    <button class="btn pro-only" id="btnExport">💾 Export</button>
+    <button class="btn pro-only" id="btnImport">📂 Import</button>
+    <button class="btn primary" id="btnTopArena">⚔️ Brawl Arena</button>
+  </div>
+</header>
+
+<main>
+  <!-- GARAGE VIEW -->
+  <section class="view active" id="view-garage">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title"><span>BattleBot Presets (14)</span><button class="preset-chip" id="btnClear">Clear</button></div>
+        <select id="selPreset" style="width:100%;" title="Choose a BattleBot Preset"></select>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title"><span>💾 My Saved Bots</span><span id="savedBotCount" style="color:#fcd34d;">0 saved</span></div>
+        <div style="display:flex;gap:5px;margin-bottom:6px;">
+          <input class="search-input" id="saveBotName" placeholder="Name your bot..." style="flex:1;padding:5px 8px;" />
+          <button class="btn primary" id="btnSaveBot" style="padding:5px 9px;">💾 Save</button>
+        </div>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <select id="selSavedBots" style="flex:1;min-width:0;" title="Your Saved BattleBots"></select>
+          <button class="btn green" id="btnLoadSaved" style="padding:5px 8px;" title="Load selected saved bot">📂 Load</button>
+          <button class="btn" id="btnDeleteSaved" style="padding:5px 7px;" title="Delete selected saved bot">🗑️</button>
+        </div>
+      </div>
+      <div class="sidebar-section" style="padding-bottom:8px;">
+        <div class="search-wrap">
+          <input class="search-input" id="partSearch" placeholder="Search 320 parts (e.g. saw, mjolnir, laser, kc)..." />
+          <button class="search-clear" id="btnClearSearch">✕</button>
+        </div>
+        <div class="preset-row" id="catFilters"></div>
+      </div>
+      <div class="parts-scroll" id="partsPalette"></div>
+    </aside>
+
+    <div class="garage-stage">
+      <div class="toolbar">
+        <div class="active-tool-pill" id="activeToolPill">Selected: 🪚 Spinning Sawblade</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button class="btn" id="btnUndo" disabled>↩ Undo</button>
+          <button class="btn" id="btnRedo" disabled>↪ Redo</button>
+          <button class="btn std-only" id="btnPick" title="Eyedropper (Key: I)">🧪 Pick</button>
+          <button class="btn std-only" id="btnMirror">🪞 Mirror: OFF</button>
+          <button class="btn" id="btnErase">🧹 Eraser: OFF</button>
+          <button class="btn pro-only" id="btnFlip">↕️ Flip</button>
+          <button class="btn pro-only" id="btnSym">⚖️ Sym</button>
+          <button class="btn pro-only" id="btnNudgeL">⬅️</button>
+          <button class="btn pro-only" id="btnNudgeR">➡️</button>
+          <button class="btn pro-only" id="btnNudgeU">⬆️</button>
+          <button class="btn pro-only" id="btnNudgeD">⬇️</button>
+          <button class="btn amber" id="btnRandom">🎲 Random</button>
+          <button class="btn primary" id="btnGoArena">⚔️ Brawl &amp; Train</button>
+        </div>
+      </div>
+      <div class="canvas-wrap"><canvas id="garageCanvas"></canvas></div>
+    </div>
+
+    <aside class="specs-panel">
+      <div class="stat-box">
+        <div class="sidebar-title"><span>🤖 AI Bot Builder</span><span style="color:#fcd34d;">Instant</span></div>
+        <div class="preset-row" id="aiQuickPrompts" style="margin-bottom:5px;">
+          <button class="preset-chip" data-prompt="heavy flipper tank with titanium armor and 3 nitro boosters">🛡️ Flipper Tank</button>
+          <button class="preset-chip" data-prompt="fast spinning sawbot with laser cannon and hover drives">🪚 Laser Sawbot</button>
+          <button class="preset-chip" data-prompt="overpowered thor mjolnir hammer bot with einstein ai and aegis shield">🔨 Thor OP Bot</button>
+          <button class="preset-chip" data-prompt="kc royal cryo sniper with freeze ray and tesla spire">🏆 KC Sniper</button>
+        </div>
+        <div class="ai-chat-log" id="aiChatLog">
+          <div class="ai-msg bot">👋 Describe any BattleBot (e.g. <em>"heavy hammer bruiser with flame jets and titanium armor"</em>) and I'll forge it!</div>
+        </div>
+        <div class="ai-chat-input-row">
+          <input id="aiPromptInput" placeholder="Prompt a BattleBot to build..." />
+          <button class="btn primary" id="btnAiBuild">✨ Forge</button>
+        </div>
+      </div>
+      <div class="stat-box">
+        <div class="sidebar-title">Red BattleBot Specs</div>
+        <div id="specRows"></div>
+      </div>
+      <div class="stat-box pro-only" style="font-size:11.5px;color:var(--muted);line-height:1.45;">
+        <strong style="color:var(--text);">Garage &amp; Combat Tips:</strong><br>
+        Right side = <strong>FRONT ➔</strong>. Mount weapons on the right, armor on the sides, drive/nitro in back! Manual keys: <code>WASD</code> Move • <code>Space</code> Dash • <code>F / Shift</code> Fire Ranged.
+      </div>
+    </aside>
+  </section>
+
+  <!-- ARENA VIEW -->
+  <section class="view" id="view-arena">
+    <div class="arena-main">
+      <div class="arena-topbar">
+        <div class="arena-group">
+          <button class="btn primary" id="btnPlayPause">⏸ Pause</button>
+          <button class="btn" id="btnStepGen">⏭ Next Gen</button>
+          <button class="btn active" id="btnModeML">🧠 Neural ML</button>
+          <button class="btn" id="btnMode1v1">⚔️ 1v1 AI</button>
+          <button class="btn" id="btnModeManual">🎮 Play Red</button>
+          <button class="btn purple" id="btnModeRoyale">👑 Battle Royale</button>
+          <select id="selArena" title="Hazard Arena">
+            <option value="saws" selected>⚙️ 1. Saw Pit</option>
+            <option value="lava">🌋 2. Shrinking Lava Ring</option>
+            <option value="pinball">⚡ 3. Pinball Cyber-Dome</option>
+            <option value="ice">🧊 4. Slippery Ice Rink</option>
+            <option value="vortex">🧲 5. Magnetic Vortex</option>
+            <option value="flames">🔥 6. Floor Flame Jets</option>
+            <option value="tesla">🌩️ 7. Tesla Storm</option>
+            <option value="pitfall">🕳️ 8. Center Pitfall</option>
+            <option value="tornado">🌪️ 9. Tornado Arena</option>
+            <option value="kc">🏟️ 10. KC Championship Octagon</option>
+          </select>
+          <select id="selSpeed" title="Simulation Speed">
+            <option value="0.05">0.05x Ultra Slow</option>
+            <option value="0.1">0.1x Slow-Mo</option>
+            <option value="0.25">0.25x</option>
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1x Real-Time</option>
+            <option value="2">2x Fast</option>
+            <option value="3">3x Brisk</option>
+            <option value="5">5x Turbo</option>
+            <option value="10">10x Hyper</option>
+            <option value="25">25x Warp</option>
+            <option value="50">50x Ultra ML</option>
+            <option value="100">100x Ludicrous ML</option>
+            <option value="200">200x Cosmic ML</option>
+            <option value="500">500x Supernova ML</option>
+            <option value="1000">1000x Max ML</option>
+          </select>
+          <select id="selTimeLimit" title="Match Round Time Limit">
+            <option value="10">⏱️ 10s Blitz</option>
+            <option value="15" selected>⏱️ 15s Round</option>
+            <option value="25">⏱️ 25s Extended</option>
+            <option value="45">⏱️ 45s Marathon</option>
+            <option value="60">⏱️ 60s Endurance</option>
+            <option value="120">⏱️ 120s Epic</option>
+            <option value="0">⏱️ ∞ Unlimited</option>
+          </select>
+          <select id="selPop" title="Simultaneous Training Duels">
+            <option value="4">4 Duels (8 Bots)</option>
+            <option value="8">8 Duels (16 Bots)</option>
+            <option value="12">12 Duels (24 Bots)</option>
+            <option value="20" selected>20 Duels (40 Bots)</option>
+            <option value="32">32 Duels (64 Bots)</option>
+            <option value="48">48 Duels (96 Bots)</option>
+            <option value="64">64 Duels (128 Bots)</option>
+            <option value="96">96 Duels (192 Bots)</option>
+            <option value="128">128 Duels (256 Bots)</option>
+          </select>
+          <select id="selRoyaleBots" title="Battle Royale Bot Count">
+            <option value="4">👑 4 Bots</option>
+            <option value="8" selected>👑 8 Bots</option>
+            <option value="12">👑 12 Bots</option>
+            <option value="16">👑 16 Bots</option>
+            <option value="24">👑 24 Bots</option>
+            <option value="32">👑 32 Bots</option>
+          </select>
+          <button class="btn active" id="btnGhosts">👻 Ghosts: ON</button>
+        </div>
+        <div class="arena-group">
+          <button class="btn green" id="btnRewPlus" title="Reward alive Red bots">👍 +50</button>
+          <button class="btn" id="btnRewMinus" title="Punish alive Red bots">👎 -50</button>
+          <button class="btn amber" id="btnShock" title="Trigger Arena Shockwave (Key: E)">💥 Shockwave</button>
+          <button class="btn purple" id="btnLoadElite">🏆 Load Elite</button>
+          <button class="btn" id="btnResetWins" title="Reset Win &amp; KO Counters">🔄 Reset Wins</button>
+          <button class="btn" id="btnResetBrain">🌱 Reset Brain</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrap" style="background:#060510;">
+        <canvas id="arenaCanvas" title="Click anywhere to trigger a kinetic shockwave!"></canvas>
+        <div class="hud-overlay">
+          <div class="fighter-hud">
+            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:12.5px;">
+              <span style="color:#fda4af;">🔴 YOUR BOT</span><span id="redWins">0W • 0🔥</span>
+            </div>
+            <div class="hp-track"><div class="hp-fill" id="redHpBar" style="width:100%;background:linear-gradient(90deg,#f43f5e,#fb7185);"></div></div>
+          </div>
+          <div class="center-hud">
+            <div class="hud-pill"><div class="lbl">Gen</div><div class="val" id="hudGen" style="color:#38bdf8;">1</div></div>
+            <div class="hud-pill"><div class="lbl">KOs</div><div class="val" id="hudKOs" style="color:#34d399;">0</div></div>
+            <div class="hud-pill"><div class="lbl">Best</div><div class="val" id="hudBest" style="color:#fcd34d;">0</div></div>
+            <div class="hud-pill"><div class="lbl">Status</div><div class="val" id="roundLbl" style="color:#fda4af;">FIGHT!</div></div>
+          </div>
+          <div class="fighter-hud">
+            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:12.5px;">
+              <span style="color:#7dd3fc;" id="rivalNameLbl">🔵 RIVAL AI</span><span id="blueWins">0W</span>
+            </div>
+            <div class="hp-track"><div class="hp-fill" id="blueHpBar" style="width:100%;background:linear-gradient(90deg,#38bdf8,#2563eb);"></div></div>
+          </div>
+        </div>
+        <div class="touch-brawl-pad" id="touchBrawlPad">
+          <div class="touch-dpad">
+            <div></div><button class="tb-btn" id="tbUp">▲</button><div></div>
+            <button class="tb-btn" id="tbLeft">◀</button><button class="tb-btn" id="tbDown">▼</button><button class="tb-btn" id="tbRight">▶</button>
+          </div>
+          <div class="touch-actions">
+            <button class="tb-btn act" id="tbDash">💨<br>DASH</button>
+            <button class="tb-btn act" id="tbFire">⚡<br>FIRE</button>
+          </div>
+        </div>
+        <div class="arena-banner">
+          <span><strong>Mode:</strong> <span id="banMode">Neural ML</span></span>
+          <span><strong>Arena:</strong> <span id="banArena">Saw Pit</span></span>
+          <span><strong>Time:</strong> <span id="banTime" style="color:#38bdf8;">15.0s</span></span>
+          <span><strong>Power:</strong> <span id="banPower" style="color:#fcd34d;">0</span></span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="ml-panel">
+      <div class="stat-box std-only">
+        <div class="sidebar-title"><span>Live Combat NN (Hero)</span><span style="color:#fcd34d;">10→14→4</span></div>
+        <canvas id="nnCanvas" class="mini-viz" height="185"></canvas>
+      </div>
+      <div class="stat-box">
+        <div class="sidebar-title"><span>Combat Learning Curve</span><span id="genAvgLbl" style="color:var(--muted);">Avg: 0</span></div>
+        <canvas id="chartCanvas" class="mini-viz" height="118"></canvas>
+      </div>
+      <div class="stat-box">
+        <div class="sidebar-title">Combat Telemetry</div>
+        <div class="stat-row"><span>Red HP</span><span id="telRedHp">100</span></div>
+        <div class="stat-row"><span>Rival HP / Alive</span><span id="telBlueHp">100</span></div>
+        <div class="stat-row"><span>Ring Radius</span><span id="telRing">220px</span></div>
+        <div class="stat-row"><span>Brain Type</span><span id="telBrain">Blank Neural ML</span></div>
+      </div>
+      <div class="stat-box pro-only">
+        <div class="sidebar-title">RL Hyperparameters</div>
+        <div class="slider-row">
+          <div class="top"><span>Learning Rate (Adam α)</span><span id="valLR">0.18</span></div>
+          <input type="range" id="rngLR" min="0.02" max="0.50" step="0.01" value="0.18" />
+        </div>
+        <div class="slider-row">
+          <div class="top"><span>Exploration Noise (σ)</span><span id="valSigma">0.24</span></div>
+          <input type="range" id="rngSigma" min="0.05" max="0.55" step="0.02" value="0.24" />
+        </div>
+      </div>
+    </aside>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'botbrawl_v2';
+  const GW = 9, GH = 9, CX = 4, CY = 4;
+
+  // =========================================================
+  // 1. 320 UNIQUE BATTLEBOT COMBAT PARTS
+  // =========================================================
+  const PARTS = [{"id": "einstein_ai", "cat": "Overpowered Gear", "name": "Einstein Combat AI", "icon": "🧠", "color": "#a855f7", "mass": 1.0, "desc": "OP: Pre-trained pro brawler AI!", "op": true, "einstein": true, "hp": 45, "turn": 3.2, "lrBoost": 1.6}, {"id": "mjolnir", "cat": "Overpowered Gear", "name": "Thor Mjolnir Hammer", "icon": "🔨", "color": "#38bdf8", "mass": 2.0, "desc": "OP: 34 DMG + 420 thunder knock!", "op": true, "weapon": true, "wtype": "hammer", "dmg": 34, "knock": 420, "hp": 30}, {"id": "vib_wedge", "cat": "Overpowered Gear", "name": "Vibranium Wedge", "icon": "🛡️", "color": "#60a5fa", "mass": 1.4, "desc": "OP: +95 HP + 380 deflect flip!", "op": true, "weapon": true, "wtype": "flipper", "hp": 95, "dmg": 12, "knock": 380}, {"id": "railgun", "cat": "Overpowered Gear", "name": "Hyper Railgun", "icon": "⚡", "color": "#c084fc", "mass": 1.5, "desc": "OP: Long-range 28 DMG rail beam!", "op": true, "weapon": true, "ranged": true, "wtype": "laser", "dmg": 28, "knock": 260, "range": 260, "hp": 20}, {"id": "vortex_core", "cat": "Overpowered Gear", "name": "Gravity Vortex Core", "icon": "🕳️", "color": "#7c3aed", "mass": 1.3, "desc": "OP: Pulls foes into your blades!", "op": true, "hp": 50, "vortex": 140, "dmg": 10}, {"id": "aegis_field", "cat": "Overpowered Gear", "name": "Aegis Plasma Shield", "icon": "🌐", "color": "#38bdf8", "mass": 0.9, "desc": "OP: +110 HP + 4/s shield regen!", "op": true, "hp": 110, "regen": 4.0}, {"id": "quantum_dash", "cat": "Overpowered Gear", "name": "Quantum Warp Drive", "icon": "🌌", "color": "#a855f7", "mass": 0.8, "desc": "OP: +190 speed + rapid dash!", "op": true, "speed": 190, "turn": 2.5, "dashBoost": 1.5, "hp": 25}, {"id": "omega_saw", "cat": "Overpowered Gear", "name": "Omega Diamond Saw", "icon": "🪚", "color": "#facc15", "mass": 1.6, "desc": "OP: 32 DMG ultra-high RPM blade", "op": true, "weapon": true, "wtype": "saw", "dmg": 32, "knock": 240, "hp": 25}, {"id": "tesla_spire", "cat": "Overpowered Gear", "name": "Omega Tesla Spire", "icon": "🌩️", "color": "#60a5fa", "mass": 1.2, "desc": "OP: Zaps nearby bots with 24 DMG", "op": true, "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 24, "knock": 180, "range": 170, "hp": 20}, {"id": "solar_reactor", "cat": "Overpowered Gear", "name": "Supernova Reactor", "icon": "☀️", "color": "#fb923c", "mass": 1.4, "desc": "OP: +40% DMG & +140 speed!", "op": true, "dmgMult": 1.4, "speed": 140, "hp": 35}, {"id": "chrono_cpu", "cat": "Overpowered Gear", "name": "Chrono Neural Core", "icon": "⏳", "color": "#818cf8", "mass": 0.8, "desc": "OP: 1.9x faster ML learning!", "op": true, "lrBoost": 1.9, "hp": 30, "turn": 2.4}, {"id": "mag_repulsor", "cat": "Overpowered Gear", "name": "Repulsor Blast Ring", "icon": "🧲", "color": "#c084fc", "mass": 1.0, "desc": "OP: +440 ring-out knockback!", "op": true, "knock": 440, "hp": 40}, {"id": "phoenix_flame", "cat": "Overpowered Gear", "name": "Phoenix Inferno Jet", "icon": "🔥", "color": "#f43f5e", "mass": 1.2, "desc": "OP: 28 DMG blazing inferno cone", "op": true, "weapon": true, "ranged": true, "wtype": "flame", "dmg": 28, "knock": 190, "range": 155, "hp": 20}, {"id": "cryo_nova", "cat": "Overpowered Gear", "name": "Absolute Zero Ray", "icon": "❄️", "color": "#38bdf8", "mass": 1.1, "desc": "OP: Slows & deals 22 freeze DMG", "op": true, "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 22, "knock": 150, "range": 175, "slow": 0.45, "hp": 20}, {"id": "adamantium", "cat": "Overpowered Gear", "name": "Adamantium Slab", "icon": "💎", "color": "#94a3b8", "mass": 2.2, "desc": "OP: +140 HP indestructible plate", "op": true, "hp": 140, "knock": 140}, {"id": "titan_flipper", "cat": "Overpowered Gear", "name": "Titan Sky-Flipper", "icon": "🚀", "color": "#38bdf8", "mass": 1.5, "desc": "OP: 480 massive ring-out launch!", "op": true, "weapon": true, "wtype": "flipper", "dmg": 16, "knock": 480, "hp": 35}, {"id": "nano_swarm", "cat": "Overpowered Gear", "name": "Nano-Repair Matrix", "icon": "🧬", "color": "#34d399", "mass": 0.7, "desc": "OP: Regenerates +6 HP/sec!", "op": true, "hp": 60, "regen": 6.0}, {"id": "prism_disco", "cat": "Overpowered Gear", "name": "Prism Disco Core", "icon": "🪩", "color": "#e879f9", "mass": 0.5, "desc": "OP: +30% DMG + rainbow sparks!", "op": true, "dmgMult": 1.3, "hp": 40, "disco": true, "confetti": true}, {"id": "ion_thruster", "cat": "Overpowered Gear", "name": "Hyper-Ion Booster", "icon": "💨", "color": "#60a5fa", "mass": 0.7, "desc": "OP: +210 speed + 3.0 turn rate", "op": true, "speed": 210, "turn": 3.0, "hp": 20}, {"id": "dark_blade", "cat": "Overpowered Gear", "name": "Dark-Matter Scythe", "icon": "⚔️", "color": "#a855f7", "mass": 1.5, "desc": "OP: 36 DMG void-edge cleaver", "op": true, "weapon": true, "wtype": "saw", "dmg": 36, "knock": 260, "hp": 20}, {"id": "emp_nova", "cat": "Overpowered Gear", "name": "EMP Overload Core", "icon": "💥", "color": "#facc15", "mass": 1.1, "desc": "OP: 25 DMG shockwave + stun", "op": true, "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 25, "knock": 300, "range": 160, "hp": 30}, {"id": "star_crown", "cat": "Overpowered Gear", "name": "Galactic Champ Crown", "icon": "👑", "color": "#facc15", "mass": 0.3, "desc": "OP: +50 HP, +25% DMG, +30% rew", "op": true, "hp": 50, "dmgMult": 1.25, "rewMult": 1.3}, {"id": "grav_anchor", "cat": "Overpowered Gear", "name": "Zero-Slip Anchor", "icon": "⚓", "color": "#6366f1", "mass": 1.8, "desc": "OP: Resists 55% enemy knockback", "op": true, "hp": 75, "knockResist": 0.55}, {"id": "plasma_drum", "cat": "Overpowered Gear", "name": "Supernova Drum", "icon": "🥁", "color": "#f43f5e", "mass": 1.7, "desc": "OP: 31 DMG + 360 upward punch", "op": true, "weapon": true, "wtype": "saw", "dmg": 31, "knock": 360, "hp": 30}, {"id": "laser_gatling", "cat": "Overpowered Gear", "name": "Quad Laser Gatling", "icon": "🔫", "color": "#f43f5e", "mass": 1.3, "desc": "OP: Rapid 26 DMG laser bolts", "op": true, "weapon": true, "ranged": true, "wtype": "laser", "dmg": 26, "knock": 160, "range": 230, "hp": 20}, {"id": "sonic_cannon", "cat": "Overpowered Gear", "name": "Hyper Sonic Cannon", "icon": "🔊", "color": "#38bdf8", "mass": 1.2, "desc": "OP: 390 shockwave push blast", "op": true, "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 18, "knock": 390, "range": 185, "hp": 25}, {"id": "void_bumper", "cat": "Overpowered Gear", "name": "Phase Bounce Ring", "icon": "🫧", "color": "#c084fc", "mass": 0.8, "desc": "OP: +80 HP + 350 rebound slam", "op": true, "hp": 80, "knock": 350}, {"id": "harpoon_x", "cat": "Overpowered Gear", "name": "Quantum Harpoon", "icon": "🪝", "color": "#38bdf8", "mass": 1.1, "desc": "OP: Snags foes + 24 DMG yank", "op": true, "weapon": true, "ranged": true, "wtype": "laser", "dmg": 24, "knock": 220, "range": 210, "hp": 25}, {"id": "overclock_ai", "cat": "Overpowered Gear", "name": "Overclock Synapse", "icon": "⚡", "color": "#a855f7", "mass": 0.6, "desc": "OP: 2.0x ML learning speed!", "op": true, "lrBoost": 2.0, "turn": 2.8, "hp": 25}, {"id": "dragon_maw", "cat": "Overpowered Gear", "name": "Dragon Crusher Jaw", "icon": "🐉", "color": "#f43f5e", "mass": 1.8, "desc": "OP: 35 DMG hydraulic bite", "op": true, "weapon": true, "wtype": "hammer", "dmg": 35, "knock": 280, "hp": 45}, {"id": "nebula_tread", "cat": "Overpowered Gear", "name": "Nebula Omni-Treads", "icon": "🚜", "color": "#8b5cf6", "mass": 1.4, "desc": "OP: +175 speed + 70 HP + grip", "op": true, "speed": 175, "hp": 70, "knockResist": 0.35}, {"id": "shield_bubble", "cat": "Overpowered Gear", "name": "Quantum Barrier", "icon": "🛡️", "color": "#60a5fa", "mass": 0.9, "desc": "OP: +125 HP + 3/s regen", "op": true, "hp": 125, "regen": 3.0}, {"id": "rocket_ram", "cat": "Overpowered Gear", "name": "Hyper Rocket Ram", "icon": "☄️", "color": "#fb923c", "mass": 1.4, "desc": "OP: +180 speed + 30 ram DMG", "op": true, "weapon": true, "wtype": "spike", "speed": 180, "dmg": 30, "knock": 340, "hp": 30}, {"id": "trophy_core", "cat": "Overpowered Gear", "name": "BotBrawl World Cup", "icon": "🏆", "color": "#facc15", "mass": 0.4, "desc": "OP: +40% ML reward + 45 HP", "op": true, "hp": 45, "rewMult": 1.4}, {"id": "kc_reactor", "cat": "Overpowered Gear", "name": "KC Royal Overdrive", "icon": "💠", "color": "#38bdf8", "mass": 0.8, "desc": "OP: +35% DMG + 150 speed!", "op": true, "dmgMult": 1.35, "speed": 150, "hp": 45, "rewMult": 1.25}, {"id": "saw", "cat": "Melee & Spinners", "name": "Spinning Sawblade", "icon": "🪚", "color": "#facc15", "mass": 1.4, "desc": "16 DMG • 170 knockback", "weapon": true, "wtype": "saw", "dmg": 16, "knock": 170, "hp": 12}, {"id": "flipper", "cat": "Melee & Spinners", "name": "Hydraulic Flipper", "icon": "🛡️", "color": "#38bdf8", "mass": 1.6, "desc": "10 DMG • 340 knockback", "weapon": true, "wtype": "flipper", "dmg": 10, "knock": 340, "hp": 22}, {"id": "hammer", "cat": "Melee & Spinners", "name": "Plasma Hammer", "icon": "🔨", "color": "#a855f7", "mass": 2.0, "desc": "24 DMG • 250 knockback", "weapon": true, "wtype": "hammer", "dmg": 24, "knock": 250, "hp": 16}, {"id": "spike", "cat": "Melee & Spinners", "name": "Shock Spike", "icon": "⚡", "color": "#22d3ee", "mass": 0.9, "desc": "17 DMG • 195 knockback", "weapon": true, "wtype": "spike", "dmg": 17, "knock": 195, "hp": 10}, {"id": "drum_spin", "cat": "Melee & Spinners", "name": "Vertical Drum Spinner", "icon": "🥁", "color": "#f43f5e", "mass": 1.7, "desc": "21 DMG • 280 knockback", "weapon": true, "wtype": "saw", "dmg": 21, "knock": 280, "hp": 18}, {"id": "bar_spin", "cat": "Melee & Spinners", "name": "Horizontal Bar Blade", "icon": "➖", "color": "#fb923c", "mass": 1.8, "desc": "23 DMG • 260 knockback", "weapon": true, "wtype": "saw", "dmg": 23, "knock": 260, "hp": 15}, {"id": "chainsaw", "cat": "Melee & Spinners", "name": "Ripper Chainsaw", "icon": "⛓️", "color": "#f59e0b", "mass": 1.3, "desc": "19 DMG • 150 knockback", "weapon": true, "wtype": "saw", "dmg": 19, "knock": 150, "hp": 12}, {"id": "crusher", "cat": "Melee & Spinners", "name": "Hydraulic Crusher", "icon": "🦀", "color": "#f43f5e", "mass": 1.9, "desc": "25 DMG • 210 knockback", "weapon": true, "wtype": "hammer", "dmg": 25, "knock": 210, "hp": 26}, {"id": "drill", "cat": "Melee & Spinners", "name": "Titanium Drill Lance", "icon": "🔩", "color": "#94a3b8", "mass": 1.3, "desc": "20 DMG • 200 knockback", "weapon": true, "wtype": "spike", "dmg": 20, "knock": 200, "hp": 16}, {"id": "wedge", "cat": "Melee & Spinners", "name": "Steel Battle Wedge", "icon": "📐", "color": "#64748b", "mass": 1.5, "desc": "9 DMG • 310 knockback", "weapon": true, "wtype": "flipper", "dmg": 9, "knock": 310, "hp": 35}, {"id": "axe", "cat": "Melee & Spinners", "name": "Pneumatic Battle Axe", "icon": "🪓", "color": "#ef4444", "mass": 1.6, "desc": "22 DMG • 230 knockback", "weapon": true, "wtype": "hammer", "dmg": 22, "knock": 230, "hp": 15}, {"id": "buzz_ring", "cat": "Melee & Spinners", "name": "Full-Body Buzz Ring", "icon": "⭕", "color": "#facc15", "mass": 1.9, "desc": "20 DMG • 250 knockback", "weapon": true, "wtype": "saw", "dmg": 20, "knock": 250, "hp": 22}, {"id": "piston_ram", "cat": "Melee & Spinners", "name": "Air-Piston Rammer", "icon": "💨", "color": "#38bdf8", "mass": 1.4, "desc": "15 DMG • 320 knockback", "weapon": true, "wtype": "flipper", "dmg": 15, "knock": 320, "hp": 18}, {"id": "mace", "cat": "Melee & Spinners", "name": "Spiked Wrecking Mace", "icon": "☄️", "color": "#a855f7", "mass": 2.1, "desc": "26 DMG • 270 knockback", "weapon": true, "wtype": "hammer", "dmg": 26, "knock": 270, "hp": 20}, {"id": "katana", "cat": "Melee & Spinners", "name": "Carbon-Edge Katana", "icon": "🗡️", "color": "#e2e8f0", "mass": 0.8, "desc": "18 DMG • 155 knockback", "weapon": true, "wtype": "saw", "dmg": 18, "knock": 155, "hp": 10}, {"id": "trident", "cat": "Melee & Spinners", "name": "Volt Trident", "icon": "🔱", "color": "#38bdf8", "mass": 1.2, "desc": "20 DMG • 215 knockback", "weapon": true, "wtype": "spike", "dmg": 20, "knock": 215, "hp": 12}, {"id": "claw_grab", "cat": "Melee & Spinners", "name": "Grapple Claw", "icon": "🦾", "color": "#818cf8", "mass": 1.3, "desc": "14 DMG • 240 knockback", "weapon": true, "wtype": "hammer", "dmg": 14, "knock": 240, "hp": 24}, {"id": "jackhammer", "cat": "Melee & Spinners", "name": "Seismic Jackhammer", "icon": "⛏️", "color": "#fb923c", "mass": 1.5, "desc": "21 DMG • 265 knockback", "weapon": true, "wtype": "spike", "dmg": 21, "knock": 265, "hp": 16}, {"id": "disk_spin", "cat": "Melee & Spinners", "name": "Flywheel Disk", "icon": "💿", "color": "#60a5fa", "mass": 1.4, "desc": "18 DMG • 225 knockback", "weapon": true, "wtype": "saw", "dmg": 18, "knock": 225, "hp": 14}, {"id": "fork_lift", "cat": "Melee & Spinners", "name": "Twin Fork Lifter", "icon": "🍴", "color": "#94a3b8", "mass": 1.2, "desc": "10 DMG • 330 knockback", "weapon": true, "wtype": "flipper", "dmg": 10, "knock": 330, "hp": 20}, {"id": "ram_plow", "cat": "Melee & Spinners", "name": "Bulldozer Plow", "icon": "🚜", "color": "#eab308", "mass": 2.1, "desc": "13 DMG • 350 knockback", "weapon": true, "wtype": "flipper", "dmg": 13, "knock": 350, "hp": 40}, {"id": "plasma_axe", "cat": "Melee & Spinners", "name": "Plasma Cleaver", "icon": "⚔️", "color": "#c084fc", "mass": 1.5, "desc": "24 DMG • 235 knockback", "weapon": true, "wtype": "hammer", "dmg": 24, "knock": 235, "hp": 15}, {"id": "twin_saw", "cat": "Melee & Spinners", "name": "Twin Ripper Saws", "icon": "⚙️", "color": "#facc15", "mass": 1.7, "desc": "22 DMG • 200 knockback", "weapon": true, "wtype": "saw", "dmg": 22, "knock": 200, "hp": 14}, {"id": "lance", "cat": "Melee & Spinners", "name": "Jousting Lance", "icon": "📍", "color": "#f43f5e", "mass": 1.1, "desc": "19 DMG • 245 knockback", "weapon": true, "wtype": "spike", "dmg": 19, "knock": 245, "hp": 10}, {"id": "beater_bar", "cat": "Melee & Spinners", "name": "Steel Beater Bar", "icon": "🧱", "color": "#fb923c", "mass": 1.8, "desc": "22 DMG • 290 knockback", "weapon": true, "wtype": "saw", "dmg": 22, "knock": 290, "hp": 20}, {"id": "spring_flip", "cat": "Melee & Spinners", "name": "Spring-Loaded Flipper", "icon": "🦘", "color": "#34d399", "mass": 1.2, "desc": "11 DMG • 355 knockback", "weapon": true, "wtype": "flipper", "dmg": 11, "knock": 355, "hp": 16}, {"id": "mag_hammer", "cat": "Melee & Spinners", "name": "Mag-Pulse Hammer", "icon": "🧲", "color": "#8b5cf6", "mass": 1.9, "desc": "23 DMG • 275 knockback", "weapon": true, "wtype": "hammer", "dmg": 23, "knock": 275, "hp": 18}, {"id": "saw_disc_v2", "cat": "Melee & Spinners", "name": "Carbide Tooth Disc", "icon": "☀️", "color": "#f59e0b", "mass": 1.5, "desc": "20 DMG • 210 knockback", "weapon": true, "wtype": "saw", "dmg": 20, "knock": 210, "hp": 14}, {"id": "horn_ram", "cat": "Melee & Spinners", "name": "Rhino Ram Horn", "icon": "🦏", "color": "#94a3b8", "mass": 1.6, "desc": "18 DMG • 285 knockback", "weapon": true, "wtype": "spike", "dmg": 18, "knock": 285, "hp": 28}, {"id": "shred_roller", "cat": "Melee & Spinners", "name": "Shredder Roller", "icon": "🌀", "color": "#f43f5e", "mass": 1.8, "desc": "21 DMG • 240 knockback", "weapon": true, "wtype": "saw", "dmg": 21, "knock": 240, "hp": 20}, {"id": "scimitar", "cat": "Melee & Spinners", "name": "Swept Spin Blade", "icon": "🌙", "color": "#38bdf8", "mass": 1.2, "desc": "19 DMG • 195 knockback", "weapon": true, "wtype": "saw", "dmg": 19, "knock": 195, "hp": 12}, {"id": "battering", "cat": "Melee & Spinners", "name": "Battering Ram", "icon": "🪵", "color": "#a16207", "mass": 2.2, "desc": "17 DMG • 360 knockback", "weapon": true, "wtype": "flipper", "dmg": 17, "knock": 360, "hp": 32}, {"id": "vibro_blade", "cat": "Melee & Spinners", "name": "Vibro-Sonic Blade", "icon": "〰️", "color": "#c084fc", "mass": 1.1, "desc": "22 DMG • 185 knockback", "weapon": true, "wtype": "saw", "dmg": 22, "knock": 185, "hp": 12}, {"id": "tusk_wedge", "cat": "Melee & Spinners", "name": "Double Tusk Wedge", "icon": "🦷", "color": "#e2e8f0", "mass": 1.4, "desc": "12 DMG • 315 knockback", "weapon": true, "wtype": "flipper", "dmg": 12, "knock": 315, "hp": 26}, {"id": "thwack_arm", "cat": "Melee & Spinners", "name": "Thwack-Bot Arm", "icon": "🏏", "color": "#fb923c", "mass": 1.3, "desc": "18 DMG • 260 knockback", "weapon": true, "wtype": "hammer", "dmg": 18, "knock": 260, "hp": 14}, {"id": "under_cutter", "cat": "Melee & Spinners", "name": "Undercutter Blade", "icon": "🔻", "color": "#f43f5e", "mass": 1.5, "desc": "21 DMG • 230 knockback", "weapon": true, "wtype": "saw", "dmg": 21, "knock": 230, "hp": 14}, {"id": "eggbeater", "cat": "Melee & Spinners", "name": "Eggbeater Spinner", "icon": "🥚", "color": "#facc15", "mass": 1.4, "desc": "20 DMG • 270 knockback", "weapon": true, "wtype": "saw", "dmg": 20, "knock": 270, "hp": 15}, {"id": "clamp_jaw", "cat": "Melee & Spinners", "name": "Lock-Jaw Crusher", "icon": "🐊", "color": "#34d399", "mass": 1.6, "desc": "20 DMG • 190 knockback", "weapon": true, "wtype": "hammer", "dmg": 20, "knock": 190, "hp": 24}, {"id": "spike_strip", "cat": "Melee & Spinners", "name": "Front Spike Rack", "icon": "🌵", "color": "#22d3ee", "mass": 1.0, "desc": "16 DMG • 210 knockback", "weapon": true, "wtype": "spike", "dmg": 16, "knock": 210, "hp": 14}, {"id": "sledge", "cat": "Melee & Spinners", "name": "Rocket Sledgehammer", "icon": "🚀", "color": "#a855f7", "mass": 1.8, "desc": "25 DMG • 290 knockback", "weapon": true, "wtype": "hammer", "dmg": 25, "knock": 290, "hp": 16}, {"id": "razor_fin", "cat": "Melee & Spinners", "name": "Razor Nose Blade", "icon": "🦈", "color": "#60a5fa", "mass": 1.0, "desc": "17 DMG • 175 knockback", "weapon": true, "wtype": "spike", "dmg": 17, "knock": 175, "hp": 12}, {"id": "anvil_drop", "cat": "Melee & Spinners", "name": "Anvil Slammer", "icon": "⬛", "color": "#64748b", "mass": 2.4, "desc": "27 DMG • 260 knockback", "weapon": true, "wtype": "hammer", "dmg": 27, "knock": 260, "hp": 28}, {"id": "rotary_flail", "cat": "Melee & Spinners", "name": "Rotary Chain Flail", "icon": "⛓️", "color": "#fb923c", "mass": 1.5, "desc": "21 DMG • 240 knockback", "weapon": true, "wtype": "saw", "dmg": 21, "knock": 240, "hp": 14}, {"id": "air_wedge", "cat": "Melee & Spinners", "name": "Aero Scoop Wedge", "icon": "✈️", "color": "#38bdf8", "mass": 1.0, "desc": "9 DMG • 325 knockback", "weapon": true, "wtype": "flipper", "dmg": 9, "knock": 325, "hp": 22}, {"id": "cobalt_saw", "cat": "Melee & Spinners", "name": "Cobalt Plasma Saw", "icon": "🔷", "color": "#3b82f6", "mass": 1.5, "desc": "23 DMG • 215 knockback", "weapon": true, "wtype": "saw", "dmg": 23, "knock": 215, "hp": 16}, {"id": "obsidian_axe", "cat": "Melee & Spinners", "name": "Obsidian Cleaver", "icon": "🟣", "color": "#7c3aed", "mass": 1.7, "desc": "25 DMG • 240 knockback", "weapon": true, "wtype": "hammer", "dmg": 25, "knock": 240, "hp": 18}, {"id": "cyber_claw", "cat": "Melee & Spinners", "name": "Cyber-Mantis Claw", "icon": "🦗", "color": "#34d399", "mass": 1.2, "desc": "20 DMG • 205 knockback", "weapon": true, "wtype": "spike", "dmg": 20, "knock": 205, "hp": 14}, {"id": "mega_spoon", "cat": "Melee & Spinners", "name": "Launch Scoop", "icon": "🥄", "color": "#cbd5e1", "mass": 1.3, "desc": "10 DMG • 345 knockback", "weapon": true, "wtype": "flipper", "dmg": 10, "knock": 345, "hp": 20}, {"id": "plasma_pike", "cat": "Melee & Spinners", "name": "Plasma Lance Pike", "icon": "🌠", "color": "#c084fc", "mass": 1.1, "desc": "22 DMG • 225 knockback", "weapon": true, "wtype": "spike", "dmg": 22, "knock": 225, "hp": 12}, {"id": "diamond_drum", "cat": "Melee & Spinners", "name": "Diamond Bite Drum", "icon": "💎", "color": "#38bdf8", "mass": 1.6, "desc": "24 DMG • 295 knockback", "weapon": true, "wtype": "saw", "dmg": 24, "knock": 295, "hp": 20}, {"id": "flame", "cat": "Ranged & Elemental", "name": "Flamethrower", "icon": "🔥", "color": "#f97316", "mass": 1.1, "desc": "15 DMG • 130px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 15, "knock": 120, "range": 130, "hp": 14}, {"id": "laser_p", "cat": "Ranged & Elemental", "name": "Pulse Laser", "icon": "🔴", "color": "#f43f5e", "mass": 1.0, "desc": "16 DMG • 210px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 16, "knock": 130, "range": 210, "hp": 14}, {"id": "tesla", "cat": "Ranged & Elemental", "name": "Tesla Arc Coil", "icon": "⚡", "color": "#38bdf8", "mass": 1.2, "desc": "17 DMG • 150px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 17, "knock": 150, "range": 150, "hp": 14}, {"id": "freeze_ray", "cat": "Ranged & Elemental", "name": "Cryo Freeze Ray", "icon": "❄️", "color": "#93c5fd", "mass": 1.1, "desc": "13 DMG • 160px range", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 13, "knock": 110, "range": 160, "hp": 14, "slow": 0.3}, {"id": "sonic_wave", "cat": "Ranged & Elemental", "name": "Sonic Repulsor", "icon": "🔊", "color": "#a855f7", "mass": 1.1, "desc": "12 DMG • 165px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 12, "knock": 290, "range": 165, "hp": 14}, {"id": "plasma_gun", "cat": "Ranged & Elemental", "name": "Plasma Blaster", "icon": "🟣", "color": "#c084fc", "mass": 1.2, "desc": "19 DMG • 195px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 19, "knock": 170, "range": 195, "hp": 14}, {"id": "napalm", "cat": "Ranged & Elemental", "name": "Napalm Torch", "icon": "🌋", "color": "#fb923c", "mass": 1.3, "desc": "18 DMG • 140px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 18, "knock": 130, "range": 140, "hp": 14}, {"id": "arc_whip", "cat": "Ranged & Elemental", "name": "Lightning Whip", "icon": "🌩️", "color": "#60a5fa", "mass": 1.0, "desc": "18 DMG • 145px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 18, "knock": 160, "range": 145, "hp": 14}, {"id": "ion_beam", "cat": "Ranged & Elemental", "name": "Blue Ion Cannon", "icon": "🔵", "color": "#3b82f6", "mass": 1.2, "desc": "17 DMG • 205px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 17, "knock": 185, "range": 205, "hp": 14}, {"id": "acid_jet", "cat": "Ranged & Elemental", "name": "Acid Sprayer", "icon": "🧪", "color": "#34d399", "mass": 1.0, "desc": "16 DMG • 135px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 16, "knock": 115, "range": 135, "hp": 14}, {"id": "frost_nova", "cat": "Ranged & Elemental", "name": "Blizzard Emitter", "icon": "🧊", "color": "#bae6fd", "mass": 1.2, "desc": "14 DMG • 150px range", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 14, "knock": 140, "range": 150, "hp": 14, "slow": 0.3}, {"id": "shock_mortar", "cat": "Ranged & Elemental", "name": "Shockwave Cannon", "icon": "💥", "color": "#facc15", "mass": 1.5, "desc": "20 DMG • 180px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 20, "knock": 280, "range": 180, "hp": 14}, {"id": "ruby_laser", "cat": "Ranged & Elemental", "name": "Ruby Beam Emitter", "icon": "💎", "color": "#f43f5e", "mass": 1.1, "desc": "18 DMG • 220px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 18, "knock": 140, "range": 220, "hp": 14}, {"id": "spark_caster", "cat": "Ranged & Elemental", "name": "Spark Caster", "icon": "✨", "color": "#fbbf24", "mass": 0.9, "desc": "15 DMG • 155px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 15, "knock": 145, "range": 155, "hp": 14}, {"id": "mag_cannon", "cat": "Ranged & Elemental", "name": "Gauss Coilgun", "icon": "🧲", "color": "#818cf8", "mass": 1.4, "desc": "21 DMG • 215px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 21, "knock": 230, "range": 215, "hp": 14}, {"id": "thermite", "cat": "Ranged & Elemental", "name": "Thermite Lance", "icon": "☄️", "color": "#f97316", "mass": 1.3, "desc": "20 DMG • 130px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 20, "knock": 150, "range": 130, "hp": 14}, {"id": "bass_cannon", "cat": "Ranged & Elemental", "name": "Subwoofer Blast", "icon": "🎵", "color": "#a855f7", "mass": 1.2, "desc": "13 DMG • 170px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 13, "knock": 310, "range": 170, "hp": 14}, {"id": "cryo_mist", "cat": "Ranged & Elemental", "name": "Liquid N2 Jet", "icon": "💨", "color": "#38bdf8", "mass": 0.9, "desc": "14 DMG • 145px range", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 14, "knock": 125, "range": 145, "hp": 14, "slow": 0.3}, {"id": "volt_orb", "cat": "Ranged & Elemental", "name": "Ball Lightning Pod", "icon": "🔮", "color": "#c084fc", "mass": 1.2, "desc": "19 DMG • 165px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 19, "knock": 175, "range": 165, "hp": 14}, {"id": "photon_ray", "cat": "Ranged & Elemental", "name": "Photon Carbine", "icon": "🌠", "color": "#60a5fa", "mass": 1.0, "desc": "17 DMG • 225px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 17, "knock": 150, "range": 225, "hp": 14}, {"id": "solar_flare", "cat": "Ranged & Elemental", "name": "Solar Flare Nozzle", "icon": "☀️", "color": "#f59e0b", "mass": 1.3, "desc": "19 DMG • 150px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 19, "knock": 165, "range": 150, "hp": 14}, {"id": "emp_pulse", "cat": "Ranged & Elemental", "name": "Mini EMP Emitter", "icon": "📡", "color": "#38bdf8", "mass": 1.1, "desc": "15 DMG • 160px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 15, "knock": 210, "range": 160, "hp": 14}, {"id": "grav_push", "cat": "Ranged & Elemental", "name": "Gravity Push Beam", "icon": "🌀", "color": "#8b5cf6", "mass": 1.2, "desc": "12 DMG • 180px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 12, "knock": 325, "range": 180, "hp": 14}, {"id": "uv_beam", "cat": "Ranged & Elemental", "name": "UV Plasma Beam", "icon": "🟪", "color": "#a855f7", "mass": 1.1, "desc": "18 DMG • 210px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 18, "knock": 155, "range": 210, "hp": 14}, {"id": "dragon_breath", "cat": "Ranged & Elemental", "name": "Dragon Breath Jet", "icon": "🐉", "color": "#ef4444", "mass": 1.2, "desc": "20 DMG • 145px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 20, "knock": 145, "range": 145, "hp": 14}, {"id": "ice_shard", "cat": "Ranged & Elemental", "name": "Cryo Shard Gun", "icon": "🔹", "color": "#93c5fd", "mass": 1.0, "desc": "16 DMG • 190px range", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 16, "knock": 160, "range": 190, "hp": 14, "slow": 0.3}, {"id": "stun_arc", "cat": "Ranged & Elemental", "name": "Taser Arc Pod", "icon": "🔋", "color": "#facc15", "mass": 0.9, "desc": "16 DMG • 145px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 16, "knock": 175, "range": 145, "hp": 14}, {"id": "air_cannon", "cat": "Ranged & Elemental", "name": "Vortex Air Cannon", "icon": "🌪️", "color": "#60a5fa", "mass": 1.1, "desc": "11 DMG • 175px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 11, "knock": 330, "range": 175, "hp": 14}, {"id": "melt_beam", "cat": "Ranged & Elemental", "name": "Thermal Cutter", "icon": "🔦", "color": "#fb923c", "mass": 1.1, "desc": "19 DMG • 185px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 19, "knock": 135, "range": 185, "hp": 14}, {"id": "flare_gun", "cat": "Ranged & Elemental", "name": "Magnesium Burner", "icon": "🎇", "color": "#f43f5e", "mass": 0.9, "desc": "16 DMG • 160px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 16, "knock": 150, "range": 160, "hp": 14}, {"id": "storm_coil", "cat": "Ranged & Elemental", "name": "Stormfront Coil", "icon": "⛈️", "color": "#6366f1", "mass": 1.3, "desc": "20 DMG • 165px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 20, "knock": 190, "range": 165, "hp": 14}, {"id": "glacier_jet", "cat": "Ranged & Elemental", "name": "Glacier Beam", "icon": "🏔️", "color": "#38bdf8", "mass": 1.2, "desc": "15 DMG • 170px range", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 15, "knock": 165, "range": 170, "hp": 14, "slow": 0.3}, {"id": "quake_wave", "cat": "Ranged & Elemental", "name": "Tremor Emitter", "icon": "🌋", "color": "#a855f7", "mass": 1.4, "desc": "17 DMG • 160px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 17, "knock": 305, "range": 160, "hp": 14}, {"id": "prism_beam", "cat": "Ranged & Elemental", "name": "Prism Refract Ray", "icon": "🌈", "color": "#e879f9", "mass": 1.0, "desc": "18 DMG • 205px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 18, "knock": 160, "range": 205, "hp": 14}, {"id": "rocket_pod", "cat": "Ranged & Elemental", "name": "Micro Rocket Pod", "icon": "🚀", "color": "#f43f5e", "mass": 1.4, "desc": "22 DMG • 200px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 22, "knock": 240, "range": 200, "hp": 14}, {"id": "plasma_arc", "cat": "Ranged & Elemental", "name": "Cobalt Arc Jet", "icon": "💠", "color": "#3b82f6", "mass": 1.1, "desc": "18 DMG • 160px range", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 18, "knock": 165, "range": 160, "hp": 14}, {"id": "inferno_fan", "cat": "Ranged & Elemental", "name": "Wide Flame Fan", "icon": "🔥", "color": "#f97316", "mass": 1.2, "desc": "17 DMG • 140px range", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 17, "knock": 140, "range": 140, "hp": 14}, {"id": "frost_spike", "cat": "Ranged & Elemental", "name": "Icicle Launcher", "icon": "❄️", "color": "#bae6fd", "mass": 1.0, "desc": "17 DMG • 185px range", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 17, "knock": 155, "range": 185, "hp": 14, "slow": 0.3}, {"id": "beam_turret", "cat": "Ranged & Elemental", "name": "Auto-Aim Turret", "icon": "🎯", "color": "#f43f5e", "mass": 1.3, "desc": "20 DMG • 220px range", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 20, "knock": 170, "range": 220, "hp": 14}, {"id": "boom_horn", "cat": "Ranged & Elemental", "name": "Stadium Sonic Horn", "icon": "📯", "color": "#facc15", "mass": 1.0, "desc": "14 DMG • 175px range", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 14, "knock": 315, "range": 175, "hp": 14}, {"id": "titanium", "cat": "Armor & Hull", "name": "Titanium Armor", "icon": "🧱", "color": "#94a3b8", "mass": 2.2, "desc": "+55 HP • -12% push", "hp": 55, "knock": 0, "knockResist": 0.12, "regen": 0}, {"id": "frame", "cat": "Armor & Hull", "name": "Steel Chassis", "icon": "🦴", "color": "#64748b", "mass": 1.4, "desc": "+32 HP", "hp": 32, "knock": 0, "knockResist": 0.06, "regen": 0}, {"id": "carbon", "cat": "Armor & Hull", "name": "Carbon Hull", "icon": "🪶", "color": "#cbd5e1", "mass": 0.5, "desc": "+20 HP", "hp": 20, "knock": 0, "knockResist": 0, "regen": 0}, {"id": "bumper", "cat": "Armor & Hull", "name": "Bouncy Bumper", "icon": "💣", "color": "#f472b6", "mass": 1.0, "desc": "+30 HP • +165 bounce", "hp": 30, "knock": 165, "knockResist": 0.05, "regen": 0}, {"id": "reactive", "cat": "Armor & Hull", "name": "Reactive Plate", "icon": "💥", "color": "#fb923c", "mass": 1.5, "desc": "+42 HP • +200 bounce", "hp": 42, "knock": 200, "knockResist": 0.08, "regen": 0}, {"id": "kevlar", "cat": "Armor & Hull", "name": "Kevlar Weave", "icon": "🦺", "color": "#38bdf8", "mass": 0.8, "desc": "+36 HP", "hp": 36, "knock": 0, "knockResist": 0.04, "regen": 0}, {"id": "spike_hull", "cat": "Armor & Hull", "name": "Spiked Armor", "icon": "🌵", "color": "#f43f5e", "mass": 1.6, "desc": "+40 HP • +120 bounce", "hp": 40, "knock": 120, "knockResist": 0.06, "regen": 0}, {"id": "tungsten", "cat": "Armor & Hull", "name": "Tungsten Core", "icon": "🪨", "color": "#475569", "mass": 2.8, "desc": "+72 HP • -22% push", "hp": 72, "knock": 0, "knockResist": 0.22, "regen": 0}, {"id": "force_plate", "cat": "Armor & Hull", "name": "Energy Barrier", "icon": "🛡️", "color": "#60a5fa", "mass": 0.9, "desc": "+52 HP • +100 bounce • +1.4/s heal", "hp": 52, "knock": 100, "knockResist": 0.05, "regen": 1.4}, {"id": "rubber_ring", "cat": "Armor & Hull", "name": "Rubber Shock Guard", "icon": "🍩", "color": "#c084fc", "mass": 0.7, "desc": "+28 HP • +195 bounce", "hp": 28, "knock": 195, "knockResist": 0.04, "regen": 0}, {"id": "honeycomb", "cat": "Armor & Hull", "name": "Honeycomb Panel", "icon": "🍯", "color": "#facc15", "mass": 0.6, "desc": "+26 HP", "hp": 26, "knock": 0, "knockResist": 0.03, "regen": 0}, {"id": "steel_cage", "cat": "Armor & Hull", "name": "Roll-Cage Truss", "icon": "🔩", "color": "#94a3b8", "mass": 1.2, "desc": "+38 HP", "hp": 38, "knock": 0, "knockResist": 0.08, "regen": 0}, {"id": "nano_plate", "cat": "Armor & Hull", "name": "Self-Heal Hull", "icon": "🧬", "color": "#34d399", "mass": 1.0, "desc": "+38 HP • +2.2/s heal", "hp": 38, "knock": 0, "knockResist": 0.05, "regen": 2.2}, {"id": "mag_shield", "cat": "Armor & Hull", "name": "Magnetic Deflector", "icon": "🧲", "color": "#8b5cf6", "mass": 1.1, "desc": "+44 HP • +175 bounce", "hp": 44, "knock": 175, "knockResist": 0.08, "regen": 0}, {"id": "ceramic", "cat": "Armor & Hull", "name": "Heat-Tile Armor", "icon": "⬛", "color": "#475569", "mass": 1.3, "desc": "+46 HP", "hp": 46, "knock": 0, "knockResist": 0.08, "regen": 0}, {"id": "graphene", "cat": "Armor & Hull", "name": "Graphene Frame", "icon": "🕸️", "color": "#60a5fa", "mass": 0.4, "desc": "+24 HP", "hp": 24, "knock": 0, "knockResist": 0.02, "regen": 0}, {"id": "chrome_bump", "cat": "Armor & Hull", "name": "Chrome Bullbar", "icon": "🚘", "color": "#e2e8f0", "mass": 1.4, "desc": "+42 HP • +180 bounce", "hp": 42, "knock": 180, "knockResist": 0.1, "regen": 0}, {"id": "basalt", "cat": "Armor & Hull", "name": "Volcanic Basalt", "icon": "🌋", "color": "#7c2d12", "mass": 2.0, "desc": "+58 HP • -14% push", "hp": 58, "knock": 0, "knockResist": 0.14, "regen": 0}, {"id": "ice_plate", "cat": "Armor & Hull", "name": "Cryo Crystal Hull", "icon": "🧊", "color": "#93c5fd", "mass": 1.1, "desc": "+40 HP • +90 bounce", "hp": 40, "knock": 90, "knockResist": 0.05, "regen": 0}, {"id": "gold_plate", "cat": "Armor & Hull", "name": "Gilded Alloy", "icon": "🪙", "color": "#facc15", "mass": 1.7, "desc": "+50 HP • +80 bounce", "hp": 50, "knock": 80, "knockResist": 0.1, "regen": 0}, {"id": "spring_wall", "cat": "Armor & Hull", "name": "Coil Spring Wall", "icon": "🌀", "color": "#a855f7", "mass": 1.0, "desc": "+34 HP • +220 bounce", "hp": 34, "knock": 220, "knockResist": 0.06, "regen": 0}, {"id": "foam_guard", "cat": "Armor & Hull", "name": "Impact Foam Guard", "icon": "🧽", "color": "#fb7185", "mass": 0.5, "desc": "+28 HP • +110 bounce", "hp": 28, "knock": 110, "knockResist": 0.04, "regen": 0}, {"id": "cobalt_hull", "cat": "Armor & Hull", "name": "Cobalt Bulkhead", "icon": "🔷", "color": "#3b82f6", "mass": 1.6, "desc": "+52 HP • -12% push", "hp": 52, "knock": 0, "knockResist": 0.12, "regen": 0}, {"id": "amethyst_sh", "cat": "Armor & Hull", "name": "Amethyst Plate", "icon": "🟣", "color": "#a855f7", "mass": 1.3, "desc": "+46 HP • +100 bounce • +0.8/s heal", "hp": 46, "knock": 100, "knockResist": 0.08, "regen": 0.8}, {"id": "anvil_block", "cat": "Armor & Hull", "name": "Iron Ballast", "icon": "⚓", "color": "#64748b", "mass": 2.6, "desc": "+65 HP • -20% push", "hp": 65, "knock": 0, "knockResist": 0.2, "regen": 0}, {"id": "mesh_guard", "cat": "Armor & Hull", "name": "Chainmail Skirt", "icon": "⛓️", "color": "#94a3b8", "mass": 1.2, "desc": "+40 HP • +60 bounce", "hp": 40, "knock": 60, "knockResist": 0.08, "regen": 0}, {"id": "turtle_shell", "cat": "Armor & Hull", "name": "Domed Carapace", "icon": "🐢", "color": "#34d399", "mass": 1.5, "desc": "+54 HP • +130 bounce • -12% push", "hp": 54, "knock": 130, "knockResist": 0.12, "regen": 0}, {"id": "glass_hull", "cat": "Armor & Hull", "name": "Liquid Glass Guard", "icon": "🫧", "color": "#38bdf8", "mass": 0.7, "desc": "+34 HP • +90 bounce • +1.0/s heal", "hp": 34, "knock": 90, "knockResist": 0.04, "regen": 1.0}, {"id": "wood_plank", "cat": "Armor & Hull", "name": "Scrap Oak Plank", "icon": "🪵", "color": "#a16207", "mass": 0.8, "desc": "+22 HP • +50 bounce", "hp": 22, "knock": 50, "knockResist": 0.03, "regen": 0}, {"id": "diamond_rib", "cat": "Armor & Hull", "name": "Diamond Ribbing", "icon": "💎", "color": "#60a5fa", "mass": 1.8, "desc": "+66 HP • +90 bounce • -14% push", "hp": 66, "knock": 90, "knockResist": 0.14, "regen": 0}, {"id": "obsidian", "cat": "Armor & Hull", "name": "Obsidian Block", "icon": "🖤", "color": "#334155", "mass": 2.3, "desc": "+68 HP • -16% push", "hp": 68, "knock": 0, "knockResist": 0.16, "regen": 0}, {"id": "shock_skirt", "cat": "Armor & Hull", "name": "Anti-Flip Skirt", "icon": "📐", "color": "#818cf8", "mass": 1.2, "desc": "+42 HP • +100 bounce • -18% push", "hp": 42, "knock": 100, "knockResist": 0.18, "regen": 0}, {"id": "bio_shell", "cat": "Armor & Hull", "name": "Chitin Armor", "icon": "🪲", "color": "#34d399", "mass": 0.9, "desc": "+36 HP • +1.5/s heal", "hp": 36, "knock": 0, "knockResist": 0.05, "regen": 1.5}, {"id": "plasma_rib", "cat": "Armor & Hull", "name": "Ion Shield Rib", "icon": "⚡", "color": "#38bdf8", "mass": 1.0, "desc": "+44 HP • +140 bounce • +1.2/s heal", "hp": 44, "knock": 140, "knockResist": 0.06, "regen": 1.2}, {"id": "titan_rib", "cat": "Armor & Hull", "name": "Titan Rib Cage", "icon": "🏛️", "color": "#94a3b8", "mass": 2.0, "desc": "+62 HP • -15% push", "hp": 62, "knock": 0, "knockResist": 0.15, "regen": 0}, {"id": "rubber_cone", "cat": "Armor & Hull", "name": "Flex Cone Bumper", "icon": "🔺", "color": "#f472b6", "mass": 0.8, "desc": "+30 HP • +205 bounce", "hp": 30, "knock": 205, "knockResist": 0.04, "regen": 0}, {"id": "neon_guard", "cat": "Armor & Hull", "name": "Cyber Guardrail", "icon": "💠", "color": "#c084fc", "mass": 0.9, "desc": "+38 HP • +120 bounce • +0.8/s heal", "hp": 38, "knock": 120, "knockResist": 0.06, "regen": 0.8}, {"id": "heavy_skirt", "cat": "Armor & Hull", "name": "Lead Skirt", "icon": "⚖️", "color": "#475569", "mass": 2.5, "desc": "+64 HP • -24% push", "hp": 64, "knock": 0, "knockResist": 0.24, "regen": 0}, {"id": "aerogel_blk", "cat": "Armor & Hull", "name": "Aerogel Frame", "icon": "☁️", "color": "#e2e8f0", "mass": 0.3, "desc": "+18 HP", "hp": 18, "knock": 0, "knockResist": 0, "regen": 0}, {"id": "alloy_core", "cat": "Armor & Hull", "name": "Al-Li Core Block", "icon": "🔲", "color": "#60a5fa", "mass": 1.0, "desc": "+36 HP", "hp": 36, "knock": 0, "knockResist": 0.06, "regen": 0}, {"id": "prism_wall", "cat": "Armor & Hull", "name": "Prism Deflector", "icon": "🔮", "color": "#e879f9", "mass": 1.0, "desc": "+44 HP • +160 bounce • +1.0/s heal", "hp": 44, "knock": 160, "knockResist": 0.06, "regen": 1.0}, {"id": "brawl_plate", "cat": "Armor & Hull", "name": "Arena Steel Plate", "icon": "🛡️", "color": "#f43f5e", "mass": 1.7, "desc": "+56 HP • +80 bounce • -12% push", "hp": 56, "knock": 80, "knockResist": 0.12, "regen": 0}, {"id": "shield_cap", "cat": "Armor & Hull", "name": "Shield Capacitor", "icon": "🔋", "color": "#38bdf8", "mass": 1.0, "desc": "+48 HP • +1.8/s heal", "hp": 48, "knock": 0, "knockResist": 0.05, "regen": 1.8}, {"id": "spring_bump", "cat": "Armor & Hull", "name": "Pinball Bumper", "icon": "🟣", "color": "#a855f7", "mass": 1.1, "desc": "+36 HP • +245 bounce", "hp": 36, "knock": 245, "knockResist": 0.06, "regen": 0}, {"id": "titanium_x", "cat": "Armor & Hull", "name": "Forged Ti-X Plate", "icon": "⚔️", "color": "#cbd5e1", "mass": 1.9, "desc": "+64 HP • +90 bounce • -14% push", "hp": 64, "knock": 90, "knockResist": 0.14, "regen": 0}, {"id": "wheel", "cat": "Drive & Boost", "name": "Turbo Wheel", "icon": "🛞", "color": "#22c55e", "mass": 0.8, "desc": "+105 speed", "speed": 105, "turn": 1.2, "hp": 12, "knockResist": 0}, {"id": "tread", "cat": "Drive & Boost", "name": "Tank Tread", "icon": "🚜", "color": "#eab308", "mass": 1.6, "desc": "+80 speed • +28 HP • high grip", "speed": 80, "turn": 0.8, "hp": 28, "knockResist": 0.18}, {"id": "nitro", "cat": "Drive & Boost", "name": "Nitro Booster", "icon": "🚀", "color": "#f43f5e", "mass": 0.9, "desc": "+155 speed", "speed": 155, "turn": 0.5, "hp": 10, "knockResist": 0}, {"id": "hover", "cat": "Drive & Boost", "name": "Hover Thruster", "icon": "🛸", "color": "#2dd4bf", "mass": 0.7, "desc": "+125 speed • +2.2 turn", "speed": 125, "turn": 2.2, "hp": 12, "knockResist": 0}, {"id": "omni_wheel", "cat": "Drive & Boost", "name": "Mecanum Omni-Wheel", "icon": "⚙️", "color": "#38bdf8", "mass": 0.9, "desc": "+110 speed • +2.6 turn", "speed": 110, "turn": 2.6, "hp": 14, "knockResist": 0.06}, {"id": "drift_tire", "cat": "Drive & Boost", "name": "Drift Slick Tire", "icon": "🏎️", "color": "#f97316", "mass": 0.7, "desc": "+135 speed • +1.8 turn", "speed": 135, "turn": 1.8, "hp": 10, "knockResist": 0}, {"id": "spike_wheel", "cat": "Drive & Boost", "name": "Ice-Grip Wheel", "icon": "❄️", "color": "#93c5fd", "mass": 1.0, "desc": "+100 speed • high grip", "speed": 100, "turn": 1.4, "hp": 18, "knockResist": 0.14}, {"id": "jet_pack", "cat": "Drive & Boost", "name": "Mini Jet Pack", "icon": "🔥", "color": "#fb923c", "mass": 1.0, "desc": "+165 speed", "speed": 165, "turn": 0.6, "hp": 10, "knockResist": 0}, {"id": "mag_drive", "cat": "Drive & Boost", "name": "Mag-Lev Pod", "icon": "🧲", "color": "#a855f7", "mass": 0.8, "desc": "+130 speed • +2.4 turn", "speed": 130, "turn": 2.4, "hp": 16, "knockResist": 0.1}, {"id": "crawler", "cat": "Drive & Boost", "name": "Heavy Crawler", "icon": "🐛", "color": "#84cc16", "mass": 1.8, "desc": "+75 speed • +36 HP • high grip", "speed": 75, "turn": 0.7, "hp": 36, "knockResist": 0.24}, {"id": "ion_drive", "cat": "Drive & Boost", "name": "Ion Glide Drive", "icon": "⚡", "color": "#60a5fa", "mass": 0.6, "desc": "+135 speed • +2.0 turn", "speed": 135, "turn": 2.0, "hp": 12, "knockResist": 0}, {"id": "turbo_fan", "cat": "Drive & Boost", "name": "Ducted Turbofan", "icon": "🌬️", "color": "#38bdf8", "mass": 0.8, "desc": "+145 speed • +1.6 turn", "speed": 145, "turn": 1.6, "hp": 12, "knockResist": 0}, {"id": "monster_whl", "cat": "Drive & Boost", "name": "Monster Tire", "icon": "🛞", "color": "#f59e0b", "mass": 1.5, "desc": "+115 speed • +30 HP • high grip", "speed": 115, "turn": 0.9, "hp": 30, "knockResist": 0.16}, {"id": "dash_cell", "cat": "Drive & Boost", "name": "Dash Capacitor", "icon": "🔋", "color": "#c084fc", "mass": 0.7, "desc": "+120 speed", "speed": 120, "turn": 1.2, "hp": 14, "knockResist": 0}, {"id": "rc_servo", "cat": "Drive & Boost", "name": "High-Torque Servo", "icon": "🔧", "color": "#818cf8", "mass": 0.6, "desc": "+95 speed • +2.8 turn", "speed": 95, "turn": 2.8, "hp": 12, "knockResist": 0}, {"id": "afterburn", "cat": "Drive & Boost", "name": "Afterburner Cone", "icon": "☄️", "color": "#f43f5e", "mass": 1.1, "desc": "+175 speed", "speed": 175, "turn": 0.5, "hp": 10, "knockResist": 0}, {"id": "spider_legs", "cat": "Drive & Boost", "name": "Spider Striders", "icon": "🕷️", "color": "#a855f7", "mass": 1.0, "desc": "+110 speed • +2.5 turn • +20 HP • high grip", "speed": 110, "turn": 2.5, "hp": 20, "knockResist": 0.14}, {"id": "skid_steer", "cat": "Drive & Boost", "name": "Skid-Steer Axle", "icon": "🔩", "color": "#94a3b8", "mass": 1.1, "desc": "+105 speed • +2.0 turn • +22 HP • high grip", "speed": 105, "turn": 2.0, "hp": 22, "knockResist": 0.12}, {"id": "warp_tire", "cat": "Drive & Boost", "name": "Cyber-Glow Wheel", "icon": "💠", "color": "#38bdf8", "mass": 0.8, "desc": "+130 speed • +1.9 turn", "speed": 130, "turn": 1.9, "hp": 16, "knockResist": 0.06}, {"id": "ram_jet", "cat": "Drive & Boost", "name": "Hypersonic Ramjet", "icon": "✈️", "color": "#60a5fa", "mass": 1.0, "desc": "+170 speed", "speed": 170, "turn": 0.8, "hp": 12, "knockResist": 0}, {"id": "anchor_tread", "cat": "Drive & Boost", "name": "Anchor Tank Track", "icon": "⚓", "color": "#64748b", "mass": 2.0, "desc": "+70 speed • +40 HP • high grip", "speed": 70, "turn": 0.7, "hp": 40, "knockResist": 0.28}, {"id": "gyro_wheel", "cat": "Drive & Boost", "name": "Gyro-Ball Drive", "icon": "🔮", "color": "#c084fc", "mass": 0.8, "desc": "+120 speed • +3.0 turn", "speed": 120, "turn": 3.0, "hp": 16, "knockResist": 0.06}, {"id": "plasma_jet", "cat": "Drive & Boost", "name": "Plasma Thruster", "icon": "🟣", "color": "#8b5cf6", "mass": 0.9, "desc": "+160 speed", "speed": 160, "turn": 1.1, "hp": 12, "knockResist": 0}, {"id": "mud_tire", "cat": "Drive & Boost", "name": "Off-Road Knobby", "icon": "🛞", "color": "#a16207", "mass": 1.1, "desc": "+105 speed • +22 HP • high grip", "speed": 105, "turn": 1.2, "hp": 22, "knockResist": 0.14}, {"id": "hover_skirt", "cat": "Drive & Boost", "name": "Hovercraft Skirt", "icon": "🫧", "color": "#2dd4bf", "mass": 0.7, "desc": "+130 speed • +2.1 turn", "speed": 130, "turn": 2.1, "hp": 16, "knockResist": 0}, {"id": "nitro_v2", "cat": "Drive & Boost", "name": "Twin Nitro Pods", "icon": "🧨", "color": "#ef4444", "mass": 1.1, "desc": "+180 speed", "speed": 180, "turn": 0.6, "hp": 12, "knockResist": 0}, {"id": "belt_drive", "cat": "Drive & Boost", "name": "Titanium Belt Track", "icon": "⛓️", "color": "#94a3b8", "mass": 1.5, "desc": "+95 speed • +32 HP • high grip", "speed": 95, "turn": 1.0, "hp": 32, "knockResist": 0.2}, {"id": "spring_foot", "cat": "Drive & Boost", "name": "Spring Strider", "icon": "🦘", "color": "#34d399", "mass": 0.7, "desc": "+125 speed • +2.2 turn", "speed": 125, "turn": 2.2, "hp": 16, "knockResist": 0}, {"id": "rocket_sled", "cat": "Drive & Boost", "name": "Rocket Sled Rail", "icon": "🛷", "color": "#38bdf8", "mass": 1.2, "desc": "+165 speed • +20 HP", "speed": 165, "turn": 0.9, "hp": 20, "knockResist": 0.08}, {"id": "vortex_fan", "cat": "Drive & Boost", "name": "Downforce Fan", "icon": "🌀", "color": "#6366f1", "mass": 0.8, "desc": "+115 speed • +2.2 turn • high grip", "speed": 115, "turn": 2.2, "hp": 18, "knockResist": 0.2}, {"id": "cobalt_whl", "cat": "Drive & Boost", "name": "Cobalt Alloy Wheel", "icon": "🔷", "color": "#3b82f6", "mass": 0.9, "desc": "+125 speed • +1.7 turn", "speed": 125, "turn": 1.7, "hp": 18, "knockResist": 0.08}, {"id": "crimson_jet", "cat": "Drive & Boost", "name": "Crimson Boost Pod", "icon": "🔴", "color": "#f43f5e", "mass": 0.9, "desc": "+162 speed", "speed": 162, "turn": 1.0, "hp": 14, "knockResist": 0}, {"id": "stealth_drv", "cat": "Drive & Boost", "name": "Silent Belt Drive", "icon": "🥷", "color": "#475569", "mass": 0.7, "desc": "+130 speed • +2.4 turn", "speed": 130, "turn": 2.4, "hp": 14, "knockResist": 0.06}, {"id": "hex_legs", "cat": "Drive & Boost", "name": "Hexapod Walkers", "icon": "🪲", "color": "#22c55e", "mass": 1.1, "desc": "+105 speed • +2.6 turn • +24 HP • high grip", "speed": 105, "turn": 2.6, "hp": 24, "knockResist": 0.16}, {"id": "apex_tread", "cat": "Drive & Boost", "name": "Apex Siege Track", "icon": "🏔️", "color": "#eab308", "mass": 1.7, "desc": "+92 speed • +36 HP • high grip", "speed": 92, "turn": 1.1, "hp": 36, "knockResist": 0.22}, {"id": "nova_boost", "cat": "Drive & Boost", "name": "Nova Burst Jet", "icon": "🌟", "color": "#c084fc", "mass": 0.9, "desc": "+172 speed", "speed": 172, "turn": 1.2, "hp": 14, "knockResist": 0}, {"id": "micro_wheel", "cat": "Drive & Boost", "name": "Micro Agile Caster", "icon": "🔹", "color": "#93c5fd", "mass": 0.4, "desc": "+108 speed • +2.8 turn", "speed": 108, "turn": 2.8, "hp": 8, "knockResist": 0}, {"id": "mag_tread", "cat": "Drive & Boost", "name": "Mag-Grip Track", "icon": "🧲", "color": "#7c3aed", "mass": 1.4, "desc": "+100 speed • +1.5 turn • +30 HP • high grip", "speed": 100, "turn": 1.5, "hp": 30, "knockResist": 0.24}, {"id": "turbo_axle", "cat": "Drive & Boost", "name": "Dual Turbo Axle", "icon": "⚡", "color": "#facc15", "mass": 1.0, "desc": "+140 speed • +1.6 turn", "speed": 140, "turn": 1.6, "hp": 18, "knockResist": 0.08}, {"id": "kc_turbo", "cat": "Drive & Boost", "name": "KC Arrowhead Turbo", "icon": "🏹", "color": "#f43f5e", "mass": 0.8, "desc": "+160 speed • +2.0 turn", "speed": 160, "turn": 2.0, "hp": 18, "knockResist": 0.08}, {"id": "neural_core", "cat": "AI & Sensors", "name": "Neural Combat Core", "icon": "🧠", "color": "#38bdf8", "mass": 1.0, "desc": "Blank 10→14→4 ML brain!", "hp": 30, "turn": 1.0, "lrBoost": 1.25, "rewMult": 1.0}, {"id": "tracker", "cat": "AI & Sensors", "name": "Target Tracker", "icon": "👁️", "color": "#2dd4bf", "mass": 0.5, "desc": "+2.4 lock-on turn speed", "hp": 15, "turn": 2.4, "lrBoost": 1.0, "rewMult": 1.0}, {"id": "edge_radar", "cat": "AI & Sensors", "name": "Edge Danger Radar", "icon": "📡", "color": "#60a5fa", "mass": 0.5, "desc": "+18% faster edge-learning", "hp": 18, "turn": 1.4, "lrBoost": 1.18, "rewMult": 1.0}, {"id": "hazard_scan", "cat": "AI & Sensors", "name": "Saw Hazard LiDAR", "icon": "🔦", "color": "#facc15", "mass": 0.5, "desc": "+20% hazard dodging LR", "hp": 16, "turn": 1.6, "lrBoost": 1.2, "rewMult": 1.0}, {"id": "dodge_gyro", "cat": "AI & Sensors", "name": "Combat Dodge Gyro", "icon": "🌀", "color": "#a855f7", "mass": 0.7, "desc": "+2.8 ultra-crisp steering", "hp": 22, "turn": 2.8, "lrBoost": 1.1, "rewMult": 1.0}, {"id": "combo_cpu", "cat": "AI & Sensors", "name": "Combo Reward Chip", "icon": "🎯", "color": "#f43f5e", "mass": 0.5, "desc": "+18% battle reward mult", "hp": 16, "turn": 1.0, "lrBoost": 1.15, "rewMult": 1.18}, {"id": "swarm_radio", "cat": "AI & Sensors", "name": "Swarm Mesh Link", "icon": "📻", "color": "#8b5cf6", "mass": 0.5, "desc": "+32% neural evolution speed", "hp": 16, "turn": 1.0, "lrBoost": 1.32, "rewMult": 1.0}, {"id": "tpu_chip", "cat": "AI & Sensors", "name": "Combat Tensor TPU", "icon": "⚡", "color": "#c084fc", "mass": 0.7, "desc": "+40% faster ML training", "hp": 20, "turn": 1.2, "lrBoost": 1.4, "rewMult": 1.0}, {"id": "fly_cortex", "cat": "AI & Sensors", "name": "Drosophila Reflex", "icon": "🪰", "color": "#34d399", "mass": 0.6, "desc": "+2.6 reflex turn & +28% LR", "hp": 18, "turn": 2.6, "lrBoost": 1.28, "rewMult": 1.0}, {"id": "kalman_aim", "cat": "AI & Sensors", "name": "Kalman Aim CPU", "icon": "💻", "color": "#38bdf8", "mass": 0.5, "desc": "+2.2 aim + 22% smooth LR", "hp": 16, "turn": 2.2, "lrBoost": 1.22, "rewMult": 1.0}, {"id": "hebbian_net", "cat": "AI & Sensors", "name": "Hebbian Synapse", "icon": "🧩", "color": "#6366f1", "mass": 0.6, "desc": "+30% adaptive weight LR", "hp": 18, "turn": 1.2, "lrBoost": 1.3, "rewMult": 1.0}, {"id": "rnn_mem", "cat": "AI & Sensors", "name": "Battle Memory Loop", "icon": "🔁", "color": "#a855f7", "mass": 0.6, "desc": "+26% combo memory LR", "hp": 20, "turn": 1.4, "lrBoost": 1.26, "rewMult": 1.0}, {"id": "telemetry", "cat": "AI & Sensors", "name": "Arena Telemetry", "icon": "📲", "color": "#60a5fa", "mass": 0.4, "desc": "+24% LR & +12% reward", "hp": 14, "turn": 1.0, "lrBoost": 1.24, "rewMult": 1.12}, {"id": "imu_6axis", "cat": "AI & Sensors", "name": "6-Axis Combat IMU", "icon": "🧭", "color": "#818cf8", "mass": 0.4, "desc": "+2.5 spin recovery turn", "hp": 16, "turn": 2.5, "lrBoost": 1.1, "rewMult": 1.0}, {"id": "thermal_eye", "cat": "AI & Sensors", "name": "Thermal Lock Cam", "icon": "🌡️", "color": "#fb923c", "mass": 0.5, "desc": "+2.3 fast foe tracking", "hp": 15, "turn": 2.3, "lrBoost": 1.15, "rewMult": 1.0}, {"id": "quantum_ram", "cat": "AI & Sensors", "name": "Elite Cache Core", "icon": "⚛️", "color": "#c084fc", "mass": 0.7, "desc": "+36% elite training speed", "hp": 22, "turn": 1.2, "lrBoost": 1.36, "rewMult": 1.0}, {"id": "black_box", "cat": "AI & Sensors", "name": "Black-Box Logger", "icon": "📼", "color": "#64748b", "mass": 0.5, "desc": "+24 HP & +14% reward", "hp": 24, "turn": 1.0, "lrBoost": 1.18, "rewMult": 1.14}, {"id": "sonar_ring", "cat": "AI & Sensors", "name": "360° Arena Sonar", "icon": "🔊", "color": "#38bdf8", "mass": 0.5, "desc": "+1.8 turn + 20% awareness", "hp": 18, "turn": 1.8, "lrBoost": 1.2, "rewMult": 1.0}, {"id": "reflex_pod", "cat": "AI & Sensors", "name": "Instant Dash Timer", "icon": "⏱️", "color": "#f43f5e", "mass": 0.5, "desc": "Faster dash recovery + turn", "hp": 16, "turn": 1.6, "lrBoost": 1.15, "rewMult": 1.0}, {"id": "bio_brain", "cat": "AI & Sensors", "name": "Bio-Neural Core", "icon": "🧬", "color": "#34d399", "mass": 0.7, "desc": "+34% organic RL learning", "hp": 24, "turn": 1.5, "lrBoost": 1.34, "rewMult": 1.0}, {"id": "lidar_dome", "cat": "AI & Sensors", "name": "Laser Range Dome", "icon": "🔴", "color": "#f43f5e", "mass": 0.5, "desc": "+2.1 precision weapon aim", "hp": 16, "turn": 2.1, "lrBoost": 1.2, "rewMult": 1.0}, {"id": "compass_ai", "cat": "AI & Sensors", "name": "Center-Ring Lock", "icon": "🧲", "color": "#3b82f6", "mass": 0.5, "desc": "+22% ring-control learning", "hp": 18, "turn": 1.8, "lrBoost": 1.22, "rewMult": 1.0}, {"id": "pid_servo", "cat": "AI & Sensors", "name": "PID Aim Stabilizer", "icon": "🎛️", "color": "#60a5fa", "mass": 0.5, "desc": "+2.6 razor-sharp turning", "hp": 16, "turn": 2.6, "lrBoost": 1.12, "rewMult": 1.0}, {"id": "deep_rl", "cat": "AI & Sensors", "name": "Deep-RL Coprocessor", "icon": "🧠", "color": "#7c3aed", "mass": 0.8, "desc": "+42% rapid ML evolution", "hp": 22, "turn": 1.2, "lrBoost": 1.42, "rewMult": 1.0}, {"id": "opt_cam", "cat": "AI & Sensors", "name": "Optical Flank Cam", "icon": "📷", "color": "#a855f7", "mass": 0.5, "desc": "+2.2 flanking turn speed", "hp": 15, "turn": 2.2, "lrBoost": 1.18, "rewMult": 1.0}, {"id": "accel_chip", "cat": "AI & Sensors", "name": "Impact Sensor Chip", "icon": "📈", "color": "#fbbf24", "mass": 0.4, "desc": "+20% LR + 10% reward", "hp": 16, "turn": 1.4, "lrBoost": 1.2, "rewMult": 1.1}, {"id": "tri_cpu", "cat": "AI & Sensors", "name": "Triple-Core CPU", "icon": "🖥️", "color": "#818cf8", "mass": 0.9, "desc": "+28 HP + 35% ML speed", "hp": 28, "turn": 1.6, "lrBoost": 1.35, "rewMult": 1.0}, {"id": "neural_gem", "cat": "AI & Sensors", "name": "Neural Prism Gem", "icon": "💎", "color": "#c084fc", "mass": 0.6, "desc": "+38% LR & +12% reward", "hp": 20, "turn": 1.5, "lrBoost": 1.38, "rewMult": 1.12}, {"id": "arena_gps", "cat": "AI & Sensors", "name": "Ring Beacon Chip", "icon": "🛰️", "color": "#38bdf8", "mass": 0.4, "desc": "+10% arena score bonus", "hp": 14, "turn": 1.6, "lrBoost": 1.2, "rewMult": 1.1}, {"id": "battle_hud", "cat": "AI & Sensors", "name": "Tactical HUD Core", "icon": "➕", "color": "#f43f5e", "mass": 0.5, "desc": "+2.0 aim + 10% reward", "hp": 18, "turn": 2.0, "lrBoost": 1.22, "rewMult": 1.1}, {"id": "synapse_x", "cat": "AI & Sensors", "name": "Hyper-Synapse Bus", "icon": "🔗", "color": "#a855f7", "mass": 0.6, "desc": "+36% neural training", "hp": 18, "turn": 1.4, "lrBoost": 1.36, "rewMult": 1.0}, {"id": "pred_ai", "cat": "AI & Sensors", "name": "Trajectory Predictor", "icon": "🔮", "color": "#8b5cf6", "mass": 0.6, "desc": "+2.4 predictive turn lock", "hp": 18, "turn": 2.4, "lrBoost": 1.25, "rewMult": 1.0}, {"id": "crowd_mic", "cat": "AI & Sensors", "name": "Crowd Hype Sensor", "icon": "🎤", "color": "#fb7185", "mass": 0.4, "desc": "+20% KO hype reward", "hp": 14, "turn": 1.0, "lrBoost": 1.14, "rewMult": 1.2}, {"id": "shield_ai", "cat": "AI & Sensors", "name": "Auto-Guard CPU", "icon": "🛡️", "color": "#60a5fa", "mass": 0.6, "desc": "+26 HP + smart guard", "hp": 26, "turn": 1.8, "lrBoost": 1.18, "rewMult": 1.0}, {"id": "turbo_ecu", "cat": "AI & Sensors", "name": "Nitro Timing ECU", "icon": "🏎️", "color": "#f97316", "mass": 0.5, "desc": "+1.8 turn + nitro tuning", "hp": 16, "turn": 1.8, "lrBoost": 1.2, "rewMult": 1.0}, {"id": "crown", "cat": "Style & Payloads", "name": "Champ Crown", "icon": "👑", "color": "#facc15", "mass": 0.2, "desc": "+22 HP • +6 DMG • +15% rew", "hp": 22, "dmg": 6, "rewMult": 1.15, "disco": false, "confetti": false}, {"id": "kc_belt", "cat": "Style & Payloads", "name": "KC Champ Belt", "icon": "🏆", "color": "#f43f5e", "mass": 0.3, "desc": "+28 HP • KC hometown pride!", "hp": 28, "dmg": 8, "rewMult": 1.22, "disco": false, "confetti": true}, {"id": "disco", "cat": "Style & Payloads", "name": "Disco Core", "icon": "🪩", "color": "#e879f9", "mass": 0.3, "desc": "Rainbow combat sparks!", "hp": 18, "dmg": 4, "rewMult": 1.14, "disco": true, "confetti": false}, {"id": "confetti", "cat": "Style & Payloads", "name": "Confetti Cannon", "icon": "🎉", "color": "#38bdf8", "mass": 0.3, "desc": "Celebrates every KO!", "hp": 16, "dmg": 3, "rewMult": 1.12, "disco": false, "confetti": true}, {"id": "neon_glow", "cat": "Style & Payloads", "name": "Neon Underglow", "icon": "💡", "color": "#a855f7", "mass": 0.2, "desc": "Cyber stadium glow +12% rew", "hp": 16, "dmg": 4, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "duck_mascot", "cat": "Style & Payloads", "name": "Battle Rubber Duck", "icon": "🦆", "color": "#facc15", "mass": 0.2, "desc": "Fearless lucky mascot", "hp": 18, "dmg": 4, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "astro_dog", "cat": "Style & Payloads", "name": "Cyber Husky", "icon": "🐺", "color": "#93c5fd", "mass": 0.4, "desc": "Loyal arena copilot", "hp": 24, "dmg": 6, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "flame_decal", "cat": "Style & Payloads", "name": "Hot-Rod Flames", "icon": "🔥", "color": "#f97316", "mass": 0.2, "desc": "+6 DMG blazing style", "hp": 15, "dmg": 6, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "shades", "cat": "Style & Payloads", "name": "Deal-With-It Shades", "icon": "🕶️", "color": "#60a5fa", "mass": 0.2, "desc": "+14% cool-factor reward", "hp": 18, "dmg": 5, "rewMult": 1.14, "disco": false, "confetti": false}, {"id": "guitar", "cat": "Style & Payloads", "name": "Heavy Metal Guitar", "icon": "🎸", "color": "#f43f5e", "mass": 0.4, "desc": "+7 DMG rockstar power", "hp": 20, "dmg": 7, "rewMult": 1.15, "disco": false, "confetti": false}, {"id": "boombox", "cat": "Style & Payloads", "name": "Arena Boombox", "icon": "📻", "color": "#a855f7", "mass": 0.5, "desc": "+15% hype score bonus", "hp": 22, "dmg": 5, "rewMult": 1.15, "disco": false, "confetti": false}, {"id": "pizza", "cat": "Style & Payloads", "name": "Victory Pizza Box", "icon": "🍕", "color": "#fb923c", "mass": 0.3, "desc": "+20 HP pit-crew snack", "hp": 20, "dmg": 4, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "wizard", "cat": "Style & Payloads", "name": "Battle Wizard Hat", "icon": "🧙", "color": "#7c3aed", "mass": 0.2, "desc": "+16% arcane brawl bonus", "hp": 18, "dmg": 5, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "astro_cat", "cat": "Style & Payloads", "name": "Zero-G Battle Cat", "icon": "🐱", "color": "#cbd5e1", "mass": 0.3, "desc": "Always lands upright!", "hp": 22, "dmg": 5, "rewMult": 1.15, "disco": false, "confetti": false}, {"id": "party_horn", "cat": "Style & Payloads", "name": "KO Airhorn", "icon": "🎺", "color": "#38bdf8", "mass": 0.2, "desc": "Confetti + airhorn KO", "hp": 14, "dmg": 4, "rewMult": 1.12, "disco": false, "confetti": true}, {"id": "gold_skull", "cat": "Style & Payloads", "name": "Titanium Skull", "icon": "💀", "color": "#e2e8f0", "mass": 0.4, "desc": "+8 DMG intimidating emblem", "hp": 24, "dmg": 8, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "lightning_fl", "cat": "Style & Payloads", "name": "Lightning Flag", "icon": "🚩", "color": "#facc15", "mass": 0.2, "desc": "+12% speedster banner", "hp": 16, "dmg": 5, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "synth_deck", "cat": "Style & Payloads", "name": "Synthwave Deck", "icon": "🎹", "color": "#c084fc", "mass": 0.4, "desc": "Rainbow sparks +16% rew", "hp": 20, "dmg": 5, "rewMult": 1.16, "disco": true, "confetti": false}, {"id": "trophy_mini", "cat": "Style & Payloads", "name": "Arena Medal", "icon": "🏅", "color": "#f59e0b", "mass": 0.2, "desc": "+16% tournament bonus", "hp": 20, "dmg": 5, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "taco_boost", "cat": "Style & Payloads", "name": "Turbo Taco Crate", "icon": "🌮", "color": "#fb923c", "mass": 0.3, "desc": "+12% spicy brawl bonus", "hp": 18, "dmg": 5, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "holo_cube", "cat": "Style & Payloads", "name": "Hologram Banner", "icon": "🧊", "color": "#38bdf8", "mass": 0.3, "desc": "Sci-fi arena projector", "hp": 20, "dmg": 5, "rewMult": 1.14, "disco": false, "confetti": false}, {"id": "espresso", "cat": "Style & Payloads", "name": "Pit-Crew Espresso", "icon": "☕", "color": "#a16207", "mass": 0.2, "desc": "+12% caffeinated reflexes", "hp": 16, "dmg": 5, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "gold_disc", "cat": "Style & Payloads", "name": "Platinum Record", "icon": "💿", "color": "#e2e8f0", "mass": 0.3, "desc": "+15% arena legend disc", "hp": 18, "dmg": 6, "rewMult": 1.15, "disco": false, "confetti": false}, {"id": "comet_tail", "cat": "Style & Payloads", "name": "Comet Spark Trail", "icon": "🌠", "color": "#60a5fa", "mass": 0.2, "desc": "Rainbow spark trail!", "hp": 16, "dmg": 5, "rewMult": 1.14, "disco": true, "confetti": false}, {"id": "kc_crown", "cat": "Style & Payloads", "name": "KC Royal Banner", "icon": "💎", "color": "#3b82f6", "mass": 0.2, "desc": "+22% Kansas City pride!", "hp": 26, "dmg": 7, "rewMult": 1.22, "disco": false, "confetti": true}, {"id": "dragon_flag", "cat": "Style & Payloads", "name": "Dragon Crest", "icon": "🐉", "color": "#f43f5e", "mass": 0.3, "desc": "+8 DMG fierce crest", "hp": 22, "dmg": 8, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "star_badge", "cat": "Style & Payloads", "name": "All-Star Emblem", "icon": "⭐", "color": "#facc15", "mass": 0.2, "desc": "+16% all-star bonus", "hp": 20, "dmg": 6, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "laser_show", "cat": "Style & Payloads", "name": "Stadium Laser Rig", "icon": "💠", "color": "#c084fc", "mass": 0.3, "desc": "Rainbow sparks + confetti", "hp": 18, "dmg": 5, "rewMult": 1.15, "disco": true, "confetti": true}, {"id": "donut_guard", "cat": "Style & Payloads", "name": "Glazed Donut Charm", "icon": "🍩", "color": "#f472b6", "mass": 0.2, "desc": "+22 HP sweet cushion", "hp": 22, "dmg": 3, "rewMult": 1.12, "disco": false, "confetti": false}, {"id": "champ_ring", "cat": "Style & Payloads", "name": "Champion Ring", "icon": "💍", "color": "#38bdf8", "mass": 0.2, "desc": "+18% championship bonus", "hp": 24, "dmg": 7, "rewMult": 1.18, "disco": false, "confetti": false}, {"id": "cyber_wings", "cat": "Style & Payloads", "name": "Neon Aero Wings", "icon": "🪽", "color": "#818cf8", "mass": 0.3, "desc": "Sleek arena wing style", "hp": 20, "dmg": 5, "rewMult": 1.15, "disco": false, "confetti": false}, {"id": "rocket_flag", "cat": "Style & Payloads", "name": "OrbitLab Patch", "icon": "🚀", "color": "#60a5fa", "mass": 0.2, "desc": "Crossover OrbitLab badge!", "hp": 20, "dmg": 6, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "dino_badge", "cat": "Style & Payloads", "name": "WalkerLab Patch", "icon": "🦖", "color": "#34d399", "mass": 0.2, "desc": "Crossover WalkerLab badge!", "hp": 20, "dmg": 6, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "fly_badge", "cat": "Style & Payloads", "name": "FlyLab Patch", "icon": "🪰", "color": "#34d399", "mass": 0.2, "desc": "Crossover FlyLab badge!", "hp": 20, "dmg": 6, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "bot_badge", "cat": "Style & Payloads", "name": "RoboRage Patch", "icon": "🤖", "color": "#c084fc", "mass": 0.2, "desc": "Crossover RoboRage badge!", "hp": 20, "dmg": 6, "rewMult": 1.16, "disco": false, "confetti": false}, {"id": "dual_drum", "cat": "Melee & Spinners", "name": "Twin Drum Spinner", "icon": "🥁", "color": "#f43f5e", "mass": 1.9, "desc": "25 DMG • 300 upward launch", "weapon": true, "wtype": "saw", "dmg": 25, "knock": 300, "hp": 22}, {"id": "plasma_fork", "cat": "Melee & Spinners", "name": "Plasma Lifter Fork", "icon": "🔱", "color": "#38bdf8", "mass": 1.3, "desc": "13 DMG • 365 mega flip", "weapon": true, "wtype": "flipper", "dmg": 13, "knock": 365, "hp": 24}, {"id": "meteor_mace", "cat": "Melee & Spinners", "name": "Meteor Chain Mace", "icon": "☄️", "color": "#fb923c", "mass": 2.0, "desc": "26 DMG • 285 heavy slam", "weapon": true, "wtype": "hammer", "dmg": 26, "knock": 285, "hp": 20}, {"id": "vortex_saw", "cat": "Melee & Spinners", "name": "Vortex Saw Blade", "icon": "🌀", "color": "#a855f7", "mass": 1.5, "desc": "23 DMG • 235 swirling cut", "weapon": true, "wtype": "saw", "dmg": 23, "knock": 235, "hp": 16}, {"id": "frost_axe", "cat": "Melee & Spinners", "name": "Cryo Battle Axe", "icon": "❄️", "color": "#93c5fd", "mass": 1.5, "desc": "22 DMG • slows enemy!", "weapon": true, "wtype": "hammer", "dmg": 22, "knock": 220, "hp": 18, "slow": 0.3}, {"id": "volt_spear", "cat": "Melee & Spinners", "name": "Thunder Ram Spear", "icon": "⚡", "color": "#facc15", "mass": 1.1, "desc": "21 DMG • 250 electric jab", "weapon": true, "wtype": "spike", "dmg": 21, "knock": 250, "hp": 14}, {"id": "magma_blade", "cat": "Melee & Spinners", "name": "Magma Edge Spinner", "icon": "🌋", "color": "#ef4444", "mass": 1.7, "desc": "25 DMG • 245 molten slash", "weapon": true, "wtype": "saw", "dmg": 25, "knock": 245, "hp": 18}, {"id": "pneumo_plow", "cat": "Melee & Spinners", "name": "Pneumatic Wedge Plow", "icon": "🛡️", "color": "#60a5fa", "mass": 1.6, "desc": "11 DMG • 370 ring-out scoop", "weapon": true, "wtype": "flipper", "dmg": 11, "knock": 370, "hp": 36}, {"id": "titan_jaw", "cat": "Melee & Spinners", "name": "Hydraulic Bite Jaw", "icon": "🦈", "color": "#64748b", "mass": 1.8, "desc": "26 DMG • 225 crushing grip", "weapon": true, "wtype": "hammer", "dmg": 26, "knock": 225, "hp": 30}, {"id": "neon_scythe", "cat": "Melee & Spinners", "name": "Cyber Neon Scythe", "icon": "⚔️", "color": "#c084fc", "mass": 1.2, "desc": "23 DMG • 210 rapid cleave", "weapon": true, "wtype": "saw", "dmg": 23, "knock": 210, "hp": 14}, {"id": "hyper_flame", "cat": "Ranged & Elemental", "name": "Blue-Flame Torch", "icon": "🔥", "color": "#38bdf8", "mass": 1.2, "desc": "21 DMG • 150px blue fire", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 21, "knock": 155, "range": 150, "hp": 14}, {"id": "twin_laser", "cat": "Ranged & Elemental", "name": "Dual Pulse Lasers", "icon": "🔴", "color": "#f43f5e", "mass": 1.2, "desc": "21 DMG • 225px dual beam", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 21, "knock": 160, "range": 225, "hp": 14}, {"id": "arc_turret", "cat": "Ranged & Elemental", "name": "Tesla Coil Turret", "icon": "🌩️", "color": "#60a5fa", "mass": 1.3, "desc": "20 DMG • 170px auto-zap", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 20, "knock": 180, "range": 170, "hp": 16}, {"id": "cryo_cannon", "cat": "Ranged & Elemental", "name": "Sub-Zero Cannon", "icon": "🧊", "color": "#bae6fd", "mass": 1.3, "desc": "17 DMG • heavy freeze slow", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 17, "knock": 175, "range": 180, "slow": 0.38, "hp": 16}, {"id": "pulse_blast", "cat": "Ranged & Elemental", "name": "Shock Pulse Dish", "icon": "📡", "color": "#a855f7", "mass": 1.2, "desc": "15 DMG • 345 push wave", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 15, "knock": 345, "range": 185, "hp": 16}, {"id": "star_beam", "cat": "Ranged & Elemental", "name": "Starlight Beam Pod", "icon": "🌟", "color": "#c084fc", "mass": 1.1, "desc": "20 DMG • 215px radiant ray", "weapon": true, "ranged": true, "wtype": "laser", "dmg": 20, "knock": 165, "range": 215, "hp": 14}, {"id": "lava_spit", "cat": "Ranged & Elemental", "name": "Molten Slag Jet", "icon": "🌋", "color": "#f97316", "mass": 1.4, "desc": "22 DMG • 145px lava burst", "weapon": true, "ranged": true, "wtype": "flame", "dmg": 22, "knock": 170, "range": 145, "hp": 18}, {"id": "ion_zapper", "cat": "Ranged & Elemental", "name": "Ion Static Emitter", "icon": "⚡", "color": "#38bdf8", "mass": 1.0, "desc": "18 DMG • 160px arc zap", "weapon": true, "ranged": true, "wtype": "tesla", "dmg": 18, "knock": 170, "range": 160, "hp": 14}, {"id": "wind_cannon", "cat": "Ranged & Elemental", "name": "Hurricane Fan Gun", "icon": "🌪️", "color": "#60a5fa", "mass": 1.1, "desc": "12 DMG • 355 gust blast", "weapon": true, "ranged": true, "wtype": "sonic", "dmg": 12, "knock": 355, "range": 190, "hp": 16}, {"id": "glacial_ray", "cat": "Ranged & Elemental", "name": "Permafrost Ray", "icon": "❄️", "color": "#93c5fd", "mass": 1.1, "desc": "16 DMG • 185px ice lock", "weapon": true, "ranged": true, "wtype": "freeze", "dmg": 16, "knock": 150, "range": 185, "slow": 0.35, "hp": 14}, {"id": "titan_bulk", "cat": "Armor & Hull", "name": "Heavy Titan Bulkhead", "icon": "🧱", "color": "#64748b", "mass": 2.4, "desc": "+76 HP • -22% push", "hp": 76, "knockResist": 0.22}, {"id": "kinetic_grd", "cat": "Armor & Hull", "name": "Kinetic Bumper Guard", "icon": "💠", "color": "#38bdf8", "mass": 1.0, "desc": "+42 HP • +215 bounce", "hp": 42, "knock": 215, "knockResist": 0.06}, {"id": "regen_core", "cat": "Armor & Hull", "name": "Bio-Repair Plating", "icon": "🌿", "color": "#34d399", "mass": 1.0, "desc": "+44 HP • +2.6/s heal", "hp": 44, "regen": 2.6, "knockResist": 0.05}, {"id": "carbon_rib", "cat": "Armor & Hull", "name": "Ultralight Carbon Rib", "icon": "🪶", "color": "#e2e8f0", "mass": 0.4, "desc": "+26 HP • featherweight", "hp": 26}, {"id": "mag_bumper", "cat": "Armor & Hull", "name": "Mag-Repel Bumper", "icon": "🧲", "color": "#a855f7", "mass": 1.1, "desc": "+40 HP • +230 repel", "hp": 40, "knock": 230, "knockResist": 0.08}, {"id": "crimson_plt", "cat": "Armor & Hull", "name": "Crimson Forge Plate", "icon": "🔴", "color": "#f43f5e", "mass": 1.7, "desc": "+60 HP • -14% push", "hp": 60, "knockResist": 0.14}, {"id": "amber_shell", "cat": "Armor & Hull", "name": "Amber Alloy Shell", "icon": "🟠", "color": "#f59e0b", "mass": 1.5, "desc": "+54 HP • +110 bounce", "hp": 54, "knock": 110, "knockResist": 0.1}, {"id": "void_armor", "cat": "Armor & Hull", "name": "Void-Weave Armor", "icon": "🟣", "color": "#7c3aed", "mass": 1.4, "desc": "+58 HP • +1.2/s heal", "hp": 58, "regen": 1.2, "knockResist": 0.12}, {"id": "glacier_arm", "cat": "Armor & Hull", "name": "Cryo-Steel Plate", "icon": "🧊", "color": "#60a5fa", "mass": 1.6, "desc": "+56 HP • -14% push", "hp": 56, "knockResist": 0.14}, {"id": "spike_skirt", "cat": "Armor & Hull", "name": "Spiked Wedge Skirt", "icon": "📐", "color": "#fb923c", "mass": 1.3, "desc": "+46 HP • +150 bounce", "hp": 46, "knock": 150, "knockResist": 0.16}, {"id": "hyper_wheel", "cat": "Drive & Boost", "name": "Hyper-Grip Wheel", "icon": "🛞", "color": "#34d399", "mass": 0.9, "desc": "+142 speed • +1.8 turn", "speed": 142, "turn": 1.8, "hp": 18, "knockResist": 0.1}, {"id": "twin_tread", "cat": "Drive & Boost", "name": "Twin Siege Treads", "icon": "🚜", "color": "#f59e0b", "mass": 1.8, "desc": "+98 speed • +42 HP • grip", "speed": 98, "turn": 1.0, "hp": 42, "knockResist": 0.26}, {"id": "turbo_nitro", "cat": "Drive & Boost", "name": "Stage-2 Nitro Jet", "icon": "🚀", "color": "#f43f5e", "mass": 1.0, "desc": "+185 speed • dash boost", "speed": 185, "turn": 0.8, "hp": 12, "dashBoost": 1.25}, {"id": "omni_hover", "cat": "Drive & Boost", "name": "Omni-Vector Hover", "icon": "🛸", "color": "#38bdf8", "mass": 0.8, "desc": "+148 speed • +2.8 turn", "speed": 148, "turn": 2.8, "hp": 16}, {"id": "drift_boost", "cat": "Drive & Boost", "name": "Cyber Drift Thruster", "icon": "🏎️", "color": "#a855f7", "mass": 0.9, "desc": "+168 speed • +2.0 turn", "speed": 168, "turn": 2.0, "hp": 14}, {"id": "arena_tpu", "cat": "AI & Sensors", "name": "Apex Battle TPU", "icon": "⚡", "color": "#facc15", "mass": 0.7, "desc": "+45% ML training speed!", "hp": 22, "turn": 1.8, "lrBoost": 1.45, "rewMult": 1.12}, {"id": "flank_ai", "cat": "AI & Sensors", "name": "Flank-Strike Sensor", "icon": "👁️", "color": "#38bdf8", "mass": 0.5, "desc": "+2.8 rapid aim tracking", "hp": 18, "turn": 2.8, "lrBoost": 1.22, "rewMult": 1.08}, {"id": "pit_radar", "cat": "AI & Sensors", "name": "Pitfall & Lava Radar", "icon": "📡", "color": "#f43f5e", "mass": 0.5, "desc": "+28% hazard-dodge LR", "hp": 20, "turn": 1.8, "lrBoost": 1.28, "rewMult": 1.1}, {"id": "royale_cpu", "cat": "AI & Sensors", "name": "Battle Royale CPU", "icon": "👑", "color": "#a855f7", "mass": 0.6, "desc": "+22% multi-bot score", "hp": 24, "turn": 2.0, "lrBoost": 1.26, "rewMult": 1.22}, {"id": "kc_chip", "cat": "AI & Sensors", "name": "KC Strategy Core", "icon": "🏆", "color": "#3b82f6", "mass": 0.5, "desc": "+30% LR • +18% reward", "hp": 24, "turn": 2.2, "lrBoost": 1.3, "rewMult": 1.18}];
+  const PART_MAP = Object.fromEntries(PARTS.map(p => [p.id, p]));
+  document.getElementById('partCountBadge').textContent = `${PARTS.length} Parts • Neural BattleBot ML`;
+
+  const BLUEPRINTS = [
+    { name: '🪚 Shredder Bot (Learns!)', cells: [[4,4,'neural_core'],[5,4,'tracker'],[6,3,'saw'],[6,4,'drum_spin'],[6,5,'saw'],[4,3,'titanium'],[4,5,'titanium'],[3,3,'wheel'],[3,5,'wheel'],[3,4,'nitro']] },
+    { name: '🧠 Einstein Champ (Pre-Trained)', cells: [[4,4,'einstein_ai'],[5,4,'vib_wedge'],[6,3,'omega_saw'],[6,4,'mjolnir'],[6,5,'omega_saw'],[4,3,'aegis_field'],[4,5,'aegis_field'],[3,3,'nebula_tread'],[3,5,'nebula_tread'],[3,4,'quantum_dash'],[4,2,'star_crown']] },
+    { name: '🛡️ Flipper Tank', cells: [[4,4,'neural_core'],[5,4,'titanium'],[6,3,'flipper'],[6,4,'titan_flipper'],[6,5,'flipper'],[4,3,'tread'],[4,5,'tread'],[3,3,'titanium'],[3,5,'titanium'],[3,4,'tread']] },
+    { name: '🔥 Pyro Striker', cells: [[4,4,'neural_core'],[5,4,'carbon'],[6,3,'flame'],[6,4,'spike'],[6,5,'flame'],[4,3,'hover'],[4,5,'hover'],[3,4,'nitro'],[5,3,'tracker']] },
+    { name: '🔨 Mjolnir Bruiser', cells: [[4,4,'neural_core'],[5,4,'titanium'],[6,4,'mjolnir'],[5,3,'titanium'],[5,5,'titanium'],[4,3,'tread'],[4,5,'tread'],[3,4,'nitro'],[4,2,'bumper'],[4,6,'bumper']] },
+    { name: '⚡ Tesla Sniper', cells: [[4,4,'neural_core'],[5,4,'kalman_aim'],[6,3,'tesla'],[6,4,'railgun'],[6,5,'tesla'],[4,3,'force_plate'],[4,5,'force_plate'],[3,3,'omni_wheel'],[3,5,'omni_wheel'],[3,4,'hover']] },
+    { name: '🛸 Gravity UFO', cells: [[4,4,'vortex_core'],[4,3,'buzz_ring'],[4,5,'buzz_ring'],[5,4,'buzz_ring'],[3,4,'buzz_ring'],[5,3,'hover'],[5,5,'hover'],[3,3,'hover'],[3,5,'hover']] },
+    { name: '🌪️ Full-Body Spinner', cells: [[4,4,'neural_core'],[5,4,'bar_spin'],[6,3,'saw'],[6,5,'saw'],[4,2,'bar_spin'],[4,6,'bar_spin'],[3,3,'drift_tire'],[3,5,'drift_tire'],[3,4,'afterburn']] },
+    { name: '❄️ Cryo Crusher', cells: [[4,4,'neural_core'],[5,4,'ice_plate'],[6,3,'freeze_ray'],[6,4,'crusher'],[6,5,'freeze_ray'],[4,3,'spike_wheel'],[4,5,'spike_wheel'],[3,4,'jet_pack']] },
+    { name: '🚀 Nitro Rammer', cells: [[4,4,'neural_core'],[5,4,'ram_plow'],[6,3,'spike'],[6,4,'rocket_ram'],[6,5,'spike'],[3,3,'nitro'],[3,4,'nitro_v2'],[3,5,'nitro'],[4,3,'kevlar'],[4,5,'kevlar']] },
+    { name: '🏆 KC Heavyweight', cells: [[4,4,'kc_chip'],[4,3,'kc_belt'],[4,5,'kc_crown'],[5,4,'kc_reactor'],[6,3,'cobalt_saw'],[6,4,'mjolnir'],[6,5,'cobalt_saw'],[3,3,'kc_turbo'],[3,5,'kc_turbo'],[3,4,'titan_bulk']] },
+    { name: '🔊 Sonic Pusher', cells: [[4,4,'neural_core'],[5,4,'dodge_gyro'],[6,3,'sonic_wave'],[6,4,'sonic_cannon'],[6,5,'sonic_wave'],[4,3,'spring_bump'],[4,5,'spring_bump'],[3,3,'omni_hover'],[3,5,'omni_hover']] },
+    { name: '🐉 Dragon Jaw', cells: [[4,4,'neural_core'],[5,4,'dragon_maw'],[6,3,'dragon_breath'],[6,5,'dragon_breath'],[4,3,'crimson_plt'],[4,5,'crimson_plt'],[3,3,'twin_tread'],[3,5,'twin_tread'],[3,4,'dragon_flag']] },
+    { name: '🪩 Disco Destroyer', cells: [[4,4,'prism_disco'],[5,4,'laser_gatling'],[6,3,'neon_scythe'],[6,5,'neon_scythe'],[4,3,'prism_wall'],[4,5,'prism_wall'],[3,3,'warp_tire'],[3,5,'warp_tire'],[3,4,'laser_show']] }
+  ];
+
+  const ARENAS = {
+    saws:    { name: 'Saw Pit',         friction: 0.92,  saws: 2, bumpers: 2, shrink: false, ice: false, vortex: false, flames: false, tesla: false, pit: false, tornado: false, kc: false, ringCol: '#f43f5e' },
+    lava:    { name: 'Shrinking Lava',  friction: 0.93,  saws: 0, bumpers: 0, shrink: true,  ice: false, vortex: false, flames: false, tesla: false, pit: false, tornado: false, kc: false, ringCol: '#f97316' },
+    pinball: { name: 'Pinball Dome',    friction: 0.95,  saws: 1, bumpers: 5, shrink: false, ice: false, vortex: false, flames: false, tesla: false, pit: false, tornado: false, kc: false, ringCol: '#a855f7' },
+    ice:     { name: 'Ice Rink',        friction: 0.978, saws: 1, bumpers: 2, shrink: false, ice: true,  vortex: false, flames: false, tesla: false, pit: false, tornado: false, kc: false, ringCol: '#38bdf8' },
+    vortex:  { name: 'Magnetic Vortex', friction: 0.93,  saws: 1, bumpers: 2, shrink: false, ice: false, vortex: true,  flames: false, tesla: false, pit: false, tornado: false, kc: false, ringCol: '#8b5cf6' },
+    flames:  { name: 'Floor Flame Jets',friction: 0.92,  saws: 0, bumpers: 2, shrink: false, ice: false, vortex: false, flames: true,  tesla: false, pit: false, tornado: false, kc: false, ringCol: '#fb923c' },
+    tesla:   { name: 'Tesla Storm',     friction: 0.93,  saws: 1, bumpers: 1, shrink: false, ice: false, vortex: false, flames: false, tesla: true,  pit: false, tornado: false, kc: false, ringCol: '#60a5fa' },
+    pitfall: { name: 'Center Pitfall',  friction: 0.92,  saws: 0, bumpers: 3, shrink: false, ice: false, vortex: false, flames: false, tesla: false, pit: true,  tornado: false, kc: false, ringCol: '#ef4444' },
+    tornado: { name: 'Tornado Arena',   friction: 0.94,  saws: 1, bumpers: 2, shrink: false, ice: false, vortex: false, flames: false, tesla: false, pit: false, tornado: true,  kc: false, ringCol: '#38bdf8' },
+    kc:      { name: 'KC Octagon',      friction: 0.92,  saws: 2, bumpers: 4, shrink: false, ice: false, vortex: false, flames: false, tesla: false, pit: false, tornado: false, kc: true,  ringCol: '#facc15' }
+  };
+
+  const SIMPLE_IDS = new Set([
+    'einstein_ai','mjolnir','vib_wedge','railgun','aegis_field','omega_saw','neural_core','tracker',
+    'saw','flipper','hammer','spike','flame','laser_p','tesla','freeze_ray','sonic_wave',
+    'titanium','frame','carbon','bumper','wheel','tread','nitro','hover','crown','kc_belt'
+  ]);
+
+  // =========================================================
+  // 2. GARAGE STATE & BATTLEBOT COMPILER
+  // =========================================================
+  let grid = Array.from({ length: GH }, () => Array(GW).fill(null));
+  let undoStack = [], redoStack = [];
+  let selectedPart = 'saw', eraseMode = false, mirrorMode = false, pickMode = false, hoverCell = null;
+  let simplicity = 'pro', activeCat = 'All', searchQ = '';
+  let redSpec = null;
+
+  function cloneGrid(g) { return g.map(r => r.slice()); }
+  function pushHist() { undoStack.push(cloneGrid(grid)); if (undoStack.length > 50) undoStack.shift(); redoStack = []; updHist(); }
+  function updHist() { document.getElementById('btnUndo').disabled = !undoStack.length; document.getElementById('btnRedo').disabled = !redoStack.length; }
+
+  function compileGrid(g) {
+    const blocks = [], rangedWeapons = [];
+    let mass = 0, maxHp = 60, dmg = 10, dmgMult = 1.0, knock = 180, speed = 280, turn = 6.2;
+    let regen = 0, knockResist = 0, vortex = 0, dashBoost = 1.0, slow = 0;
+    let einstein = false, disco = false, confetti = false, rewMult = 1.0, lrBoost = 1.0, weapons = 0;
+
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      const id = g[y][x]; if (!id || !PART_MAP[id]) continue;
+      const p = PART_MAP[id];
+      mass += p.mass;
+      if (p.hp) maxHp += p.hp;
+      if (p.dmg) dmg += p.dmg * 0.65;
+      if (p.dmgMult) dmgMult *= p.dmgMult;
+      if (p.knock) knock += p.knock * 0.42;
+      if (p.speed) speed += p.speed * 0.72;
+      if (p.turn) turn += p.turn * 0.65;
+      if (p.regen) regen += p.regen;
+      if (p.knockResist) knockResist += p.knockResist;
+      if (p.vortex) vortex = Math.max(vortex, p.vortex);
+      if (p.dashBoost) dashBoost = Math.max(dashBoost, p.dashBoost);
+      if (p.slow) slow = Math.max(slow, p.slow);
+      if (p.einstein) einstein = true;
+      if (p.disco) disco = true;
+      if (p.confetti) confetti = true;
+      if (p.rewMult) rewMult *= p.rewMult;
+      if (p.lrBoost) lrBoost *= p.lrBoost;
+      if (p.weapon) weapons++;
+      if (p.ranged) rangedWeapons.push(p);
+      blocks.push({ rx: (x - CX) * 10, ry: (y - CY) * 10, p });
+    }
+    mass = Math.max(2.0, mass);
+    const effDmg = Math.min(85, dmg * Math.min(2.2, dmgMult));
+    const effSpeed = Math.min(760, Math.max(190, speed / Math.pow(Math.max(1, mass * 0.16), 0.35)));
+    const powerRating = Math.round(maxHp * 0.5 + effDmg * 3.2 + Math.min(680, knock) * 0.3 + effSpeed * 0.35 + rangedWeapons.length * 35);
+    return {
+      blocks, rangedWeapons, mass, maxHp: Math.round(maxHp), dmg: effDmg,
+      knock: Math.min(680, knock), speed: effSpeed, turn: Math.min(14, turn),
+      regen: Math.min(14, regen), knockResist: Math.min(0.75, knockResist),
+      vortex, dashBoost, slow, einstein, disco, confetti,
+      rewMult: Math.min(2.5, rewMult), lrBoost: Math.min(3.0, lrBoost), weapons, powerRating
+    };
+  }
+
+  function updateSpecsUI() {
+    redSpec = compileGrid(grid);
+    document.getElementById('specRows').innerHTML = `
+      <div class="stat-row"><span>Combat Rating</span><span style="color:#fcd34d;">⚡ ${redSpec.powerRating}</span></div>
+      <div class="stat-row"><span>Parts / Weapons</span><span>${redSpec.blocks.length} (${redSpec.weapons} wpn, ${redSpec.rangedWeapons.length} rng)</span></div>
+      <div class="stat-row"><span>Armor HP / Regen</span><span style="color:#34d399;">${redSpec.maxHp} (+${redSpec.regen.toFixed(1)}/s)</span></div>
+      <div class="stat-row"><span>Attack / Knockback</span><span style="color:#fda4af;">${Math.round(redSpec.dmg)} DMG / ${Math.round(redSpec.knock)}</span></div>
+      <div class="stat-row"><span>Speed / Turn</span><span>${Math.round(redSpec.speed)} / ${redSpec.turn.toFixed(1)}</span></div>
+      <div class="stat-row"><span>Mass / Push Resist</span><span>${redSpec.mass.toFixed(1)}kg / ${Math.round(redSpec.knockResist * 100)}%</span></div>
+      <div class="stat-row"><span>Combat Brain</span><span>${redSpec.einstein ? '🧠 Einstein Pro' : '🧠 Blank Neural ML'}</span></div>
+      ${redSpec.weapons === 0 ? '<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(244,63,94,0.2);border:1px solid #f43f5e;font-size:11px;color:#ffe4e6;">⚠️ No weapons mounted! Add saws, hammers, or lasers on the right side.</div>' : ''}
+    `;
+    document.getElementById('banPower').textContent = '⚡ ' + redSpec.powerRating;
+  }
+
+  function resetWinStats(shouldSave = true) {
+    redWins = 0; blueWins = 0; winStreak = 0; totalKOs = 0;
+    const rw = document.getElementById('redWins'); if (rw) rw.textContent = '0W • 0🔥';
+    const bw = document.getElementById('blueWins'); if (bw) bw.textContent = '0W';
+    const ko = document.getElementById('hudKOs'); if (ko) ko.textContent = '0';
+    if (shouldSave && typeof saveState === 'function') saveState();
+  }
+
+  function loadBP(bp, rec = false) {
+    if (rec) { pushHist(); resetWinStats(true); }
+    grid = Array.from({ length: GH }, () => Array(GW).fill(null));
+    bp.cells.forEach(([x, y, id]) => { if (PART_MAP[id]) grid[y][x] = id; });
+    updateSpecsUI(); drawGarage();
+  }
+
+  // =========================================================
+  // 3. NEURAL NETWORK (10 -> 14 -> 4) + ADAM EVOLUTION
+  // =========================================================
+  function randn() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  class CombatNN {
+    constructor(inN = 10, hidN = 14, outN = 4) {
+      this.inN = inN; this.hidN = hidN; this.outN = outN;
+      this.w1 = new Float32Array(inN * hidN); this.b1 = new Float32Array(hidN);
+      this.w2 = new Float32Array(hidN * outN); this.b2 = new Float32Array(outN);
+      this.lastIn = new Float32Array(inN); this.lastHid = new Float32Array(hidN); this.lastOut = new Float32Array(outN);
+      this.randomize();
+    }
+    randomize() {
+      const s1 = Math.sqrt(2 / (this.inN + this.hidN)), s2 = Math.sqrt(2 / (this.hidN + this.outN));
+      for (let i = 0; i < this.w1.length; i++) this.w1[i] = randn() * s1;
+      for (let i = 0; i < this.w2.length; i++) this.w2[i] = randn() * s2;
+      this.b1.fill(0); this.b2.fill(0);
+    }
+    copyFrom(o) { this.w1.set(o.w1); this.b1.set(o.b1); this.w2.set(o.w2); this.b2.set(o.b2); }
+    cloneNoise(sig, noise, sign) {
+      const c = new CombatNN(this.inN, this.hidN, this.outN);
+      for (let i = 0; i < this.w1.length; i++) c.w1[i] = this.w1[i] + sign * sig * noise.n1[i];
+      for (let i = 0; i < this.b1.length; i++) c.b1[i] = this.b1[i] + sign * sig * noise.nb1[i];
+      for (let i = 0; i < this.w2.length; i++) c.w2[i] = this.w2[i] + sign * sig * noise.n2[i];
+      for (let i = 0; i < this.b2.length; i++) c.b2[i] = this.b2[i] + sign * sig * noise.nb2[i];
+      c.noise = noise; c.noiseSign = sign; return c;
+    }
+    forward(inp) {
+      this.lastIn.set(inp);
+      for (let h = 0; h < this.hidN; h++) {
+        let s = this.b1[h], off = h * this.inN;
+        for (let i = 0; i < this.inN; i++) s += this.w1[off + i] * inp[i];
+        this.lastHid[h] = Math.tanh(s);
+      }
+      for (let o = 0; o < this.outN; o++) {
+        let s = this.b2[o], off = o * this.hidN;
+        for (let h = 0; h < this.hidN; h++) s += this.w2[off + h] * this.lastHid[h];
+        this.lastOut[o] = Math.tanh(s);
+      }
+      return this.lastOut;
+    }
+  }
+
+  class AdamOpt {
+    constructor(nn) {
+      this.t = 0;
+      this.mw1 = new Float32Array(nn.w1.length); this.vw1 = new Float32Array(nn.w1.length);
+      this.mb1 = new Float32Array(nn.b1.length); this.vb1 = new Float32Array(nn.b1.length);
+      this.mw2 = new Float32Array(nn.w2.length); this.vw2 = new Float32Array(nn.w2.length);
+      this.mb2 = new Float32Array(nn.b2.length); this.vb2 = new Float32Array(nn.b2.length);
+    }
+    step(p, g, m, v, lr) {
+      const b1 = 0.9, b2 = 0.999, b1t = 1 - Math.pow(b1, this.t), b2t = 1 - Math.pow(b2, this.t);
+      for (let i = 0; i < p.length; i++) {
+        const gi = Math.max(-3, Math.min(3, g[i] || 0));
+        m[i] = b1 * m[i] + (1 - b1) * gi; v[i] = b2 * v[i] + (1 - b2) * gi * gi;
+        p[i] = Math.max(-6, Math.min(6, p[i] + lr * (m[i] / b1t) / (Math.sqrt(v[i] / b2t) + 1e-8)));
+      }
+    }
+  }
+
+  // =========================================================
+  // 4. ARENA ENGINE, HAZARDS, VFX & SOUND
+  // =========================================================
+  let masterNN = new CombatNN(), eliteNN = new CombatNN(), adam = new AdamOpt(masterNN);
+  let eliteBest = -Infinity, generation = 1, totalKOs = 0, redWins = 0, blueWins = 0, winStreak = 0, history = [];
+  let arenaKey = 'saws', mode = 'ml', simSpeed = 1, popSize = 20, timeLimit = 15, royaleCount = 8, showGhosts = true, isPlaying = true;
+  let learningRate = 0.18, sigma = 0.24, soundOn = true, audioCtx = null;
+
+  let duels = [], royaleBots = [], hazards = { saws: [], bumpers: [], flames: [], lightning: null, tornado: null };
+  let particles = [], beams = [], shockwaves = [], popups = [], ringRadius = 220, simTime = 0, keys = {}, shake = 0, roundOver = false, roundTimer = 0;
+
+  const gCanvas = document.getElementById('garageCanvas'), gCtx = gCanvas.getContext('2d');
+  const aCanvas = document.getElementById('arenaCanvas'), aCtx = aCanvas.getContext('2d');
+  const nnCanvas = document.getElementById('nnCanvas'), nnCtx = nnCanvas.getContext('2d');
+  const chartCanvas = document.getElementById('chartCanvas'), chartCtx = chartCanvas.getContext('2d');
+  let AW = 900, AH = 540, ACX = 450, ACY = 275;
+
+  function playSFX(type) {
+    if (!soundOn || simSpeed > 6) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const t = audioCtx.currentTime, osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+      osc.connect(g); g.connect(audioCtx.destination);
+      if (type === 'hit') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(190, t); osc.frequency.exponentialRampToValueAtTime(65, t + 0.09);
+        g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.start(t); osc.stop(t + 0.11);
+      } else if (type === 'zap') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(620, t); osc.frequency.exponentialRampToValueAtTime(160, t + 0.1);
+        g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+        osc.start(t); osc.stop(t + 0.12);
+      } else if (type === 'ko') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(140, t); osc.frequency.exponentialRampToValueAtTime(28, t + 0.3);
+        g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+        osc.start(t); osc.stop(t + 0.33);
+      } else if (type === 'dash') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(280, t); osc.frequency.exponentialRampToValueAtTime(520, t + 0.08);
+        g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        osc.start(t); osc.stop(t + 0.1);
+      }
+    } catch (_) {}
+  }
+
+  function ensureSize(c) {
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const r = c.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      const tw = Math.min(4096, Math.round(r.width * dpr));
+      const th = Math.min(4096, Math.round(r.height * dpr));
+      if (c.width !== tw || c.height !== th) { c.width = tw; c.height = th; }
+      return { w: r.width, h: r.height, dpr };
+    }
+    return { w: 0, h: 0, dpr };
+  }
+
+  function makeNoise() {
+    const mk = n => Float32Array.from({ length: n }, randn);
+    return { n1: mk(masterNN.w1.length), nb1: mk(masterNN.b1.length), n2: mk(masterNN.w2.length), nb2: mk(masterNN.b2.length) };
+  }
+
+  function specFromBP(bp) {
+    const g = Array.from({ length: GH }, () => Array(GW).fill(null));
+    bp.cells.forEach(([x, y, id]) => { if (PART_MAP[id]) g[y][x] = id; });
+    return compileGrid(g);
+  }
+
+  function spawnSparks(x, y, col, n = 10) {
+    if (simSpeed > 15) return;
+    for (let i = 0; i < n && particles.length < 220; i++) {
+      const a = Math.random() * Math.PI * 2, s = 70 + Math.random() * 210;
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, col, life: 0.28 + Math.random() * 0.25, r: 2.5 + Math.random() * 2 });
+    }
+  }
+
+  function mkBot(id, name, x, y, ang, col, specObj, nn, isHero) {
+    return {
+      id, name, x, y, vx: 0, vy: 0, ang,
+      hp: specObj.maxHp, maxHp: specObj.maxHp,
+      r: 26, col, spec: specObj, nn, isHero,
+      cool: 0, dashCool: 0, fireCool: 0, slowT: 0, hitFlash: 0, rangedIdx: 0,
+      done: false, won: false, reward: 0, spinAnim: 0
+    };
+  }
+
+  function setupHazards() {
+    const ar = ARENAS[arenaKey];
+    hazards = { saws: [], bumpers: [], flames: [], lightning: null, tornado: null };
+    for (let i = 0; i < ar.saws; i++) {
+      const a = (i / Math.max(1, ar.saws)) * Math.PI * 2 + 0.7;
+      hazards.saws.push({ x: ACX + Math.cos(a) * (ringRadius * 0.42), y: ACY + Math.sin(a) * (ringRadius * 0.42), r: 22, spin: 0, orbitA: a, orbitR: ringRadius * 0.42 });
+    }
+    for (let i = 0; i < ar.bumpers; i++) {
+      const a = (i / Math.max(1, ar.bumpers)) * Math.PI * 2;
+      hazards.bumpers.push({ x: ACX + Math.cos(a) * (ringRadius * 0.58), y: ACY + Math.sin(a) * (ringRadius * 0.58), r: 17, flash: 0 });
+    }
+    if (ar.flames) {
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.4;
+        hazards.flames.push({ x: ACX + Math.cos(a) * (ringRadius * 0.48), y: ACY + Math.sin(a) * (ringRadius * 0.48), r: 28, phase: i * 1.5 });
+      }
+    }
+    if (ar.tornado) {
+      hazards.tornado = { x: ACX + 60, y: ACY, a: 0, r: 44 };
+    }
+  }
+
+  function startArena() {
+    const s = ensureSize(aCanvas);
+    if (s.w > 0) { AW = s.w; AH = s.h; ACX = AW * 0.5; ACY = AH * 0.53; }
+    if (!redSpec) updateSpecsUI();
+    simTime = 0; roundOver = false; roundTimer = 0;
+    particles = []; beams = []; shockwaves = []; popups = [];
+    ringRadius = Math.max(160, Math.min(AW, AH) * 0.41);
+    setupHazards();
+    document.getElementById('roundLbl').textContent = 'FIGHT!';
+
+    duels = []; royaleBots = [];
+    const rivalBP = BLUEPRINTS[1 + (Math.floor(Math.random() * (BLUEPRINTS.length - 1)))];
+    const rivalSpec = specFromBP(rivalBP);
+    document.getElementById('rivalNameLbl').textContent = mode === 'royale' ? `👑 ${royaleCount - 1} RIVALS` : `🔵 ${rivalBP.name.slice(0, 14)}`;
+
+    if (mode === 'royale') {
+      const colors = ['#38bdf8','#a855f7','#f59e0b','#34d399','#e879f9','#60a5fa','#fb923c','#2dd4bf','#facc15','#818cf8'];
+      const useTwoRings = royaleCount > 12;
+      const outerCount = useTwoRings ? Math.ceil(royaleCount * 0.6) : royaleCount;
+      const innerCount = royaleCount - outerCount;
+      const rOuter = ringRadius * (useTwoRings ? 0.72 : 0.65);
+      const rInner = ringRadius * 0.42;
+      royaleBots.push(mkBot('red', 'YOUR BOT', ACX + Math.cos(0) * rOuter, ACY + Math.sin(0) * rOuter, Math.PI, '#f43f5e', redSpec, masterNN.cloneNoise(0, makeNoise(), 0), true));
+      for (let i = 1; i < royaleCount; i++) {
+        const isOuter = i < outerCount;
+        const idxInRing = isOuter ? i : (i - outerCount);
+        const ringTotal = isOuter ? outerCount : Math.max(1, innerCount);
+        const a = (idxInRing / ringTotal) * Math.PI * 2 + (isOuter ? 0 : Math.PI / ringTotal);
+        const rad = isOuter ? rOuter : rInner;
+        const bp = BLUEPRINTS[(i + generation) % BLUEPRINTS.length];
+        royaleBots.push(mkBot('r' + i, bp.name, ACX + Math.cos(a) * rad, ACY + Math.sin(a) * rad, a + Math.PI, colors[(i - 1) % colors.length], specFromBP(bp), null, false));
+      }
+    } else {
+      const nDuels = mode === 'ml' ? popSize : 1;
+      const mkPair = (nn, isHero) => ({
+        red: mkBot('red', 'YOUR BOT', ACX - ringRadius * 0.48, ACY + (Math.random() - 0.5) * 30, 0, '#f43f5e', redSpec, nn, isHero),
+        blue: mkBot('blue', rivalBP.name, ACX + ringRadius * 0.48, ACY + (Math.random() - 0.5) * 30, Math.PI, '#38bdf8', rivalSpec, null, isHero),
+        done: false
+      });
+      duels.push(mkPair(masterNN.cloneNoise(0, makeNoise(), 0), true));
+      for (let i = 1; i < nDuels; i += 2) {
+        const nz = makeNoise();
+        duels.push(mkPair(masterNN.cloneNoise(sigma, nz, 1), false));
+        if (i + 1 < nDuels) duels.push(mkPair(masterNN.cloneNoise(sigma, nz, -1), false));
+      }
+    }
+  }
+
+  function evolveGeneration() {
+    if (duels.length <= 1) { startArena(); return; }
+    const rews = duels.map(d => d.red.reward);
+    const mean = rews.reduce((a, b) => a + b, 0) / rews.length;
+    let bestI = 0; for (let i = 1; i < rews.length; i++) if (rews[i] > rews[bestI]) bestI = i;
+    const bestR = rews[bestI];
+    if (bestR > eliteBest) { eliteBest = bestR; eliteNN.copyFrom(duels[bestI].red.nn); }
+
+    const order = rews.map((r, i) => ({ r, i })).sort((a, b) => a.r - b.r);
+    const shaped = new Float32Array(rews.length);
+    for (let rk = 0; rk < order.length; rk++) shaped[order[rk].i] = (rk / Math.max(1, order.length - 1)) - 0.5;
+
+    const sc = 1 / (Math.max(1, duels.length) * Math.max(0.05, sigma));
+    const gw1 = new Float32Array(masterNN.w1.length), gb1 = new Float32Array(masterNN.b1.length);
+    const gw2 = new Float32Array(masterNN.w2.length), gb2 = new Float32Array(masterNN.b2.length);
+    for (let i = 1; i < duels.length; i++) {
+      const adv = shaped[i] * 2 * duels[i].red.nn.noiseSign, nz = duels[i].red.nn.noise;
+      for (let k = 0; k < gw1.length; k++) gw1[k] += adv * nz.n1[k] * sc;
+      for (let k = 0; k < gb1.length; k++) gb1[k] += adv * nz.nb1[k] * sc;
+      for (let k = 0; k < gw2.length; k++) gw2[k] += adv * nz.n2[k] * sc;
+      for (let k = 0; k < gb2.length; k++) gb2[k] += adv * nz.nb2[k] * sc;
+    }
+    adam.t++;
+    const effLR = learningRate * redSpec.lrBoost;
+    adam.step(masterNN.w1, gw1, adam.mw1, adam.vw1, effLR);
+    adam.step(masterNN.b1, gb1, adam.mb1, adam.vb1, effLR);
+    adam.step(masterNN.w2, gw2, adam.mw2, adam.vw2, effLR);
+    adam.step(masterNN.b2, gb2, adam.mb2, adam.vb2, effLR);
+
+    if (bestR < eliteBest - 60 && Number.isFinite(eliteBest)) {
+      for (let k = 0; k < masterNN.w1.length; k++) masterNN.w1[k] = masterNN.w1[k] * 0.75 + eliteNN.w1[k] * 0.25;
+      for (let k = 0; k < masterNN.w2.length; k++) masterNN.w2[k] = masterNN.w2[k] * 0.75 + eliteNN.w2[k] * 0.25;
+    }
+    history.push({ gen: generation, best: Number.isFinite(bestR) ? bestR : 0, mean: Number.isFinite(mean) ? mean : 0 });
+    if (history.length > 70) history.shift();
+    generation++;
+    saveState();
+    startArena();
+  }
+
+  function applyHit(att, def, dmg, knock, isVisual, hitX, hitY, label) {
+    const resist = 1 - def.spec.knockResist;
+    const dx = def.x - att.x, dy = def.y - att.y, d = Math.hypot(dx, dy) || 1;
+    def.hp -= dmg;
+    def.vx += (dx / d) * knock * resist;
+    def.vy += (dy / d) * knock * resist;
+    def.hitFlash = 0.16;
+    if (att.spec.slow > 0) def.slowT = 1.1;
+    att.reward += dmg * 2.2 * att.spec.rewMult;
+    def.reward -= dmg * 0.9;
+    if (isVisual && simSpeed <= 10) {
+      playSFX('hit');
+      spawnSparks(hitX, hitY, att.spec.disco ? ['#f43f5e','#38bdf8','#facc15','#a855f7'][Math.floor(Math.random()*4)] : att.col, 12);
+      if (popups.length < 28) popups.push({ x: def.x, y: def.y - 24, text: label || `-${Math.round(dmg)}`, col: '#fcd34d', life: 0.75 });
+      if (dmg >= 22) shake = Math.max(shake, 5);
+    }
+  }
+
+  function controlBot(b, foe, dt, isVisual) {
+    if (b.done || !foe) return;
+    const ar = ARENAS[arenaKey];
+    if (b.cool > 0) b.cool -= dt;
+    if (b.dashCool > 0) b.dashCool -= dt;
+    if (b.fireCool > 0) b.fireCool -= dt;
+    if (b.slowT > 0) b.slowT -= dt;
+    if (b.hitFlash > 0) b.hitFlash -= dt;
+    if (b.spec.regen > 0) b.hp = Math.min(b.maxHp, b.hp + b.spec.regen * dt);
+    b.spinAnim += 14 * dt;
+
+    const dx = foe.x - b.x, dy = foe.y - b.y, dist = Math.hypot(dx, dy) || 1;
+    const toFoeAng = Math.atan2(dy, dx);
+    let angDiff = toFoeAng - b.ang;
+    while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+    while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+    const cd = Math.hypot(b.x - ACX, b.y - ACY);
+    const edgeProx = Math.min(1, cd / Math.max(50, ringRadius));
+    let nearestHaz = 999;
+    for (const sw of hazards.saws) nearestHaz = Math.min(nearestHaz, Math.hypot(b.x - sw.x, b.y - sw.y));
+    if (ar.pit) nearestHaz = Math.min(nearestHaz, Math.hypot(b.x - ACX, b.y - ACY));
+
+    let fwd = 0, turnCmd = 0, dash = false, fire = false;
+    const useManual = (b.id === 'red' && mode === 'manual');
+    const useNeural = (b.id === 'red' && b.nn && !b.spec.einstein && (mode === 'ml' || (mode === 'royale' && !useManual)));
+
+    if (useManual) {
+      let mx = (keys['KeyD'] || keys['ArrowRight'] ? 1 : 0) - (keys['KeyA'] || keys['ArrowLeft'] ? 1 : 0);
+      let my = (keys['KeyS'] || keys['ArrowDown'] ? 1 : 0) - (keys['KeyW'] || keys['ArrowUp'] ? 1 : 0);
+      if (mx || my) {
+        const len = Math.hypot(mx, my);
+        const spd = b.spec.speed * (b.slowT > 0 ? 0.55 : 1);
+        b.vx += (mx / len) * spd * dt * 1.4;
+        b.vy += (my / len) * spd * dt * 1.4;
+        const tA = Math.atan2(my, mx);
+        let dA = tA - b.ang; while (dA > Math.PI) dA -= Math.PI * 2; while (dA < -Math.PI) dA += Math.PI * 2;
+        b.ang += dA * Math.min(1, dt * b.spec.turn * 1.3);
+      }
+      if (keys['Space']) dash = true;
+      if (keys['KeyF'] || keys['ShiftLeft'] || keys['ShiftRight']) fire = true;
+      if (b.nn) { b.nn.lastOut[0] = (mx || my) ? 1 : 0; b.nn.lastOut[1] = mx; b.nn.lastOut[2] = dash ? 1 : -1; b.nn.lastOut[3] = fire ? 1 : -1; }
+    } else if (useNeural) {
+      const inp = [
+        Math.max(-1, Math.min(1, dx / 260)),
+        Math.max(-1, Math.min(1, dy / 260)),
+        Math.max(-1, Math.min(1, dist / 320)),
+        angDiff / Math.PI,
+        edgeProx * 2 - 1,
+        Math.max(-1, Math.min(1, 1 - nearestHaz / 120)),
+        (b.hp / Math.max(1, b.maxHp)) * 2 - 1,
+        b.dashCool <= 0 ? 1 : -1,
+        Math.max(-1, Math.min(1, b.vx / 260)),
+        Math.max(-1, Math.min(1, b.vy / 260))
+      ];
+      const out = b.nn.forward(inp);
+      fwd = out[0];
+      turnCmd = out[1];
+      dash = out[2] > 0.35;
+      fire = out[3] > 0.15;
+      b.ang += turnCmd * b.spec.turn * dt;
+      const spd = b.spec.speed * (b.slowT > 0 ? 0.55 : 1);
+      b.vx += Math.cos(b.ang) * fwd * spd * dt * 1.45;
+      b.vy += Math.sin(b.ang) * fwd * spd * dt * 1.45;
+    } else {
+      // Smart Pro / Einstein / Rival AI
+      let ax = dx / dist, ay = dy / dist;
+      const strafe = Math.sin(simTime * 2.2 + (b.id === 'red' ? 0 : 2.1)) * 0.32;
+      ax += -dy / dist * strafe; ay += dx / dist * strafe;
+      if (cd > ringRadius - 56) { ax += ((ACX - b.x) / (cd || 1)) * 2.1; ay += ((ACY - b.y) / (cd || 1)) * 2.1; }
+      if (ar.pit && cd < 78) { ax += ((b.x - ACX) / (cd || 1)) * 2.4; ay += ((b.y - ACY) / (cd || 1)) * 2.4; }
+      for (const sw of hazards.saws) {
+        const sdx = b.x - sw.x, sdy = b.y - sw.y, sd = Math.hypot(sdx, sdy) || 1;
+        if (sd < 72) { ax += (sdx / sd) * 1.7; ay += (sdy / sd) * 1.7; }
+      }
+      const al = Math.hypot(ax, ay) || 1;
+      const spd = b.spec.speed * (b.slowT > 0 ? 0.55 : 1);
+      b.vx += (ax / al) * spd * dt * 1.35;
+      b.vy += (ay / al) * spd * dt * 1.35;
+      b.ang += angDiff * Math.min(1, dt * b.spec.turn);
+      if (dist < 145 && Math.abs(angDiff) < 0.5 && b.dashCool <= 0) dash = true;
+      if (b.spec.rangedWeapons.length > 0 && dist < 210 && Math.abs(angDiff) < 0.45) fire = true;
+      if (b.nn) { b.nn.lastOut[0] = 0.8; b.nn.lastOut[1] = Math.max(-1, Math.min(1, angDiff)); b.nn.lastOut[2] = dash ? 1 : -1; b.nn.lastOut[3] = fire ? 1 : -1; }
+    }
+
+    if (dash && b.dashCool <= 0) {
+      const df = 320 * b.spec.dashBoost;
+      b.vx += Math.cos(b.ang) * df; b.vy += Math.sin(b.ang) * df;
+      b.dashCool = 1.45 / b.spec.dashBoost;
+      if (isVisual && simSpeed <= 8) { playSFX('dash'); spawnSparks(b.x, b.y, b.col, 7); }
+    }
+
+    // Ranged Weapon firing (cycles through all mounted ranged weapons)!
+    if (fire && b.fireCool <= 0 && b.spec.rangedWeapons.length > 0) {
+      const rws = b.spec.rangedWeapons;
+      const rw = rws[b.rangedIdx % rws.length];
+      b.rangedIdx = (b.rangedIdx + 1) % rws.length;
+      const maxR = rw.range || 175;
+      b.fireCool = Math.max(0.24, 0.55 - (rws.length - 1) * 0.08);
+      if (dist <= maxR && Math.abs(angDiff) < 0.55) {
+        applyHit(b, foe, (rw.dmg || 14) * 0.85, (rw.knock || 140) * 0.75, isVisual, foe.x, foe.y, `${rw.icon}-${Math.round((rw.dmg || 14) * 0.85)}`);
+        if (isVisual && simSpeed <= 10) {
+          playSFX('zap');
+          beams.push({ x1: b.x + Math.cos(b.ang) * 20, y1: b.y + Math.sin(b.ang) * 20, x2: foe.x, y2: foe.y, col: rw.color, life: 0.16, wtype: rw.wtype });
+        }
+      } else if (isVisual && simSpeed <= 10) {
+        beams.push({ x1: b.x + Math.cos(b.ang) * 20, y1: b.y + Math.sin(b.ang) * 20, x2: b.x + Math.cos(b.ang) * maxR, y2: b.y + Math.sin(b.ang) * maxR, col: rw.color, life: 0.12, wtype: rw.wtype });
+      }
+    }
+
+    // Gravity Vortex pull
+    if (b.spec.vortex > 0 && dist < b.spec.vortex && dist > 35) {
+      foe.vx -= (dx / dist) * 180 * dt; foe.vy -= (dy / dist) * 180 * dt;
+    }
+
+    // Arena forces (Vortex / Tornado)
+    if (ar.vortex) {
+      const pulse = Math.sin(simTime * 2.1);
+      const dC = Math.hypot(ACX - b.x, ACY - b.y) || 1;
+      b.vx += ((ACX - b.x) / dC) * pulse * 145 * dt;
+      b.vy += ((ACY - b.y) / dC) * pulse * 145 * dt;
+    }
+    if (ar.tornado && hazards.tornado) {
+      const tdx = b.x - hazards.tornado.x, tdy = b.y - hazards.tornado.y, td = Math.hypot(tdx, tdy) || 1;
+      if (td < hazards.tornado.r + 35) {
+        b.vx += (-tdy / td) * 320 * dt + (tdx / td) * 180 * dt;
+        b.vy += (tdx / td) * 320 * dt + (tdy / td) * 180 * dt;
+      }
+    }
+
+    b.vx *= Math.pow(ar.friction, dt * 60);
+    b.vy *= Math.pow(ar.friction, dt * 60);
+    b.vx = Math.max(-750, Math.min(750, Number.isFinite(b.vx) ? b.vx : 0));
+    b.vy = Math.max(-750, Math.min(750, Number.isFinite(b.vy) ? b.vy : 0));
+    b.x += b.vx * dt; b.y += b.vy * dt;
+
+    // Hazard collisions
+    for (const sw of hazards.saws) {
+      const sdx = b.x - sw.x, sdy = b.y - sw.y, sd = Math.hypot(sdx, sdy) || 1;
+      if (sd < b.r + sw.r) {
+        b.vx += (sdx / sd) * 340; b.vy += (sdy / sd) * 340;
+        if (b.cool <= 0) { b.hp -= 16; b.cool = 0.28; b.reward -= 25; if (isVisual) spawnSparks(b.x, b.y, '#facc15', 10); }
+      }
+    }
+    for (const bmp of hazards.bumpers) {
+      const bdx = b.x - bmp.x, bdy = b.y - bmp.y, bd = Math.hypot(bdx, bdy) || 1;
+      if (bd < b.r + bmp.r) { b.vx += (bdx / bd) * 430; b.vy += (bdy / bd) * 430; bmp.flash = 1.0; if (isVisual) spawnSparks(bmp.x, bmp.y, '#a855f7', 8); }
+    }
+    for (const fl of hazards.flames) {
+      const active = Math.sin(simTime * 2.4 + fl.phase) > 0.35;
+      if (active && Math.hypot(b.x - fl.x, b.y - fl.y) < fl.r + b.r && b.cool <= 0) {
+        b.hp -= 12; b.cool = 0.3; b.reward -= 20; if (isVisual) spawnSparks(b.x, b.y, '#f97316', 10);
+      }
+    }
+    if (ar.tesla && hazards.lightning && hazards.lightning.strike && Math.hypot(b.x - hazards.lightning.x, b.y - hazards.lightning.y) < 42 && b.cool <= 0) {
+      b.hp -= 20; b.cool = 0.35; b.reward -= 28; if (isVisual) spawnSparks(b.x, b.y, '#60a5fa', 14);
+    }
+
+    // Ring-out & Center Pitfall check
+    const curCd = Math.hypot(b.x - ACX, b.y - ACY);
+    if (curCd > ringRadius + 10 || (ar.pit && curCd < 32)) {
+      b.hp = 0; b.reward -= 120;
+      if (isVisual) { playSFX('ko'); spawnSparks(b.x, b.y, '#f97316', 22); }
+    }
+
+    // Continuous shaping reward for ML
+    b.reward += ((1 - Math.min(1, dist / 340)) * 0.45 + (1 - edgeProx) * 0.35 + (Math.cos(angDiff) > 0.5 ? 0.25 : 0)) * b.spec.rewMult;
+  }
+
+  function resolvePairCombat(a, b, isVisual) {
+    if (a.done || b.done) return;
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+    if (d < a.r + b.r) {
+      const ov = (a.r + b.r - d) * 0.5, nx = dx / d, ny = dy / d;
+      a.x -= nx * ov; a.y -= ny * ov; b.x += nx * ov; b.y += ny * ov;
+      a.vx -= nx * 150; a.vy -= ny * 150; b.vx += nx * 150; b.vy += ny * 150;
+      if (isVisual) spawnSparks((a.x + b.x) / 2, (a.y + b.y) / 2, '#fde047', 6);
+    }
+    for (const [att, def] of [[a, b], [b, a]]) {
+      const wx = att.x + Math.cos(att.ang) * 34, wy = att.y + Math.sin(att.ang) * 34;
+      if (Math.hypot(wx - def.x, wy - def.y) < def.r + 14 && def.cool <= 0) {
+        applyHit(att, def, att.spec.dmg, att.spec.knock, isVisual, wx, wy);
+        def.cool = 0.34;
+      }
+    }
+  }
+
+  function stepArena(dt) {
+    const ar = ARENAS[arenaKey];
+    simTime += dt;
+    if (shake > 0) shake = Math.max(0, shake - dt * 18);
+    if (ar.shrink || mode === 'royale') ringRadius = Math.max(96, ringRadius - (mode === 'royale' ? 5.5 : 7.5) * dt);
+
+    for (const sw of hazards.saws) {
+      sw.spin += 14 * dt;
+      if (arenaKey === 'kc') {
+        sw.orbitA += 0.65 * dt;
+        sw.x = ACX + Math.cos(sw.orbitA) * sw.orbitR;
+        sw.y = ACY + Math.sin(sw.orbitA) * sw.orbitR;
+      }
+    }
+    for (const bmp of hazards.bumpers) if (bmp.flash > 0) bmp.flash = Math.max(0, bmp.flash - dt * 4);
+    if (ar.tornado && hazards.tornado) {
+      hazards.tornado.a += 1.2 * dt;
+      hazards.tornado.x = ACX + Math.cos(hazards.tornado.a) * (ringRadius * 0.44);
+      hazards.tornado.y = ACY + Math.sin(hazards.tornado.a) * (ringRadius * 0.44);
+    }
+    if (ar.tesla) {
+      if (!hazards.lightning || hazards.lightning.t <= 0) {
+        const a = Math.random() * Math.PI * 2, rad = Math.random() * (ringRadius * 0.68);
+        hazards.lightning = { x: ACX + Math.cos(a) * rad, y: ACY + Math.sin(a) * rad, t: 1.8, strike: false };
+      } else {
+        hazards.lightning.t -= dt;
+        hazards.lightning.strike = hazards.lightning.t < 0.32;
+      }
+    }
+
+    const timeUp = timeLimit > 0 && simTime >= timeLimit;
+    if (mode === 'royale') {
+      if (!roundOver) {
+        const aliveList = royaleBots.filter(b => !b.done);
+        for (const b of aliveList) {
+          let foe = null, bestD = 9999;
+          for (const o of aliveList) if (o !== b) { const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < bestD) { bestD = d; foe = o; } }
+          controlBot(b, foe, dt, true);
+        }
+        for (let i = 0; i < aliveList.length; i++) for (let j = i + 1; j < aliveList.length; j++) resolvePairCombat(aliveList[i], aliveList[j], true);
+        for (const b of aliveList) if (b.hp <= 0) {
+          b.done = true; totalKOs++;
+          if (b.id !== 'red' && royaleBots[0] && !royaleBots[0].done) royaleBots[0].reward += 80;
+          playSFX('ko'); shake = 7;
+          popups.push({ x: b.x, y: b.y - 20, text: '💥 KO!', col: '#f43f5e', life: 1.0 });
+        }
+      }
+      const rem = royaleBots.filter(b => !b.done);
+      if (rem.length <= 1 || timeUp || roundOver) {
+        if (!roundOver) {
+          roundOver = true;
+          let winner = rem[0] || null;
+          if (timeUp && rem.length > 1) {
+            winner = rem.reduce((best, cur) => (cur.hp / Math.max(1, cur.maxHp)) > (best.hp / Math.max(1, best.maxHp)) ? cur : best, rem[0]);
+            for (const b of rem) b.done = true;
+          }
+          if (winner && winner.id === 'red') { redWins++; winStreak++; document.getElementById('roundLbl').textContent = timeUp ? '👑 TIME CHAMP!' : '👑 ROYALE CHAMP!'; }
+          else { blueWins++; winStreak = 0; document.getElementById('roundLbl').textContent = timeUp ? '⏱️ TIME OVER' : '💥 ELIMINATED'; }
+          saveState();
+        }
+        roundTimer += Math.max(1 / 60, dt);
+        if (roundTimer > 2.0) startArena();
+      }
+    } else {
+      let activeDuels = 0;
+      for (let di = 0; di < duels.length; di++) {
+        const d = duels[di];
+        if (d.done) continue;
+        activeDuels++;
+        const vis = (di === 0);
+        controlBot(d.red, d.blue, dt, vis);
+        controlBot(d.blue, d.red, dt, vis);
+        resolvePairCombat(d.red, d.blue, vis);
+        if (d.red.hp <= 0 || d.blue.hp <= 0) {
+          d.done = true; d.red.done = true; d.blue.done = true;
+          if (d.blue.hp <= 0 && d.red.hp > 0) {
+            d.red.won = true; d.red.reward += 350 * d.red.spec.rewMult;
+            totalKOs++;
+            if (vis) { redWins++; winStreak++; playSFX('ko'); shake = 8; document.getElementById('roundLbl').textContent = '🔴 YOUR BOT WINS!'; }
+          } else {
+            d.red.reward -= 80;
+            if (vis) { blueWins++; winStreak = 0; playSFX('ko'); shake = 8; document.getElementById('roundLbl').textContent = d.blue.hp <= 0 ? '💥 DOUBLE KO!' : '🔵 RIVAL WINS!'; }
+          }
+        }
+      }
+      if (activeDuels === 0 || timeUp || roundOver) {
+        if (mode === 'ml') evolveGeneration();
+        else {
+          if (!roundOver) {
+            roundOver = true;
+            if (timeUp && duels[0] && !duels[0].done) {
+              const rPct = duels[0].red.hp / Math.max(1, duels[0].red.maxHp);
+              const bPct = duels[0].blue.hp / Math.max(1, duels[0].blue.maxHp);
+              if (rPct > bPct + 0.01) { redWins++; winStreak++; document.getElementById('roundLbl').textContent = '⏱️ RED WINS!'; }
+              else if (bPct > rPct + 0.01) { blueWins++; winStreak = 0; document.getElementById('roundLbl').textContent = '⏱️ RIVAL WINS!'; }
+              else { document.getElementById('roundLbl').textContent = '⏱️ TIME DRAW!'; }
+            }
+            for (const d of duels) { d.done = true; d.red.done = true; d.blue.done = true; }
+            saveState();
+          }
+          roundTimer += Math.max(1 / 60, dt);
+          if (roundTimer > 1.6) startArena();
+        }
+      }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; if (p.life <= 0) particles.splice(i, 1); }
+    for (let i = beams.length - 1; i >= 0; i--) { beams[i].life -= dt; if (beams[i].life <= 0) beams.splice(i, 1); }
+    for (let i = shockwaves.length - 1; i >= 0; i--) { shockwaves[i].r += 420 * dt; shockwaves[i].life -= dt * 2.4; if (shockwaves[i].life <= 0) shockwaves.splice(i, 1); }
+    for (let i = popups.length - 1; i >= 0; i--) { popups[i].y -= 28 * dt; popups[i].life -= dt; if (popups[i].life <= 0) popups.splice(i, 1); }
+  }
+
+  function drawBot(b, alpha) {
+    aCtx.save(); aCtx.globalAlpha = alpha; aCtx.translate(b.x, b.y); aCtx.rotate(b.ang);
+    // Vortex aura
+    if (b.spec.vortex > 0 && alpha > 0.5) {
+      aCtx.strokeStyle = 'rgba(168,85,247,0.3)'; aCtx.lineWidth = 2;
+      aCtx.beginPath(); aCtx.arc(0, 0, b.spec.vortex * 0.55, 0, Math.PI * 2); aCtx.stroke();
+    }
+    // Fallback chassis if bot has 0 parts
+    if (!b.spec.blocks.length) {
+      aCtx.fillStyle = b.hitFlash > 0 ? '#ffffff' : b.col;
+      aCtx.strokeStyle = '#ffffff'; aCtx.lineWidth = 2;
+      aCtx.beginPath(); aCtx.arc(0, 0, 16, 0, Math.PI * 2); aCtx.fill(); aCtx.stroke();
+      aCtx.fillStyle = '#060510'; aCtx.beginPath(); aCtx.arc(8, 0, 3.5, 0, Math.PI * 2); aCtx.fill();
+    }
+    // Blocks
+    for (const blk of b.spec.blocks) {
+      aCtx.fillStyle = b.hitFlash > 0 ? '#ffffff' : (blk.p.color + 'cc');
+      aCtx.strokeStyle = b.col; aCtx.lineWidth = alpha > 0.5 ? 1.5 : 0.7;
+      aCtx.beginPath(); aCtx.roundRect(blk.rx - 5, blk.ry - 5, 10, 10, 2.5); aCtx.fill(); aCtx.stroke();
+      if (alpha > 0.5) {
+        aCtx.save();
+        aCtx.translate(blk.rx, blk.ry);
+        if (blk.p.wtype === 'saw') aCtx.rotate(b.spinAnim);
+        aCtx.font = '8.5px sans-serif'; aCtx.textAlign = 'center'; aCtx.textBaseline = 'middle';
+        aCtx.fillText(blk.p.icon, 0, 0.5);
+        aCtx.restore();
+      }
+    }
+    // Mini HP bar in Battle Royale
+    if (mode === 'royale' && alpha > 0.5) {
+      aCtx.rotate(-b.ang);
+      aCtx.fillStyle = 'rgba(0,0,0,0.6)'; aCtx.fillRect(-18, -32, 36, 5);
+      aCtx.fillStyle = b.id === 'red' ? '#f43f5e' : '#38bdf8';
+      aCtx.fillRect(-18, -32, 36 * Math.max(0, b.hp / b.maxHp), 5);
+    }
+    aCtx.restore();
+  }
+
+  function drawArena() {
+    const s = ensureSize(aCanvas);
+    if (s.w <= 0 || s.h <= 0) return;
+    const oldACX = ACX, oldACY = ACY;
+    AW = s.w; AH = s.h; ACX = AW * 0.5; ACY = AH * 0.53;
+    const dcx = ACX - oldACX, dcy = ACY - oldACY;
+    if (Math.abs(dcx) > 1 || Math.abs(dcy) > 1) {
+      const shiftPt = o => { if (o) { o.x += dcx; o.y += dcy; } };
+      royaleBots.forEach(shiftPt);
+      duels.forEach(d => { shiftPt(d.red); shiftPt(d.blue); });
+      hazards.saws.forEach(shiftPt); hazards.bumpers.forEach(shiftPt); hazards.flames.forEach(shiftPt);
+      shiftPt(hazards.lightning); shiftPt(hazards.tornado);
+      particles.forEach(shiftPt); shockwaves.forEach(shiftPt); popups.forEach(shiftPt);
+      beams.forEach(bm => { bm.x1 += dcx; bm.y1 += dcy; bm.x2 += dcx; bm.y2 += dcy; });
+      const maxR = Math.max(120, Math.min(AW, AH) * 0.44);
+      if (ringRadius > maxR) ringRadius = maxR;
+    }
+    const ar = ARENAS[arenaKey];
+
+    aCtx.save(); aCtx.scale(s.dpr, s.dpr);
+    if (shake > 0.2) aCtx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+    aCtx.fillStyle = '#060510'; aCtx.fillRect(0, 0, AW, AH);
+    const dangerGlow = aCtx.createRadialGradient(ACX, ACY, ringRadius * 0.75, ACX, ACY, ringRadius + 65);
+    dangerGlow.addColorStop(0, '#121024'); dangerGlow.addColorStop(0.76, '#1f1636'); dangerGlow.addColorStop(1, 'rgba(244,63,94,0.30)');
+    aCtx.fillStyle = dangerGlow; aCtx.beginPath(); aCtx.arc(ACX, ACY, ringRadius + 50, 0, Math.PI * 2); aCtx.fill();
+
+    // Arena floor
+    aCtx.fillStyle = ar.ice ? '#0c2944' : (ar.kc ? '#160d2e' : '#111022');
+    aCtx.strokeStyle = ar.ringCol; aCtx.lineWidth = 4;
+    aCtx.beginPath(); aCtx.arc(ACX, ACY, ringRadius, 0, Math.PI * 2); aCtx.fill(); aCtx.stroke();
+
+    // Stadium floor markings
+    aCtx.strokeStyle = 'rgba(255,255,255,0.06)'; aCtx.lineWidth = 1.5;
+    aCtx.beginPath(); aCtx.arc(ACX, ACY, ringRadius * 0.5, 0, Math.PI * 2); aCtx.stroke();
+    aCtx.beginPath(); aCtx.moveTo(ACX - ringRadius, ACY); aCtx.lineTo(ACX + ringRadius, ACY); aCtx.stroke();
+    if (ar.kc) {
+      aCtx.fillStyle = 'rgba(250,204,21,0.09)'; aCtx.font = 'bold 28px "Space Grotesk", sans-serif';
+      aCtx.textAlign = 'center'; aCtx.textBaseline = 'middle';
+      aCtx.fillText('KC ARENA', ACX, ACY);
+    }
+
+    // Center Pitfall or Magnetic Vortex
+    if (ar.pit) {
+      aCtx.fillStyle = '#020108'; aCtx.strokeStyle = '#ef4444'; aCtx.lineWidth = 3;
+      aCtx.beginPath(); aCtx.arc(ACX, ACY, 32, 0, Math.PI * 2); aCtx.fill(); aCtx.stroke();
+    }
+    if (ar.vortex) {
+      const pulse = Math.sin(simTime * 2.1);
+      aCtx.strokeStyle = pulse > 0 ? 'rgba(56,189,248,0.45)' : 'rgba(168,85,247,0.45)'; aCtx.lineWidth = 3;
+      aCtx.beginPath(); aCtx.arc(ACX, ACY, 26 + Math.abs(pulse) * 28, 0, Math.PI * 2); aCtx.stroke();
+    }
+    if (ar.tornado && hazards.tornado) {
+      aCtx.strokeStyle = 'rgba(56,189,248,0.55)'; aCtx.lineWidth = 3;
+      aCtx.beginPath(); aCtx.arc(hazards.tornado.x, hazards.tornado.y, hazards.tornado.r, simTime * 6, simTime * 6 + Math.PI * 1.4); aCtx.stroke();
+    }
+    for (const fl of hazards.flames) {
+      const active = Math.sin(simTime * 2.4 + fl.phase) > 0.35;
+      aCtx.fillStyle = active ? 'rgba(249,115,22,0.55)' : 'rgba(249,115,22,0.14)';
+      aCtx.beginPath(); aCtx.arc(fl.x, fl.y, active ? fl.r : 12, 0, Math.PI * 2); aCtx.fill();
+    }
+    if (ar.tesla && hazards.lightning) {
+      const lg = hazards.lightning;
+      aCtx.strokeStyle = lg.strike ? '#38bdf8' : 'rgba(250,204,21,0.5)'; aCtx.lineWidth = lg.strike ? 4 : 2;
+      aCtx.beginPath(); aCtx.arc(lg.x, lg.y, 38, 0, Math.PI * 2); aCtx.stroke();
+      if (lg.strike) { aCtx.fillStyle = 'rgba(56,189,248,0.45)'; aCtx.fill(); }
+    }
+    for (const sw of hazards.saws) {
+      aCtx.save(); aCtx.translate(sw.x, sw.y); aCtx.rotate(sw.spin);
+      aCtx.fillStyle = '#94a3b8'; aCtx.strokeStyle = '#f43f5e'; aCtx.lineWidth = 3;
+      aCtx.beginPath(); aCtx.arc(0, 0, sw.r, 0, Math.PI * 2); aCtx.fill(); aCtx.stroke();
+      for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; aCtx.beginPath(); aCtx.moveTo(0, 0); aCtx.lineTo(Math.cos(a) * sw.r, Math.sin(a) * sw.r); aCtx.stroke(); }
+      aCtx.restore();
+    }
+    for (const bmp of hazards.bumpers) {
+      aCtx.fillStyle = bmp.flash > 0 ? '#e879f9' : '#7c3aed'; aCtx.strokeStyle = '#f0abfc'; aCtx.lineWidth = 2.5;
+      aCtx.beginPath(); aCtx.arc(bmp.x, bmp.y, bmp.r + bmp.flash * 4, 0, Math.PI * 2); aCtx.fill(); aCtx.stroke();
+    }
+
+    // Bots
+    let hero = null, rival = null;
+    if (mode === 'royale') {
+      for (const b of royaleBots) if (!b.done) drawBot(b, 1.0);
+      hero = royaleBots[0];
+    } else {
+      if (showGhosts && duels.length > 1) {
+        const gAlpha = duels.length > 28 ? 0.14 : 0.22;
+        for (let i = 1; i < duels.length; i++) {
+          if (!duels[i].red.done) drawBot(duels[i].red, gAlpha);
+          if (!duels[i].blue.done) drawBot(duels[i].blue, gAlpha * 0.75);
+        }
+      }
+      if (duels[0]) {
+        hero = duels[0].red; rival = duels[0].blue;
+        if (!hero.done) drawBot(hero, 1.0);
+        if (!rival.done) drawBot(rival, 1.0);
+      }
+    }
+
+    // Beams, shockwaves, particles, popups
+    for (const bm of beams) {
+      aCtx.strokeStyle = bm.col; aCtx.lineWidth = bm.wtype === 'sonic' ? 6 : 3.5;
+      aCtx.beginPath(); aCtx.moveTo(bm.x1, bm.y1); aCtx.lineTo(bm.x2, bm.y2); aCtx.stroke();
+    }
+    for (const sw of shockwaves) { aCtx.strokeStyle = `rgba(244,63,94,${sw.life})`; aCtx.lineWidth = 2.5; aCtx.beginPath(); aCtx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2); aCtx.stroke(); }
+    for (const pt of particles) { aCtx.globalAlpha = Math.max(0, pt.life * 2); aCtx.fillStyle = pt.col; aCtx.beginPath(); aCtx.arc(pt.x, pt.y, pt.r || 3, 0, Math.PI * 2); aCtx.fill(); }
+    for (const pop of popups) { aCtx.globalAlpha = Math.max(0, pop.life); aCtx.fillStyle = pop.col; aCtx.font = 'bold 13px "Space Grotesk", sans-serif'; aCtx.textAlign = 'center'; aCtx.fillText(pop.text, pop.x, pop.y); }
+    aCtx.globalAlpha = 1; aCtx.restore();
+
+    // Update HUD
+    document.getElementById('hudGen').textContent = generation;
+    document.getElementById('hudKOs').textContent = totalKOs;
+    document.getElementById('hudBest').textContent = Math.round(eliteBest === -Infinity ? (hero ? hero.reward : 0) : Math.max(eliteBest, hero ? hero.reward : 0));
+    document.getElementById('redWins').textContent = `${redWins}W • ${winStreak}🔥`;
+    document.getElementById('blueWins').textContent = `${blueWins}W`;
+    document.getElementById('banMode').textContent = mode === 'ml' ? `Neural ML (${popSize * 2} Bots)` : (mode === 'manual' ? 'Manual (WASD)' : (mode === 'royale' ? `${royaleCount}-Bot Royale` : '1v1 Pro AI'));
+    document.getElementById('banArena').textContent = ar.name;
+    const banTimeEl = document.getElementById('banTime');
+    if (banTimeEl) banTimeEl.textContent = timeLimit > 0 ? Math.max(0, timeLimit - simTime).toFixed(1) + 's' : simTime.toFixed(1) + 's (∞)';
+    document.getElementById('telRing').textContent = Math.round(ringRadius) + 'px';
+    document.getElementById('telBrain').textContent = redSpec.einstein ? 'Einstein Pre-Trained' : 'Blank Neural ML';
+    if (hero) {
+      document.getElementById('redHpBar').style.width = Math.max(0, (hero.hp / hero.maxHp) * 100) + '%';
+      document.getElementById('telRedHp').textContent = `${Math.max(0, Math.round(hero.hp))} / ${hero.maxHp}`;
+    }
+    if (mode === 'royale') {
+      const totalRivals = Math.max(1, royaleBots.length - 1);
+      const remRivals = royaleBots.filter(b => b.id !== 'red' && !b.done).length;
+      document.getElementById('blueHpBar').style.width = (remRivals / totalRivals) * 100 + '%';
+      document.getElementById('telBlueHp').textContent = `${remRivals} / ${totalRivals} Alive`;
+    } else if (rival) {
+      document.getElementById('blueHpBar').style.width = Math.max(0, (rival.hp / rival.maxHp) * 100) + '%';
+      document.getElementById('telBlueHp').textContent = `${Math.max(0, Math.round(rival.hp))} / ${rival.maxHp}`;
+    }
+    drawNN(hero);
+    drawChart();
+  }
+
+  function drawNN(hero) {
+    const s = ensureSize(nnCanvas); if (s.w <= 0 || s.h <= 0) return;
+    nnCtx.save(); nnCtx.scale(s.dpr, s.dpr); nnCtx.clearRect(0, 0, s.w, s.h);
+    const nn = (hero && hero.nn) ? hero.nn : masterNN;
+    const inLabels = ['DX','DY','DST','ANG','EDG','HAZ','HP','DSH','VX','VY'];
+    const outLabels = ['FWD','TRN','DSH','FIR'];
+    const xs = [44, s.w * 0.52, s.w - 48];
+    const layers = [nn.inN, nn.hidN, nn.outN];
+    const pos = [[], [], []];
+    for (let l = 0; l < 3; l++) {
+      const n = layers[l];
+      const pad = l === 2 ? s.h * 0.2 : 13;
+      const step = (s.h - pad * 2) / Math.max(1, n - 1);
+      for (let i = 0; i < n; i++) pos[l].push({ x: xs[l], y: pad + i * step });
+    }
+    for (let h = 0; h < nn.hidN; h++) {
+      for (let i = 0; i < nn.inN; i++) {
+        const wt = nn.w1[h * nn.inN + i];
+        if (Math.abs(wt) < 0.28) continue;
+        const a = Math.min(0.6, Math.abs(wt) * 0.42);
+        nnCtx.strokeStyle = wt > 0 ? `rgba(244,63,94,${a})` : `rgba(168,85,247,${a})`;
+        nnCtx.lineWidth = Math.min(1.6, Math.abs(wt) * 0.85);
+        nnCtx.beginPath(); nnCtx.moveTo(pos[0][i].x, pos[0][i].y); nnCtx.lineTo(pos[1][h].x, pos[1][h].y); nnCtx.stroke();
+      }
+      for (let o = 0; o < nn.outN; o++) {
+        const wt = nn.w2[o * nn.hidN + h];
+        const a = Math.min(0.8, Math.abs(wt) * 0.55);
+        nnCtx.strokeStyle = wt > 0 ? `rgba(250,204,21,${a})` : `rgba(168,85,247,${a})`;
+        nnCtx.lineWidth = Math.min(2.0, Math.abs(wt));
+        nnCtx.beginPath(); nnCtx.moveTo(pos[1][h].x, pos[1][h].y); nnCtx.lineTo(pos[2][o].x, pos[2][o].y); nnCtx.stroke();
+      }
+    }
+    const acts = [nn.lastIn, nn.lastHid, nn.lastOut];
+    nnCtx.font = '600 9px "Space Grotesk", sans-serif'; nnCtx.textBaseline = 'middle';
+    for (let l = 0; l < 3; l++) {
+      for (let i = 0; i < layers[l]; i++) {
+        const v = Number.isFinite(acts[l][i]) ? acts[l][i] : 0;
+        const p = pos[l][i];
+        const r = l === 1 ? 3.2 : (l === 2 ? 5.2 : 4);
+        nnCtx.fillStyle = v > 0.12 ? '#f43f5e' : (v < -0.12 ? '#a855f7' : '#1f1636');
+        nnCtx.strokeStyle = Math.abs(v) > 0.2 ? '#fef08a' : '#f43f5e';
+        nnCtx.lineWidth = 1.1;
+        nnCtx.beginPath(); nnCtx.arc(p.x, p.y, r, 0, Math.PI * 2); nnCtx.fill(); nnCtx.stroke();
+        if (l === 0) { nnCtx.fillStyle = '#fda4af'; nnCtx.textAlign = 'right'; nnCtx.fillText(inLabels[i] || '', p.x - 7, p.y); }
+        else if (l === 2) { nnCtx.fillStyle = '#fef08a'; nnCtx.textAlign = 'left'; nnCtx.fillText(outLabels[i] || '', p.x + 8, p.y); }
+      }
+    }
+    nnCtx.restore();
+  }
+
+  function drawChart() {
+    const s = ensureSize(chartCanvas); if (s.w <= 0 || s.h <= 0) return;
+    chartCtx.save(); chartCtx.scale(s.dpr, s.dpr); chartCtx.clearRect(0, 0, s.w, s.h);
+    if (history.length < 2) { chartCtx.fillStyle = '#94a3b8'; chartCtx.font = '11px "Space Grotesk", sans-serif'; chartCtx.fillText('Training curve appears after Gen 2...', 12, s.h / 2); chartCtx.restore(); return; }
+    let minV = -100, maxV = 250;
+    for (const p of history) { minV = Math.min(minV, p.mean, p.best); maxV = Math.max(maxV, p.mean, p.best); }
+    const mX = i => 10 + (i / (history.length - 1)) * (s.w - 20), mY = v => s.h - 10 - ((v - minV) / Math.max(1, maxV - minV)) * (s.h - 20);
+    chartCtx.strokeStyle = '#f43f5e'; chartCtx.lineWidth = 2; chartCtx.beginPath();
+    history.forEach((p, i) => i === 0 ? chartCtx.moveTo(mX(i), mY(p.mean)) : chartCtx.lineTo(mX(i), mY(p.mean))); chartCtx.stroke();
+    chartCtx.strokeStyle = '#facc15'; chartCtx.beginPath();
+    history.forEach((p, i) => i === 0 ? chartCtx.moveTo(mX(i), mY(p.best)) : chartCtx.lineTo(mX(i), mY(p.best))); chartCtx.stroke();
+    document.getElementById('genAvgLbl').textContent = 'Avg: ' + Math.round(history[history.length - 1].mean);
+    chartCtx.restore();
+  }
+
+  // =========================================================
+  // 5. GARAGE DRAWING, AI BOT BUILDER & UI WIRING
+  // =========================================================
+  function getGMetrics() {
+    const { w, h, dpr } = ensureSize(gCanvas);
+    const cell = Math.min(52, Math.floor(Math.min((w - 72) / GW, (h - 56) / GH)));
+    return { w, h, dpr, cell, ox: (w - cell * GW) / 2 - 12, oy: (h - cell * GH) / 2 };
+  }
+
+  function drawGarage() {
+    const { w, h, dpr, cell, ox, oy } = getGMetrics(); if (w <= 0 || h <= 0) return;
+    gCtx.save(); gCtx.scale(dpr, dpr); gCtx.clearRect(0, 0, w, h);
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      const px = ox + x * cell, py = oy + y * cell, isC = x === CX && y === CY;
+      gCtx.fillStyle = isC ? 'rgba(244,63,94,0.16)' : 'rgba(255,255,255,0.03)';
+      gCtx.strokeStyle = isC ? '#f43f5e' : 'rgba(255,255,255,0.09)'; gCtx.lineWidth = isC ? 2 : 1;
+      gCtx.beginPath(); gCtx.roundRect(px + 2, py + 2, cell - 4, cell - 4, 8); gCtx.fill(); gCtx.stroke();
+      const id = grid[y][x];
+      if (id && PART_MAP[id]) {
+        const p = PART_MAP[id];
+        gCtx.fillStyle = p.color + '33'; gCtx.strokeStyle = p.color; gCtx.lineWidth = 2;
+        gCtx.beginPath(); gCtx.roundRect(px + 4, py + 4, cell - 8, cell - 8, 6); gCtx.fill(); gCtx.stroke();
+        gCtx.font = `${Math.floor(cell * 0.48)}px sans-serif`; gCtx.textAlign = 'center'; gCtx.textBaseline = 'middle';
+        gCtx.fillText(p.icon, px + cell / 2, py + cell / 2 + 1);
+      }
+    }
+    gCtx.fillStyle = 'rgba(244,63,94,0.85)'; gCtx.font = 'bold 11px "Space Grotesk", sans-serif'; gCtx.textAlign = 'left';
+    gCtx.fillText('FRONT ➔', ox + cell * GW + 8, oy + cell * GH * 0.5);
+    if (hoverCell) {
+      const hCells = [hoverCell];
+      const my = GH - 1 - hoverCell.y;
+      if (mirrorMode && !pickMode && my !== hoverCell.y) hCells.push({ x: hoverCell.x, y: my });
+      for (const hc of hCells) {
+        const px = ox + hc.x * cell, py = oy + hc.y * cell;
+        gCtx.save();
+        gCtx.strokeStyle = eraseMode ? '#a855f7' : (pickMode ? '#38bdf8' : '#f43f5e'); gCtx.lineWidth = 2.5;
+        gCtx.setLineDash([5, 3]);
+        gCtx.beginPath(); gCtx.roundRect(px + 3, py + 3, cell - 6, cell - 6, 7); gCtx.stroke();
+        gCtx.setLineDash([]);
+        if (!eraseMode && !pickMode && PART_MAP[selectedPart]) {
+          gCtx.globalAlpha = 0.65;
+          gCtx.font = `${Math.floor(cell * 0.48)}px sans-serif`; gCtx.textAlign = 'center'; gCtx.textBaseline = 'middle';
+          gCtx.fillText(PART_MAP[selectedPart].icon, px + cell / 2, py + cell / 2 + 1);
+        }
+        gCtx.restore();
+      }
+    }
+    gCtx.restore();
+  }
+
+  function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._id); t._id = setTimeout(() => t.classList.remove('show'), 2000); }
+
+  function updToolUI() {
+    const sp = PART_MAP[selectedPart];
+    document.getElementById('activeToolPill').textContent = eraseMode ? 'Tool: 🧹 Eraser' : (pickMode ? 'Tool: 🧪 Eyedropper' : `Selected: ${sp.icon} ${sp.name}`);
+    document.getElementById('btnErase').textContent = `🧹 Eraser: ${eraseMode ? 'ON' : 'OFF'}`;
+    document.getElementById('btnErase').classList.toggle('active', eraseMode);
+    document.getElementById('btnMirror').textContent = `🪞 Mirror: ${mirrorMode ? 'ON' : 'OFF'}`;
+    document.getElementById('btnMirror').classList.toggle('active', mirrorMode);
+    document.getElementById('btnPick').classList.toggle('active', pickMode);
+    document.querySelectorAll('.part-card').forEach(el => el.classList.toggle('selected', !eraseMode && !pickMode && el.dataset.id === selectedPart));
+  }
+
+  function renderPalette() {
+    const pal = document.getElementById('partsPalette'); pal.innerHTML = '';
+    const q = searchQ.trim().toLowerCase();
+    [...new Set(PARTS.map(p => p.cat))].forEach(cat => {
+      if (activeCat !== 'All' && activeCat !== cat) return;
+      const items = PARTS.filter(p => (simplicity !== 'simple' || q || SIMPLE_IDS.has(p.id)) && p.cat === cat && (!q || p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)));
+      if (!items.length) return;
+      const l = document.createElement('div'); l.className = 'cat-label'; l.innerHTML = `<span>${cat}</span><span>${items.length}</span>`; pal.appendChild(l);
+      const g = document.createElement('div'); g.className = 'parts-grid';
+      items.forEach(p => {
+        const c = document.createElement('div'); c.className = 'part-card' + (p.op ? ' op' : ''); c.dataset.id = p.id;
+        c.innerHTML = `<div class="top"><span>${p.icon}</span><span>${p.name}</span></div><div class="sub">${p.desc}</div>`;
+        c.onclick = () => { eraseMode = false; pickMode = false; selectedPart = p.id; updToolUI(); drawGarage(); };
+        g.appendChild(c);
+      });
+      pal.appendChild(g);
+    });
+    updToolUI();
+  }
+
+  function buildBotFromPrompt(raw) {
+    const p = raw.trim().toLowerCase(); if (!p) return;
+    const log = document.getElementById('aiChatLog');
+    const u = document.createElement('div'); u.className = 'ai-msg user'; u.textContent = raw.trim(); log.appendChild(u);
+    pushHist();
+    grid = Array.from({ length: GH }, () => Array(GW).fill(null));
+    const chosen = [], put = (x, y, id) => { if (PART_MAP[id]) { grid[y][x] = id; chosen.push(PART_MAP[id].icon + ' ' + PART_MAP[id].name); } };
+
+    put(CX, CY, /einstein|pro|op|champ/.test(p) ? 'einstein_ai' : 'neural_core');
+    const wpn = /thor|mjolnir|hammer/.test(p) ? 'mjolnir' : (/flip|wedge|tank/.test(p) ? 'titan_flipper' : (/laser|rail|sniper/.test(p) ? 'railgun' : (/flame|fire|pyro/.test(p) ? 'phoenix_flame' : (/cryo|freeze|ice/.test(p) ? 'cryo_nova' : (/tesla|electric|zap/.test(p) ? 'tesla_spire' : 'omega_saw')))));
+    put(CX + 2, CY, wpn); put(CX + 2, CY - 1, /laser|sniper|tesla/.test(p) ? 'tesla' : 'saw'); put(CX + 2, CY + 1, /laser|sniper|tesla/.test(p) ? 'tesla' : 'saw');
+    const arm = /aegis|shield|op/.test(p) ? 'aegis_field' : (/heavy|tank|titanium/.test(p) ? 'titanium' : 'bumper');
+    put(CX + 1, CY - 1, arm); put(CX + 1, CY + 1, arm); put(CX, CY - 1, arm); put(CX, CY + 1, arm);
+    const drv = /hover|ufo/.test(p) ? 'hover' : (/tread|tank|heavy/.test(p) ? 'tread' : (/nitro|fast|ram/.test(p) ? 'nitro' : 'wheel'));
+    put(CX - 1, CY - 1, drv); put(CX - 1, CY + 1, drv); put(CX - 1, CY, /nitro|fast|3/.test(p) ? 'nitro_v2' : 'nitro');
+    if (/kc|kansas|royal/.test(p)) { put(CX, CY - 2, 'kc_belt'); put(CX, CY + 2, 'kc_crown'); }
+    if (/disco|rainbow/.test(p)) put(CX + 1, CY, 'prism_disco');
+
+    if (typeof selPreset !== 'undefined') selPreset.value = '';
+    resetWinStats(true); updateSpecsUI(); drawGarage();
+    const b = document.createElement('div'); b.className = 'ai-msg bot';
+    b.innerHTML = `✨ Forged your bot with <strong>${[...new Set(chosen)].slice(0, 6).join(', ')}</strong>.<br><button class="preset-chip" style="margin-top:5px;border-color:#f43f5e;" onclick="document.getElementById('btnGoArena').click()">⚔️ Brawl Now</button>`;
+    log.appendChild(b); log.scrollTop = log.scrollHeight;
+    showToast('🤖 AI forged your custom BattleBot!');
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        grid, generation, totalKOs, redWins, blueWins, winStreak,
+        eliteBest: Number.isFinite(eliteBest) ? eliteBest : null,
+        w1: Array.from(masterNN.w1), b1: Array.from(masterNN.b1),
+        w2: Array.from(masterNN.w2), b2: Array.from(masterNN.b2),
+        history
+      }));
+    } catch (_) {}
+  }
+
+  function loadState() {
+    try {
+      const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (d && Array.isArray(d.grid) && d.grid.length === GH && d.grid.every(r => Array.isArray(r) && r.length === GW)) {
+        grid = d.grid.map(r => r.map(id => PART_MAP[id] ? id : null));
+        generation = (typeof d.generation === 'number' && Number.isFinite(d.generation) && d.generation >= 1) ? d.generation : 1;
+        totalKOs = Number.isFinite(d.totalKOs) ? d.totalKOs : 0;
+        redWins = Number.isFinite(d.redWins) ? d.redWins : 0;
+        blueWins = Number.isFinite(d.blueWins) ? d.blueWins : 0;
+        winStreak = Number.isFinite(d.winStreak) ? d.winStreak : 0;
+        if (typeof d.eliteBest === 'number' && Number.isFinite(d.eliteBest)) eliteBest = d.eliteBest;
+        const ok = a => Array.isArray(a) && a.every(v => typeof v === 'number' && Number.isFinite(v));
+        if (ok(d.w1) && d.w1.length === masterNN.w1.length && ok(d.b1) && d.b1.length === masterNN.b1.length && ok(d.w2) && d.w2.length === masterNN.w2.length && ok(d.b2) && d.b2.length === masterNN.b2.length) {
+          masterNN.w1.set(d.w1); masterNN.b1.set(d.b1); masterNN.w2.set(d.w2); masterNN.b2.set(d.b2);
+          eliteNN.copyFrom(masterNN);
+        }
+        if (Array.isArray(d.history)) history = d.history.filter(p => p && Number.isFinite(p.best) && Number.isFinite(p.mean));
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // UI Wiring — Presets Dropdown & Bot Save System
+  const SAVED_BOTS_KEY = 'botbrawl_saved_bots_v1';
+  const selPreset = document.getElementById('selPreset');
+  const presetPlaceholder = document.createElement('option');
+  presetPlaceholder.value = ''; presetPlaceholder.textContent = '-- Select a BattleBot Preset --';
+  selPreset.appendChild(presetPlaceholder);
+  BLUEPRINTS.forEach((bp, idx) => {
+    const opt = document.createElement('option');
+    opt.value = String(idx); opt.textContent = bp.name;
+    selPreset.appendChild(opt);
+  });
+  selPreset.onchange = () => {
+    const idx = parseInt(selPreset.value, 10);
+    if (!Number.isNaN(idx) && BLUEPRINTS[idx]) {
+      loadBP(BLUEPRINTS[idx], true);
+      showToast(`Loaded ${BLUEPRINTS[idx].name} (wins reset)`);
+    }
+  };
+
+  function getSavedBots() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(SAVED_BOTS_KEY) || '[]');
+      return Array.isArray(arr) ? arr.filter(b => b && typeof b.name === 'string' && Array.isArray(b.grid) && b.grid.length === GH) : [];
+    } catch (_) { return []; }
+  }
+  function setSavedBots(arr) {
+    try { localStorage.setItem(SAVED_BOTS_KEY, JSON.stringify(arr)); } catch (_) {}
+  }
+  function renderSavedBotsDropdown(selectId = null) {
+    const list = getSavedBots();
+    const sel = document.getElementById('selSavedBots');
+    const cnt = document.getElementById('savedBotCount');
+    if (cnt) cnt.textContent = `${list.length} saved`;
+    sel.innerHTML = '';
+    if (!list.length) {
+      const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No saved bots yet...';
+      sel.appendChild(opt);
+      document.getElementById('btnLoadSaved').disabled = true;
+      document.getElementById('btnDeleteSaved').disabled = true;
+      return;
+    }
+    list.forEach(bot => {
+      const opt = document.createElement('option');
+      opt.value = bot.id;
+      opt.textContent = `${bot.name} (⚡${bot.power || 0})`;
+      sel.appendChild(opt);
+    });
+    if (selectId && list.some(b => b.id === selectId)) sel.value = selectId;
+    document.getElementById('btnLoadSaved').disabled = false;
+    document.getElementById('btnDeleteSaved').disabled = false;
+  }
+  document.getElementById('btnSaveBot').onclick = () => {
+    const inp = document.getElementById('saveBotName');
+    const list = getSavedBots();
+    const name = (inp.value || '').trim() || `Custom Bot #${list.length + 1}`;
+    if (!redSpec) updateSpecsUI();
+    const existingIdx = list.findIndex(b => b.name.toLowerCase() === name.toLowerCase());
+    const entry = {
+      id: existingIdx >= 0 ? list[existingIdx].id : ('bot_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
+      name,
+      power: redSpec.powerRating,
+      savedAt: Date.now(),
+      grid: cloneGrid(grid),
+      generation,
+      w1: Array.from(masterNN.w1), b1: Array.from(masterNN.b1),
+      w2: Array.from(masterNN.w2), b2: Array.from(masterNN.b2)
+    };
+    if (existingIdx >= 0) list[existingIdx] = entry;
+    else list.unshift(entry);
+    setSavedBots(list);
+    inp.value = '';
+    renderSavedBotsDropdown(entry.id);
+    showToast(`💾 Saved "${name}"!`);
+  };
+  document.getElementById('saveBotName').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnSaveBot').click(); }
+  });
+  document.getElementById('btnLoadSaved').onclick = () => {
+    const id = document.getElementById('selSavedBots').value;
+    const bot = getSavedBots().find(b => b.id === id);
+    if (!bot) return showToast('Select a saved bot first!');
+    pushHist();
+    grid = bot.grid.map(r => Array.isArray(r) ? r.slice(0, GW).map(pid => PART_MAP[pid] ? pid : null) : Array(GW).fill(null));
+    const okArr = (a, n) => Array.isArray(a) && a.length === n && a.every(v => typeof v === 'number' && Number.isFinite(v));
+    if (okArr(bot.w1, masterNN.w1.length) && okArr(bot.b1, masterNN.b1.length) && okArr(bot.w2, masterNN.w2.length) && okArr(bot.b2, masterNN.b2.length)) {
+      masterNN.w1.set(bot.w1); masterNN.b1.set(bot.b1); masterNN.w2.set(bot.w2); masterNN.b2.set(bot.b2);
+      eliteNN.copyFrom(masterNN);
+    }
+    selPreset.value = '';
+    resetWinStats(true);
+    updateSpecsUI(); drawGarage();
+    showToast(`📂 Loaded "${bot.name}" (wins reset)`);
+  };
+  document.getElementById('btnDeleteSaved').onclick = () => {
+    const id = document.getElementById('selSavedBots').value;
+    const list = getSavedBots();
+    const idx = list.findIndex(b => b.id === id);
+    if (idx < 0) return;
+    const removed = list.splice(idx, 1)[0];
+    setSavedBots(list);
+    renderSavedBotsDropdown();
+    showToast(`🗑️ Deleted "${removed.name}"`);
+  };
+  renderSavedBotsDropdown();
+  const catRow = document.getElementById('catFilters');
+  ['All', ...new Set(PARTS.map(p => p.cat))].forEach(cat => {
+    const b = document.createElement('button'); b.className = 'preset-chip' + (cat === 'All' ? ' active' : '');
+    b.textContent = cat === 'All' ? `All (${PARTS.length})` : cat.split(' ')[0];
+    b.onclick = () => { activeCat = cat; catRow.querySelectorAll('.preset-chip').forEach(el => el.classList.toggle('active', el === b)); renderPalette(); };
+    catRow.appendChild(b);
+  });
+  document.querySelectorAll('.simp-btn').forEach(b => b.onclick = () => {
+    simplicity = b.dataset.simp; document.body.dataset.simplicity = simplicity;
+    document.querySelectorAll('.simp-btn').forEach(x => x.classList.toggle('active', x === b));
+    renderPalette(); drawGarage();
+  });
+  document.getElementById('partSearch').oninput = e => { searchQ = e.target.value; renderPalette(); };
+  document.getElementById('btnClearSearch').onclick = () => { searchQ = ''; document.getElementById('partSearch').value = ''; renderPalette(); };
+
+  const aiInp = document.getElementById('aiPromptInput');
+  document.getElementById('btnAiBuild').onclick = () => { buildBotFromPrompt(aiInp.value); aiInp.value = ''; };
+  aiInp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnAiBuild').click(); } });
+  document.querySelectorAll('#aiQuickPrompts .preset-chip').forEach(ch => ch.onclick = () => buildBotFromPrompt(ch.dataset.prompt));
+
+  let dragging = false, dragErase = false, dragPushed = false;
+  function cellAt(e) {
+    const r = gCanvas.getBoundingClientRect(), { cell, ox, oy } = getGMetrics();
+    const x = Math.floor((e.clientX - r.left - ox) / cell), y = Math.floor((e.clientY - r.top - oy) / cell);
+    return (x >= 0 && x < GW && y >= 0 && y < GH) ? { x, y } : null;
+  }
+  function paint(c, isE) {
+    if (!c) return;
+    if (pickMode && !isE) { const id = grid[c.y][c.x]; if (id && PART_MAP[id]) { selectedPart = id; pickMode = false; updToolUI(); drawGarage(); } return; }
+    const val = isE ? null : selectedPart, my = GH - 1 - c.y;
+    if (grid[c.y][c.x] !== val || (mirrorMode && grid[my][c.x] !== val)) {
+      if (!dragPushed) { pushHist(); dragPushed = true; }
+      grid[c.y][c.x] = val; if (mirrorMode) grid[my][c.x] = val;
+      updateSpecsUI(); drawGarage();
+    }
+  }
+  gCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  gCanvas.addEventListener('mousedown', e => { dragging = true; dragErase = e.button === 2 || eraseMode; dragPushed = false; paint(cellAt(e), dragErase); });
+  gCanvas.addEventListener('mousemove', e => { hoverCell = cellAt(e); if (dragging && !pickMode) paint(hoverCell, dragErase); drawGarage(); });
+  window.addEventListener('mouseup', () => dragging = false);
+  gCanvas.addEventListener('mouseleave', () => { hoverCell = null; drawGarage(); });
+
+  aCanvas.addEventListener('click', e => {
+    const r = aCanvas.getBoundingClientRect(), wx = e.clientX - r.left, wy = e.clientY - r.top;
+    if (shockwaves.length < 12) shockwaves.push({ x: wx, y: wy, r: 10, life: 1.0 });
+    playSFX('hit');
+    const allBots = mode === 'royale' ? royaleBots : duels.flatMap(d => [d.red, d.blue]);
+    allBots.forEach(b => {
+      const dx = b.x - wx, dy = b.y - wy, dist = Math.max(25, Math.hypot(dx, dy));
+      if (dist < 220) { const f = (1 - dist / 220) * 300; b.vx += (dx / dist) * f; b.vy += (dy / dist) * f; }
+    });
+  });
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${tab}`));
+    if (tab === 'arena') { updateSpecsUI(); requestAnimationFrame(() => { startArena(); drawArena(); }); }
+    else requestAnimationFrame(drawGarage);
+  }
+  document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+  document.getElementById('btnTopArena').onclick = () => switchTab('arena');
+  document.getElementById('btnGoArena').onclick = () => switchTab('arena');
+  document.getElementById('btnUndo').onclick = () => { if (!undoStack.length) return; redoStack.push(cloneGrid(grid)); grid = undoStack.pop(); updHist(); updateSpecsUI(); drawGarage(); };
+  document.getElementById('btnRedo').onclick = () => { if (!redoStack.length) return; undoStack.push(cloneGrid(grid)); grid = redoStack.pop(); updHist(); updateSpecsUI(); drawGarage(); };
+  document.getElementById('btnPick').onclick = () => { pickMode = !pickMode; if (pickMode) eraseMode = false; updToolUI(); };
+  document.getElementById('btnMirror').onclick = () => { mirrorMode = !mirrorMode; updToolUI(); };
+  document.getElementById('btnErase').onclick = () => { eraseMode = !eraseMode; if (eraseMode) pickMode = false; updToolUI(); };
+  function shiftGrid(dx, dy) {
+    pushHist();
+    const nx = Array.from({ length: GH }, () => Array(GW).fill(null));
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (grid[y][x] && x + dx >= 0 && x + dx < GW && y + dy >= 0 && y + dy < GH) nx[y + dy][x + dx] = grid[y][x];
+    grid = nx; updateSpecsUI(); drawGarage();
+  }
+  document.getElementById('btnFlip').onclick = () => { pushHist(); grid = grid.slice().reverse(); updateSpecsUI(); drawGarage(); showToast('↕️ Flipped BattleBot!'); };
+  document.getElementById('btnSym').onclick = () => { pushHist(); for (let y = 0; y < CY; y++) for (let x = 0; x < GW; x++) { const ry = GH - 1 - y; if (grid[y][x] && !grid[ry][x]) grid[ry][x] = grid[y][x]; else if (grid[ry][x] && !grid[y][x]) grid[y][x] = grid[ry][x]; } updateSpecsUI(); drawGarage(); showToast('⚖️ Symmetrized BattleBot!'); };
+  document.getElementById('btnNudgeL').onclick = () => shiftGrid(-1, 0);
+  document.getElementById('btnNudgeR').onclick = () => shiftGrid(1, 0);
+  document.getElementById('btnNudgeU').onclick = () => shiftGrid(0, -1);
+  document.getElementById('btnNudgeD').onclick = () => shiftGrid(0, 1);
+  document.getElementById('btnRandom').onclick = () => { const rIdx = Math.floor(Math.random() * BLUEPRINTS.length); selPreset.value = String(rIdx); loadBP(BLUEPRINTS[rIdx], true); showToast('🎲 Loaded random BattleBot (wins reset)!'); };
+  document.getElementById('btnClear').onclick = () => { pushHist(); grid = Array.from({ length: GH }, () => Array(GW).fill(null)); grid[CY][CX] = 'neural_core'; selPreset.value = ''; resetWinStats(true); updateSpecsUI(); drawGarage(); showToast('🧹 Cleared bot & reset wins'); };
+  document.getElementById('btnSound').onclick = () => { soundOn = !soundOn; const b = document.getElementById('btnSound'); b.textContent = `🔊 SFX: ${soundOn ? 'ON' : 'OFF'}`; b.classList.toggle('active', soundOn); };
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btnModeML').classList.toggle('active', m === 'ml');
+    document.getElementById('btnMode1v1').classList.toggle('active', m === '1v1');
+    document.getElementById('btnModeManual').classList.toggle('active', m === 'manual');
+    document.getElementById('btnModeRoyale').classList.toggle('active', m === 'royale');
+    document.body.classList.toggle('manual-active', m === 'manual');
+    startArena();
+  }
+  document.getElementById('btnModeML').onclick = () => setMode('ml');
+  document.getElementById('btnMode1v1').onclick = () => setMode('1v1');
+  document.getElementById('btnModeManual').onclick = () => setMode('manual');
+  document.getElementById('btnModeRoyale').onclick = () => setMode('royale');
+  document.getElementById('btnPlayPause').onclick = () => { isPlaying = !isPlaying; document.getElementById('btnPlayPause').textContent = isPlaying ? '⏸ Pause' : '▶ Brawl'; };
+  document.getElementById('btnStepGen').onclick = () => mode === 'ml' ? evolveGeneration() : startArena();
+  document.getElementById('selArena').onchange = e => { arenaKey = e.target.value; startArena(); };
+  document.getElementById('selSpeed').onchange = e => simSpeed = parseFloat(e.target.value);
+  document.getElementById('selTimeLimit').onchange = e => { timeLimit = parseInt(e.target.value, 10); startArena(); };
+  document.getElementById('selPop').onchange = e => { popSize = parseInt(e.target.value, 10); startArena(); };
+  document.getElementById('selRoyaleBots').onchange = e => { royaleCount = parseInt(e.target.value, 10); if (mode === 'royale') startArena(); };
+  document.getElementById('btnGhosts').onclick = () => { showGhosts = !showGhosts; const b = document.getElementById('btnGhosts'); b.textContent = `👻 Ghosts: ${showGhosts ? 'ON' : 'OFF'}`; b.classList.toggle('active', showGhosts); };
+  document.getElementById('btnRewPlus').onclick = () => {
+    if (mode === 'royale') { if (royaleBots[0] && !royaleBots[0].done) { royaleBots[0].reward += 50; popups.push({ x: royaleBots[0].x, y: royaleBots[0].y - 26, text: '👍 +50 REWARD', col: '#34d399', life: 1.1 }); } }
+    else { duels.forEach(d => { if (!d.red.done) d.red.reward += 50; }); if (duels[0]) popups.push({ x: duels[0].red.x, y: duels[0].red.y - 26, text: '👍 +50 REWARD', col: '#34d399', life: 1.1 }); }
+  };
+  document.getElementById('btnRewMinus').onclick = () => {
+    if (mode === 'royale') { if (royaleBots[0] && !royaleBots[0].done) { royaleBots[0].reward -= 50; popups.push({ x: royaleBots[0].x, y: royaleBots[0].y - 26, text: '👎 -50 PUNISH', col: '#f43f5e', life: 1.1 }); } }
+    else { duels.forEach(d => { if (!d.red.done) d.red.reward -= 50; }); if (duels[0]) popups.push({ x: duels[0].red.x, y: duels[0].red.y - 26, text: '👎 -50 PUNISH', col: '#f43f5e', life: 1.1 }); }
+  };
+  document.getElementById('btnShock').onclick = () => {
+    shockwaves.push({ x: ACX, y: ACY, r: 12, life: 1.0 }); playSFX('ko'); shake = 7;
+    const allBots = mode === 'royale' ? royaleBots : duels.flatMap(d => [d.red, d.blue]);
+    allBots.forEach(b => { const dx = b.x - ACX, dy = b.y - ACY, dist = Math.hypot(dx, dy) || 1; b.vx += (dx / dist) * 280; b.vy += (dy / dist) * 280; });
+    showToast('💥 Arena shockwave!');
+  };
+  document.getElementById('btnLoadElite').onclick = () => { if (eliteBest === -Infinity) return showToast('Train at least 1 gen first!'); masterNN.copyFrom(eliteNN); startArena(); showToast('🏆 Loaded Elite Combat Brain!'); };
+  document.getElementById('btnResetWins').onclick = () => { resetWinStats(true); showToast('🔄 Win & KO counters reset!'); };
+  document.getElementById('btnResetBrain').onclick = () => { masterNN.randomize(); eliteNN.copyFrom(masterNN); adam = new AdamOpt(masterNN); eliteBest = -Infinity; generation = 1; history = []; resetWinStats(true); startArena(); showToast('🌱 Brain & wins reset!'); };
+  document.getElementById('rngLR').oninput = e => { learningRate = +e.target.value; document.getElementById('valLR').textContent = learningRate.toFixed(2); };
+  document.getElementById('rngSigma').oninput = e => { sigma = +e.target.value; document.getElementById('valSigma').textContent = sigma.toFixed(2); };
+
+  document.getElementById('btnExport').onclick = () => {
+    const blob = new Blob([JSON.stringify({ grid, generation, w1: Array.from(masterNN.w1), b1: Array.from(masterNN.b1), w2: Array.from(masterNN.w2), b2: Array.from(masterNN.b2) })], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `botbrawl-gen${generation}.json`; a.click();
+    URL.revokeObjectURL(url); showToast('💾 Exported Bot & Brain JSON!');
+  };
+  document.getElementById('btnImport').onclick = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
+    inp.onchange = async () => { try { const d = JSON.parse(await inp.files[0].text()); if (Array.isArray(d.grid) && d.grid.length === GH) { grid = d.grid.map(r => Array.isArray(r) ? r.slice(0, GW).map(id => PART_MAP[id] ? id : null) : Array(GW).fill(null)); const okArr = (a, n) => Array.isArray(a) && a.length === n && a.every(v => typeof v === 'number' && Number.isFinite(v)); if (okArr(d.w1, masterNN.w1.length) && okArr(d.b1, masterNN.b1.length) && okArr(d.w2, masterNN.w2.length) && okArr(d.b2, masterNN.b2.length)) { masterNN.w1.set(d.w1); masterNN.b1.set(d.b1); masterNN.w2.set(d.w2); masterNN.b2.set(d.b2); eliteNN.copyFrom(masterNN); } selPreset.value = ''; resetWinStats(true); updateSpecsUI(); drawGarage(); startArena(); showToast('📂 Imported Bot & Brain (wins reset)!'); } } catch { showToast('Invalid JSON'); } };
+    inp.click();
+  };
+
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
+    if (document.getElementById('view-garage').classList.contains('active')) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); document.getElementById('btnUndo').click(); return; }
+      if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); document.getElementById('btnRedo').click(); return; }
+      if (e.key.toLowerCase() === 'i') { document.getElementById('btnPick').click(); return; }
+    }
+    if (document.getElementById('view-arena').classList.contains('active')) {
+      if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+      if (e.key.toLowerCase() === 'r') startArena();
+      else if (e.key.toLowerCase() === 'g') document.getElementById('btnGhosts').click();
+      else if (e.key.toLowerCase() === 'e') document.getElementById('btnShock').click();
+    }
+  });
+  window.addEventListener('keyup', e => keys[e.code] = false);
+  window.addEventListener('blur', () => { keys = {}; });
+
+  // === PHONE OPTIMIZED MODE + TOUCH CONTROLS ===
+  let mobileOverride = null;
+  function detectPhone() {
+    return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+  function applyMobileMode() {
+    const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+    document.body.classList.toggle('mobile-mode', isMob);
+    document.body.classList.toggle('manual-active', mode === 'manual');
+    const btn = document.getElementById('btnMobileToggle');
+    if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+    requestAnimationFrame(() => {
+      drawGarage();
+      if (document.getElementById('view-arena').classList.contains('active')) drawArena();
+    });
+  }
+  document.getElementById('btnMobileToggle').onclick = () => {
+    mobileOverride = !document.body.classList.contains('mobile-mode');
+    applyMobileMode();
+    showToast(mobileOverride ? '📱 Phone Optimized Mode ON' : '💻 Desktop Mode ON');
+  };
+  window.addEventListener('resize', applyMobileMode);
+
+  gCanvas.addEventListener('touchstart', e => {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    dragging = true; dragErase = eraseMode; dragPushed = false;
+    hoverCell = cellAt(e.touches[0]); paint(hoverCell, dragErase);
+  }, { passive: false });
+  gCanvas.addEventListener('touchmove', e => {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    hoverCell = cellAt(e.touches[0]);
+    if (dragging && !pickMode) paint(hoverCell, dragErase);
+    drawGarage();
+  }, { passive: false });
+  gCanvas.addEventListener('touchend', () => { dragging = false; hoverCell = null; drawGarage(); });
+
+  function bindTouchKey(id, code) {
+    const el = document.getElementById(id); if (!el) return;
+    const on = e => { e.preventDefault(); keys[code] = true; el.classList.add('pressed'); };
+    const off = e => { e.preventDefault(); keys[code] = false; el.classList.remove('pressed'); };
+    el.addEventListener('touchstart', on, { passive: false });
+    el.addEventListener('touchend', off, { passive: false });
+    el.addEventListener('touchcancel', off, { passive: false });
+    el.addEventListener('mousedown', on);
+    el.addEventListener('mouseup', off);
+    el.addEventListener('mouseleave', off);
+  }
+  bindTouchKey('tbUp', 'ArrowUp');
+  bindTouchKey('tbDown', 'ArrowDown');
+  bindTouchKey('tbLeft', 'ArrowLeft');
+  bindTouchKey('tbRight', 'ArrowRight');
+  bindTouchKey('tbDash', 'Space');
+  bindTouchKey('tbFire', 'KeyF');
+
+  if (!loadState()) loadBP(BLUEPRINTS[0]);
+  else updateSpecsUI();
+  renderPalette();
+  applyMobileMode();
+  drawGarage();
+  startArena();
+
+  function loop() {
+    requestAnimationFrame(loop);
+    if (!document.getElementById('view-arena').classList.contains('active')) return;
+    try {
+      if (isPlaying) {
+        const steps = Math.min(1000, Math.max(1, Math.round(simSpeed)));
+        const dt = (1 / 60) * (simSpeed < 1 ? simSpeed : 1);
+        const t0 = performance.now();
+        for (let s = 0; s < steps; s++) {
+          stepArena(dt);
+          if (s > 2 && performance.now() - t0 > 14) break;
+        }
+      }
+      drawArena();
+    } catch (err) {
+      console.error('BotBrawl frame error:', err);
+    }
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
