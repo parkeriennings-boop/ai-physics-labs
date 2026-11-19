@@ -441,8 +441,13 @@
     display: block;
   }
   .slider-row { display: flex; flex-direction: column; gap: 3px; font-size: 11px; margin-top: 5px; }
-  .slider-row .top { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; }
+  .slider-row .top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-weight: 600; gap: 6px; }
   .slider-row input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .mini-num { width: 68px; padding: 3px 6px; border-radius: 7px; border: 1px solid var(--border); background: rgba(0,0,0,0.38); color: var(--text); font-size: 11px; font-weight: 700; text-align: right; outline: none; }
+  .mini-num:focus { border-color: var(--accent); }
+  .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .ctrl-cell { display: flex; flex-direction: column; gap: 3px; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .ctrl-cell select { width: 100%; font-size: 11px; padding: 4px 6px; }
   .legend-row { display: flex; gap: 10px; font-size: 11px; color: var(--muted); margin-top: 5px; flex-wrap: wrap; }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 
@@ -598,7 +603,7 @@
       </div>
       <div class="stat-box pro-only" style="font-size:11.5px;color:var(--muted);line-height:1.45;">
         <strong style="color:var(--text);">Shortcuts:</strong><br>
-        <code>Cmd/Ctrl+Z</code> Undo • <code>Y</code> Redo • <code>I</code> Pick (Lab) • <code>Space</code> Play/Pause • <code>N</code> Next Gen • <code>T</code> Shield • <code>R</code> Reward • <code>P</code> Punish • <code>S</code> Shove • <code>G</code> Ghosts
+        <code>Cmd/Ctrl+Z</code> Undo • <code>Y</code> Redo • <code>I</code> Pick (Lab) • <code>Space</code> Play/Pause • <code>.</code> +1 Frame • <code>[</code>/<code>]</code> Speed • <code>N</code> Next Gen • <code>T</code> Shield • <code>R</code> Reward • <code>P</code> Punish • <code>S</code> Shove • <code>G</code> Ghosts
       </div>
     </aside>
   </section>
@@ -609,32 +614,57 @@
       <div class="arena-topbar">
         <div class="arena-group">
           <button class="btn primary" id="btnPlayPause">⏸ Pause</button>
+          <button class="btn" id="btnStepFrame" title="Step +1 Physics Frame (Key: .)">⏭ 1f</button>
           <button class="btn" id="btnStepGen">⏭ Next Gen</button>
           <select id="selSpeed" title="Simulation Speed">
+            <option value="0.01">0.01x Frame-Crawl</option>
+            <option value="0.025">0.025x Matrix</option>
             <option value="0.05">0.05x Bullet-Time</option>
             <option value="0.1">0.1x Ultra-Slow</option>
+            <option value="0.15">0.15x</option>
             <option value="0.25">0.25x Slow-Mo</option>
-            <option value="0.5">0.5x</option>
+            <option value="0.33">0.33x</option>
+            <option value="0.5">0.5x Half-Speed</option>
             <option value="0.75">0.75x</option>
             <option value="1" selected>1x Real-Time</option>
+            <option value="1.25">1.25x</option>
             <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
-            <option value="3">3x</option>
-            <option value="5">5x Fast</option>
+            <option value="2">2x Fast</option>
+            <option value="3">3x Brisk</option>
+            <option value="4">4x</option>
+            <option value="5">5x Quick</option>
+            <option value="8">8x</option>
             <option value="10">10x Turbo</option>
+            <option value="15">15x</option>
             <option value="20">20x Hyper</option>
             <option value="35">35x Warp</option>
             <option value="50">50x Ultra ML</option>
+            <option value="75">75x</option>
             <option value="100">100x Ludicrous ML</option>
             <option value="150">150x Plaid ML</option>
             <option value="200">200x Cosmic ML</option>
+            <option value="300">300x Quantum ML</option>
+            <option value="500">500x Supernova ML</option>
+            <option value="1000">1000x Max ML</option>
           </select>
           <select id="selDuration" title="Episode Time Limit">
+            <option value="3">⏱ 3s Micro-Burst</option>
+            <option value="5">⏱ 5s Flash</option>
             <option value="8">⏱ 8s Sprint</option>
+            <option value="10">⏱ 10s Quick</option>
+            <option value="12">⏱ 12s Dash</option>
             <option value="14" selected>⏱ 14s Standard</option>
+            <option value="18">⏱ 18s</option>
             <option value="20">⏱ 20s Endurance</option>
+            <option value="25">⏱ 25s Extended</option>
             <option value="30">⏱ 30s Marathon</option>
-            <option value="60">⏱ 60s Ultra</option>
+            <option value="45">⏱ 45s Long-Run</option>
+            <option value="60">⏱ 60s 1-Min Ultra</option>
+            <option value="90">⏱ 90s</option>
+            <option value="120">⏱ 120s 2-Min Epic</option>
+            <option value="180">⏱ 180s 3-Min Ironman</option>
+            <option value="300">⏱ 300s 5-Min Odyssey</option>
+            <option value="600">⏱ 600s 10-Min Extreme</option>
             <option value="99999">∞ Endless Free-Run</option>
           </select>
           <select id="selArena">
@@ -651,14 +681,30 @@
             <option value="jupiter">🪐 11. Jupiter Heavy-G</option>
             <option value="trampoline">🎪 12. Trampoline Park</option>
           </select>
-          <select id="selPop">
-            <option value="12">12 Learners</option>
-            <option value="20" selected>20 Learners</option>
-            <option value="32">32 Learners</option>
-            <option value="48">48 Learners</option>
-            <option value="64">64 Learners</option>
-            <option value="96">96 Learners</option>
-            <option value="128">128 Learners</option>
+          <select id="selPop" title="Simultaneous Walkers">
+            <option value="1">1 Walker (Solo)</option>
+            <option value="2">2 Walkers (Duo)</option>
+            <option value="4">4 Walkers (Squad)</option>
+            <option value="6">6 Walkers</option>
+            <option value="8">8 Walkers</option>
+            <option value="10">10 Walkers</option>
+            <option value="12">12 Walkers</option>
+            <option value="16">16 Walkers</option>
+            <option value="20" selected>20 Walkers</option>
+            <option value="24">24 Walkers</option>
+            <option value="32">32 Walkers</option>
+            <option value="40">40 Walkers</option>
+            <option value="48">48 Walkers</option>
+            <option value="64">64 Walkers</option>
+            <option value="80">80 Walkers</option>
+            <option value="96">96 Walkers</option>
+            <option value="128">128 Walkers (Swarm)</option>
+            <option value="160">160 Walkers (Mega)</option>
+            <option value="200">200 Walkers (Crowd)</option>
+            <option value="256">256 Walkers (Legion)</option>
+            <option value="384">384 Walkers (Horde)</option>
+            <option value="512">512 Walkers (Chaos)</option>
+            <option value="1000">1000 Walkers (Apocalypse)</option>
           </select>
           <button class="btn" id="btnToggleGhosts">👻 Ghosts: ON</button>
         </div>
@@ -734,6 +780,112 @@
         <div class="stat-row"><span>🎯 Task / Stride Bonus</span><span id="brkTask" style="color:var(--purple);">+0.0</span></div>
         <div class="stat-row"><span>💥 Fall Punishment</span><span id="brkFall" style="color:var(--red);">0.0</span></div>
         <div class="stat-row"><span>⚡ Energy Penalty</span><span id="brkEnergy" style="color:var(--muted);">0.0</span></div>
+      </div>
+
+      <div class="stat-box">
+        <div class="sidebar-title">
+          <span>⏱️ Time &amp; Swarm Settings</span>
+          <span id="swarmBadge" style="color:var(--accent);">20 @ 1x</span>
+        </div>
+        <div class="slider-row" style="margin-top:0;">
+          <div class="top">
+            <span>Walkers at Once (1–1000)</span>
+            <input type="number" class="mini-num" id="numPop" min="1" max="1000" value="20">
+          </div>
+          <input type="range" id="rngPop" min="1" max="512" step="1" value="20">
+          <div class="preset-row" id="popQuickChips" style="margin-top:3px;">
+            <button class="preset-chip" data-pop="1">1</button>
+            <button class="preset-chip" data-pop="20">20</button>
+            <button class="preset-chip" data-pop="64">64</button>
+            <button class="preset-chip" data-pop="128">128</button>
+            <button class="preset-chip" data-pop="256">256</button>
+            <button class="preset-chip" data-pop="512">512</button>
+            <button class="preset-chip" data-pop="1000">1000</button>
+          </div>
+        </div>
+        <div class="slider-row">
+          <div class="top">
+            <span>Speed Multiplier (0.01x–1000x)</span>
+            <input type="number" class="mini-num" id="numSpeed" min="0.01" max="1000" step="0.05" value="1">
+          </div>
+          <div class="preset-row" id="speedQuickChips" style="margin-top:2px;">
+            <button class="preset-chip" data-spd="0.1">0.1x</button>
+            <button class="preset-chip" data-spd="0.5">0.5x</button>
+            <button class="preset-chip" data-spd="1">1x</button>
+            <button class="preset-chip" data-spd="10">10x</button>
+            <button class="preset-chip" data-spd="50">50x</button>
+            <button class="preset-chip" data-spd="200">200x</button>
+            <button class="preset-chip" data-spd="1000">1000x</button>
+          </div>
+        </div>
+        <div class="slider-row">
+          <div class="top">
+            <span>Episode Timer (sec)</span>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input type="number" class="mini-num" id="numDuration" min="1" max="3600" step="1" value="14">
+              <button class="preset-chip" id="btnEndlessToggle" title="Toggle Endless Free-Run">∞</button>
+            </div>
+          </div>
+        </div>
+        <div class="ctrl-grid">
+          <div class="ctrl-cell">
+            <span>Physics Tick Rate</span>
+            <select id="selTickRate" title="Physics Simulation Hz">
+              <option value="30">30 Hz (Fast Swarm)</option>
+              <option value="60" selected>60 Hz (Standard)</option>
+              <option value="90">90 Hz (Smooth)</option>
+              <option value="120">120 Hz (Precision)</option>
+            </select>
+          </div>
+          <div class="ctrl-cell">
+            <span>Fall Grace Delay</span>
+            <select id="selFallGrace" title="Wait time after falls before evolving">
+              <option value="0">0.0s (Instant)</option>
+              <option value="0.3">0.3s (Snappy)</option>
+              <option value="0.7" selected>0.7s (Standard)</option>
+              <option value="1.5">1.5s (Ragdoll)</option>
+              <option value="3.0">3.0s (Long)</option>
+              <option value="99999">∞ (Never Auto-End)</option>
+            </select>
+          </div>
+          <div class="ctrl-cell">
+            <span>Early-End Threshold</span>
+            <select id="selEarlyEnd" title="Evolve early when surviving % drops below threshold">
+              <option value="0" selected>0% Alive (All Fall)</option>
+              <option value="10">≤10% Alive</option>
+              <option value="25">≤25% Alive</option>
+              <option value="50">≤50% Alive</option>
+              <option value="-1">Timer Only</option>
+            </select>
+          </div>
+          <div class="ctrl-cell">
+            <span>Spawn Formation</span>
+            <select id="selSpawnSpread" title="Horizontal spread at spawn">
+              <option value="0" selected>Stacked (0px)</option>
+              <option value="40">Tight (40px)</option>
+              <option value="120">Staggered (120px)</option>
+              <option value="260">Wide Parade (260px)</option>
+              <option value="450">Chaos Spread (450px)</option>
+            </select>
+          </div>
+          <div class="ctrl-cell">
+            <span>Ghost Render Cap</span>
+            <select id="selGhostCap" title="Max background walkers drawn for FPS">
+              <option value="auto" selected>Auto (≤120)</option>
+              <option value="0">0 (Hero Only)</option>
+              <option value="10">10 Ghosts</option>
+              <option value="25">25 Ghosts</option>
+              <option value="50">50 Ghosts</option>
+              <option value="100">100 Ghosts</option>
+              <option value="250">250 Ghosts</option>
+              <option value="all">All Walkers</option>
+            </select>
+          </div>
+          <div class="ctrl-cell">
+            <span>Ghost Opacity (<span id="valGhostAlpha">24%</span>)</span>
+            <input type="range" id="rngGhostAlpha" min="0.05" max="0.80" step="0.05" value="0.24" style="margin-top:4px;">
+          </div>
+        </div>
       </div>
 
       <div class="stat-box pro-only">
@@ -1412,6 +1564,13 @@
   let simSpeed = 1;
   let popSize = 20;
   let showGhosts = true;
+  let ghostRenderCap = 'auto';
+  let ghostOpacity = 0.24;
+  let spawnSpread = 0;
+  let physicsHz = 60;
+  let fallGraceDelay = 0.7;
+  let earlyEndPct = 0;
+  let pendingStepFrames = 0;
   let camX = 0;
   let camY = 0;
   let camZoom = 1.0;
@@ -1599,14 +1758,15 @@
   }
 
   class WalkerAgent {
-    constructor(nn, isElite = false) {
+    constructor(nn, isElite = false, spawnOffsetX = 0) {
       this.nn = nn;
       this.isElite = isElite;
+      this.spawnOffsetX = spawnOffsetX;
       this.reset();
     }
 
     reset() {
-      const startX = 120;
+      const startX = Math.max(45, 120 + (this.spawnOffsetX || 0));
       const gY = groundYAt(startX);
       this.x = startX;
       this.y = gY - spec.maxReachBelowOrigin - 4;
@@ -2064,7 +2224,7 @@
         this.reward += prog;
         this.brk.walk += prog;
         this.maxX = this.x;
-        const distM = (this.maxX - 120) / 20;
+        const distM = (this.maxX - Math.max(45, 120 + (this.spawnOffsetX || 0))) / 20;
         if (distM > bestDistEver) bestDistEver = distM;
         if (this.isElite && spec.hasConfetti && this.x >= this.nextMilestone) {
           this.nextMilestone += 200;
@@ -2576,12 +2736,17 @@
     heroTrail = [];
     buildArenaObjects();
     agents = [];
-    agents.push(new WalkerAgent(masterNN.cloneWithNoiseVec(0, makeNoise(), 0), true));
+    const offsetFor = idx => {
+      if (spawnSpread <= 0 || idx === 0) return 0;
+      const frac = popSize > 1 ? (idx / Math.max(1, popSize - 1)) : 0;
+      return Math.round((frac - 0.15) * spawnSpread);
+    };
+    agents.push(new WalkerAgent(masterNN.cloneWithNoiseVec(0, makeNoise(), 0), true, 0));
     for (let i = 1; i < popSize; i += 2) {
       const noise = makeNoise();
-      agents.push(new WalkerAgent(masterNN.cloneWithNoiseVec(sigma, noise, 1), false));
+      agents.push(new WalkerAgent(masterNN.cloneWithNoiseVec(sigma, noise, 1), false, offsetFor(i)));
       if (i + 1 < popSize) {
-        agents.push(new WalkerAgent(masterNN.cloneWithNoiseVec(sigma, noise, -1), false));
+        agents.push(new WalkerAgent(masterNN.cloneWithNoiseVec(sigma, noise, -1), false, offsetFor(i + 1)));
       }
     }
   }
@@ -2603,37 +2768,39 @@
       eliteNN.copyFrom(agents[bestIdx].nn);
     }
 
-    const order = rewards.map((r, i) => ({ r, i })).sort((a, b) => a.r - b.r);
-    const shaped = new Float32Array(rewards.length);
-    for (let rank = 0; rank < order.length; rank++) {
-      shaped[order[rank].i] = (rank / Math.max(1, order.length - 1)) - 0.5;
-    }
+    if (agents.length > 1) {
+      const order = rewards.map((r, i) => ({ r, i })).sort((a, b) => a.r - b.r);
+      const shaped = new Float32Array(rewards.length);
+      for (let rank = 0; rank < order.length; rank++) {
+        shaped[order[rank].i] = (rank / Math.max(1, order.length - 1)) - 0.5;
+      }
 
-    const scale = 1 / (Math.max(1, agents.length) * Math.max(0.05, sigma));
-    const gw1 = new Float32Array(masterNN.w1.length);
-    const gb1 = new Float32Array(masterNN.b1.length);
-    const gw2 = new Float32Array(masterNN.w2.length);
-    const gb2 = new Float32Array(masterNN.b2.length);
+      const scale = 1 / (Math.max(1, agents.length) * Math.max(0.05, sigma));
+      const gw1 = new Float32Array(masterNN.w1.length);
+      const gb1 = new Float32Array(masterNN.b1.length);
+      const gw2 = new Float32Array(masterNN.w2.length);
+      const gb2 = new Float32Array(masterNN.b2.length);
 
-    for (let i = 1; i < agents.length; i++) {
-      const adv = shaped[i] * 2.0 * agents[i].nn.noiseSign;
-      const n = agents[i].nn.noise;
-      for (let k = 0; k < gw1.length; k++) gw1[k] += adv * n.n1[k] * scale;
-      for (let k = 0; k < gb1.length; k++) gb1[k] += adv * n.nb1[k] * scale;
-      for (let k = 0; k < gw2.length; k++) gw2[k] += adv * n.n2[k] * scale;
-      for (let k = 0; k < gb2.length; k++) gb2[k] += adv * n.nb2[k] * scale;
-    }
+      for (let i = 1; i < agents.length; i++) {
+        const adv = shaped[i] * 2.0 * agents[i].nn.noiseSign;
+        const n = agents[i].nn.noise;
+        for (let k = 0; k < gw1.length; k++) gw1[k] += adv * n.n1[k] * scale;
+        for (let k = 0; k < gb1.length; k++) gb1[k] += adv * n.nb1[k] * scale;
+        for (let k = 0; k < gw2.length; k++) gw2[k] += adv * n.n2[k] * scale;
+        for (let k = 0; k < gb2.length; k++) gb2[k] += adv * n.nb2[k] * scale;
+      }
 
-    const effLR = learningRate * Math.min(3.0, spec.lrBoost || 1.0);
-    adam.t++;
-    adam.stepParam(masterNN.w1, gw1, adam.mw1, adam.vw1, effLR);
-    adam.stepParam(masterNN.b1, gb1, adam.mb1, adam.vb1, effLR);
-    adam.stepParam(masterNN.w2, gw2, adam.mw2, adam.vw2, effLR);
-    adam.stepParam(masterNN.b2, gb2, adam.mb2, adam.vb2, effLR);
+      const effLR = learningRate * Math.min(3.0, spec.lrBoost || 1.0);
+      adam.t++;
+      adam.stepParam(masterNN.w1, gw1, adam.mw1, adam.vw1, effLR);
+      adam.stepParam(masterNN.b1, gb1, adam.mb1, adam.vb1, effLR);
+      adam.stepParam(masterNN.w2, gw2, adam.mw2, adam.vw2, effLR);
+      adam.stepParam(masterNN.b2, gb2, adam.mb2, adam.vb2, effLR);
 
-    if (bestRew < eliteBestReward - 45) {
-      for (let k = 0; k < masterNN.w1.length; k++) masterNN.w1[k] = masterNN.w1[k] * 0.75 + eliteNN.w1[k] * 0.25;
-      for (let k = 0; k < masterNN.w2.length; k++) masterNN.w2[k] = masterNN.w2[k] * 0.75 + eliteNN.w2[k] * 0.25;
+      if (bestRew < eliteBestReward - 45) {
+        for (let k = 0; k < masterNN.w1.length; k++) masterNN.w1[k] = masterNN.w1[k] * 0.75 + eliteNN.w1[k] * 0.25;
+        for (let k = 0; k < masterNN.w2.length; k++) masterNN.w2[k] = masterNN.w2[k] * 0.75 + eliteNN.w2[k] * 0.25;
+      }
     }
 
     history.push({ gen: generation, best: bestRew, mean, fallRate });
@@ -2655,7 +2822,11 @@
         b1: Array.from(masterNN.b1),
         w2: Array.from(masterNN.w2),
         b2: Array.from(masterNN.b2),
-        history
+        history,
+        simSettings: {
+          popSize, simSpeed, episodeDuration, ghostRenderCap, ghostOpacity,
+          spawnSpread, physicsHz, fallGraceDelay, earlyEndPct
+        }
       }));
     } catch (_) {}
   }
@@ -2684,6 +2855,18 @@
           eliteBestReward = (typeof d.eliteBestReward === 'number' && Number.isFinite(d.eliteBestReward)) ? d.eliteBestReward : -Infinity;
           bestDistEver = (typeof d.bestDistEver === 'number' && Number.isFinite(d.bestDistEver)) ? d.bestDistEver : 0;
           history = Array.isArray(d.history) ? d.history.filter(pt => pt && Number.isFinite(pt.best) && Number.isFinite(pt.mean)) : [];
+        }
+        if (d.simSettings && typeof d.simSettings === 'object') {
+          const s = d.simSettings;
+          if (Number.isFinite(s.popSize)) popSize = Math.max(1, Math.min(1000, Math.round(s.popSize)));
+          if (Number.isFinite(s.simSpeed)) simSpeed = Math.max(0.01, Math.min(1000, s.simSpeed));
+          if (Number.isFinite(s.episodeDuration)) episodeDuration = Math.max(1, s.episodeDuration);
+          if (s.ghostRenderCap !== undefined) ghostRenderCap = s.ghostRenderCap;
+          if (Number.isFinite(s.ghostOpacity)) ghostOpacity = Math.max(0.05, Math.min(0.8, s.ghostOpacity));
+          if (Number.isFinite(s.spawnSpread)) spawnSpread = Math.max(0, Math.min(450, s.spawnSpread));
+          if (Number.isFinite(s.physicsHz) && [30, 60, 90, 120].includes(s.physicsHz)) physicsHz = s.physicsHz;
+          if (Number.isFinite(s.fallGraceDelay)) fallGraceDelay = Math.max(0, s.fallGraceDelay);
+          if (Number.isFinite(s.earlyEndPct)) earlyEndPct = s.earlyEndPct;
         }
         return true;
       }
@@ -3299,10 +3482,19 @@
       ctx.stroke();
     }
 
-    if (showGhosts) {
-      const ghostAlpha = agents.length > 50 ? 0.14 : 0.24;
-      for (let i = 1; i < agents.length; i++) {
-        if (agents[i] !== focus) drawWalker(ctx, agents[i], camX, agents[i].fallen ? 0.06 : ghostAlpha, false);
+    if (showGhosts && ghostRenderCap !== '0') {
+      const cap = ghostRenderCap === 'all' ? agents.length : (ghostRenderCap === 'auto' ? 120 : parseInt(ghostRenderCap, 10) || 120);
+      const totalGhosts = Math.max(0, agents.length - 1);
+      const stride = totalGhosts > cap ? totalGhosts / cap : 1;
+      const baseAlpha = Math.max(0.05, Math.min(0.8, ghostOpacity * (agents.length > 120 ? 0.72 : 1)));
+      const fallenAlpha = Math.max(0.03, baseAlpha * 0.28);
+      let drawn = 0;
+      for (let idx = 1; idx < agents.length && drawn < cap; idx += stride) {
+        const a = agents[Math.floor(idx)];
+        if (a && a !== focus) {
+          drawWalker(ctx, a, camX, a.fallen ? fallenAlpha : baseAlpha, false);
+          drawn++;
+        }
       }
     }
     if (focus) {
@@ -3992,22 +4184,145 @@
       updateActiveToolUI(); drawLab();
     };
 
+    const syncSwarmTimeUI = () => {
+      const selP = document.getElementById('selPop');
+      const numP = document.getElementById('numPop');
+      const rngP = document.getElementById('rngPop');
+      if (numP) numP.value = popSize;
+      if (rngP) rngP.value = Math.min(512, popSize);
+      if (selP) {
+        const opt = Array.from(selP.options).find(o => parseInt(o.value, 10) === popSize);
+        if (opt) selP.value = opt.value;
+      }
+      document.querySelectorAll('#popQuickChips .preset-chip').forEach(c => c.classList.toggle('active', parseInt(c.dataset.pop, 10) === popSize));
+
+      const selS = document.getElementById('selSpeed');
+      const numS = document.getElementById('numSpeed');
+      if (numS) numS.value = simSpeed;
+      if (selS) {
+        const opt = Array.from(selS.options).find(o => Math.abs(parseFloat(o.value) - simSpeed) < 1e-6);
+        if (opt) selS.value = opt.value;
+      }
+      document.querySelectorAll('#speedQuickChips .preset-chip').forEach(c => c.classList.toggle('active', Math.abs(parseFloat(c.dataset.spd) - simSpeed) < 1e-6));
+
+      const selD = document.getElementById('selDuration');
+      const numD = document.getElementById('numDuration');
+      const btnEnd = document.getElementById('btnEndlessToggle');
+      const isEnd = episodeDuration >= 99999;
+      if (numD) { numD.disabled = isEnd; if (!isEnd) numD.value = episodeDuration; }
+      if (btnEnd) btnEnd.classList.toggle('active', isEnd);
+      if (selD) {
+        const opt = Array.from(selD.options).find(o => Math.abs(parseFloat(o.value) - episodeDuration) < 1e-6);
+        if (opt) selD.value = opt.value;
+      }
+
+      const selTR = document.getElementById('selTickRate'); if (selTR) selTR.value = String(physicsHz);
+      const selFG = document.getElementById('selFallGrace'); if (selFG) selFG.value = String(fallGraceDelay);
+      const selEE = document.getElementById('selEarlyEnd'); if (selEE) selEE.value = String(earlyEndPct);
+      const selSS = document.getElementById('selSpawnSpread'); if (selSS) selSS.value = String(spawnSpread);
+      const selGC = document.getElementById('selGhostCap'); if (selGC) selGC.value = String(ghostRenderCap);
+      const rngGA = document.getElementById('rngGhostAlpha'); if (rngGA) rngGA.value = String(ghostOpacity);
+      const valGA = document.getElementById('valGhostAlpha'); if (valGA) valGA.textContent = `${Math.round(ghostOpacity * 100)}%`;
+      const badge = document.getElementById('swarmBadge');
+      if (badge) badge.textContent = `${popSize} @ ${simSpeed}x • ${physicsHz}Hz`;
+    };
+    window._syncSwarmTimeUI = syncSwarmTimeUI;
+
+    const applyPopSize = (val, quiet = false) => {
+      const n = Math.max(1, Math.min(1000, Math.round(Number(val) || 20)));
+      popSize = n;
+      syncSwarmTimeUI();
+      saveState();
+      spawnGeneration();
+      if (!quiet) showToast(`🦖 Spawned ${popSize} simultaneous walker${popSize === 1 ? '' : 's'}!`);
+    };
+    const applySimSpeed = (val, quiet = false) => {
+      const s = Math.max(0.01, Math.min(1000, Number(val) || 1));
+      simSpeed = Math.round(s * 1000) / 1000;
+      syncSwarmTimeUI();
+      saveState();
+      if (!quiet) showToast(`⚡ Speed set to ${simSpeed}x`);
+    };
+    const applyEpisodeDuration = (val, quiet = false) => {
+      const d = Number(val);
+      episodeDuration = d >= 99999 ? 99999 : Math.max(1, Math.min(3600, Math.round(d || 14)));
+      syncSwarmTimeUI();
+      saveState();
+      if (!quiet) showToast(episodeDuration >= 99999 ? '∞ Endless Free-Run enabled!' : `⏱ Episode timer set to ${episodeDuration}s`);
+    };
+
     document.getElementById('btnPlayPause').onclick = () => {
       isPlaying = !isPlaying;
       document.getElementById('btnPlayPause').textContent = isPlaying ? '⏸ Pause' : '▶ Train';
     };
-    document.getElementById('btnStepGen').onclick = () => evolveGeneration();
-    document.getElementById('selSpeed').onchange = e => simSpeed = parseFloat(e.target.value);
-    document.getElementById('selDuration').onchange = e => {
-      episodeDuration = parseFloat(e.target.value);
-      showToast(episodeDuration >= 99999 ? '∞ Endless Free-Run enabled!' : `⏱ Episode set to ${episodeDuration}s`);
+    document.getElementById('btnStepFrame').onclick = () => {
+      if (isPlaying) {
+        isPlaying = false;
+        document.getElementById('btnPlayPause').textContent = '▶ Train';
+      }
+      pendingStepFrames++;
     };
+    document.getElementById('btnStepGen').onclick = () => evolveGeneration();
+    document.getElementById('selSpeed').onchange = e => applySimSpeed(parseFloat(e.target.value));
+    document.getElementById('selDuration').onchange = e => applyEpisodeDuration(parseFloat(e.target.value));
     document.getElementById('selArena').onchange = e => {
       arenaMode = e.target.value;
       particles = []; shockwaves = [];
       spawnGeneration();
     };
-    document.getElementById('selPop').onchange = e => { popSize = parseInt(e.target.value, 10); spawnGeneration(); };
+    document.getElementById('selPop').onchange = e => applyPopSize(parseInt(e.target.value, 10));
+
+    document.getElementById('rngPop').oninput = e => {
+      document.getElementById('numPop').value = e.target.value;
+      const badge = document.getElementById('swarmBadge');
+      if (badge) badge.textContent = `${e.target.value} @ ${simSpeed}x • ${physicsHz}Hz`;
+    };
+    document.getElementById('rngPop').onchange = e => applyPopSize(parseInt(e.target.value, 10));
+    document.getElementById('numPop').onchange = e => applyPopSize(parseInt(e.target.value, 10));
+    document.querySelectorAll('#popQuickChips .preset-chip').forEach(btn => {
+      btn.onclick = () => applyPopSize(parseInt(btn.dataset.pop, 10));
+    });
+
+    document.getElementById('numSpeed').onchange = e => applySimSpeed(parseFloat(e.target.value));
+    document.querySelectorAll('#speedQuickChips .preset-chip').forEach(btn => {
+      btn.onclick = () => applySimSpeed(parseFloat(btn.dataset.spd));
+    });
+
+    document.getElementById('numDuration').onchange = e => applyEpisodeDuration(parseFloat(e.target.value));
+    document.getElementById('btnEndlessToggle').onclick = () => {
+      applyEpisodeDuration(episodeDuration >= 99999 ? (parseFloat(document.getElementById('numDuration').value) || 14) : 99999);
+    };
+
+    document.getElementById('selTickRate').onchange = e => {
+      physicsHz = parseInt(e.target.value, 10) || 60;
+      syncSwarmTimeUI(); saveState();
+      showToast(`⚙️ Physics tick rate: ${physicsHz} Hz`);
+    };
+    document.getElementById('selFallGrace').onchange = e => {
+      fallGraceDelay = parseFloat(e.target.value);
+      syncSwarmTimeUI(); saveState();
+      showToast(fallGraceDelay >= 99999 ? 'Fall grace: ∞ Never auto-end' : `Fall grace delay: ${fallGraceDelay}s`);
+    };
+    document.getElementById('selEarlyEnd').onchange = e => {
+      earlyEndPct = parseInt(e.target.value, 10);
+      syncSwarmTimeUI(); saveState();
+      showToast(earlyEndPct < 0 ? 'Early-end: Timer only' : (earlyEndPct === 0 ? 'Early-end: When all walkers fall' : `Early-end: When ≤${earlyEndPct}% remain alive`));
+    };
+    document.getElementById('selSpawnSpread').onchange = e => {
+      spawnSpread = parseInt(e.target.value, 10) || 0;
+      syncSwarmTimeUI(); saveState(); spawnGeneration();
+      showToast(spawnSpread === 0 ? 'Spawn formation: Stacked' : `Spawn spread: ${spawnSpread}px`);
+    };
+    document.getElementById('selGhostCap').onchange = e => {
+      ghostRenderCap = e.target.value;
+      syncSwarmTimeUI(); saveState();
+      showToast(`Ghost render cap: ${ghostRenderCap}`);
+    };
+    document.getElementById('rngGhostAlpha').oninput = e => {
+      ghostOpacity = parseFloat(e.target.value);
+      document.getElementById('valGhostAlpha').textContent = `${Math.round(ghostOpacity * 100)}%`;
+    };
+    document.getElementById('rngGhostAlpha').onchange = () => saveState();
     document.getElementById('btnToggleGhosts').onclick = () => {
       showGhosts = !showGhosts;
       document.getElementById('btnToggleGhosts').textContent = `👻 Ghosts: ${showGhosts ? 'ON' : 'OFF'}`;
@@ -4112,6 +4427,15 @@
       }
       if (!document.getElementById('view-arena').classList.contains('active')) return;
       if (e.code === 'Space') { e.preventDefault(); document.getElementById('btnPlayPause').click(); }
+      else if (e.key === '.') { e.preventDefault(); document.getElementById('btnStepFrame').click(); }
+      else if (e.key === '[' || e.key === ']') {
+        const sel = document.getElementById('selSpeed');
+        const idx = sel.selectedIndex + (e.key === ']' ? 1 : -1);
+        if (idx >= 0 && idx < sel.options.length) {
+          sel.selectedIndex = idx;
+          sel.dispatchEvent(new Event('change'));
+        }
+      }
       else if (e.key.toLowerCase() === 'n') document.getElementById('btnStepGen').click();
       else if (e.key.toLowerCase() === 't') document.getElementById('btnThrowShield').click();
       else if (e.key.toLowerCase() === 'r') document.getElementById('btnReward').click();
@@ -4155,7 +4479,8 @@
     const hrEl = document.getElementById('hudHeroRew');
     hrEl.textContent = hr.toFixed(1);
     hrEl.className = 'val ' + (hr >= 0 ? 'pos' : 'neg');
-    document.getElementById('hudDist').textContent = `${Math.max(0, (hero.maxX - 120) / 20).toFixed(1)}m`;
+    const heroStartX = Math.max(45, 120 + (hero.spawnOffsetX || 0));
+    document.getElementById('hudDist').textContent = `${Math.max(0, (hero.maxX - heroStartX) / 20).toFixed(1)}m`;
     document.getElementById('hudBestDist').textContent = `${bestDistEver.toFixed(1)}m`;
 
     const upPct = Math.max(0, Math.round(Math.cos(hero.angle) * 100));
@@ -4198,16 +4523,19 @@
 
     if (!document.getElementById('view-arena').classList.contains('active')) return;
 
-    if (isPlaying) {
-      const fixedStep = 1 / 60;
-      const steps = Math.min(200, Math.max(1, Math.round(simSpeed)));
-      const dtScale = simSpeed < 1 ? simSpeed : 1;
+    if (isPlaying || pendingStepFrames > 0) {
+      const singleStep = !isPlaying && pendingStepFrames > 0;
+      const fixedStep = 1 / physicsHz;
+      const steps = singleStep ? 1 : Math.min(1000, Math.max(1, Math.round(simSpeed)));
+      const dtScale = singleStep ? 1 : (simSpeed < 1 ? simSpeed : 1);
       const dt = fixedStep * dtScale;
+      if (singleStep) pendingStepFrames--;
       const frameStart = performance.now();
 
       for (let s = 0; s < steps; s++) {
         simTime += dt;
         let anyAlive = false;
+        let uprightCount = 0;
 
         for (let i = 0; i < worldObjects.crates.length; i++) {
           const c = worldObjects.crates[i];
@@ -4252,14 +4580,21 @@
 
         for (const a of agents) {
           a.step(dt);
-          if (!a.fallen || a.fallTimer < 0.7) anyAlive = true;
+          if (!a.fallen) uprightCount++;
+          if (!a.fallen || fallGraceDelay >= 99999 || a.fallTimer < fallGraceDelay) anyAlive = true;
         }
 
-        if (!anyAlive || (episodeDuration < 99999 && simTime >= episodeDuration)) {
+        const alivePct = (uprightCount / Math.max(1, agents.length)) * 100;
+        const hitEarlyEnd = earlyEndPct >= 0 && (
+          !anyAlive ||
+          (earlyEndPct > 0 && fallGraceDelay < 99999 && alivePct <= earlyEndPct && simTime >= Math.max(0.8, fallGraceDelay))
+        );
+        const hitTimer = episodeDuration < 99999 && simTime >= episodeDuration;
+        if (hitEarlyEnd || hitTimer) {
           evolveGeneration();
           break;
         }
-        if (s > 4 && performance.now() - frameStart > 14) break;
+        if (s >= 1 && performance.now() - frameStart > 16) break;
       }
 
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -4303,6 +4638,7 @@
   } else {
     updateLabSpecs();
   }
+  if (window._syncSwarmTimeUI) window._syncSwarmTimeUI();
   resizeCanvases();
   drawLab();
   window.addEventListener('resize', () => { resizeCanvases(); drawLab(); });
