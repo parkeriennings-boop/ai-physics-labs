@@ -874,7 +874,7 @@
       <div class="brand-logo" aria-hidden="true">✈</div>
       <div class="brand-text">
         <h1>GliderLab <span class="brand-badge">AI Physics Labs</span></h1>
-        <div class="brand-sub">Thermal &amp; Wind-Tunnel Aerodynamics · 28 Modular Parts · Neural Swarm ML</div>
+        <div class="brand-sub" id="brandSubText">Thermal &amp; Wind-Tunnel Aerodynamics · 150 Modular Parts · Neural Swarm ML</div>
       </div>
     </div>
 
@@ -902,11 +902,11 @@
       <!-- Left: Modular Parts Palette -->
       <aside class="glass-panel builder-left">
         <div class="panel-header">
-          <div class="panel-title"><span>🧩</span> <span id="partsHeaderTitle">Airframe Parts (120)</span></div>
+          <div class="panel-title"><span>🧩</span> <span id="partsHeaderTitle">Airframe Parts (150)</span></div>
           <span class="mini-tag cyan" id="selectedPartBadge">Glider Airfoil</span>
         </div>
         <div style="padding:8px 10px 2px;">
-          <input type="search" id="partSearchInput" placeholder="Search 120 parts (e.g. phoenix, delta, jet)..." style="width:100%;padding:6px 10px;border-radius:9px;border:1px solid rgba(148,163,184,0.22);background:rgba(5,10,20,0.55);color:#f1f5f9;font-size:12px;outline:none;" />
+          <input type="search" id="partSearchInput" placeholder="Search 150 parts (e.g. phoenix, delta, jet)..." style="width:100%;padding:6px 10px;border-radius:9px;border:1px solid rgba(148,163,184,0.22);background:rgba(5,10,20,0.55);color:#f1f5f9;font-size:12px;outline:none;" />
         </div>
         <div class="cat-tabs" id="catTabs">
           <button class="cat-btn active" data-cat="wings">Wings <span class="cat-count">28</span></button>
@@ -947,7 +947,7 @@
           <div class="panel-title"><span>📐</span> Aerodynamics &amp; Presets</div>
         </div>
         <div class="panel-body">
-          <div class="ctrl-label" style="margin-bottom:6px;">Airframe Presets (5)</div>
+          <div class="ctrl-label" id="presetsHeaderLabel" style="margin-bottom:6px;">Airframe Presets (12)</div>
           <div class="preset-list" id="presetList"></div>
 
           <div class="ctrl-label" style="margin-bottom:6px;">Live Aerodynamics Specs</div>
@@ -1053,10 +1053,11 @@
 
           <!-- Manual Override Controls -->
           <div class="manual-pad" id="manualPad">
-            <button class="btn btn-amber btn-sm" id="btnPitchUp">▲ Pitch Up (W / ↑)</button>
-            <button class="btn btn-cyan btn-sm" id="btnPitchDown">▼ Pitch Down (S / ↓)</button>
+            <button class="btn btn-amber btn-sm" id="btnPitchUp">▲ Pitch Up (W/↑)</button>
+            <button class="btn btn-cyan btn-sm" id="btnPitchDown">▼ Pitch Down (S/↓)</button>
             <button class="btn btn-emerald btn-sm" id="btnManualBoost">⚡ Boost (Space)</button>
             <button class="btn btn-rose btn-sm" id="btnManualBrake">◼ Brake (B)</button>
+            <button class="btn btn-sm" id="btnManualRespawn" title="Relaunch manual glider (R)">↺ Relaunch (R)</button>
           </div>
 
           <div class="episode-progress">
@@ -1444,7 +1445,37 @@
     {"id": "op_star_canard", "name": "Starfighter Canard", "cat": "op", "icon": "\ud83c\udf1f", "color": "#facc15", "desc": "OP: Extreme-agility forward foil (+1.35 pitch & +5\u00b0 stall bonus).", "mass": 0.28, "lift": 1.25, "drag": 0.01, "pitchTorque": 1.35, "stability": 0.3, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "canard"},
     {"id": "op_disco_core", "name": "Cosmic Disco Core", "cat": "op", "icon": "\ud83e\udea9", "color": "#e879f9", "desc": "OP: Groovy anti-drag prism with smooth +0.75 stability & 4N push.", "mass": 0.25, "lift": 0.95, "drag": -0.008, "pitchTorque": 0.4, "stability": 0.75, "stallBonus": 3.0, "thrust": 4.0, "fuelTime": 999, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
     {"id": "op_crown_fin", "name": "Sky-Emperor Crown", "cat": "op", "icon": "\ud83d\udc51", "color": "#fde047", "desc": "OP: Royal aerodynamic crest with bonus lift and stall immunity.", "mass": 0.16, "lift": 1.1, "drag": -0.01, "pitchTorque": 0.35, "stability": 0.55, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "winglet"},
-    {"id": "op_hyper_brake", "name": "Grav-Airbrake Field", "cat": "op", "icon": "\u23f9", "color": "#fb7185", "desc": "OP: Instant precision speedbrake with zero passive drag.", "mass": 0.24, "lift": 0.2, "drag": 0.002, "pitchTorque": 0.6, "stability": 0.45, "stallBonus": 2.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.85, "sensor": null, "shape": "airbrake"}
+    {"id": "op_hyper_brake", "name": "Grav-Airbrake Field", "cat": "op", "icon": "\u23f9", "color": "#fb7185", "desc": "OP: Instant precision speedbrake with zero passive drag.", "mass": 0.24, "lift": 0.2, "drag": 0.002, "pitchTorque": 0.6, "stability": 0.45, "stallBonus": 2.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.85, "sensor": null, "shape": "airbrake"},
+    {"id": "elliptical_spitfire", "name": "Elliptical Spitfire Wing", "cat": "wings", "icon": "🛩", "color": "#38bdf8", "desc": "Classic elliptical planform minimizing induced vortex drag for silky glide.", "mass": 0.72, "lift": 1.64, "drag": 0.022, "pitchTorque": 0.08, "stability": 0.24, "stallBonus": 2.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "variable_sweep", "name": "F-14 Swing-Wing", "cat": "wings", "icon": "🦅", "color": "#818cf8", "desc": "Variable-geometry swept wing excelling at both slow climbs and Mach dashes.", "mass": 1.12, "lift": 1.72, "drag": 0.023, "pitchTorque": 0.22, "stability": 0.3, "stallBonus": 4.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "waverider_wedge", "name": "Hypersonic Waverider", "cat": "wings", "icon": "💠", "color": "#e2e8f0", "desc": "Compression-lift supersonic wedge with razor-low parasitic drag.", "mass": 0.84, "lift": 1.12, "drag": 0.012, "pitchTorque": 0.14, "stability": 0.22, "stallBonus": 3.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "tandem_wing", "name": "Quickie Tandem Foil", "cat": "wings", "icon": "⫘", "color": "#2dd4bf", "desc": "Split tandem lifting wing delivering self-stabilizing pitch trim.", "mass": 0.66, "lift": 1.58, "drag": 0.026, "pitchTorque": 0.2, "stability": 0.52, "stallBonus": 2.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "biplane"},
+    {"id": "solar_strato", "name": "Strato-Glider Wing", "cat": "wings", "icon": "🌌", "color": "#34d399", "desc": "High-altitude thin-air soaring wing built for upper-atmosphere thermals.", "mass": 0.54, "lift": 1.88, "drag": 0.021, "pitchTorque": 0, "stability": 0.26, "stallBonus": 1.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "blown_flap_wing", "name": "Coanda Blown Wing", "cat": "wings", "icon": "🌊", "color": "#06b6d4", "desc": "Boundary-layer blown wing that clings to airflow at extreme angles of attack.", "mass": 0.96, "lift": 2.18, "drag": 0.044, "pitchTorque": 0.12, "stability": 0.28, "stallBonus": 5.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "cruciform_tail", "name": "Cruciform Tailplane", "cat": "tail", "icon": "✛", "color": "#34d399", "desc": "Mid-mounted cross tail balancing crisp pitch authority and wake clearance.", "mass": 0.38, "lift": 0.24, "drag": 0.013, "pitchTorque": 1.05, "stability": 0.72, "stallBonus": 1.4, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "stabilizer"},
+    {"id": "h_tail_twin", "name": "Twin H-Tailplane", "cat": "tail", "icon": "♓", "color": "#2dd4bf", "desc": "Dual-endplate H-tail locking rock-steady tracking through hurricane gusts.", "mass": 0.46, "lift": 0.3, "drag": 0.016, "pitchTorque": 0.85, "stability": 1.02, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "stabilizer"},
+    {"id": "dive_flap_vane", "name": "Perforated Dive Flap", "cat": "tail", "icon": "▦", "color": "#fb7185", "desc": "Vented dive brake that sheds airspeed cleanly without nose-pitch upset.", "mass": 0.38, "lift": 0.06, "drag": 0.012, "pitchTorque": 0.18, "stability": 0.32, "stallBonus": 1.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.54, "sensor": null, "shape": "airbrake"},
+    {"id": "elevon_strip", "name": "Tailless Elevon Strip", "cat": "tail", "icon": "═", "color": "#a78bfa", "desc": "Compact trailing-edge elevon built for agile flying wings and deltas.", "mass": 0.2, "lift": 0.22, "drag": 0.008, "pitchTorque": 1.25, "stability": 0.28, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.08, "sensor": null, "shape": "elevator"},
+    {"id": "anti_spin_strake", "name": "Anti-Spin Tail Strake", "cat": "tail", "icon": "◢", "color": "#38bdf8", "desc": "Dorsal aerodynamic strake that snaps gliders out of deep post-stall spins.", "mass": 0.24, "lift": 0.12, "drag": 0.009, "pitchTorque": 0.42, "stability": 0.82, "stallBonus": 4.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "fin"},
+    {"id": "active_flaperon", "name": "Active Flaperon", "cat": "tail", "icon": "⇵", "color": "#22d3ee", "desc": "Dual-purpose high-lift flap and fast pitch-trim control surface.", "mass": 0.4, "lift": 0.68, "drag": 0.022, "pitchTorque": 1.1, "stability": 0.24, "stallBonus": 3.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.16, "sensor": null, "shape": "flap"},
+    {"id": "turboprop_nose", "name": "Micro Turboprop", "cat": "propulsion", "icon": "🚁", "color": "#facc15", "desc": "Geared turbine propeller delivering strong 10.5N cruise thrust for 45s.", "mass": 0.88, "lift": 0.08, "drag": 0.019, "pitchTorque": 0, "stability": 0.16, "stallBonus": 0, "thrust": 10.5, "fuelTime": 45, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "hybrid_rocket", "name": "Hybrid N2O Rocket", "cat": "propulsion", "icon": "🧨", "color": "#f97316", "desc": "Throttleable 26N nitrous-hybrid booster with a clean 8.5s climb burn.", "mass": 0.92, "lift": 0, "drag": 0.021, "pitchTorque": 0, "stability": 0.08, "stallBonus": 0, "thrust": 26.0, "fuelTime": 8.5, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "propfan_unducted", "name": "Unducted Propfan", "cat": "propulsion", "icon": "✴", "color": "#34d399", "desc": "Scimitar-blade pusher propfan combining high speed with 60s endurance.", "mass": 0.72, "lift": 0.05, "drag": 0.015, "pitchTorque": 0, "stability": 0.14, "stallBonus": 0, "thrust": 9.4, "fuelTime": 60, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "cold_gas_rcs", "name": "Cold-Gas Pitch Jet", "cat": "propulsion", "icon": "💨", "color": "#7dd3fc", "desc": "Pressurized thruster adding nimble post-stall pitch authority + mild push.", "mass": 0.3, "lift": 0, "drag": 0.008, "pitchTorque": 0.95, "stability": 0.2, "stallBonus": 2.5, "thrust": 4.2, "fuelTime": 30, "brakeDrag": 0, "sensor": null, "shape": "ion"},
+    {"id": "cryo_methalox", "name": "Methalox Micro-Jet", "cat": "propulsion", "icon": "🔷", "color": "#38bdf8", "desc": "Deep-throttle blue-flame liquid rocket delivering 20N for 16 seconds.", "mass": 1.04, "lift": 0, "drag": 0.02, "pitchTorque": 0.12, "stability": 0.1, "stallBonus": 0, "thrust": 20.0, "fuelTime": 16, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "piezo_micro_fan", "name": "Piezo Whisper Fan", "cat": "propulsion", "icon": "🍃", "color": "#6ee7b7", "desc": "Featherweight 0.19kg solid-state micro-fan for endless ultralight soaring.", "mass": 0.19, "lift": 0.06, "drag": 0.006, "pitchTorque": 0, "stability": 0.12, "stallBonus": 0, "thrust": 3.2, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "fan"},
+    {"id": "pitot_static_boom", "name": "Flight-Test Nose Boom", "cat": "sensors", "icon": "📍", "color": "#38bdf8", "desc": "Extended nose air-data boom sharpening airspeed, AoA, and +2.2° stall margin.", "mass": 0.22, "lift": 0, "drag": -0.004, "pitchTorque": 0.08, "stability": 0.2, "stallBonus": 2.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "pitot", "shape": "nose"},
+    {"id": "lidar_altimeter", "name": "Laser Ground Altimeter", "cat": "sensors", "icon": "📡", "color": "#34d399", "desc": "High-rate ground-effect laser altimeter for low-altitude terrain hugging.", "mass": 0.2, "lift": 0.05, "drag": 0.005, "pitchTorque": 0.1, "stability": 0.3, "stallBonus": 1.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "wind", "shape": "sensor"},
+    {"id": "thermal_imager", "name": "FLIR Thermal Camera", "cat": "sensors", "icon": "🔥", "color": "#fbbf24", "desc": "Wide-angle infrared camera locking onto rising thermal columns from afar.", "mass": 0.24, "lift": 0, "drag": 0.006, "pitchTorque": 0.06, "stability": 0.18, "stallBonus": 0.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "thermal", "shape": "sensor"},
+    {"id": "depleted_uranium", "name": "Hyper-Dense Trim Core", "cat": "sensors", "icon": "🪨", "color": "#475569", "desc": "Ultra-compact 2.8kg ballast slug for extreme dive energy and wind penetration.", "mass": 2.8, "lift": 0, "drag": 0.007, "pitchTorque": 0, "stability": 0.32, "stallBonus": 0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "composite_fairing", "name": "Laminar Tail Cone", "cat": "sensors", "icon": "◂", "color": "#cbd5e1", "desc": "Streamlined boat-tail fairing that closes wake turbulence and cuts drag.", "mass": 0.22, "lift": 0.08, "drag": -0.012, "pitchTorque": 0, "stability": 0.24, "stallBonus": 0.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"},
+    {"id": "fly_by_wire_cpu", "name": "Fly-By-Wire Flight CPU", "cat": "sensors", "icon": "💻", "color": "#c084fc", "desc": "12-node digital flight computer with active gyro damping and stall envelope guard.", "mass": 0.28, "lift": 0, "drag": 0.005, "pitchTorque": 0.38, "stability": 0.72, "stallBonus": 3.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "core", "shape": "core"},
+    {"id": "op_valkyrie_wing", "name": "Valkyrie Mach Wing", "cat": "op", "icon": "⚔", "color": "#facc15", "desc": "OP: Mach-forged golden wing with 2.75 lift, ultra-low drag & +6.5° stall guard!", "mass": 0.42, "lift": 2.75, "drag": 0.01, "pitchTorque": 0.3, "stability": 0.55, "stallBonus": 6.5, "thrust": 2.0, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "op_graviton_drive", "name": "Graviton Pulse Drive", "cat": "op", "icon": "🪐", "color": "#a855f7", "desc": "OP: Zero-fuel 28N gravimetric thruster with integrated pitch vectoring!", "mass": 0.55, "lift": 0.2, "drag": 0.008, "pitchTorque": 0.65, "stability": 0.35, "stallBonus": 2.5, "thrust": 28.0, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "op_zephyr_sail", "name": "Zephyr Wind-Weaver", "cat": "op", "icon": "🌪", "color": "#34d399", "desc": "OP: Mythic storm sail turning gusts into effortless lift and +0.95 stability.", "mass": 0.24, "lift": 2.5, "drag": 0.009, "pitchTorque": 0.22, "stability": 0.95, "stallBonus": 6.0, "thrust": 4.5, "fuelTime": 999, "brakeDrag": 0, "sensor": "wind", "shape": "airfoil"},
+    {"id": "op_tachy_core", "name": "Tachyon Neural Core", "cat": "op", "icon": "⚡", "color": "#38bdf8", "desc": "OP: 12-node hyper-avionics core unlocking full thermal, wind, gyro & pitot AI!", "mass": 0.22, "lift": 0.3, "drag": 0.003, "pitchTorque": 0.95, "stability": 1.25, "stallBonus": 7.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "core", "shape": "core"},
+    {"id": "op_celestial_tail", "name": "Celestial Star-Tail", "cat": "op", "icon": "🌠", "color": "#f472b6", "desc": "OP: Featherlight control tail with +2.6 pitch torque and instant airbrake field.", "mass": 0.2, "lift": 0.5, "drag": 0.006, "pitchTorque": 2.6, "stability": 0.88, "stallBonus": 4.5, "thrust": 1.5, "fuelTime": 999, "brakeDrag": 0.6, "sensor": null, "shape": "vtail"},
+    {"id": "op_aether_shroud", "name": "Aether Slipstream Shroud", "cat": "op", "icon": "🌀", "color": "#22d3ee", "desc": "OP: Laminar plasma shroud slashing drag (-0.025) with +0.85 lift boost.", "mass": 0.18, "lift": 0.85, "drag": -0.025, "pitchTorque": 0.2, "stability": 0.6, "stallBonus": 3.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"}
   ];
 
   const PART_BY_ID = Object.create(null);
@@ -1665,6 +1696,9 @@
     burstParticles: [],
     camera: { x: 0, y: 220 },
     simClock: 0,
+    simAccum: 0,
+    blueprintDirty: false,
+    lastHudUpdate: 0,
     bestFitnessAllTime: 0
   };
 
@@ -1675,9 +1709,10 @@
     if (!blueprint || blueprint.length === 0) {
       return {
         partCount: 0, mass: 1.0, liftCoeff: 0.2, dragCoeff: 0.05, glideRatio: 4.0,
-        comX: 0, comY: 0, colX: 0, balanceText: 'Empty',
+        comX: 0, comY: 0, colX: 0, staticMargin: 0, balanceText: 'Empty',
         pitchTorque: 0.5, stability: 0.3, stallAngleDeg: 18,
-        maxThrust: 0, fuelTime: 0, brakeDrag: 0.05,
+        maxThrust: 0, finiteThrust: 0, infiniteThrust: 0, fuelTime: 0, finiteFuelTime: 0,
+        thrustOffsetY: 0, kInduced: 0.045, brakeDrag: 0.05,
         hasThermalSensor: false, hasWindSensor: false, hasGyro: false, hasNeuralCore: false, hasPitot: false,
         hiddenNodes: 8
       };
@@ -1686,12 +1721,15 @@
     let mass = 0;
     let sumMX = 0, sumMY = 0;
     let totalLift = 0, sumLX = 0;
-    let totalDrag = 0.015; // base fuselage interference
+    let positiveDrag = 0.015; // base fuselage interference
+    let dragReductionSum = 0; // negative-drag fairings/winglets applied multiplicatively
     let pitchTorque = 0.25;
     let stability = 0.15;
     let stallBonus = 0;
-    let maxThrust = 0;
-    let weightedFuel = 0;
+    let finiteThrust = 0, finiteWeightedFuel = 0, bonusFuelTime = 0;
+    let infiniteThrust = 0;
+    let sumThrustY = 0;
+    let wingCount = 0, wingletCount = 0;
     let brakeDrag = 0.02;
     let hasThermalSensor = false, hasWindSensor = false, hasGyro = false, hasNeuralCore = false, hasPitot = false;
 
@@ -1704,36 +1742,76 @@
       sumMY += bp.gy * p.mass;
       totalLift += p.lift;
       if (p.lift > 0) sumLX += bp.gx * p.lift;
-      totalDrag += p.drag;
+
+      // Positive parasitic drag vs negative-drag aerodynamic fairings/winglets
+      if (p.drag >= 0) positiveDrag += p.drag;
+      else dragReductionSum += -p.drag;
+
+      if (p.cat === 'wings') wingCount++;
+      if (p.shape === 'winglet' || p.id === 'elliptical_spitfire' || p.id === 'box_wing' || p.id === 'albatross_span' || p.id === 'solar_strato') {
+        wingletCount++;
+      }
+
       // Lever arm bonus for tail/canard control surfaces
       const arm = 1 + Math.min(2.2, Math.abs(bp.gx) * 0.22);
       pitchTorque += p.pitchTorque * arm;
       stability += p.stability * (bp.gx < 0 ? 1.15 : 0.9);
       stallBonus += p.stallBonus;
-      if (p.thrust > 0) {
-        maxThrust += p.thrust;
-        weightedFuel += p.thrust * p.fuelTime;
+
+      // Separate finite fuel-burning engines from infinite electric/solar/plasma engines
+      if (p.id === 'drop_tank') {
+        bonusFuelTime += p.fuelTime;
+        finiteThrust += p.thrust;
+        sumThrustY += bp.gy * p.thrust;
+      } else if (p.thrust > 0) {
+        sumThrustY += bp.gy * p.thrust;
+        if (p.fuelTime >= 500) {
+          infiniteThrust += p.thrust;
+        } else {
+          finiteThrust += p.thrust;
+          finiteWeightedFuel += p.thrust * p.fuelTime;
+        }
       }
+
       brakeDrag += p.brakeDrag;
       if (p.sensor === 'thermal') hasThermalSensor = true;
       if (p.sensor === 'wind') hasWindSensor = true;
       if (p.sensor === 'gyro') hasGyro = true;
-      if (p.sensor === 'neural') hasNeuralCore = true;
+      if (p.sensor === 'neural' || p.sensor === 'core') hasNeuralCore = true;
       if (p.sensor === 'pitot') hasPitot = true;
+      // Full avionics mastery for mythic cores & fly-by-wire
+      if (p.id === 'op_einstein' || p.id === 'op_tachy_core') {
+        hasThermalSensor = true; hasWindSensor = true; hasGyro = true; hasPitot = true; hasNeuralCore = true;
+      } else if (p.id === 'fly_by_wire_cpu') {
+        hasGyro = true; hasPitot = true; hasNeuralCore = true;
+      }
     }
 
     mass = Math.max(0.4, mass);
     const comX = sumMX / mass;
     const comY = sumMY / mass;
-    const colX = totalLift > 0.05 ? sumLX / totalLift : 0;
+    const colX = totalLift > 0.05 ? sumLX / totalLift : comX;
     const staticMargin = comX - colX; // positive = nose-heavy (stable)
 
-    // Normalize coefficients for crisp, believable flight scale
-    const dragCoeff = Math.max(0.018, totalDrag);
+    const maxThrust = finiteThrust + infiniteThrust;
+    const finiteFuelTime = finiteThrust > 0 ? (finiteWeightedFuel / finiteThrust) + bonusFuelTime : 0;
+    const fuelTime = finiteThrust > 0 ? finiteFuelTime : (infiniteThrust > 0 ? 999 : 0);
+
+    // Off-axis thrust vertical lever arm relative to CoM (grid +gy is down, so engine above CoM pitches nose down)
+    const thrustCenterY = maxThrust > 0 ? (sumThrustY / maxThrust) : comY;
+    const thrustOffsetY = Math.max(-2.5, Math.min(2.5, thrustCenterY - comY));
+
+    // Multiplicative drag reduction (capped at 65% reduction so bulky airframes still feel drag)
+    const dragMult = Math.max(0.35, 1 / (1 + dragReductionSum * 14));
+    const dragCoeff = Math.max(0.016, positiveDrag * dragMult);
     const liftCoeff = Math.max(0.15, totalLift * 0.45);
-    const glideRatio = Math.min(48, Math.max(1.0, (liftCoeff / dragCoeff) * 1.45));
-    const stallAngleDeg = Math.min(32, Math.max(15, 18.5 + stallBonus * 0.7));
-    const fuelTime = maxThrust > 0 ? weightedFuel / maxThrust : 0;
+
+    // Induced drag factor (Oswald efficiency improves with more wing span & winglets)
+    const effectiveAR = Math.max(2.5, 4.2 + wingCount * 0.9 + wingletCount * 1.4);
+    const kInduced = Math.max(0.018, Math.min(0.068, 0.24 / effectiveAR));
+
+    const glideRatio = Math.min(52, Math.max(1.0, (liftCoeff / dragCoeff) * 1.45));
+    const stallAngleDeg = Math.min(34, Math.max(15, 18.5 + stallBonus * 0.7));
 
     let balanceText = 'Balanced';
     if (staticMargin > 0.85) balanceText = 'Nose-Heavy (Stable)';
@@ -1750,11 +1828,16 @@
       colX,
       staticMargin,
       balanceText,
-      pitchTorque: Math.min(6.5, pitchTorque),
-      stability: Math.min(5.0, stability + Math.max(0, staticMargin * 0.4)),
+      pitchTorque: Math.min(7.0, pitchTorque),
+      stability: Math.min(5.2, stability + Math.max(0, staticMargin * 0.35)),
       stallAngleDeg,
       maxThrust,
+      finiteThrust,
+      infiniteThrust,
       fuelTime,
+      finiteFuelTime,
+      thrustOffsetY,
+      kInduced,
       brakeDrag,
       hasThermalSensor,
       hasWindSensor,
@@ -1931,28 +2014,38 @@
     }
   }
 
+  // Reusable zero-allocation airflow buffer (eliminates 180k+ GC objects/frame)
+  const _airOut = { wx: 0, wy: 0, thermalVal: 0 };
+
   function sampleAirflow(x, y, t, map) {
     let wx = map.baseWind;
     let wy = 0;
     let thermalVal = 0;
 
     // Wind shear gusts
-    for (let i = 0; i < state.gustBands.length; i++) {
-      const g = state.gustBands[i];
-      const dy = Math.abs(y - g.altY);
-      if (dy < g.thickness) {
-        const falloff = 1 - dy / g.thickness;
+    const bands = state.gustBands;
+    for (let i = 0; i < bands.length; i++) {
+      const g = bands[i];
+      const dy = y - g.altY;
+      const ady = dy < 0 ? -dy : dy;
+      if (ady < g.thickness) {
+        const falloff = 1 - ady / g.thickness;
         const wave = Math.sin(t * g.speed * map.gustFreq + g.phase + x * 0.0025);
         wx += g.dir * map.gustStrength * falloff * wave;
       }
     }
 
-    // Rising thermal updraft columns
-    for (let i = 0; i < state.thermals.length; i++) {
-      const th = state.thermals[i];
-      const dx = Math.abs(x - th.x);
-      if (dx < th.width * 0.55 && y >= th.baseY - 20 && y <= th.topY) {
-        const horiz = Math.cos((dx / (th.width * 0.55)) * (Math.PI * 0.5));
+    // Rising thermal updraft columns (sorted by X, allowing early exit)
+    const thermals = state.thermals;
+    for (let i = 0; i < thermals.length; i++) {
+      const th = thermals[i];
+      const halfW = th.width * 0.55;
+      const dx = th.x - x;
+      if (dx > halfW) break;
+      if (dx < -halfW) continue;
+      if (y >= th.baseY - 20 && y <= th.topY) {
+        const adx = dx < 0 ? -dx : dx;
+        const horiz = Math.cos((adx / halfW) * 1.5707963);
         const altFade = Math.min(1, (th.topY - y) / 70);
         const pulse = 0.88 + 0.12 * Math.sin(t * 2.2 + th.phase);
         const liftUp = th.strength * horiz * altFade * pulse;
@@ -1961,28 +2054,35 @@
       }
     }
 
-    return { wx, wy, thermalVal };
+    _airOut.wx = wx;
+    _airOut.wy = wy;
+    _airOut.thermalVal = thermalVal;
+    return _airOut;
   }
 
   /* =========================================================================
    * 8. SWARM SPAWNING, PHYSICS STEP & NEUROEVOLUTION
    * ========================================================================= */
   function createGlider(brain, idx) {
+    const map = MAP_BY_ID[state.mapId];
     const startX = 40;
-    const startY = terrainHeightAt(startX) + 195;
+    const startY = terrainHeightAt(startX, map) + 195;
     const aero = state.aero;
+    // Account for map headwind & mass on launch so heavy/windy launches don't instantly stall
+    const headwindComp = Math.max(0, -map.baseWind * 0.45);
+    const launchSpeed = 24 + headwindComp + Math.min(8, aero.maxThrust * 0.22);
     return {
       idx,
       brain,
       x: startX,
       y: startY,
-      vx: 24 + Math.min(8, aero.maxThrust * 0.25),
-      vy: 0.5,
-      angle: 0.02, // radians (0 = right, + = nose up)
+      vx: launchSpeed,
+      vy: 0.4,
+      angle: 0.03, // radians (0 = right, + = nose up)
       omega: 0,
       alive: true,
       crashed: false,
-      fuel: aero.fuelTime,
+      fuel: aero.finiteFuelTime,
       aoaDeg: 0,
       stalling: false,
       liveLD: aero.glideRatio,
@@ -1991,7 +2091,8 @@
       maxAlt: startY,
       timeAlive: 0,
       ringsCollected: 0,
-      ringMask: new Uint8Array(32),
+      nextRingIdx: 0,
+      ringMask: new Uint8Array(Math.max(32, state.rings.length)),
       fitness: 0,
       thrustActive: 0,
       brakeActive: 0,
@@ -2006,6 +2107,10 @@
   function spawnGeneration(resetEvolution) {
     const pop = state.populationSize;
     const hidden = state.aero.hiddenNodes;
+    // Reset stale elites if blueprint neural hidden layer size changed (8 <-> 12)
+    if (state.eliteBrains.length > 0 && state.eliteBrains[0].h !== hidden) {
+      resetEvolution = true;
+    }
     if (resetEvolution) {
       state.generation = 1;
       state.history = [];
@@ -2014,7 +2119,9 @@
       generateArenaEnvironment();
     }
 
+    state.blueprintDirty = false;
     state.episodeTime = 0;
+    state.simAccum = 0;
     state.gliders = [];
 
     const elites = state.eliteBrains;
@@ -2078,12 +2185,14 @@
     });
     if (state.history.length > 80) state.history.shift();
 
-    // Sort descending and pick top elites
+    // Sort descending and pick top elites (safe for populationSize === 1!)
     const sorted = state.gliders.slice().sort(function(a, b) { return b.fitness - a.fitness; });
-    const eliteCount = Math.max(2, Math.min(10, Math.ceil(sorted.length * 0.18)));
+    const eliteCount = Math.min(sorted.length, Math.max(1, Math.min(10, Math.ceil(sorted.length * 0.18))));
     state.eliteBrains = [];
     for (let i = 0; i < eliteCount; i++) {
-      state.eliteBrains.push(cloneBrain(sorted[i].brain));
+      if (sorted[i] && sorted[i].brain) {
+        state.eliteBrains.push(cloneBrain(sorted[i].brain));
+      }
     }
 
     state.generation += 1;
@@ -2105,35 +2214,51 @@
     const speedSq = vrx * vrx + vry * vry;
     const speed = Math.sqrt(speedSq) + 1e-4;
 
-    // Flight path angle & Angle of Attack
-    const flightAngle = Math.atan2(vry, vrx);
-    let aoa = g.angle - flightAngle;
-    while (aoa > Math.PI) aoa -= Math.PI * 2;
-    while (aoa < -Math.PI) aoa += Math.PI * 2;
-    const aoaDeg = aoa * (180 / Math.PI);
+    // Smoothly guarded Angle of Attack (prevents +/-180 deg flip in low airspeed or strong headwinds)
+    let aoa = 0;
+    if (speed > 1.2) {
+      const flightAngle = Math.atan2(vry, vrx);
+      aoa = g.angle - flightAngle;
+      while (aoa > Math.PI) aoa -= Math.PI * 2;
+      while (aoa < -Math.PI) aoa += Math.PI * 2;
+      // Smoothly attenuate AoA extremes when near-zero airspeed
+      const lowSpdBlend = Math.min(1, (speed - 1.2) / 5.0);
+      aoa *= lowSpdBlend;
+    }
+    const aoaDeg = aoa * 57.2957795;
     g.aoaDeg = aoaDeg;
 
-    // Find nearest upcoming thermal & ring for neural inputs
+    // Ground altitude & ground effect
+    const groundY = terrainHeightAt(g.x, map);
+    const agl = Math.max(0, g.y - groundY);
+
+    // Nearest upcoming thermal (sorted by X, fast early break)
     let nearThDx = 1.0, nearThStr = 0;
     let bestThDist = 9999;
-    for (let i = 0; i < state.thermals.length; i++) {
-      const th = state.thermals[i];
+    const thermals = state.thermals;
+    for (let i = 0; i < thermals.length; i++) {
+      const th = thermals[i];
       const dx = th.x - g.x;
-      if (dx > -80 && Math.abs(dx) < bestThDist) {
-        bestThDist = Math.abs(dx);
+      if (dx < -80) continue;
+      const adx = dx < 0 ? -dx : dx;
+      if (adx < bestThDist) {
+        bestThDist = adx;
         nearThDx = Math.max(-1, Math.min(1, dx / 350));
         nearThStr = Math.min(1, th.strength / 14);
       }
+      if (dx > 0) break; // thermals sorted by X
     }
 
+    // Nearest upcoming ring (O(1) amortized using nextRingIdx)
+    const rings = state.rings;
+    while (g.nextRingIdx < rings.length && (g.ringMask[g.nextRingIdx] || rings[g.nextRingIdx].x < g.x - 45)) {
+      g.nextRingIdx++;
+    }
     let nearRingDx = 1.0, nearRingDy = 0;
-    for (let i = 0; i < state.rings.length; i++) {
-      const r = state.rings[i];
-      if (!g.ringMask[i] && r.x > g.x - 30) {
-        nearRingDx = Math.max(-1, Math.min(1, (r.x - g.x) / 300));
-        nearRingDy = Math.max(-1, Math.min(1, (r.y - g.y) / 180));
-        break;
-      }
+    if (g.nextRingIdx < rings.length) {
+      const nr = rings[g.nextRingIdx];
+      nearRingDx = Math.max(-1, Math.min(1, (nr.x - g.x) / 300));
+      nearRingDy = Math.max(-1, Math.min(1, (nr.y - g.y) / 180));
     }
 
     // Control decision: Manual override or Neural Network
@@ -2144,11 +2269,10 @@
     if (isManualControlled) {
       if (state.keys.up) pitchCmd += 1;
       if (state.keys.down) pitchCmd -= 1;
-      throttleCmd = state.keys.boost ? 1 : (aero.fuelTime > 50 ? 0.55 : 0);
+      // Clean manual throttle: full power on Boost, zero when released
+      throttleCmd = state.keys.boost ? 1 : 0;
       brakeCmd = state.keys.brake ? 1 : 0;
     } else {
-      const groundY = terrainHeightAt(g.x, map);
-      const agl = g.y - groundY;
       _sensorInput[0] = Math.max(-1, Math.min(1, (agl - 180) / 220));
       _sensorInput[1] = Math.max(-1, Math.min(1, g.vy / 25));
       _sensorInput[2] = aero.hasPitot ? Math.max(-1, Math.min(1, (speed - 24) / 22)) : Math.max(-1, Math.min(1, (speed - 24) / 35));
@@ -2169,33 +2293,36 @@
     g.pitchCmd = pitchCmd;
     g.brakeActive = brakeCmd;
 
-    // Aerodynamic Lift & Stall Curve
-    const stallRad = aero.stallAngleDeg * (Math.PI / 180);
-    const absAoA = Math.abs(aoa);
-    let clEff;
-    let stallDrag = 0;
+    // Continuous C1 Aerodynamic Lift & Stall Polar (no jump discontinuity at stall!)
+    const stallRad = aero.stallAngleDeg * 0.0174532925;
+    const absAoA = aoa < 0 ? -aoa : aoa;
+    // Smooth sigmoid transition from attached flow (0) to separated post-stall flow (1)
+    const stallBlend = 1 / (1 + Math.exp(-(absAoA - stallRad) * 14));
+    g.stalling = absAoA > stallRad * 1.04 && speed > 4.5;
 
-    if (absAoA <= stallRad) {
-      g.stalling = false;
-      // Cambered airfoil gives slight positive lift at 0 deg AoA
-      clEff = aero.liftCoeff * (0.24 + (aoa / stallRad) * 1.18);
-    } else {
-      g.stalling = true;
-      const excess = Math.min(1.2, (absAoA - stallRad) / 0.55);
-      const sign = aoa >= 0 ? 1 : -1;
-      clEff = aero.liftCoeff * sign * Math.max(0.18, 1.38 * (1 - excess * 0.72));
-      stallDrag = 0.14 * excess * excess;
-    }
+    // Attached-flow cambered lift + post-stall flat-plate sin(2*aoa) lift
+    const clAttached = aero.liftCoeff * (0.24 + (aoa / stallRad) * 1.16);
+    const clPostStall = aero.liftCoeff * (0.85 * Math.sin(2 * aoa) + 0.12 * Math.cos(aoa));
+    let clEff = clAttached * (1 - stallBlend) + clPostStall * stallBlend;
 
-    // Dynamic pressure q = 0.5 * rho * v^2 (scaled for game units)
-    const rho = 0.026;
+    // Ground Effect (within 38m of terrain: +18% lift cushion & -22% induced drag)
+    const groundEff = agl < 38 ? (1 - agl / 38) * (1 - agl / 38) : 0;
+    clEff *= (1 + 0.18 * groundEff);
+
+    // Smooth stall drag grows continuously with sin^2(aoa)
+    const sinAoA = Math.sin(aoa);
+    const stallDrag = stallBlend * (0.04 + 0.36 * sinAoA * sinAoA);
+
+    // Altitude-dependent air density rho(y)
+    const rho = 0.026 * Math.exp(-Math.max(0, g.y - 80) / 1850);
     const q = 0.5 * rho * Math.min(speedSq, 6400);
 
     const liftMag = q * clEff;
-    const cdTotal = aero.dragCoeff + 0.045 * clEff * clEff + stallDrag + brakeCmd * aero.brakeDrag;
+    const inducedDrag = aero.kInduced * clEff * clEff * (1 - 0.22 * groundEff);
+    const cdTotal = aero.dragCoeff + inducedDrag + stallDrag + brakeCmd * aero.brakeDrag;
     const dragMag = q * cdTotal;
 
-    g.liveLD = dragMag > 1e-3 ? Math.max(-15, Math.min(45, liftMag / dragMag)) : aero.glideRatio;
+    g.liveLD = dragMag > 1e-3 ? Math.max(-15, Math.min(50, liftMag / dragMag)) : aero.glideRatio;
 
     // Lift is perpendicular to relative airflow (-vry, vrx); Drag opposes relative airflow
     const invSpd = 1 / speed;
@@ -2204,62 +2331,88 @@
     const dragFx = (-vrx * invSpd) * dragMag;
     const dragFy = (-vry * invSpd) * dragMag;
 
-    // Propulsion Thrust
+    // Separate Finite (Rocket/Jet) vs Infinite (Solar/Ion/OP) Propulsion Thrust
     let thrustMag = 0;
-    if (aero.maxThrust > 0 && g.fuel > 0 && throttleCmd > 0.08) {
-      thrustMag = aero.maxThrust * throttleCmd * 0.9;
-      if (aero.fuelTime < 500) {
+    if (aero.maxThrust > 0 && throttleCmd > 0.06) {
+      let activeFinite = 0;
+      if (aero.finiteThrust > 0 && g.fuel > 0) {
+        activeFinite = aero.finiteThrust * throttleCmd * 0.9;
         g.fuel = Math.max(0, g.fuel - dt * throttleCmd);
       }
-      g.thrustActive = throttleCmd;
+      const activeInfinite = aero.infiniteThrust * throttleCmd * 0.9;
+      thrustMag = activeFinite + activeInfinite;
+      g.thrustActive = thrustMag > 0.05 ? throttleCmd : 0;
     } else {
       g.thrustActive = 0;
     }
-    const thrustFx = Math.cos(g.angle) * thrustMag;
-    const thrustFy = Math.sin(g.angle) * thrustMag;
+    const cosA = Math.cos(g.angle);
+    const sinA = Math.sin(g.angle);
+    const thrustFx = cosA * thrustMag;
+    const thrustFy = sinA * thrustMag;
 
-    // Gravity
+    // Gravity + Soft Altitude Ceiling Restoring Force (above 720m)
     const gravity = 9.81 * 1.65;
-    const ax = (liftFx + dragFx + thrustFx) / aero.mass;
-    const ay = (liftFy + dragFy + thrustFy) / aero.mass - gravity;
+    let ceilingForce = 0;
+    if (g.y > 720) {
+      ceilingForce = -(g.y - 720) * 0.55 - Math.max(0, g.vy) * 0.8;
+    }
+
+    const invMass = 1 / aero.mass;
+    const ax = (liftFx + dragFx + thrustFx) * invMass;
+    const ay = (liftFy + dragFy + thrustFy) * invMass - gravity + ceilingForce;
 
     g.vx += ax * dt;
     g.vy += ay * dt;
 
-    // Clamp extreme velocities for numerical safety at 100x
+    // Clamp extreme velocities for numerical safety
     g.vx = Math.max(-55, Math.min(95, g.vx));
     g.vy = Math.max(-65, Math.min(65, g.vy));
 
     g.x += g.vx * dt;
     g.y += g.vy * dt;
 
-    // Rotational / Pitch Dynamics
-    const aeroAuthority = Math.min(1.6, 0.35 + speed / 26);
+    // Rotational / Pitch Dynamics (with real CoM-CoL moment & off-axis thrust torque!)
+    const aeroAuthority = Math.min(1.65, 0.25 + speed / 26);
     const controlTorque = pitchCmd * aero.pitchTorque * 2.4 * aeroAuthority;
     // Natural weathercock alignment toward relative wind
-    const restoreTorque = -aoa * aero.stability * 2.1 * aeroAuthority;
-    const damping = -g.omega * (1.8 + aero.stability * 0.75 + (aero.hasGyro ? 1.6 : 0));
-    // Slight stall nose-drop
-    const stallDrop = g.stalling ? -0.9 * Math.sign(aoa || 1) : 0;
+    const restoreTorque = -Math.sin(aoa) * aero.stability * 2.2 * aeroAuthority;
+    // Real aerodynamic pitching moment from CoM vs CoL static margin (nose-heavy pitches nose down)
+    const comColTorque = Math.max(-3.0, Math.min(3.0, -aero.staticMargin * liftMag * 0.018));
+    // Off-axis thrust pitching moment (engines mounted above CoM pitch nose down, below pitch nose up)
+    const thrustTorque = Math.max(-2.2, Math.min(2.2, aero.thrustOffsetY * thrustMag * 0.045));
+    const damping = -g.omega * (1.85 + aero.stability * 0.78 + (aero.hasGyro ? 1.65 : 0));
+    // Smooth stall nose-drop restoring moment
+    const stallDrop = stallBlend * -1.1 * Math.sin(aoa);
 
     const inertia = Math.max(0.6, aero.mass * 0.75);
-    g.omega += ((controlTorque + restoreTorque + damping + stallDrop) / inertia) * dt;
+    g.omega += ((controlTorque + restoreTorque + comColTorque + thrustTorque + damping + stallDrop) / inertia) * dt;
     g.omega = Math.max(-5.0, Math.min(5.0, g.omega));
     g.angle += g.omega * dt;
     g.angle = Math.max(-1.35, Math.min(1.35, g.angle));
+
+    // NaN / non-finite numerical safety guard
+    if (!Number.isFinite(g.x) || !Number.isFinite(g.y) || !Number.isFinite(g.vx) || !Number.isFinite(g.vy) || !Number.isFinite(g.angle) || !Number.isFinite(g.omega)) {
+      g.alive = false;
+      g.crashed = true;
+      g.vx = 0; g.vy = 0; g.omega = 0;
+      return;
+    }
 
     // Store force vectors for HUD rendering
     g.lastLiftVec.x = liftFx; g.lastLiftVec.y = liftFy;
     g.lastDragVec.x = dragFx; g.lastDragVec.y = dragFy;
     g.lastThrustVec.x = thrustFx; g.lastThrustVec.y = thrustFy;
 
-    // Collectible Aerial Target Rings
-    for (let i = 0; i < state.rings.length; i++) {
+    // Collectible Aerial Target Rings (fast window check around nextRingIdx)
+    const rStart = Math.max(0, g.nextRingIdx - 1);
+    const rEnd = Math.min(rings.length, g.nextRingIdx + 3);
+    for (let i = rStart; i < rEnd; i++) {
       if (g.ringMask[i]) continue;
-      const r = state.rings[i];
+      const r = rings[i];
       const dx = g.x - r.x;
       const dy = g.y - r.y;
-      if (dx * dx + dy * dy <= (r.radius + 12) * (r.radius + 12)) {
+      const rad = r.radius + 12;
+      if (dx * dx + dy * dy <= rad * rad) {
         g.ringMask[i] = 1;
         g.ringsCollected += 1;
         if (g.idx === 0 || state.simSpeed <= 5) {
@@ -2273,16 +2426,16 @@
     if (g.x > g.maxX) g.maxX = g.x;
     if (g.y > g.maxAlt) g.maxAlt = g.y;
 
-    // Altitude ceiling gentle pushback
-    if (g.y > 760) {
-      g.y = 760;
-      if (g.vy > 0) g.vy *= 0.4;
+    // Hard upper ceiling safety clamp
+    if (g.y > 780) {
+      g.y = 780;
+      if (g.vy > 0) g.vy = 0;
     }
 
     // Terrain collision check
-    const groundY = terrainHeightAt(g.x, map);
-    if (g.y <= groundY + 6 || g.x < -80) {
-      g.y = Math.max(g.y, groundY + 6);
+    const postGroundY = terrainHeightAt(g.x, map);
+    if (g.y <= postGroundY + 6 || g.x < -80) {
+      g.y = Math.max(g.y, postGroundY + 6);
       g.alive = false;
       g.crashed = true;
     }
@@ -2293,11 +2446,19 @@
     const soarScore = g.timeAlive * 6.5 + Math.max(0, g.maxAlt - 220) * 0.45;
     g.fitness = distScore + ringScore + soarScore;
 
-    // Trail sampling (keep light for 200 gliders)
-    if (state.simSpeed <= 10 || g.idx < 4) {
-      if (g.trail.length === 0 || Math.hypot(g.x - g.trail[g.trail.length - 1].x, g.y - g.trail[g.trail.length - 1].y) > 10) {
+    // Trail sampling (skip non-focus trails at high speed to save CPU/GC)
+    if (g.idx === 0 || (state.simSpeed <= 8 && state.populationSize <= 80)) {
+      const tLen = g.trail.length;
+      if (tLen === 0) {
         g.trail.push({ x: g.x, y: g.y, stall: g.stalling });
-        if (g.trail.length > 42) g.trail.shift();
+      } else {
+        const last = g.trail[tLen - 1];
+        const tdx = g.x - last.x;
+        const tdy = g.y - last.y;
+        if (tdx * tdx + tdy * tdy > 100) {
+          g.trail.push({ x: g.x, y: g.y, stall: g.stalling });
+          if (g.trail.length > 42) g.trail.shift();
+        }
       }
     }
   }
@@ -2322,24 +2483,33 @@
 
     const map = MAP_BY_ID[state.mapId];
     const aero = state.aero;
-    const totalSimDt = Math.min(realDt, 0.05) * state.simSpeed;
+    const FIXED_DT = 1 / 60;
+    const FRAME_BUDGET_MS = 11.0; // guarantees smooth 60 FPS even at 500x / 1000 gliders
+    const tStart = performance.now();
 
-    // Fixed physics sub-step (max 1/45s) so 0.1x to 100x stays rock-solid
-    const maxStep = 1 / 45;
-    const steps = Math.max(1, Math.min(180, Math.ceil(totalSimDt / maxStep)));
-    const dt = totalSimDt / steps;
+    state.simAccum += Math.min(realDt, 0.05) * state.simSpeed;
+    // Cap backlog so switching from 500x -> 1x never causes a huge catch-up spike
+    const maxBacklog = FIXED_DT * Math.max(8, Math.min(400, Math.ceil(state.simSpeed * 1.5)));
+    if (state.simAccum > maxBacklog) state.simAccum = maxBacklog;
 
-    for (let s = 0; s < steps; s++) {
-      state.simClock += dt;
-      state.episodeTime += dt;
+    let stepsRun = 0;
+    const maxStepsPerFrame = 360;
+
+    while (state.simAccum >= FIXED_DT && stepsRun < maxStepsPerFrame) {
+      state.simAccum -= FIXED_DT;
+      state.simClock += FIXED_DT;
+      state.episodeTime += FIXED_DT;
+      stepsRun++;
 
       let anyAlive = false;
-      for (let i = 0; i < state.gliders.length; i++) {
-        const g = state.gliders[i];
+      const gliders = state.gliders;
+      const nGliders = gliders.length;
+      for (let i = 0; i < nGliders; i++) {
+        const g = gliders[i];
         if (!g.alive) continue;
         anyAlive = true;
         const isManual = state.manualOverride && i === 0;
-        stepGliderPhysics(g, dt, map, aero, isManual);
+        stepGliderPhysics(g, FIXED_DT, map, aero, isManual);
       }
 
       if (!anyAlive || state.episodeTime >= state.episodeDuration) {
@@ -2348,6 +2518,13 @@
         } else {
           evolveNextGeneration();
         }
+        break;
+      }
+
+      // Check CPU frame budget every 2 steps (or every step for large swarms)
+      if ((nGliders >= 120 || (stepsRun & 1) === 0) && (performance.now() - tStart) >= FRAME_BUDGET_MS) {
+        // Drop excess accumulator when CPU-bound so main thread stays silky smooth
+        state.simAccum = 0;
         break;
       }
     }
@@ -2394,9 +2571,15 @@
   }
 
   /* =========================================================================
-   * 9. CANVAS DPR RESIZE HELPER
+   * 9. CACHED CANVAS DPR RESIZE HELPER (ZERO PER-FRAME LAYOUT REFLOW)
    * ========================================================================= */
-  function resizeCanvasDPR(canvas) {
+  const _canvasSizeCache = new WeakMap();
+
+  function resizeCanvasDPR(canvas, forceMeasure) {
+    if (!forceMeasure) {
+      const cached = _canvasSizeCache.get(canvas);
+      if (cached && cached.w > 0 && cached.h > 0) return cached;
+    }
     const parent = canvas.parentElement;
     if (!parent) return { w: 0, h: 0, dpr: 1 };
     const rect = parent.getBoundingClientRect();
@@ -2409,7 +2592,9 @@
       canvas.width = targetW;
       canvas.height = targetH;
     }
-    return { w, h, dpr };
+    const metrics = { w, h, dpr };
+    _canvasSizeCache.set(canvas, metrics);
+    return metrics;
   }
 
   /* =========================================================================
@@ -2682,33 +2867,62 @@
   function placeOrRemoveAt(gx, gy, forceRemove) {
     const idx = state.blueprint.findIndex(function(p) { return p.gx === gx && p.gy === gy; });
     if (forceRemove || state.builderTool === 'erase') {
-      if (idx !== -1) state.blueprint.splice(idx, 1);
+      if (idx === -1) return;
+      state.blueprint.splice(idx, 1);
     } else {
       if (idx !== -1) {
+        if (state.blueprint[idx].id === state.selectedPartId) return;
         state.blueprint[idx].id = state.selectedPartId;
       } else {
         state.blueprint.push({ gx, gy, id: state.selectedPartId });
       }
     }
     state.activePresetId = null;
+    state.blueprintDirty = true;
     recomputeAndRefreshBuilder();
   }
 
+  let builderDragMode = null; // null | 'place' | 'erase'
   builderCanvas.addEventListener('mousemove', function(e) {
-    hoverCell = screenToGrid(e.clientX, e.clientY);
+    const cell = screenToGrid(e.clientX, e.clientY);
+    hoverCell = cell;
+    if (builderDragMode && cell) {
+      placeOrRemoveAt(cell.gx, cell.gy, builderDragMode === 'erase');
+    }
   });
   builderCanvas.addEventListener('mouseleave', function() {
     hoverCell = null;
+    builderDragMode = null;
   });
   builderCanvas.addEventListener('mousedown', function(e) {
     const cell = screenToGrid(e.clientX, e.clientY);
     if (!cell) return;
     if (e.button === 2) {
+      builderDragMode = 'erase';
       placeOrRemoveAt(cell.gx, cell.gy, true);
     } else if (e.button === 0) {
+      builderDragMode = state.builderTool === 'erase' ? 'erase' : 'place';
       placeOrRemoveAt(cell.gx, cell.gy, false);
     }
   });
+  window.addEventListener('mouseup', function() { builderDragMode = null; });
+  builderCanvas.addEventListener('touchstart', function(e) {
+    if (!e.touches || e.touches.length === 0) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const cell = screenToGrid(t.clientX, t.clientY);
+    hoverCell = cell;
+    if (cell) placeOrRemoveAt(cell.gx, cell.gy, false);
+  }, { passive: false });
+  builderCanvas.addEventListener('touchmove', function(e) {
+    if (!e.touches || e.touches.length === 0) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const cell = screenToGrid(t.clientX, t.clientY);
+    hoverCell = cell;
+    if (cell) placeOrRemoveAt(cell.gx, cell.gy, false);
+  }, { passive: false });
+  builderCanvas.addEventListener('touchend', function() { hoverCell = null; });
   builderCanvas.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
   /* =========================================================================
@@ -2856,66 +3070,77 @@
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Collectible Aerial Target Rings
+    // Collectible Aerial Target Rings (fast double-stroke glow, zero shadowBlur lag)
     const focus = getFocusGlider();
+    const originX = w * 0.34;
+    const originY = h * 0.56;
+    const camX = state.camera.x;
+    const camY = state.camera.y;
+
     for (let i = 0; i < state.rings.length; i++) {
       const r = state.rings[i];
-      const sp = worldToScreen(r.x, r.y, w, h);
-      if (sp.sx < -60 || sp.sx > w + 60) continue;
+      const rsx = originX + (r.x - camX) * scale;
+      if (rsx < -60 || rsx > w + 60) continue;
+      const rsy = originY - (r.y - camY) * scale;
       const collected = focus && focus.ringMask[i];
       const radY = r.radius * scale;
       const radX = radY * 0.34;
       const pulse = 1 + 0.06 * Math.sin(state.simClock * 3.5 + r.phase);
 
-      ctx.save();
-      ctx.translate(sp.sx, sp.sy);
-      ctx.strokeStyle = collected ? 'rgba(52, 211, 153, 0.35)' : '#facc15';
-      ctx.lineWidth = collected ? 2 : 3.2;
       if (!collected) {
-        ctx.shadowColor = 'rgba(250, 204, 21, 0.65)';
-        ctx.shadowBlur = 12;
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.25)';
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.ellipse(rsx, rsy, radX * pulse, radY * pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
       }
+      ctx.strokeStyle = collected ? 'rgba(52, 211, 153, 0.35)' : '#facc15';
+      ctx.lineWidth = collected ? 2 : 3.0;
       ctx.beginPath();
-      ctx.ellipse(0, 0, radX * pulse, radY * pulse, 0, 0, Math.PI * 2);
+      ctx.ellipse(rsx, rsy, radX * pulse, radY * pulse, 0, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.restore();
     }
 
     // Ring collection burst particles
     for (let i = 0; i < state.burstParticles.length; i++) {
       const bp = state.burstParticles[i];
-      const sp = worldToScreen(bp.x, bp.y, w, h);
+      const bsx = originX + (bp.x - camX) * scale;
+      const bsy = originY - (bp.y - camY) * scale;
       const a = Math.max(0, bp.life / bp.maxLife);
       ctx.fillStyle = 'rgba(250, 204, 21, ' + a.toFixed(2) + ')';
       ctx.beginPath();
-      ctx.arc(sp.sx, sp.sy, 3.2 * a, 0, Math.PI * 2);
+      ctx.arc(bsx, bsy, 3.2 * a, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Draw Swarm Gliders (ghosts first, focus leader on top)
-    for (let i = 0; i < state.gliders.length; i++) {
+    // Draw Swarm Gliders (capped to max 180 ghosts with even stride for silky 60 FPS at 1,000 gliders)
+    const nGliders = state.gliders.length;
+    const ghostStride = nGliders > 180 ? Math.ceil(nGliders / 180) : 1;
+    for (let i = 0; i < nGliders; i += ghostStride) {
       const g = state.gliders[i];
       if (g === focus) continue;
-      drawGliderInArena(ctx, g, w, h, scale, false);
+      drawGliderInArena(ctx, g, w, h, scale, false, originX, originY, camX, camY);
     }
     if (focus) {
-      drawGliderInArena(ctx, focus, w, h, scale, true);
+      drawGliderInArena(ctx, focus, w, h, scale, true, originX, originY, camX, camY);
     }
 
     ctx.restore();
     updateArenaHUD(focus);
   }
 
-  function drawGliderInArena(ctx, g, w, h, scale, isFocus) {
-    const sp = worldToScreen(g.x, g.y, w, h);
-    if (sp.sx < -80 || sp.sx > w + 80 || sp.sy < -80 || sp.sy > h + 80) return;
+  function drawGliderInArena(ctx, g, w, h, scale, isFocus, originX, originY, camX, camY) {
+    const sx = originX + (g.x - camX) * scale;
+    const sy = originY - (g.y - camY) * scale;
+    if (sx < -80 || sx > w + 80 || sy < -80 || sy > h + 80) return;
 
-    // Flight trail
+    // Flight trail (zero-allocation inline projection)
     if (g.trail.length > 1 && (isFocus || state.populationSize <= 60)) {
       ctx.beginPath();
       for (let i = 0; i < g.trail.length; i++) {
-        const tp = worldToScreen(g.trail[i].x, g.trail[i].y, w, h);
-        if (i === 0) ctx.moveTo(tp.sx, tp.sy); else ctx.lineTo(tp.sx, tp.sy);
+        const tx = originX + (g.trail[i].x - camX) * scale;
+        const ty = originY - (g.trail[i].y - camY) * scale;
+        if (i === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
       }
       ctx.strokeStyle = isFocus
         ? (g.stalling ? 'rgba(251, 113, 133, 0.78)' : 'rgba(56, 189, 248, 0.72)')
@@ -2927,19 +3152,16 @@
     // Aerodynamic Force Vectors for Focus Glider
     if (isFocus && state.showVectors && g.alive) {
       const vecScale = 1.6;
-      // Lift (emerald)
-      drawForceArrow(ctx, sp.sx, sp.sy, g.lastLiftVec.x * vecScale, -g.lastLiftVec.y * vecScale, '#34d399');
-      // Drag (rose)
-      drawForceArrow(ctx, sp.sx, sp.sy, g.lastDragVec.x * vecScale * 2.5, -g.lastDragVec.y * vecScale * 2.5, '#fb7185');
-      // Thrust (amber)
+      drawForceArrow(ctx, sx, sy, g.lastLiftVec.x * vecScale, -g.lastLiftVec.y * vecScale, '#34d399');
+      drawForceArrow(ctx, sx, sy, g.lastDragVec.x * vecScale * 2.5, -g.lastDragVec.y * vecScale * 2.5, '#fb7185');
       if (g.thrustActive > 0.05) {
-        drawForceArrow(ctx, sp.sx, sp.sy, g.lastThrustVec.x * vecScale, -g.lastThrustVec.y * vecScale, '#facc15');
+        drawForceArrow(ctx, sx, sy, g.lastThrustVec.x * vecScale, -g.lastThrustVec.y * vecScale, '#facc15');
       }
     }
 
-    // Glider Airframe Silhouette (built from actual blueprint parts!)
+    // Glider Airframe Silhouette
     ctx.save();
-    ctx.translate(sp.sx, sp.sy);
+    ctx.translate(sx, sy);
     ctx.rotate(-g.angle);
     ctx.globalAlpha = isFocus ? 1.0 : (g.alive ? 0.30 : 0.10);
 
@@ -2969,7 +3191,6 @@
         ctx.roundRect(lx - partUnit * 0.52, ly - partUnit * 0.42, partUnit * 1.04, partUnit * 0.84, 2);
         ctx.fill();
       }
-      // Sleek nose glow
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.1;
       ctx.beginPath();
@@ -2977,7 +3198,6 @@
       ctx.lineTo(partUnit * 2.8, 0);
       ctx.stroke();
     } else {
-      // Fast lightweight dart polygon for swarm ghosts (60 FPS at 200 gliders)
       ctx.fillStyle = g.alive ? '#38bdf8' : '#64748b';
       ctx.beginPath();
       ctx.moveTo(partUnit * 2.8, 0);
@@ -3021,7 +3241,7 @@
   const chartCtx = chartCanvas.getContext('2d');
 
   function drawLearningCurve() {
-    const { w, h, dpr } = resizeCanvasDPR(chartCanvas);
+    const { w, h, dpr } = resizeCanvasDPR(chartCanvas, false);
     if (w < 10 || h < 10) return;
     const ctx = chartCtx;
     ctx.save();
@@ -3153,21 +3373,55 @@
     }
   }
 
+  function updateDynamicCatalogLabels() {
+    const total = PARTS_CATALOG.length;
+    const hdr = document.getElementById('partsHeaderTitle');
+    if (hdr) hdr.textContent = 'Airframe Parts (' + total + ')';
+    const sub = document.getElementById('brandSubText');
+    if (sub) sub.textContent = 'Thermal & Wind-Tunnel Aerodynamics · ' + total + ' Modular Parts · Neural Swarm ML';
+    const inp = document.getElementById('partSearchInput');
+    if (inp) inp.placeholder = 'Search ' + total + ' parts (e.g. phoenix, delta, jet)...';
+    const ph = document.getElementById('presetsHeaderLabel');
+    if (ph) ph.textContent = 'Airframe Presets (' + PRESETS.length + ')';
+
+    const counts = { wings: 0, tail: 0, propulsion: 0, sensors: 0, op: 0 };
+    for (let i = 0; i < total; i++) {
+      const c = PARTS_CATALOG[i].cat;
+      if (counts[c] !== undefined) counts[c]++;
+    }
+    const catBtns = document.querySelectorAll('#catTabs .cat-btn');
+    for (let i = 0; i < catBtns.length; i++) {
+      const c = catBtns[i].dataset.cat;
+      const span = catBtns[i].querySelector('.cat-count');
+      if (span && counts[c] !== undefined) span.textContent = counts[c];
+    }
+  }
+
+  let _presetButtonsRendered = false;
   function renderPresetsList() {
     const list = document.getElementById('presetList');
-    list.innerHTML = '';
-    for (let i = 0; i < PRESETS.length; i++) {
-      const pr = PRESETS[i];
-      const btn = document.createElement('button');
-      btn.className = 'preset-btn' + (state.activePresetId === pr.id ? ' active' : '');
-      btn.innerHTML =
-        '<div><div class="preset-title">' + pr.name + '</div>' +
-        '<div class="preset-sub">' + pr.sub + '</div></div>' +
-        '<span class="mini-tag cyan">' + pr.parts.length + '</span>';
-      btn.addEventListener('click', function() {
-        loadPreset(pr.id);
-      });
-      list.appendChild(btn);
+    if (!_presetButtonsRendered) {
+      list.innerHTML = '';
+      for (let i = 0; i < PRESETS.length; i++) {
+        const pr = PRESETS[i];
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn' + (state.activePresetId === pr.id ? ' active' : '');
+        btn.dataset.presetId = pr.id;
+        btn.innerHTML =
+          '<div><div class="preset-title">' + pr.name + '</div>' +
+          '<div class="preset-sub">' + pr.sub + '</div></div>' +
+          '<span class="mini-tag cyan">' + pr.parts.length + '</span>';
+        btn.addEventListener('click', function() {
+          loadPreset(pr.id);
+        });
+        list.appendChild(btn);
+      }
+      _presetButtonsRendered = true;
+    } else {
+      const btns = list.querySelectorAll('.preset-btn');
+      for (let i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', btns[i].dataset.presetId === state.activePresetId);
+      }
     }
   }
 
@@ -3178,6 +3432,7 @@
     state.blueprint = pr.parts.map(function(item) {
       return { gx: item.gx, gy: item.gy, id: item.id };
     });
+    state.blueprintDirty = true;
     recomputeAndRefreshBuilder();
   }
 
@@ -3200,8 +3455,15 @@
     document.getElementById('specCom').textContent =
       '(' + a.comX.toFixed(2) + ', ' + a.comY.toFixed(2) + ') · ' + a.balanceText;
 
-    document.getElementById('specThrust').textContent =
-      a.maxThrust.toFixed(1) + ' N' + (a.maxThrust > 0 && a.fuelTime < 500 ? ' (' + a.fuelTime.toFixed(1) + 's)' : '');
+    let thrustStr = a.maxThrust.toFixed(1) + ' N';
+    if (a.finiteThrust > 0 && a.infiniteThrust > 0) {
+      thrustStr = a.maxThrust.toFixed(1) + ' N (' + a.finiteFuelTime.toFixed(1) + 's + ∞)';
+    } else if (a.finiteThrust > 0) {
+      thrustStr = a.maxThrust.toFixed(1) + ' N (' + a.finiteFuelTime.toFixed(1) + 's)';
+    } else if (a.infiniteThrust > 0) {
+      thrustStr = a.maxThrust.toFixed(1) + ' N (∞)';
+    }
+    document.getElementById('specThrust').textContent = thrustStr;
     document.getElementById('specStall').textContent = a.stallAngleDeg.toFixed(1) + '°';
 
     const badges = [];
@@ -3243,6 +3505,11 @@
   }
 
   function updateArenaHUD(focus) {
+    // Throttle HUD DOM writes to ~15Hz (every 65ms) to avoid 60Hz DOM thrashing
+    const now = performance.now();
+    if (now - state.lastHudUpdate < 65) return;
+    state.lastHudUpdate = now;
+
     let alive = 0;
     for (let i = 0; i < state.gliders.length; i++) {
       if (state.gliders[i].alive) alive++;
@@ -3283,17 +3550,17 @@
     document.getElementById('view-arena').classList.toggle('active', tabName === 'arena');
 
     if (tabName === 'arena') {
-      // Refresh aero specs & spawn if blueprint changed or empty
+      // Refresh aero specs & respawn if blueprint was edited in Wing Lab or swarm is empty
       state.aero = computeAeroSpecs(state.blueprint);
-      if (state.gliders.length === 0) {
+      if (state.gliders.length === 0 || state.blueprintDirty) {
         spawnGeneration(true);
       }
       setTimeout(function() {
-        resizeCanvasDPR(arenaCanvas);
+        resizeCanvasDPR(arenaCanvas, true);
         drawLearningCurve();
       }, 20);
     } else {
-      setTimeout(function() { resizeCanvasDPR(builderCanvas); }, 20);
+      setTimeout(function() { resizeCanvasDPR(builderCanvas, true); }, 20);
     }
   }
 
@@ -3330,6 +3597,7 @@
   document.getElementById('btnClearCraft').addEventListener('click', function() {
     state.blueprint = [];
     state.activePresetId = null;
+    state.blueprintDirty = true;
     recomputeAndRefreshBuilder();
   });
   document.getElementById('btnCenterCraft').addEventListener('click', function() {
@@ -3348,6 +3616,7 @@
       state.blueprint[i].gx -= dx;
       state.blueprint[i].gy -= dy;
     }
+    state.blueprintDirty = true;
     recomputeAndRefreshBuilder();
   });
 
@@ -3398,7 +3667,7 @@
 
   // Episode Timer controls
   function setEpisodeDuration(sec) {
-    state.episodeDuration = Math.max(10, Math.min(120, Math.round(sec)));
+    state.episodeDuration = Math.max(5, Math.min(300, Math.round(sec)));
     document.getElementById('sliderEpTime').value = state.episodeDuration;
     document.getElementById('epTimeValLabel').textContent = state.episodeDuration + 's';
     const pills = document.querySelectorAll('.ep-pill');
@@ -3435,9 +3704,10 @@
     document.getElementById('manualPad').classList.toggle('visible', state.manualOverride);
   });
 
-  // On-screen Manual Pitch / Boost / Brake hold buttons
+  // On-screen Manual Pitch / Boost / Brake hold buttons (with touchcancel guard)
   function bindHoldButton(id, keyProp) {
     const el = document.getElementById(id);
+    if (!el) return;
     const down = function(e) { e.preventDefault(); state.keys[keyProp] = true; };
     const up = function(e) { e.preventDefault(); state.keys[keyProp] = false; };
     el.addEventListener('mousedown', down);
@@ -3445,18 +3715,46 @@
     el.addEventListener('mouseleave', up);
     el.addEventListener('touchstart', down, { passive: false });
     el.addEventListener('touchend', up, { passive: false });
+    el.addEventListener('touchcancel', up, { passive: false });
   }
   bindHoldButton('btnPitchUp', 'up');
   bindHoldButton('btnPitchDown', 'down');
   bindHoldButton('btnManualBoost', 'boost');
   bindHoldButton('btnManualBrake', 'brake');
 
-  // Keyboard controls for Manual Pitch Override
+  function relaunchManualGlider() {
+    if (!state.manualOverride || state.gliders.length === 0) return;
+    const b = state.gliders[0].brain || createBrain(state.aero.hiddenNodes);
+    state.gliders[0] = createGlider(b, 0);
+    state.camera.x = state.gliders[0].x;
+    state.camera.y = state.gliders[0].y;
+  }
+  const btnManualRespawn = document.getElementById('btnManualRespawn');
+  if (btnManualRespawn) btnManualRespawn.addEventListener('click', relaunchManualGlider);
+
+  function resetAllKeys() {
+    state.keys.up = false;
+    state.keys.down = false;
+    state.keys.boost = false;
+    state.keys.brake = false;
+  }
+  window.addEventListener('blur', resetAllKeys);
+
+  // Keyboard controls for Manual Pitch Override (guarded against search inputs & tutorial modal)
   window.addEventListener('keydown', function(e) {
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
+    const tutModal = document.getElementById('glTutModal');
+    if (tutModal && tutModal.classList.contains('tut-open')) return;
+
     if (e.code === 'ArrowUp' || e.code === 'KeyW') { state.keys.up = true; if (state.manualOverride) e.preventDefault(); }
     if (e.code === 'ArrowDown' || e.code === 'KeyS') { state.keys.down = true; if (state.manualOverride) e.preventDefault(); }
     if (e.code === 'Space') { state.keys.boost = true; if (state.manualOverride) e.preventDefault(); }
     if (e.code === 'KeyB') { state.keys.brake = true; }
+    if (e.code === 'KeyR' && state.manualOverride && state.activeTab === 'arena') {
+      e.preventDefault();
+      relaunchManualGlider();
+    }
   });
   window.addEventListener('keyup', function(e) {
     if (e.code === 'ArrowUp' || e.code === 'KeyW') state.keys.up = false;
@@ -3465,12 +3763,13 @@
     if (e.code === 'KeyB') state.keys.brake = false;
   });
 
-  // Clean ResizeObserver + window resize handling for all canvases
+  // Clean ResizeObserver + window resize handling for all canvases (forceMeasure = true only on resize)
   function handleResize() {
     if (state.activeTab === 'winglab') {
-      resizeCanvasDPR(builderCanvas);
+      resizeCanvasDPR(builderCanvas, true);
     } else {
-      resizeCanvasDPR(arenaCanvas);
+      resizeCanvasDPR(arenaCanvas, true);
+      resizeCanvasDPR(chartCanvas, true);
       drawLearningCurve();
     }
   }
@@ -3485,6 +3784,7 @@
   /* =========================================================================
    * 15. INITIALIZATION & MAIN ANIMATION LOOP
    * ========================================================================= */
+  updateDynamicCatalogLabels();
   loadPreset('thermal_soarer');
   renderPartsPalette();
   renderMapGrid();
@@ -3525,8 +3825,8 @@
         </div>
       </section>
       <section class="tut-step" data-step="1">
-        <div class="tut-hero"><div class="tut-icon">🛠</div><div><h2 class="tut-title">Wing Lab &amp; Aerodynamics</h2><p class="tut-subtitle">120 Modular Parts · 12 Ready-to-Fly Presets</p></div></div>
-        <p class="tut-desc">Snap together <strong>120 modular parts</strong>—wings, control tails, propulsion, sensors, and <strong>Mythic OP parts</strong>—or jump right in with <strong>12 presets</strong>.</p>
+        <div class="tut-hero"><div class="tut-icon">🛠</div><div><h2 class="tut-title">Wing Lab &amp; Aerodynamics</h2><p class="tut-subtitle">150 Modular Parts · 12 Ready-to-Fly Presets</p></div></div>
+        <p class="tut-desc">Snap together <strong>150 modular parts</strong>—wings, control tails, propulsion, sensors, and <strong>Mythic OP parts</strong>—or jump right in with <strong>12 presets</strong>.</p>
         <div class="tut-chips">
           <div class="tut-chip tut-emerald"><b>Live L/D Glide Ratio</b>Higher Lift-to-Drag means longer, cleaner glides with less altitude loss.</div>
           <div class="tut-chip tut-amber"><b>Center of Gravity (CG)</b>Keep CG balanced near your wings' lift center for stable, responsive pitch.</div>
