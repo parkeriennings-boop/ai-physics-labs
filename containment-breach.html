@@ -1,0 +1,3035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Containment Breach — Zombie Fort-Building Sandbox | AI Physics Labs</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: rgba(15, 23, 42, 0.92);
+    --panel-solid: #111b2e;
+    --panel-border: rgba(148, 163, 184, 0.22);
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #22c55e;
+    --danger: #ef4444;
+    --warn: #f59e0b;
+    --purple: #a855f7;
+    --btn: rgba(30, 41, 59, 0.9);
+    --btn-hover: rgba(51, 65, 85, 0.95);
+    --btn-active: #0284c7;
+    --radius: 10px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #1e293b; color: var(--text);
+    font-family: var(--font); font-size: 13px;
+  }
+  #gameCanvas {
+    display: block; width: 100vw; height: 100vh; cursor: crosshair;
+  }
+
+  /* Top Bar */
+  #topBar {
+    position: fixed; top: 10px; left: 10px; right: 10px; height: 48px;
+    background: var(--panel); backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border); border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; gap: 10px; z-index: 20;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 8px; font-weight: 800;
+    letter-spacing: 0.4px; font-size: 14px; white-space: nowrap;
+  }
+  .brand-badge {
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 5px;
+    font-weight: 800; letter-spacing: 0.6px;
+  }
+  .top-group {
+    display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
+  }
+  .divider {
+    width: 1px; height: 24px; background: var(--panel-border); margin: 0 2px;
+  }
+
+  button, select {
+    font-family: var(--font); font-size: 12px; font-weight: 600;
+    color: var(--text); background: var(--btn);
+    border: 1px solid var(--panel-border); border-radius: 7px;
+    padding: 6px 10px; cursor: pointer; transition: all 0.12s ease;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  button:hover, select:hover { background: var(--btn-hover); border-color: rgba(148,163,184,0.4); }
+  button.active { background: var(--btn-active); border-color: #38bdf8; color: #fff; box-shadow: 0 0 0 1px rgba(56,189,248,0.4); }
+  button.danger { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); color: #fecaca; }
+  button.danger:hover { background: rgba(239,68,68,0.38); }
+  button.success { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.5); color: #bbf7d0; }
+  button.success:hover { background: rgba(34,197,94,0.35); }
+  button.warn { background: rgba(245,158,11,0.22); border-color: rgba(245,158,11,0.5); color: #fde68a; }
+  button.warn.active { background: #d97706; color: #fff; border-color: #fbbf24; }
+  button.sm { padding: 4px 8px; font-size: 11px; }
+
+  /* Telemetry Pills */
+  .stats-bar {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;
+  }
+  .stat-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(15,23,42,0.75); border: 1px solid var(--panel-border);
+    padding: 4px 8px; border-radius: 6px; font-variant-numeric: tabular-nums;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* Left Dock */
+  #leftDock {
+    position: fixed; top: 68px; left: 10px; bottom: 10px; width: 248px;
+    background: var(--panel); backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border); border-radius: var(--radius);
+    display: flex; flex-direction: column; z-index: 15;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.32); overflow: hidden;
+    transition: transform 0.2s ease;
+  }
+  #leftDock.collapsed { transform: translateX(-262px); }
+
+  /* Right Dock */
+  #rightDock {
+    position: fixed; top: 68px; right: 10px; bottom: 10px; width: 256px;
+    background: var(--panel); backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border); border-radius: var(--radius);
+    display: flex; flex-direction: column; z-index: 15;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.32); overflow: hidden;
+    transition: transform 0.2s ease;
+  }
+  #rightDock.collapsed { transform: translateX(270px); }
+
+  .dock-tabs {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    padding: 8px; border-bottom: 1px solid var(--panel-border);
+    background: rgba(15,23,42,0.6);
+  }
+  .dock-tab {
+    justify-content: center; padding: 6px 4px; font-size: 11px;
+    border-radius: 6px;
+  }
+  .dock-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; border-bottom: 1px solid var(--panel-border);
+    font-weight: 700; font-size: 12px; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--muted);
+    background: rgba(15,23,42,0.5);
+  }
+  .dock-scroll {
+    flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .dock-scroll::-webkit-scrollbar { width: 5px; }
+  .dock-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 4px; }
+
+  .section-title {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--muted); margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tool-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .tool-btn {
+    flex-direction: column; align-items: flex-start; gap: 3px;
+    padding: 7px 8px; text-align: left; border-radius: 8px; position: relative;
+  }
+  .tool-btn .t-head {
+    display: flex; align-items: center; gap: 6px; width: 100%; font-size: 11.5px; font-weight: 700;
+  }
+  .tool-btn .t-sub {
+    font-size: 10px; color: var(--muted); font-weight: 500; line-height: 1.2;
+  }
+  .tool-btn.active .t-sub { color: #e0f2fe; }
+  .swatch {
+    width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.35);
+  }
+
+  .slider-row {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .slider-label {
+    display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600;
+  }
+  .slider-val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type="range"] {
+    width: 100%; accent-color: var(--accent); cursor: pointer; height: 5px;
+    margin: 2px 0;
+  }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 8px; background: rgba(30,41,59,0.55); border-radius: 7px;
+    border: 1px solid var(--panel-border); font-size: 11.5px; font-weight: 600;
+  }
+  .toggle-row input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+  /* Event Feed */
+  #eventFeed {
+    border-top: 1px solid var(--panel-border); padding: 8px 10px;
+    height: 118px; overflow-y: auto; background: rgba(2, 6, 23, 0.55);
+    display: flex; flex-direction: column; gap: 4px; font-size: 11px;
+  }
+  .feed-item {
+    line-height: 1.3; color: #cbd5e1; border-left: 2px solid var(--accent); padding-left: 6px;
+  }
+  .feed-item.alert { border-color: var(--danger); color: #fecaca; }
+  .feed-item.good { border-color: var(--accent-2); color: #bbf7d0; }
+  .feed-item.warn { border-color: var(--warn); color: #fde68a; }
+
+  /* Possess HUD Banner */
+  #possessBanner {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.94); border: 2px solid #38bdf8;
+    border-radius: 12px; padding: 10px 18px; z-index: 25;
+    display: none; align-items: center; gap: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  }
+  #possessBanner.show { display: flex; }
+  .p-info { display: flex; flex-direction: column; gap: 2px; }
+  .p-title { font-weight: 800; font-size: 13px; color: #38bdf8; }
+  .p-keys { font-size: 11px; color: #cbd5e1; }
+  .p-bars { display: flex; gap: 10px; align-items: center; }
+  .mini-bar {
+    width: 90px; height: 8px; background: rgba(255,255,255,0.12);
+    border-radius: 4px; overflow: hidden;
+  }
+  .mini-bar-fill { height: 100%; background: #22c55e; transition: width 0.1s; }
+
+  /* Bottom Hint Pill */
+  #hintBar {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.85); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 5px 12px; font-size: 11px; color: #cbd5e1;
+    z-index: 10; pointer-events: none; white-space: nowrap;
+  }
+
+  /* Quick Dock Toggles */
+  .dock-toggle {
+    position: fixed; top: 72px; z-index: 16; padding: 5px 7px; font-size: 11px;
+    border-radius: 6px; background: var(--panel);
+  }
+  #toggleLeft { left: 264px; transition: left 0.2s ease; }
+  #toggleLeft.collapsed { left: 10px; }
+  #toggleRight { right: 272px; transition: right 0.2s ease; }
+  #toggleRight.collapsed { right: 10px; }
+
+  @media (max-width: 1100px) {
+    .stats-bar .hide-sm { display: none; }
+    #leftDock { width: 220px; }
+    #rightDock { width: 228px; }
+    #toggleLeft { left: 236px; }
+    #toggleRight { right: 244px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- Top Command Bar -->
+<div id="topBar">
+  <div class="top-group">
+    <div class="brand">
+      <span class="brand-badge">OUTBREAK</span>
+      <span>CONTAINMENT BREACH</span>
+    </div>
+    <div class="divider"></div>
+    <select id="mapSelect" title="Load Scenario Map">
+      <option value="compound">Crossroads Compound</option>
+      <option value="hospital">Evacuation Hospital</option>
+      <option value="checkpoint">Highway Checkpoint</option>
+      <option value="blank">Blank Canvas</option>
+    </select>
+    <button id="btnPlayPause" class="success" title="Pause / Resume (Space)">⏸ Pause</button>
+    <div class="top-group" style="gap:3px;">
+      <button class="sm speed-btn" data-speed="0.25">0.25x</button>
+      <button class="sm speed-btn active" data-speed="1">1x</button>
+      <button class="sm speed-btn" data-speed="2">2x</button>
+      <button class="sm speed-btn" data-speed="5">5x</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-pill" title="Living Humans"><span class="dot" style="background:#38bdf8"></span><span id="statHumans">0</span></div>
+    <div class="stat-pill" title="Infected / Incubating"><span class="dot" style="background:#facc15"></span><span id="statInfected">0</span></div>
+    <div class="stat-pill" title="Active Zombies"><span class="dot" style="background:#ef4444"></span><span id="statZombies">0</span></div>
+    <div class="stat-pill hide-sm" title="Humans Extracted"><span class="dot" style="background:#22c55e"></span><span id="statExtracted">0</span></div>
+    <div class="stat-pill hide-sm" title="Breaches"><span class="dot" style="background:#f97316"></span><span id="statBreaches">0</span></div>
+  </div>
+
+  <div class="top-group">
+    <button id="btnModeDirector" class="active" title="Build forts, spawn units, tweak rules">🛠 Director</button>
+    <button id="btnModePossess" class="warn" title="Click any Human or Zombie to take direct WASD + Mouse control">🎮 Possess</button>
+    <div class="divider"></div>
+    <button id="btnNight" title="Toggle Daylight / Night Power-Outage">☀ Day</button>
+    <button id="btnResetCam" class="sm" title="Center Camera (C)">⌖ Fit</button>
+    <button id="btnResetMap" class="danger sm" title="Reload Current Map">↻ Reset</button>
+  </div>
+</div>
+
+<button id="toggleLeft" class="dock-toggle" title="Toggle Build & Spawn Panel">◀</button>
+<button id="toggleRight" class="dock-toggle" title="Toggle Rules Lab Panel">▶</button>
+
+<!-- Left Dock: Build / Units / Chaos -->
+<div id="leftDock">
+  <div class="dock-tabs">
+    <button class="dock-tab active" data-tab="build">🧱 Build</button>
+    <button class="dock-tab" data-tab="units">👥 Units</button>
+    <button class="dock-tab" data-tab="chaos">⚡ Chaos</button>
+  </div>
+
+  <!-- BUILD TAB -->
+  <div class="dock-scroll tab-pane" id="tab-build">
+    <div>
+      <div class="section-title">
+        <span>Placement</span>
+        <span id="snapLabel" style="color:var(--accent)">Grid 32px</span>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button id="btnSnapToggle" class="active sm" style="flex:1; justify-content:center;">⊞ Snap Grid</button>
+        <button class="sm tool-select" data-tool="interact" style="flex:1; justify-content:center;">🔑 Door / Edit</button>
+        <button class="sm danger tool-select" data-tool="erase" style="justify-content:center;">✕ Erase</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>Fortification Materials</span></div>
+      <div class="tool-grid">
+        <button class="tool-btn tool-select active" data-tool="wall_concrete">
+          <div class="t-head"><span class="swatch" style="background:#64748b"></span>Concrete Wall</div>
+          <div class="t-sub">600 HP · Blocks LOS</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="wall_wood">
+          <div class="t-head"><span class="swatch" style="background:#b45309"></span>Wood Barricade</div>
+          <div class="t-sub">180 HP · Repairable</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="wall_fence">
+          <div class="t-head"><span class="swatch" style="background:#94a3b8; border-style:dashed"></span>Chain-Link</div>
+          <div class="t-sub">260 HP · Shoot-thru</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="wall_glass">
+          <div class="t-head"><span class="swatch" style="background:#7dd3fc"></span>Glass Wall</div>
+          <div class="t-sub">90 HP · Clear LOS</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="door_reinforced" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#3b82f6"></span>Reinforced Door</div>
+          <div class="t-sub">350 HP · Click in Door mode to Open / Lock / Barricade</div>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>Tactical Props</span></div>
+      <div class="tool-grid">
+        <button class="tool-btn tool-select" data-tool="prop_wire">
+          <div class="t-head"><span class="swatch" style="background:#cbd5e1"></span>Barbed Wire</div>
+          <div class="t-sub">Slows hordes 65%</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="prop_barrel">
+          <div class="t-head"><span class="swatch" style="background:#ef4444"></span>Fuel Barrel</div>
+          <div class="t-sub">Chain-reaction blast</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="prop_turret">
+          <div class="t-head"><span class="swatch" style="background:#0ea5e9"></span>Sentry Turret</div>
+          <div class="t-sub">Auto-aim · Needs LOS</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="prop_car">
+          <div class="t-head"><span class="swatch" style="background:#475569"></span>Car Wreck</div>
+          <div class="t-sub">Choke-point blocker</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="prop_light" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#fef08a"></span>Floodlight Tower</div>
+          <div class="t-sub">Bright illumination cone for Night / Power-Outage mode</div>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>Floor Surfaces</span></div>
+      <div class="tool-grid">
+        <button class="sm tool-select" data-tool="floor_grass"><span class="swatch" style="background:#65a30d"></span>Grass</button>
+        <button class="sm tool-select" data-tool="floor_asphalt"><span class="swatch" style="background:#475569"></span>Asphalt</button>
+        <button class="sm tool-select" data-tool="floor_tile"><span class="swatch" style="background:#e2e8f0"></span>Tile Floor</button>
+        <button class="sm tool-select" data-tool="floor_concrete"><span class="swatch" style="background:#cbd5e1"></span>Concrete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNITS TAB -->
+  <div class="dock-scroll tab-pane" id="tab-units" style="display:none;">
+    <div>
+      <div class="section-title">
+        <span>Spawn Brush</span>
+        <span id="brushLabel" style="color:var(--accent)">1 unit / click</span>
+      </div>
+      <div style="display:flex; gap:5px;">
+        <button class="sm brush-btn active" data-brush="1" style="flex:1; justify-content:center;">1x Single</button>
+        <button class="sm brush-btn" data-brush="5" style="flex:1; justify-content:center;">5x Squad</button>
+        <button class="sm brush-btn" data-brush="15" style="flex:1; justify-content:center;">15x Horde</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span style="color:#38bdf8">Humans (Click or Drag)</span></div>
+      <div class="tool-grid">
+        <button class="tool-btn tool-select" data-tool="unit_civilian">
+          <div class="t-head"><span class="swatch" style="background:#60a5fa"></span>Civilian</div>
+          <div class="t-sub">Flees · Grabs gear</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_survivor">
+          <div class="t-head"><span class="swatch" style="background:#0284c7"></span>Survivor</div>
+          <div class="t-sub">Pistol + melee bat</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_riot">
+          <div class="t-head"><span class="swatch" style="background:#1d4ed8"></span>Riot Guard</div>
+          <div class="t-sub">Shield · Knockback</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_sniper">
+          <div class="t-head"><span class="swatch" style="background:#0d9488"></span>Sniper</div>
+          <div class="t-sub">Long-range rifle</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_engineer">
+          <div class="t-head"><span class="swatch" style="background:#f59e0b"></span>Engineer</div>
+          <div class="t-sub">Repairs & reloads</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_medic">
+          <div class="t-head"><span class="swatch" style="background:#ec4899"></span>Medic</div>
+          <div class="t-sub">Heals & cures bites</div>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span style="color:#f87171">Zombies (Click or Drag)</span></div>
+      <div class="tool-grid">
+        <button class="tool-btn tool-select" data-tool="unit_walker">
+          <div class="t-head"><span class="swatch" style="background:#65a30d"></span>Walker</div>
+          <div class="t-sub">Classic shambler</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_sprinter">
+          <div class="t-head"><span class="swatch" style="background:#dc2626"></span>Sprinter</div>
+          <div class="t-sub">Fast · Aggressive</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_brute">
+          <div class="t-head"><span class="swatch" style="background:#7e22ce"></span>Heavy Brute</div>
+          <div class="t-sub">Smashes fort walls</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_crawler">
+          <div class="t-head"><span class="swatch" style="background:#84cc16"></span>Crawler</div>
+          <div class="t-sub">Low profile · Evasive</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="unit_carrier" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#eab308"></span>Stealth Carrier</div>
+          <div class="t-sub">Blends in as Civilian until hidden timer turns them inside!</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAOS TAB -->
+  <div class="dock-scroll tab-pane" id="tab-chaos" style="display:none;">
+    <div>
+      <div class="section-title"><span>Director Chaos Tools</span></div>
+      <div class="tool-grid">
+        <button class="tool-btn tool-select" data-tool="chaos_alarm" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#f97316"></span>Noise Lure / Alarm</div>
+          <div class="t-sub">Pulses loud sound waves drawing hordes from across the map</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="chaos_supply" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#38bdf8"></span>Weapon & Medkit Drop</div>
+          <div class="t-sub">Arms civilians, refills ammo, and heals nearby defenders</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="chaos_cure" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#10b981"></span>Experimental Cure Cloud</div>
+          <div class="t-sub">Expanding mist that cures bites and reverts zombies</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="chaos_fire" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#ef4444"></span>Spreading Fire</div>
+          <div class="t-sub">Ignites units, wooden barricades, and explosive barrels</div>
+        </button>
+        <button class="tool-btn tool-select" data-tool="chaos_extract" style="grid-column: span 2;">
+          <div class="t-head"><span class="swatch" style="background:#22c55e"></span>Extraction Zone (Helipad)</div>
+          <div class="t-sub">Humans reaching this zone are airlifted to safety</div>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>Quick Stress-Tests</span></div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button id="btnWaveSmall" class="warn">🌊 Spawn Perimeter Horde (+40)</button>
+        <button id="btnWaveMega" class="danger">☠ Mega Siege Wave (+120 + Brutes)</button>
+        <button id="btnDropCarriers" class="sm">🕵 Infiltrate 4 Stealth Carriers</button>
+        <button id="btnRepairAll" class="success sm">🔧 Repair & Reload All Defenses</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Right Dock: Rules Lab & Live Feed -->
+<div id="rightDock">
+  <div class="dock-header">
+    <span>⚙ Sandbox Rules Lab</span>
+    <span id="fpsReadout" style="color:#22c55e; font-variant-numeric:tabular-nums;">60 FPS</span>
+  </div>
+  <div class="dock-scroll">
+    <div class="slider-row">
+      <div class="slider-label"><span>Zombie Speed</span><span class="slider-val" id="valZSpeed">1.0x</span></div>
+      <input type="range" id="slZSpeed" min="0.3" max="2.5" step="0.1" value="1.0" />
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Zombie HP</span><span class="slider-val" id="valZHp">1.0x</span></div>
+      <input type="range" id="slZHp" min="0.3" max="3.0" step="0.1" value="1.0" />
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Incubation Delay</span><span class="slider-val" id="valIncub">10s</span></div>
+      <input type="range" id="slIncub" min="2" max="30" step="1" value="10" />
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Sound Sensitivity</span><span class="slider-val" id="valSound">100%</span></div>
+      <input type="range" id="slSound" min="0" max="200" step="10" value="100" />
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Civilian Courage</span><span class="slider-val" id="valCourage">45%</span></div>
+      <input type="range" id="slCourage" min="0" max="100" step="5" value="45" />
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Crowd-Shoving Pressure</span><span class="slider-val" id="valShove">1.4x</span></div>
+      <input type="range" id="slShove" min="0" max="3.0" step="0.1" value="1.4" />
+    </div>
+
+    <div class="toggle-row">
+      <span>Limited Ammo</span>
+      <input type="checkbox" id="chkAmmo" checked />
+    </div>
+    <div class="toggle-row">
+      <span>Show Sight & Sound Rings</span>
+      <input type="checkbox" id="chkIndicators" checked />
+    </div>
+    <div class="toggle-row">
+      <span>Reveal Stealth Carriers</span>
+      <input type="checkbox" id="chkReveal" />
+    </div>
+
+    <div style="display:flex; gap:6px; margin-top:2px;">
+      <button id="btnClearZombies" class="sm" style="flex:1; justify-content:center;">Clear Zombies</button>
+      <button id="btnClearUnits" class="sm danger" style="flex:1; justify-content:center;">Clear All Units</button>
+    </div>
+  </div>
+  <div id="eventFeed"></div>
+</div>
+
+<!-- Possess Mode HUD -->
+<div id="possessBanner">
+  <div class="p-info">
+    <div class="p-title" id="possessTitle">POSSESSING: ARMED SURVIVOR</div>
+    <div class="p-keys" id="possessKeys">WASD Move · Mouse Aim & Fire · E Door/Loot · R Reload · ESC Exit</div>
+  </div>
+  <div class="p-bars">
+    <div>
+      <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">HP</div>
+      <div class="mini-bar"><div class="mini-bar-fill" id="possessHpBar"></div></div>
+    </div>
+    <div id="possessAmmoWrap">
+      <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">AMMO</div>
+      <div style="font-weight:800; font-size:12px; color:#38bdf8;" id="possessAmmoTxt">12/24</div>
+    </div>
+  </div>
+  <button id="btnExitPossess" class="danger sm">Exit (ESC)</button>
+</div>
+
+<div id="hintBar">Left-Click/Drag: Place or Paint · Right-Drag / WASD: Pan · Scroll: Zoom · Space: Pause · Click Door in Door Mode to Lock/Barricade</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // =========================================================================
+  // CONSTANTS & CONFIGURATION
+  // =========================================================================
+  const TILE = 32;
+  const WORLD_COLS = 64;
+  const WORLD_ROWS = 44;
+  const WORLD_W = WORLD_COLS * TILE; // 2048
+  const WORLD_H = WORLD_ROWS * TILE; // 1408
+  const HASH_CELL = 64;
+
+  const FLOOR = { GRASS: 0, ASPHALT: 1, TILE: 2, CONCRETE: 3 };
+
+  const STRUCT_DEFS = {
+    wall_concrete: { name: 'Concrete Wall', hp: 600, blocksSight: true, blocksBullets: true, blocksMove: true, repairable: true, color: '#64748b', top: '#94a3b8', w: TILE, h: TILE },
+    wall_wood:     { name: 'Wood Barricade', hp: 180, blocksSight: false, blocksBullets: false, blocksMove: true, repairable: true, flammable: true, color: '#92400e', top: '#d97706', w: TILE, h: TILE },
+    wall_fence:    { name: 'Chain-Link Fence', hp: 260, blocksSight: false, blocksBullets: false, blocksMove: true, repairable: true, color: '#64748b', top: '#cbd5e1', w: TILE, h: TILE },
+    wall_glass:    { name: 'Glass Wall', hp: 90, blocksSight: false, blocksBullets: true, blocksMove: true, repairable: false, color: '#38bdf8', top: '#bae6fd', w: TILE, h: TILE },
+    door_reinforced: { name: 'Reinforced Door', hp: 350, blocksSight: true, blocksBullets: true, blocksMove: true, repairable: true, isDoor: true, color: '#2563eb', top: '#60a5fa', w: TILE, h: TILE },
+    prop_wire:     { name: 'Barbed Wire', hp: 140, blocksSight: false, blocksBullets: false, blocksMove: false, slowsZombies: true, repairable: true, color: '#94a3b8', w: TILE, h: TILE },
+    prop_barrel:   { name: 'Fuel Barrel', hp: 45, blocksSight: false, blocksBullets: true, blocksMove: true, explosive: true, flammable: true, color: '#dc2626', w: 22, h: 22 },
+    prop_turret:   { name: 'Sentry Turret', hp: 220, blocksSight: false, blocksBullets: false, blocksMove: true, isTurret: true, repairable: true, maxAmmo: 60, color: '#0284c7', w: 26, h: 26 },
+    prop_car:      { name: 'Car Wreck', hp: 520, blocksSight: false, blocksBullets: true, blocksMove: true, repairable: false, color: '#475569', w: 58, h: 30 },
+    prop_light:    { name: 'Floodlight', hp: 140, blocksSight: false, blocksBullets: false, blocksMove: true, isLight: true, repairable: true, color: '#facc15', w: 20, h: 20 }
+  };
+
+  const HUMAN_DEFS = {
+    civilian: { name: 'Civilian', hp: 70, speed: 92, radius: 8.5, color: '#60a5fa', helm: '#e2e8f0', range: 0, dmg: 8, fireRate: 0.7, ammo: 0, maxAmmo: 0 },
+    survivor: { name: 'Armed Survivor', hp: 100, speed: 96, radius: 9, color: '#0284c7', helm: '#334155', range: 230, dmg: 22, fireRate: 0.42, ammo: 36, maxAmmo: 36, noise: 260 },
+    riot:     { name: 'Riot Guard', hp: 190, speed: 84, radius: 10, color: '#1d4ed8', helm: '#0f172a', range: 46, dmg: 26, fireRate: 0.55, ammo: 999, maxAmmo: 999, knockback: 180, melee: true, noise: 80 },
+    sniper:   { name: 'Sniper', hp: 85, speed: 86, radius: 9, color: '#0d9488', helm: '#134e4a', range: 440, dmg: 82, fireRate: 1.35, ammo: 18, maxAmmo: 18, noise: 380, pierce: true },
+    engineer: { name: 'Engineer', hp: 105, speed: 95, radius: 9, color: '#f59e0b', helm: '#fef08a', range: 155, dmg: 16, fireRate: 0.55, ammo: 24, maxAmmo: 24, repairRate: 42, noise: 200 },
+    medic:    { name: 'Medic', hp: 95, speed: 100, radius: 9, color: '#ec4899', helm: '#ffffff', range: 145, dmg: 14, fireRate: 0.6, ammo: 20, maxAmmo: 20, healRate: 28, noise: 180 }
+  };
+
+  const ZOMBIE_DEFS = {
+    walker:   { name: 'Walker', hp: 75, speed: 52, radius: 9, color: '#65a30d', skin: '#a3e635', dmg: 14, structDmg: 16, atkCd: 0.85 },
+    sprinter: { name: 'Sprinter', hp: 52, speed: 122, radius: 8.5, color: '#dc2626', skin: '#fca5a5', dmg: 12, structDmg: 12, atkCd: 0.55 },
+    brute:    { name: 'Heavy Brute', hp: 340, speed: 44, radius: 13.5, color: '#6b21a8', skin: '#c084fc', dmg: 32, structDmg: 68, atkCd: 1.15 },
+    crawler:  { name: 'Crawler', hp: 48, speed: 40, radius: 7, color: '#4d7c0f', skin: '#bef264', dmg: 11, structDmg: 10, atkCd: 0.75, lowProfile: true },
+    carrier:  { name: 'Stealth Carrier', hp: 85, speed: 90, radius: 8.5, color: '#60a5fa', skin: '#e2e8f0', dmg: 16, structDmg: 18, atkCd: 0.75, disguised: true }
+  };
+
+  // =========================================================================
+  // STATE
+  // =========================================================================
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  let nextId = 1;
+  const rules = {
+    zSpeed: 1.0,
+    zHp: 1.0,
+    incubation: 10,
+    soundSens: 1.0,
+    courage: 0.45,
+    shovePressure: 1.4,
+    ammoLimits: true,
+    showIndicators: true,
+    revealCarriers: false,
+    nightMode: false
+  };
+
+  const state = {
+    paused: false,
+    simSpeed: 1,
+    mode: 'director', // 'director' | 'possess'
+    tool: 'wall_concrete',
+    snapGrid: true,
+    brushSize: 1,
+    currentMap: 'compound',
+    extractedCount: 0,
+    breachCount: 0,
+    time: 0,
+    floor: new Uint8Array(WORLD_COLS * WORLD_ROWS),
+    structures: [],
+    units: [],
+    bullets: [],
+    particles: [],
+    decals: [],
+    soundRings: [],
+    alarms: [],
+    supplies: [],
+    cureClouds: [],
+    fires: [],
+    extractZones: [],
+    possessedId: null,
+    hoveredStruct: null,
+    hoveredUnit: null
+  };
+
+  const cam = {
+    x: WORLD_W / 2,
+    y: WORLD_H / 2,
+    zoom: 0.72,
+    targetZoom: 0.72
+  };
+
+  const input = {
+    mouseX: 0, mouseY: 0,
+    worldX: 0, worldY: 0,
+    leftDown: false,
+    rightDown: false,
+    midDown: false,
+    panning: false,
+    panStartX: 0, panStartY: 0,
+    camStartX: 0, camStartY: 0,
+    keys: new Set(),
+    lastPaintX: -999, lastPaintY: -999,
+    paintTimer: 0
+  };
+
+  // Spatial Hash
+  const spatialUnits = new Map();
+  const spatialStructs = new Map();
+
+  function hashKey(cx, cy) { return (cx << 16) ^ (cy & 0xffff); }
+
+  function rebuildSpatialUnits() {
+    spatialUnits.clear();
+    for (let i = 0; i < state.units.length; i++) {
+      const u = state.units[i];
+      const cx = (u.x / HASH_CELL) | 0;
+      const cy = (u.y / HASH_CELL) | 0;
+      const k = hashKey(cx, cy);
+      let arr = spatialUnits.get(k);
+      if (!arr) { arr = []; spatialUnits.set(k, arr); }
+      arr.push(u);
+    }
+  }
+
+  function rebuildSpatialStructs() {
+    spatialStructs.clear();
+    for (let i = 0; i < state.structures.length; i++) {
+      const s = state.structures[i];
+      const minX = ((s.x - s.w / 2) / HASH_CELL) | 0;
+      const maxX = ((s.x + s.w / 2) / HASH_CELL) | 0;
+      const minY = ((s.y - s.h / 2) / HASH_CELL) | 0;
+      const maxY = ((s.y + s.h / 2) / HASH_CELL) | 0;
+      for (let cy = minY; cy <= maxY; cy++) {
+        for (let cx = minX; cx <= maxX; cx++) {
+          const k = hashKey(cx, cy);
+          let arr = spatialStructs.get(k);
+          if (!arr) { arr = []; spatialStructs.set(k, arr); }
+          arr.push(s);
+        }
+      }
+    }
+  }
+
+  function queryUnits(x, y, r, out) {
+    out.length = 0;
+    const minX = ((x - r) / HASH_CELL) | 0;
+    const maxX = ((x + r) / HASH_CELL) | 0;
+    const minY = ((y - r) / HASH_CELL) | 0;
+    const maxY = ((y + r) / HASH_CELL) | 0;
+    const r2 = r * r;
+    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const arr = spatialUnits.get(hashKey(cx, cy));
+        if (!arr) continue;
+        for (let i = 0; i < arr.length; i++) {
+          const u = arr[i];
+          const dx = u.x - x, dy = u.y - y;
+          if (dx * dx + dy * dy <= r2) out.push(u);
+        }
+      }
+    }
+    return out;
+  }
+
+  function queryStructs(x, y, r, out) {
+    out.length = 0;
+    const minX = ((x - r) / HASH_CELL) | 0;
+    const maxX = ((x + r) / HASH_CELL) | 0;
+    const minY = ((y - r) / HASH_CELL) | 0;
+    const maxY = ((y + r) / HASH_CELL) | 0;
+    const seen = new Set();
+    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const arr = spatialStructs.get(hashKey(cx, cy));
+        if (!arr) continue;
+        for (let i = 0; i < arr.length; i++) {
+          const s = arr[i];
+          if (!seen.has(s.id)) {
+            seen.add(s.id);
+            out.push(s);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  const _tmpUnits = [];
+  const _tmpStructs = [];
+
+  // =========================================================================
+  // LOGGING & FEED
+  // =========================================================================
+  const feedEl = document.getElementById('eventFeed');
+  function logEvent(msg, type = '') {
+    const div = document.createElement('div');
+    div.className = 'feed-item ' + type;
+    const mins = Math.floor(state.time / 60);
+    const secs = Math.floor(state.time % 60).toString().padStart(2, '0');
+    div.textContent = `[${mins}:${secs}] ${msg}`;
+    feedEl.prepend(div);
+    while (feedEl.children.length > 28) feedEl.removeChild(feedEl.lastChild);
+  }
+
+  // =========================================================================
+  // HELPERS & GEOMETRY
+  // =========================================================================
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  function dist2(x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1; return dx * dx + dy * dy; }
+  function screenToWorld(sx, sy) {
+    return {
+      x: (sx - canvas.width / 2) / cam.zoom + cam.x,
+      y: (sy - canvas.height / 2) / cam.zoom + cam.y
+    };
+  }
+  function worldToScreen(wx, wy) {
+    return {
+      x: (wx - cam.x) * cam.zoom + canvas.width / 2,
+      y: (wy - cam.y) * cam.zoom + canvas.height / 2
+    };
+  }
+
+  function segmentIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+    const left = rx - rw / 2, right = rx + rw / 2;
+    const top = ry - rh / 2, bottom = ry + rh / 2;
+    let t0 = 0, t1 = 1;
+    const dx = x2 - x1, dy = y2 - y1;
+    const p = [-dx, dx, -dy, dy];
+    const q = [x1 - left, right - x1, y1 - top, bottom - y1];
+    for (let i = 0; i < 4; i++) {
+      if (p[i] === 0) {
+        if (q[i] < 0) return false;
+      } else {
+        const t = q[i] / p[i];
+        if (p[i] < 0) {
+          if (t > t1) return false;
+          if (t > t0) t0 = t;
+        } else {
+          if (t < t0) return false;
+          if (t < t1) t1 = t;
+        }
+      }
+    }
+    return true;
+  }
+
+  function hasLineOfSight(x1, y1, x2, y2, checkBullets = false) {
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const cMinX = (minX / HASH_CELL) | 0, cMaxX = (maxX / HASH_CELL) | 0;
+    const cMinY = (minY / HASH_CELL) | 0, cMaxY = (maxY / HASH_CELL) | 0;
+    for (let cy = cMinY; cy <= cMaxY; cy++) {
+      for (let cx = cMinX; cx <= cMaxX; cx++) {
+        const arr = spatialStructs.get(hashKey(cx, cy));
+        if (!arr) continue;
+        for (let i = 0; i < arr.length; i++) {
+          const s = arr[i];
+          if (s.isDoor && s.doorState === 'open') continue;
+          const blocks = checkBullets ? s.blocksBullets : s.blocksSight;
+          if (!blocks) continue;
+          if (segmentIntersectsRect(x1, y1, x2, y2, s.x, s.y, s.w, s.h)) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  // =========================================================================
+  // ENTITY FACTORIES
+  // =========================================================================
+  function setFloorRect(col0, row0, w, h, floorType) {
+    for (let r = row0; r < row0 + h; r++) {
+      if (r < 0 || r >= WORLD_ROWS) continue;
+      for (let c = col0; c < col0 + w; c++) {
+        if (c < 0 || c >= WORLD_COLS) continue;
+        state.floor[r * WORLD_COLS + c] = floorType;
+      }
+    }
+  }
+
+  function addStructure(type, x, y, opts = {}) {
+    const def = STRUCT_DEFS[type];
+    if (!def) return null;
+    // Prevent exact overlap on same tile/position
+    for (let i = 0; i < state.structures.length; i++) {
+      const ex = state.structures[i];
+      if (Math.abs(ex.x - x) < 14 && Math.abs(ex.y - y) < 14) {
+        if (ex.type === type) return ex;
+        // Replace existing structure if building over it
+        state.structures.splice(i, 1);
+        break;
+      }
+    }
+    const s = {
+      id: nextId++,
+      type,
+      x: clamp(x, 16, WORLD_W - 16),
+      y: clamp(y, 16, WORLD_H - 16),
+      w: def.w,
+      h: def.h,
+      hp: def.hp,
+      maxHp: def.hp,
+      blocksSight: !!def.blocksSight,
+      blocksBullets: !!def.blocksBullets,
+      blocksMove: !!def.blocksMove,
+      repairable: !!def.repairable,
+      flammable: !!def.flammable,
+      slowsZombies: !!def.slowsZombies,
+      explosive: !!def.explosive,
+      isDoor: !!def.isDoor,
+      doorState: opts.doorState || 'closed', // 'open' | 'closed' | 'locked' | 'barricaded'
+      isTurret: !!def.isTurret,
+      isLight: !!def.isLight,
+      angle: opts.angle || 0,
+      ammo: def.maxAmmo || 0,
+      maxAmmo: def.maxAmmo || 0,
+      fireCd: 0,
+      shoveCount: 0,
+      hitFlash: 0
+    };
+    if (s.doorState === 'barricaded') {
+      s.maxHp = Math.round(def.hp * 1.5);
+      s.hp = s.maxHp;
+    }
+    state.structures.push(s);
+    rebuildSpatialStructs();
+    return s;
+  }
+
+  function spawnUnit(kind, x, y) {
+    const isHuman = !!HUMAN_DEFS[kind];
+    const isCarrier = kind === 'carrier';
+    const def = isHuman ? HUMAN_DEFS[kind] : ZOMBIE_DEFS[kind];
+    if (!def) return null;
+
+    const u = {
+      id: nextId++,
+      faction: isHuman ? 'human' : 'zombie',
+      kind,
+      x: clamp(x, 16, WORLD_W - 16),
+      y: clamp(y, 16, WORLD_H - 16),
+      vx: 0, vy: 0,
+      angle: Math.random() * Math.PI * 2,
+      radius: def.radius,
+      hp: isHuman ? def.hp : Math.round(def.hp * rules.zHp),
+      maxHp: isHuman ? def.hp : Math.round(def.hp * rules.zHp),
+      baseSpeed: def.speed,
+      ammo: def.ammo || 0,
+      maxAmmo: def.maxAmmo || 0,
+      fireCd: Math.random() * 0.25,
+      atkCd: 0,
+      hitFlash: 0,
+      // Infection / Carrier state
+      infected: isCarrier,
+      incubTimer: isCarrier ? (rules.incubation * (0.6 + Math.random() * 0.8)) : 0,
+      disguised: isCarrier,
+      // AI memory
+      targetX: x, targetY: y,
+      investigateTimer: 0,
+      wanderTimer: Math.random() * 2,
+      armed: isHuman && kind !== 'civilian',
+      kills: 0,
+      burnTimer: 0
+    };
+    if (isCarrier) {
+      // Carriers behave like humans until turning!
+      u.faction = 'human';
+      u.baseSpeed = HUMAN_DEFS.civilian.speed;
+      u.hp = HUMAN_DEFS.civilian.hp;
+      u.maxHp = HUMAN_DEFS.civilian.hp;
+    }
+    state.units.push(u);
+    return u;
+  }
+
+  function addSoundRing(x, y, radius, color = '#38bdf8') {
+    state.soundRings.push({ x, y, r: 8, maxR: radius, alpha: 0.75, color });
+    if (rules.soundSens <= 0) return;
+    const effR = radius * rules.soundSens;
+    const effR2 = effR * effR;
+    for (let i = 0; i < state.units.length; i++) {
+      const u = state.units[i];
+      if (u.faction !== 'zombie') continue;
+      if (dist2(u.x, u.y, x, y) <= effR2) {
+        u.targetX = x + (Math.random() - 0.5) * 40;
+        u.targetY = y + (Math.random() - 0.5) * 40;
+        u.investigateTimer = 7 + Math.random() * 4;
+      }
+    }
+  }
+
+  function spawnParticles(x, y, color, count, speed = 90, life = 0.45, size = 3) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = speed * (0.3 + Math.random() * 0.85);
+      state.particles.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        color,
+        life: life * (0.6 + Math.random() * 0.6),
+        maxLife: life,
+        size: size * (0.7 + Math.random() * 0.6)
+      });
+    }
+    if (state.particles.length > 900) state.particles.splice(0, state.particles.length - 900);
+  }
+
+  function addDecal(x, y, color, radius) {
+    state.decals.push({ x, y, color, r: radius });
+    if (state.decals.length > 350) state.decals.shift();
+  }
+
+  function triggerExplosion(x, y, radius = 120, dmg = 190) {
+    spawnParticles(x, y, '#f97316', 28, 220, 0.55, 6);
+    spawnParticles(x, y, '#fef08a', 16, 150, 0.35, 5);
+    spawnParticles(x, y, '#334155', 14, 90, 0.9, 8);
+    addDecal(x, y, 'rgba(30,41,59,0.55)', 36);
+    addSoundRing(x, y, 480, '#f97316');
+    state.fires.push({ x, y, r: 28, life: 12, spreadCd: 1.5 });
+
+    // Damage units
+    const r2 = radius * radius;
+    for (let i = 0; i < state.units.length; i++) {
+      const u = state.units[i];
+      const d2 = dist2(x, y, u.x, u.y);
+      if (d2 <= r2) {
+        const falloff = 1 - Math.sqrt(d2) / radius;
+        u.hp -= dmg * (0.35 + 0.65 * falloff);
+        u.hitFlash = 0.25;
+        const a = Math.atan2(u.y - y, u.x - x);
+        u.vx += Math.cos(a) * 240 * falloff;
+        u.vy += Math.sin(a) * 240 * falloff;
+      }
+    }
+    // Damage structures & chain-react barrels
+    const chainBarrels = [];
+    for (let i = state.structures.length - 1; i >= 0; i--) {
+      const s = state.structures[i];
+      const d2 = dist2(x, y, s.x, s.y);
+      if (d2 <= r2 && d2 > 4) {
+        const falloff = 1 - Math.sqrt(d2) / radius;
+        s.hp -= dmg * 0.9 * (0.3 + 0.7 * falloff);
+        s.hitFlash = 0.2;
+        if (s.explosive && s.hp <= 0) {
+          chainBarrels.push({ x: s.x, y: s.y });
+          state.structures.splice(i, 1);
+        } else if (s.hp <= 0) {
+          destroyStructure(i);
+        }
+      }
+    }
+    if (chainBarrels.length) {
+      rebuildSpatialStructs();
+      logEvent(`Chain-reaction fuel blast (${chainBarrels.length + 1} barrels)!`, 'warn');
+      for (const b of chainBarrels) {
+        setTimeout(() => triggerExplosion(b.x, b.y, radius, dmg), 90);
+      }
+    }
+  }
+
+  function destroyStructure(index) {
+    const s = state.structures[index];
+    if (!s) return;
+    state.structures.splice(index, 1);
+    rebuildSpatialStructs();
+    if (s.type === 'wall_glass') {
+      spawnParticles(s.x, s.y, '#bae6fd', 18, 120, 0.5, 4);
+    } else if (s.type === 'wall_wood') {
+      spawnParticles(s.x, s.y, '#d97706', 16, 110, 0.55, 4.5);
+    } else {
+      spawnParticles(s.x, s.y, '#94a3b8', 16, 100, 0.6, 5);
+    }
+    addDecal(s.x, s.y, 'rgba(71,85,105,0.4)', 15);
+    if (s.explosive) {
+      triggerExplosion(s.x, s.y);
+    } else if (s.blocksMove) {
+      state.breachCount++;
+      logEvent(`${STRUCT_DEFS[s.type].name} breached!`, 'alert');
+    }
+  }
+
+  // =========================================================================
+  // PRE-MADE MAPS
+  // =========================================================================
+  function clearWorld() {
+    state.floor.fill(FLOOR.GRASS);
+    state.structures = [];
+    state.units = [];
+    state.bullets = [];
+    state.particles = [];
+    state.decals = [];
+    state.soundRings = [];
+    state.alarms = [];
+    state.supplies = [];
+    state.cureClouds = [];
+    state.fires = [];
+    state.extractZones = [];
+    state.extractedCount = 0;
+    state.breachCount = 0;
+    state.time = 0;
+    exitPossess();
+    rebuildSpatialStructs();
+    rebuildSpatialUnits();
+  }
+
+  function placeWallLine(c0, r0, c1, r1, type, opts = {}) {
+    const dc = Math.sign(c1 - c0), dr = Math.sign(r1 - r0);
+    let c = c0, r = r0;
+    while (true) {
+      addStructure(type, c * TILE + TILE / 2, r * TILE + TILE / 2, opts);
+      if (c === c1 && r === r1) break;
+      c += dc; r += dr;
+    }
+  }
+
+  function loadMap(name) {
+    clearWorld();
+    state.currentMap = name;
+    feedEl.innerHTML = '';
+
+    if (name === 'blank') {
+      // Clean grass canvas with subtle central road intersection
+      setFloorRect(0, 20, WORLD_COLS, 4, FLOOR.ASPHALT);
+      setFloorRect(30, 0, 4, WORLD_ROWS, FLOOR.ASPHALT);
+      logEvent('Blank Canvas loaded. Build your fort and spawn squads!', 'good');
+    } else if (name === 'compound') {
+      // Roads
+      setFloorRect(0, 20, WORLD_COLS, 4, FLOOR.ASPHALT);
+      setFloorRect(30, 0, 4, WORLD_ROWS, FLOOR.ASPHALT);
+      // Compound Concrete Courtyard & Tile Interior
+      setFloorRect(20, 12, 24, 20, FLOOR.CONCRETE);
+      setFloorRect(24, 15, 16, 14, FLOOR.TILE);
+
+      // Outer Chain-link & Concrete Perimeter
+      placeWallLine(20, 12, 29, 12, 'wall_concrete');
+      placeWallLine(34, 12, 43, 12, 'wall_concrete');
+      placeWallLine(30, 12, 33, 12, 'wall_fence');
+      addStructure('door_reinforced', 31 * TILE + 16, 12 * TILE + 16, { doorState: 'locked' });
+
+      placeWallLine(20, 31, 29, 31, 'wall_concrete');
+      placeWallLine(34, 31, 43, 31, 'wall_concrete');
+      placeWallLine(30, 31, 33, 31, 'wall_fence');
+      addStructure('door_reinforced', 32 * TILE + 16, 31 * TILE + 16, { doorState: 'barricaded' });
+
+      placeWallLine(20, 13, 20, 19, 'wall_fence');
+      placeWallLine(20, 24, 20, 30, 'wall_fence');
+      placeWallLine(20, 20, 20, 23, 'wall_wood');
+
+      placeWallLine(43, 13, 43, 19, 'wall_fence');
+      placeWallLine(43, 24, 43, 30, 'wall_fence');
+      placeWallLine(43, 20, 43, 23, 'wall_wood');
+
+      // Inner Glass & Concrete Keep
+      placeWallLine(25, 16, 38, 16, 'wall_glass');
+      placeWallLine(25, 27, 38, 27, 'wall_concrete');
+      placeWallLine(25, 17, 25, 26, 'wall_concrete');
+      placeWallLine(38, 17, 38, 26, 'wall_concrete');
+      addStructure('door_reinforced', 31 * TILE + 16, 16 * TILE + 16, { doorState: 'closed' });
+      addStructure('door_reinforced', 38 * TILE + 16, 21 * TILE + 16, { doorState: 'closed' });
+
+      // Tactical Props
+      addStructure('prop_turret', 23 * TILE + 16, 15 * TILE + 16);
+      addStructure('prop_turret', 40 * TILE + 16, 28 * TILE + 16);
+      addStructure('prop_barrel', 18 * TILE + 16, 21 * TILE + 16);
+      addStructure('prop_barrel', 18 * TILE + 16, 22 * TILE + 16);
+      addStructure('prop_barrel', 45 * TILE + 16, 21 * TILE + 16);
+      addStructure('prop_car', 17 * TILE + 16, 19 * TILE + 16);
+      addStructure('prop_car', 46 * TILE + 16, 24 * TILE + 16);
+      addStructure('prop_light', 22 * TILE + 16, 14 * TILE + 16);
+      addStructure('prop_light', 41 * TILE + 16, 14 * TILE + 16);
+      addStructure('prop_light', 22 * TILE + 16, 29 * TILE + 16);
+      addStructure('prop_light', 41 * TILE + 16, 29 * TILE + 16);
+      for (let r = 19; r <= 24; r++) {
+        addStructure('prop_wire', 19 * TILE + 16, r * TILE + 16);
+        addStructure('prop_wire', 44 * TILE + 16, r * TILE + 16);
+      }
+
+      // Defenders
+      for (let i = 0; i < 7; i++) spawnUnit('survivor', 27 * TILE + Math.random() * 300, 18 * TILE + Math.random() * 240);
+      for (let i = 0; i < 3; i++) spawnUnit('riot', 22 * TILE + Math.random() * 60, 20 * TILE + Math.random() * 100);
+      for (let i = 0; i < 2; i++) spawnUnit('sniper', 31 * TILE + i * 80, 22 * TILE);
+      for (let i = 0; i < 2; i++) spawnUnit('engineer', 29 * TILE + i * 120, 25 * TILE);
+      spawnUnit('medic', 32 * TILE, 23 * TILE);
+      for (let i = 0; i < 8; i++) spawnUnit('civilian', 28 * TILE + Math.random() * 220, 19 * TILE + Math.random() * 180);
+      spawnUnit('carrier', 31 * TILE + 16, 20 * TILE + 16);
+
+      // Initial Outbreak Horde
+      for (let i = 0; i < 28; i++) spawnUnit('walker', 6 * TILE + Math.random() * 220, 15 * TILE + Math.random() * 420);
+      for (let i = 0; i < 18; i++) spawnUnit('walker', 50 * TILE + Math.random() * 240, 15 * TILE + Math.random() * 420);
+      for (let i = 0; i < 8; i++) spawnUnit('sprinter', 8 * TILE + Math.random() * 180, 18 * TILE + Math.random() * 220);
+      spawnUnit('brute', 10 * TILE, 22 * TILE);
+      spawnUnit('brute', 53 * TILE, 21 * TILE);
+
+      logEvent('Crossroads Compound ready. Hold the perimeter!', 'good');
+      logEvent('Intel warns a Stealth Carrier may already be inside...', 'warn');
+    } else if (name === 'hospital') {
+      // Parking Lot & Roads
+      setFloorRect(0, 34, WORLD_COLS, 5, FLOOR.ASPHALT);
+      setFloorRect(14, 8, 36, 24, FLOOR.CONCRETE);
+      setFloorRect(18, 10, 28, 18, FLOOR.TILE);
+
+      // Hospital Shell
+      placeWallLine(18, 10, 45, 10, 'wall_concrete');
+      placeWallLine(18, 10, 18, 27, 'wall_concrete');
+      placeWallLine(45, 10, 45, 27, 'wall_concrete');
+      // Glass Lobby Front
+      placeWallLine(18, 27, 29, 27, 'wall_glass');
+      placeWallLine(34, 27, 45, 27, 'wall_glass');
+      addStructure('door_reinforced', 30 * TILE + 16, 27 * TILE + 16, { doorState: 'closed' });
+      addStructure('door_reinforced', 33 * TILE + 16, 27 * TILE + 16, { doorState: 'locked' });
+      placeWallLine(31, 27, 32, 27, 'wall_wood');
+
+      // Internal Ward Partitions
+      placeWallLine(27, 11, 27, 22, 'wall_concrete');
+      addStructure('door_reinforced', 27 * TILE + 16, 17 * TILE + 16, { doorState: 'open' });
+      placeWallLine(36, 11, 36, 22, 'wall_concrete');
+      addStructure('door_reinforced', 36 * TILE + 16, 17 * TILE + 16, { doorState: 'open' });
+
+      // Extraction Helipad on North Lawn
+      state.extractZones.push({ x: 32 * TILE, y: 5 * TILE, r: 58 });
+      addStructure('door_reinforced', 32 * TILE + 16, 10 * TILE + 16, { doorState: 'closed' });
+
+      // Parking Lot Barricades & Wrecks
+      addStructure('prop_car', 24 * TILE, 31 * TILE);
+      addStructure('prop_car', 39 * TILE, 31 * TILE);
+      addStructure('prop_barrel', 31 * TILE + 16, 30 * TILE + 16);
+      addStructure('prop_barrel', 32 * TILE + 16, 30 * TILE + 16);
+      addStructure('prop_turret', 23 * TILE + 16, 25 * TILE + 16);
+      addStructure('prop_turret', 40 * TILE + 16, 25 * TILE + 16);
+      addStructure('prop_light', 21 * TILE + 16, 29 * TILE + 16);
+      addStructure('prop_light', 42 * TILE + 16, 29 * TILE + 16);
+      addStructure('prop_light', 32 * TILE + 16, 8 * TILE + 16);
+
+      // Staff & Survivors
+      for (let i = 0; i < 12; i++) spawnUnit('civilian', 20 * TILE + Math.random() * 750, 13 * TILE + Math.random() * 340);
+      for (let i = 0; i < 4; i++) spawnUnit('medic', 29 * TILE + i * 50, 15 * TILE);
+      for (let i = 0; i < 6; i++) spawnUnit('survivor', 22 * TILE + i * 110, 24 * TILE);
+      for (let i = 0; i < 3; i++) spawnUnit('riot', 29 * TILE + i * 64, 26 * TILE);
+      for (let i = 0; i < 2; i++) spawnUnit('engineer', 25 * TILE + i * 350, 25 * TILE);
+
+      // Southern Street Horde
+      for (let i = 0; i < 36; i++) spawnUnit('walker', 12 * TILE + Math.random() * 1200, 35 * TILE + Math.random() * 200);
+      for (let i = 0; i < 10; i++) spawnUnit('sprinter', 18 * TILE + Math.random() * 900, 38 * TILE + Math.random() * 120);
+      for (let i = 0; i < 6; i++) spawnUnit('crawler', 22 * TILE + Math.random() * 600, 34 * TILE + Math.random() * 100);
+      spawnUnit('brute', 31 * TILE, 39 * TILE);
+
+      logEvent('Evacuation Hospital loaded. Protect the glass lobby & reach the North Helipad!', 'good');
+    } else if (name === 'checkpoint') {
+      // Wide Highway
+      setFloorRect(0, 14, WORLD_COLS, 16, FLOOR.ASPHALT);
+      setFloorRect(34, 12, 16, 20, FLOOR.CONCRETE);
+
+      // Highway Funnel Walls
+      placeWallLine(34, 12, 34, 18, 'wall_concrete');
+      placeWallLine(34, 25, 34, 31, 'wall_concrete');
+      placeWallLine(34, 19, 34, 24, 'wall_fence');
+      addStructure('door_reinforced', 34 * TILE + 16, 21 * TILE + 16, { doorState: 'barricaded' });
+
+      // Secondary Fallback Line
+      placeWallLine(42, 14, 42, 29, 'wall_wood');
+      addStructure('door_reinforced', 42 * TILE + 16, 21 * TILE + 16, { doorState: 'open' });
+
+      // Killzone Props
+      for (let r = 15; r <= 28; r++) addStructure('prop_wire', 32 * TILE + 16, r * TILE + 16);
+      for (let r = 16; r <= 27; r += 3) addStructure('prop_barrel', 29 * TILE + 16, r * TILE + 16);
+      addStructure('prop_car', 26 * TILE, 18 * TILE);
+      addStructure('prop_car', 26 * TILE, 25 * TILE);
+      addStructure('prop_turret', 36 * TILE + 16, 17 * TILE + 16);
+      addStructure('prop_turret', 36 * TILE + 16, 26 * TILE + 16);
+      addStructure('prop_light', 35 * TILE + 16, 14 * TILE + 16);
+      addStructure('prop_light', 35 * TILE + 16, 29 * TILE + 16);
+
+      // Garrison
+      for (let i = 0; i < 8; i++) spawnUnit('survivor', 37 * TILE + Math.random() * 100, 15 * TILE + i * 52);
+      for (let i = 0; i < 4; i++) spawnUnit('sniper', 45 * TILE, 16 * TILE + i * 110);
+      for (let i = 0; i < 4; i++) spawnUnit('riot', 35 * TILE + 16, 19 * TILE + i * 48);
+      for (let i = 0; i < 3; i++) spawnUnit('engineer', 38 * TILE, 18 * TILE + i * 96);
+      for (let i = 0; i < 2; i++) spawnUnit('medic', 40 * TILE, 19 * TILE + i * 120);
+
+      // Massive Highway Horde
+      for (let i = 0; i < 55; i++) spawnUnit('walker', 3 * TILE + Math.random() * 550, 15 * TILE + Math.random() * 440);
+      for (let i = 0; i < 16; i++) spawnUnit('sprinter', 4 * TILE + Math.random() * 400, 16 * TILE + Math.random() * 380);
+      for (let i = 0; i < 3; i++) spawnUnit('brute', 8 * TILE + i * 40, 18 * TILE + i * 90);
+
+      logEvent('Highway Checkpoint armed. Brace for frontal assault!', 'good');
+    }
+
+    resetCamera();
+    rebuildSpatialStructs();
+    rebuildSpatialUnits();
+  }
+
+  function resetCamera() {
+    cam.x = WORLD_W / 2;
+    cam.y = WORLD_H / 2;
+    const zx = (canvas.width - 540) / WORLD_W;
+    const zy = (canvas.height - 90) / WORLD_H;
+    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.18, 0.35, 1.1);
+  }
+
+  // =========================================================================
+  // POSSESS MODE
+  // =========================================================================
+  function enterPossess(unit) {
+    state.possessedId = unit.id;
+    state.mode = 'possess';
+    updateModeButtons();
+    const label = unit.faction === 'human'
+      ? (unit.disguised ? 'STEALTH CARRIER (DISGUISED)' : HUMAN_DEFS[unit.kind].name.toUpperCase())
+      : ZOMBIE_DEFS[unit.kind].name.toUpperCase();
+    document.getElementById('possessTitle').textContent = `POSSESSING: ${label}`;
+    document.getElementById('possessKeys').textContent = unit.faction === 'human'
+      ? 'WASD Move · Mouse Aim & Fire · E Door/Loot · R Reload · ESC Exit'
+      : 'WASD Move · Mouse Aim · Left-Click Bite/Smash · ESC Exit';
+    document.getElementById('possessBanner').classList.add('show');
+    document.getElementById('hintBar').style.display = 'none';
+    logEvent(`Possessed ${label}.`, 'good');
+  }
+
+  function exitPossess() {
+    state.possessedId = null;
+    state.mode = 'director';
+    updateModeButtons();
+    document.getElementById('possessBanner').classList.remove('show');
+    document.getElementById('hintBar').style.display = 'block';
+  }
+
+  function getPossessedUnit() {
+    if (!state.possessedId) return null;
+    for (let i = 0; i < state.units.length; i++) {
+      if (state.units[i].id === state.possessedId) return state.units[i];
+    }
+    return null;
+  }
+
+  // =========================================================================
+  // COMBAT & INTERACTION HELPERS
+  // =========================================================================
+  function fireWeapon(shooter, tx, ty, isTurret = false) {
+    const angle = Math.atan2(ty - shooter.y, tx - shooter.x);
+    let dmg = 20, speed = 780, spread = 0.06, noise = 240, pierce = false, color = '#fef08a';
+    if (isTurret) {
+      dmg = 24; speed = 860; spread = 0.05; noise = 270; color = '#38bdf8';
+    } else {
+      const def = HUMAN_DEFS[shooter.kind] || HUMAN_DEFS.survivor;
+      dmg = def.dmg;
+      noise = def.noise || 220;
+      pierce = !!def.pierce;
+      if (shooter.kind === 'sniper') { speed = 1150; spread = 0.012; color = '#5eead4'; }
+    }
+    const a = angle + (Math.random() - 0.5) * spread;
+    const muzzleX = shooter.x + Math.cos(a) * 14;
+    const muzzleY = shooter.y + Math.sin(a) * 14;
+
+    state.bullets.push({
+      x: muzzleX, y: muzzleY,
+      px: muzzleX, py: muzzleY,
+      vx: Math.cos(a) * speed,
+      vy: Math.sin(a) * speed,
+      dmg, pierce, color,
+      life: 0.7,
+      ownerId: shooter.id,
+      hitIds: new Set()
+    });
+    spawnParticles(muzzleX, muzzleY, color, 4, 110, 0.12, 2.8);
+    if (rules.ammoLimits && shooter.ammo > 0 && shooter.maxAmmo < 900) {
+      shooter.ammo--;
+    }
+    addSoundRing(shooter.x, shooter.y, noise, '#fbbf24');
+  }
+
+  function turnUnitIntoZombie(u) {
+    u.faction = 'zombie';
+    u.infected = false;
+    u.disguised = false;
+    u.kind = (u.kind === 'carrier') ? (Math.random() < 0.35 ? 'sprinter' : 'walker') : 'walker';
+    const def = ZOMBIE_DEFS[u.kind];
+    u.baseSpeed = def.speed;
+    u.maxHp = Math.round(def.hp * rules.zHp);
+    u.hp = u.maxHp;
+    u.radius = def.radius;
+    spawnParticles(u.x, u.y, '#84cc16', 16, 100, 0.5, 4);
+    logEvent(`Infected unit turned into a ${def.name}!`, 'alert');
+    if (state.possessedId === u.id) {
+      document.getElementById('possessTitle').textContent = `TURNED INTO: ${def.name.toUpperCase()}`;
+      document.getElementById('possessKeys').textContent = 'WASD Move · Left-Click Bite/Smash · ESC Exit';
+    }
+  }
+
+  function cycleDoorState(s) {
+    const order = ['open', 'closed', 'locked', 'barricaded'];
+    const idx = (order.indexOf(s.doorState) + 1) % order.length;
+    s.doorState = order[idx];
+    const baseHp = STRUCT_DEFS[s.type].hp;
+    if (s.doorState === 'barricaded') {
+      s.maxHp = Math.round(baseHp * 1.5);
+      s.hp = Math.min(s.maxHp, s.hp + 150);
+    } else {
+      s.maxHp = baseHp;
+      s.hp = Math.min(s.hp, s.maxHp);
+    }
+    logEvent(`Door set to ${s.doorState.toUpperCase()}.`);
+  }
+
+  // =========================================================================
+  // SIMULATION TICK
+  // =========================================================================
+  function stepSim(dt) {
+    state.time += dt;
+    rebuildSpatialUnits();
+
+    // Reset shove counters on structures
+    for (let i = 0; i < state.structures.length; i++) {
+      const s = state.structures[i];
+      s.shoveCount = 0;
+      if (s.hitFlash > 0) s.hitFlash -= dt;
+    }
+
+    // 1. Update Alarms
+    for (let i = state.alarms.length - 1; i >= 0; i--) {
+      const a = state.alarms[i];
+      a.life -= dt;
+      a.pulseCd -= dt;
+      if (a.pulseCd <= 0) {
+        a.pulseCd = 1.4;
+        addSoundRing(a.x, a.y, 560, '#f97316');
+      }
+      if (a.life <= 0) state.alarms.splice(i, 1);
+    }
+
+    // 2. Update Cure Clouds
+    for (let i = state.cureClouds.length - 1; i >= 0; i--) {
+      const c = state.cureClouds[i];
+      c.life -= dt;
+      c.r = Math.min(c.maxR, c.r + 36 * dt);
+      const near = queryUnits(c.x, c.y, c.r, _tmpUnits);
+      for (let j = 0; j < near.length; j++) {
+        const u = near[j];
+        if (u.infected) {
+          u.infected = false;
+          u.disguised = false;
+          spawnParticles(u.x, u.y, '#10b981', 8, 70, 0.4, 3);
+        } else if (u.faction === 'zombie') {
+          u.hp -= 28 * dt;
+          if (u.hp <= 15 && u.kind !== 'brute') {
+            // Revert zombie back to civilian!
+            u.faction = 'human';
+            u.kind = 'civilian';
+            u.baseSpeed = HUMAN_DEFS.civilian.speed;
+            u.hp = 60; u.maxHp = 70;
+            u.radius = HUMAN_DEFS.civilian.radius;
+            spawnParticles(u.x, u.y, '#34d399', 12, 90, 0.5, 4);
+            logEvent('Experimental cure reverted a zombie!', 'good');
+          }
+        }
+      }
+      if (c.life <= 0) state.cureClouds.splice(i, 1);
+    }
+
+    // 3. Update Fires
+    for (let i = state.fires.length - 1; i >= 0; i--) {
+      const f = state.fires[i];
+      f.life -= dt;
+      f.spreadCd -= dt;
+      if (Math.random() < 0.35) {
+        spawnParticles(f.x + (Math.random() - 0.5) * f.r, f.y + (Math.random() - 0.5) * f.r, Math.random() < 0.5 ? '#f97316' : '#facc15', 1, 35, 0.35, 4);
+      }
+      const nearU = queryUnits(f.x, f.y, f.r + 10, _tmpUnits);
+      for (let j = 0; j < nearU.length; j++) {
+        nearU[j].hp -= 26 * dt;
+        nearU[j].burnTimer = 2.0;
+      }
+      const nearS = queryStructs(f.x, f.y, f.r + 16, _tmpStructs);
+      for (let j = 0; j < nearS.length; j++) {
+        const s = nearS[j];
+        if (s.flammable && dist2(f.x, f.y, s.x, s.y) < (f.r + 22) ** 2) {
+          s.hp -= 22 * dt;
+          if (s.hp <= 0) {
+            const idx = state.structures.indexOf(s);
+            if (idx >= 0) destroyStructure(idx);
+          }
+        }
+      }
+      if (f.spreadCd <= 0 && state.fires.length < 28 && f.life > 3) {
+        f.spreadCd = 2.4;
+        for (let j = 0; j < nearS.length; j++) {
+          const s = nearS[j];
+          if (s.flammable && dist2(f.x, f.y, s.x, s.y) < 72 * 72 && Math.random() < 0.45) {
+            state.fires.push({ x: s.x, y: s.y, r: 22, life: 9, spreadCd: 2.2 });
+            break;
+          }
+        }
+      }
+      if (f.life <= 0) state.fires.splice(i, 1);
+    }
+
+    // 4. Update Turrets
+    for (let i = 0; i < state.structures.length; i++) {
+      const s = state.structures[i];
+      if (!s.isTurret) continue;
+      if (s.fireCd > 0) s.fireCd -= dt;
+      if (s.fireCd <= 0 && (!rules.ammoLimits || s.ammo > 0)) {
+        const near = queryUnits(s.x, s.y, 310, _tmpUnits);
+        let best = null, bestD2 = 310 * 310;
+        for (let j = 0; j < near.length; j++) {
+          const u = near[j];
+          if (u.faction !== 'zombie') continue;
+          const d2 = dist2(s.x, s.y, u.x, u.y);
+          if (d2 < bestD2 && hasLineOfSight(s.x, s.y, u.x, u.y, true)) {
+            bestD2 = d2; best = u;
+          }
+        }
+        if (best) {
+          s.angle = Math.atan2(best.y - s.y, best.x - s.x);
+          fireWeapon(s, best.x, best.y, true);
+          s.fireCd = 0.24;
+        }
+      }
+    }
+
+    // 5. Update Units (AI + Possessed + Physics)
+    const possessed = getPossessedUnit();
+    for (let i = state.units.length - 1; i >= 0; i--) {
+      const u = state.units[i];
+      if (u.hitFlash > 0) u.hitFlash -= dt;
+      if (u.fireCd > 0) u.fireCd -= dt;
+      if (u.atkCd > 0) u.atkCd -= dt;
+
+      if (u.burnTimer > 0) {
+        u.burnTimer -= dt;
+        u.hp -= 10 * dt;
+        if (Math.random() < 0.2) spawnParticles(u.x, u.y, '#f97316', 1, 25, 0.25, 3);
+      }
+
+      // Incubation timer
+      if (u.infected) {
+        u.incubTimer -= dt;
+        if (u.incubTimer <= 0) {
+          turnUnitIntoZombie(u);
+        }
+      }
+
+      // Death check
+      if (u.hp <= 0) {
+        addDecal(u.x, u.y, u.faction === 'zombie' ? 'rgba(101,163,13,0.45)' : 'rgba(220,38,38,0.45)', u.radius * 1.15);
+        spawnParticles(u.x, u.y, u.faction === 'zombie' ? '#84cc16' : '#ef4444', 10, 80, 0.45, 3.2);
+        if (state.possessedId === u.id) {
+          logEvent('Your possessed unit was killed!', 'alert');
+          exitPossess();
+        }
+        state.units.splice(i, 1);
+        continue;
+      }
+
+      // Extraction check for humans
+      if (u.faction === 'human' && !u.disguised && state.extractZones.length > 0) {
+        let extracted = false;
+        for (let z = 0; z < state.extractZones.length; z++) {
+          const ez = state.extractZones[z];
+          if (dist2(u.x, u.y, ez.x, ez.y) < ez.r * ez.r) {
+            state.extractedCount++;
+            spawnParticles(u.x, u.y, '#22c55e', 14, 90, 0.55, 4);
+            if (state.possessedId === u.id) {
+              logEvent('You reached extraction! Safe!', 'good');
+              exitPossess();
+            }
+            state.units.splice(i, 1);
+            extracted = true;
+            break;
+          }
+        }
+        if (extracted) continue;
+      }
+
+      // Movement AI or Possess Control
+      let desiredVx = 0, desiredVy = 0;
+      let moveSpeed = u.faction === 'zombie' ? u.baseSpeed * rules.zSpeed : u.baseSpeed;
+
+      // Check barbed wire slowdown for zombies
+      const nearS = queryStructs(u.x, u.y, 44, _tmpStructs);
+      if (u.faction === 'zombie') {
+        for (let sIdx = 0; sIdx < nearS.length; sIdx++) {
+          const s = nearS[sIdx];
+          if (s.slowsZombies && Math.abs(u.x - s.x) < s.w / 2 + u.radius && Math.abs(u.y - s.y) < s.h / 2 + u.radius) {
+            moveSpeed *= 0.35;
+            u.hp -= 6 * dt;
+            break;
+          }
+        }
+      }
+
+      if (possessed && u.id === possessed.id) {
+        // Direct WASD + Mouse control
+        let ix = 0, iy = 0;
+        if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) iy -= 1;
+        if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) iy += 1;
+        if (input.keys.has('KeyA') || input.keys.has('ArrowLeft')) ix -= 1;
+        if (input.keys.has('KeyD') || input.keys.has('ArrowRight')) ix += 1;
+        if (ix !== 0 || iy !== 0) {
+          const len = Math.hypot(ix, iy);
+          desiredVx = (ix / len) * moveSpeed * 1.15;
+          desiredVy = (iy / len) * moveSpeed * 1.15;
+        }
+        u.angle = Math.atan2(input.worldY - u.y, input.worldX - u.x);
+
+        if (input.leftDown) {
+          if (u.faction === 'human') {
+            const def = HUMAN_DEFS[u.kind] || HUMAN_DEFS.survivor;
+            if (u.fireCd <= 0) {
+              if (def.melee || (rules.ammoLimits && u.ammo <= 0) || !u.armed) {
+                // Melee strike / bash
+                const nearZ = queryUnits(u.x, u.y, 42, _tmpUnits);
+                for (let j = 0; j < nearZ.length; j++) {
+                  const z = nearZ[j];
+                  if (z.faction === 'zombie') {
+                    z.hp -= (def.dmg || 16);
+                    z.hitFlash = 0.15;
+                    const a = Math.atan2(z.y - u.y, z.x - u.x);
+                    const kb = def.knockback || 90;
+                    z.vx += Math.cos(a) * kb; z.vy += Math.sin(a) * kb;
+                  }
+                }
+                u.fireCd = def.fireRate || 0.5;
+              } else {
+                fireWeapon(u, input.worldX, input.worldY, false);
+                u.fireCd = def.fireRate;
+              }
+            }
+          } else {
+            // Possessed Zombie bite / smash
+            if (u.atkCd <= 0) {
+              const def = ZOMBIE_DEFS[u.kind] || ZOMBIE_DEFS.walker;
+              const nearH = queryUnits(u.x, u.y, u.radius + 22, _tmpUnits);
+              let bit = false;
+              for (let j = 0; j < nearH.length; j++) {
+                const h = nearH[j];
+                if (h.faction === 'human') {
+                  h.hp -= def.dmg;
+                  h.hitFlash = 0.2;
+                  if (!h.infected) { h.infected = true; h.incubTimer = rules.incubation; }
+                  spawnParticles(h.x, h.y, '#ef4444', 6, 70, 0.3, 3);
+                  bit = true; break;
+                }
+              }
+              if (!bit) {
+                for (let j = 0; j < nearS.length; j++) {
+                  const s = nearS[j];
+                  if (s.blocksMove && dist2(u.x, u.y, s.x, s.y) < (s.w * 0.7 + u.radius + 12) ** 2) {
+                    s.hp -= def.structDmg;
+                    s.hitFlash = 0.18;
+                    spawnParticles(s.x, s.y, '#cbd5e1', 5, 60, 0.25, 2.5);
+                    if (s.hp <= 0) {
+                      const idx = state.structures.indexOf(s);
+                      if (idx >= 0) destroyStructure(idx);
+                    }
+                    break;
+                  }
+                }
+              }
+              u.atkCd = def.atkCd;
+            }
+          }
+        }
+      } else if (u.faction === 'human') {
+        // HUMAN AI
+        const def = HUMAN_DEFS[u.kind] || HUMAN_DEFS.civilian;
+        const detectR = Math.max(240, def.range || 240);
+        const near = queryUnits(u.x, u.y, detectR, _tmpUnits);
+
+        let nearestZ = null, nearestZD2 = detectR * detectR;
+        let nearestWounded = null, nearestWD2 = 220 * 220;
+
+        for (let j = 0; j < near.length; j++) {
+          const o = near[j];
+          if (o.id === u.id) continue;
+          const d2 = dist2(u.x, u.y, o.x, o.y);
+          if (o.faction === 'zombie' && d2 < nearestZD2) {
+            if (hasLineOfSight(u.x, u.y, o.x, o.y, false)) {
+              nearestZD2 = d2; nearestZ = o;
+            }
+          } else if (u.kind === 'medic' && o.faction === 'human' && (o.hp < o.maxHp || (o.infected && !o.disguised)) && d2 < nearestWD2) {
+            nearestWD2 = d2; nearestWounded = o;
+          }
+        }
+
+        // Check nearby supply crates for gear/ammo
+        let supplyTarget = null;
+        if (state.supplies.length > 0 && (!u.armed || u.ammo < u.maxAmmo * 0.5 || u.hp < u.maxHp * 0.7)) {
+          let bestSD2 = 280 * 280;
+          for (let s = 0; s < state.supplies.length; s++) {
+            const cr = state.supplies[s];
+            const d2 = dist2(u.x, u.y, cr.x, cr.y);
+            if (d2 < bestSD2) { bestSD2 = d2; supplyTarget = cr; }
+          }
+        }
+
+        if (supplyTarget && (!nearestZ || nearestZD2 > 90 * 90)) {
+          const a = Math.atan2(supplyTarget.y - u.y, supplyTarget.x - u.x);
+          desiredVx = Math.cos(a) * moveSpeed;
+          desiredVy = Math.sin(a) * moveSpeed;
+          u.angle = a;
+          if (dist2(u.x, u.y, supplyTarget.x, supplyTarget.y) < 26 * 26) {
+            if (!u.armed && rules.courage >= 0.25) {
+              u.armed = true;
+              u.kind = 'survivor';
+              u.maxAmmo = HUMAN_DEFS.survivor.maxAmmo;
+              u.ammo = u.maxAmmo;
+              logEvent('Civilian grabbed weapons from Supply Drop!', 'good');
+            } else {
+              u.ammo = u.maxAmmo;
+              u.hp = Math.min(u.maxHp, u.hp + 45);
+            }
+            supplyTarget.uses--;
+            spawnParticles(u.x, u.y, '#38bdf8', 8, 60, 0.35, 3);
+            if (supplyTarget.uses <= 0) {
+              const sIdx = state.supplies.indexOf(supplyTarget);
+              if (sIdx >= 0) state.supplies.splice(sIdx, 1);
+            }
+          }
+        } else if (u.kind === 'medic' && nearestWounded) {
+          const a = Math.atan2(nearestWounded.y - u.y, nearestWounded.x - u.x);
+          u.angle = a;
+          if (nearestWD2 > 28 * 28) {
+            desiredVx = Math.cos(a) * moveSpeed;
+            desiredVy = Math.sin(a) * moveSpeed;
+          } else {
+            nearestWounded.hp = Math.min(nearestWounded.maxHp, nearestWounded.hp + def.healRate * dt);
+            if (nearestWounded.infected && !nearestWounded.disguised) {
+              nearestWounded.infected = false;
+              spawnParticles(nearestWounded.x, nearestWounded.y, '#10b981', 10, 60, 0.4, 3);
+              logEvent('Medic cured an early zombie bite!', 'good');
+            } else if (Math.random() < 0.15) {
+              spawnParticles(nearestWounded.x, nearestWounded.y, '#ec4899', 1, 30, 0.3, 3);
+            }
+          }
+        } else if (u.kind === 'engineer') {
+          // Look for damaged repairable structure or low-ammo turret
+          let repTarget = null, repD2 = 260 * 260;
+          for (let j = 0; j < state.structures.length; j++) {
+            const s = state.structures[j];
+            if (!s.repairable) continue;
+            const needsRepair = s.hp < s.maxHp * 0.95;
+            const needsAmmo = s.isTurret && rules.ammoLimits && s.ammo < s.maxAmmo * 0.6;
+            if (!needsRepair && !needsAmmo) continue;
+            const d2 = dist2(u.x, u.y, s.x, s.y);
+            if (d2 < repD2) { repD2 = d2; repTarget = s; }
+          }
+          if (repTarget && (!nearestZ || nearestZD2 > 75 * 75)) {
+            const a = Math.atan2(repTarget.y - u.y, repTarget.x - u.x);
+            u.angle = a;
+            if (repD2 > 34 * 34) {
+              desiredVx = Math.cos(a) * moveSpeed;
+              desiredVy = Math.sin(a) * moveSpeed;
+            } else {
+              repTarget.hp = Math.min(repTarget.maxHp, repTarget.hp + def.repairRate * dt);
+              if (repTarget.isTurret) repTarget.ammo = Math.min(repTarget.maxAmmo, repTarget.ammo + 18 * dt);
+              if (Math.random() < 0.2) spawnParticles(repTarget.x, repTarget.y, '#facc15', 1, 50, 0.25, 2.5);
+            }
+          } else if (nearestZ) {
+            handleCombatAI(u, def, nearestZ, nearestZD2, moveSpeed, dt, (vx, vy) => { desiredVx = vx; desiredVy = vy; });
+          } else {
+            humanIdleWander(u, moveSpeed, dt, (vx, vy) => { desiredVx = vx; desiredVy = vy; });
+          }
+        } else if (nearestZ) {
+          if (!u.armed) {
+            // Civilian: flee or bravely fight if courage high
+            if (rules.courage > 0.72 && nearestZD2 < 65 * 65) {
+              const a = Math.atan2(nearestZ.y - u.y, nearestZ.x - u.x);
+              u.angle = a;
+              desiredVx = Math.cos(a) * moveSpeed * 0.85;
+              desiredVy = Math.sin(a) * moveSpeed * 0.85;
+              if (nearestZD2 < 24 * 24 && u.fireCd <= 0) {
+                nearestZ.hp -= 10; nearestZ.hitFlash = 0.12; u.fireCd = 0.7;
+              }
+            } else {
+              const a = Math.atan2(u.y - nearestZ.y, u.x - nearestZ.x);
+              u.angle = a;
+              desiredVx = Math.cos(a) * moveSpeed * 1.12;
+              desiredVy = Math.sin(a) * moveSpeed * 1.12;
+            }
+          } else {
+            handleCombatAI(u, def, nearestZ, nearestZD2, moveSpeed, dt, (vx, vy) => { desiredVx = vx; desiredVy = vy; });
+          }
+        } else {
+          // Move toward extraction zone if one exists!
+          if (!u.disguised && state.extractZones.length > 0) {
+            const ez = state.extractZones[0];
+            const a = Math.atan2(ez.y - u.y, ez.x - u.x);
+            u.angle = a;
+            desiredVx = Math.cos(a) * moveSpeed * 0.82;
+            desiredVy = Math.sin(a) * moveSpeed * 0.82;
+          } else {
+            humanIdleWander(u, moveSpeed, dt, (vx, vy) => { desiredVx = vx; desiredVy = vy; });
+          }
+        }
+      } else {
+        // ZOMBIE AI
+        const def = ZOMBIE_DEFS[u.kind] || ZOMBIE_DEFS.walker;
+        const near = queryUnits(u.x, u.y, 290, _tmpUnits);
+        let targetH = null, targetHD2 = 290 * 290;
+        for (let j = 0; j < near.length; j++) {
+          const o = near[j];
+          if (o.faction !== 'human' || o.disguised) continue;
+          const d2 = dist2(u.x, u.y, o.x, o.y);
+          if (d2 < targetHD2) {
+            targetHD2 = d2; targetH = o;
+          }
+        }
+
+        if (targetH) {
+          const a = Math.atan2(targetH.y - u.y, targetH.x - u.x);
+          u.angle = a;
+          desiredVx = Math.cos(a) * moveSpeed;
+          desiredVy = Math.sin(a) * moveSpeed;
+
+          // Bite check
+          const reach = u.radius + targetH.radius + 7;
+          if (targetHD2 <= reach * reach && u.atkCd <= 0) {
+            targetH.hp -= def.dmg;
+            targetH.hitFlash = 0.2;
+            spawnParticles(targetH.x, targetH.y, '#ef4444', 5, 65, 0.28, 2.8);
+            if (!targetH.infected && Math.random() < 0.55) {
+              targetH.infected = true;
+              targetH.incubTimer = rules.incubation;
+            }
+            u.atkCd = def.atkCd;
+          }
+        } else if (u.investigateTimer > 0) {
+          u.investigateTimer -= dt;
+          const dx = u.targetX - u.x, dy = u.targetY - u.y;
+          if (dx * dx + dy * dy > 24 * 24) {
+            const a = Math.atan2(dy, dx);
+            u.angle = a;
+            desiredVx = Math.cos(a) * moveSpeed * 0.92;
+            desiredVy = Math.sin(a) * moveSpeed * 0.92;
+          } else {
+            u.investigateTimer = 0;
+          }
+        } else {
+          // Drift slowly toward center of map / nearest human
+          u.wanderTimer -= dt;
+          if (u.wanderTimer <= 0) {
+            u.wanderTimer = 1.8 + Math.random() * 2.5;
+            u.angle += (Math.random() - 0.5) * 1.4;
+          }
+          desiredVx = Math.cos(u.angle) * moveSpeed * 0.42;
+          desiredVy = Math.sin(u.angle) * moveSpeed * 0.42;
+        }
+      }
+
+      // Smooth velocity integration + knockback decay
+      u.vx = u.vx * 0.8 + desiredVx * 0.2;
+      u.vy = u.vy * 0.8 + desiredVy * 0.2;
+
+      // Unit-to-unit soft separation
+      const sepNear = queryUnits(u.x, u.y, 26, _tmpUnits);
+      for (let j = 0; j < sepNear.length; j++) {
+        const o = sepNear[j];
+        if (o.id === u.id) continue;
+        const dx = u.x - o.x, dy = u.y - o.y;
+        const minD = u.radius + o.radius;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > 0.01 && d2 < minD * minD) {
+          const d = Math.sqrt(d2);
+          const push = (minD - d) * 14;
+          u.vx += (dx / d) * push;
+          u.vy += (dy / d) * push;
+        }
+      }
+
+      // Apply movement
+      u.x = clamp(u.x + u.vx * dt, 14, WORLD_W - 14);
+      u.y = clamp(u.y + u.vy * dt, 14, WORLD_H - 14);
+
+      // Structure collisions & Zombie Barricade Shoving/Smashing
+      for (let j = 0; j < nearS.length; j++) {
+        const s = nearS[j];
+        if (!s.blocksMove) continue;
+        if (s.isDoor) {
+          if (s.doorState === 'open') continue;
+          if (s.doorState === 'closed' && u.faction === 'human') {
+            // Humans auto-open unlocked closed doors briefly
+            s.doorState = 'open';
+            continue;
+          }
+        }
+
+        const halfW = s.w / 2, halfH = s.h / 2;
+        const closestX = clamp(u.x, s.x - halfW, s.x + halfW);
+        const closestY = clamp(u.y, s.y - halfH, s.y + halfH);
+        const dx = u.x - closestX, dy = u.y - closestY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < u.radius * u.radius) {
+          const d = Math.sqrt(d2) || 0.001;
+          const overlap = u.radius - d;
+          u.x += (dx / d) * overlap;
+          u.y += (dy / d) * overlap;
+
+          // Zombies attack & shove barricades/walls/doors!
+          if (u.faction === 'zombie') {
+            s.shoveCount++;
+            if (u.atkCd <= 0) {
+              const def = ZOMBIE_DEFS[u.kind] || ZOMBIE_DEFS.walker;
+              const crowdMult = 1 + Math.min(6, s.shoveCount - 1) * 0.22 * rules.shovePressure;
+              const dmg = def.structDmg * crowdMult;
+              s.hp -= dmg;
+              s.hitFlash = 0.14;
+              if (u.kind === 'brute') {
+                spawnParticles(closestX, closestY, '#cbd5e1', 7, 90, 0.3, 3.5);
+                addSoundRing(s.x, s.y, 130, '#a855f7');
+              } else if (Math.random() < 0.35) {
+                spawnParticles(closestX, closestY, '#94a3b8', 2, 50, 0.2, 2);
+              }
+              u.atkCd = def.atkCd;
+              if (s.hp <= 0) {
+                const idx = state.structures.indexOf(s);
+                if (idx >= 0) destroyStructure(idx);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 6. Update Bullets
+    for (let i = state.bullets.length - 1; i >= 0; i--) {
+      const b = state.bullets[i];
+      b.px = b.x; b.py = b.y;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0 || b.x < 0 || b.x > WORLD_W || b.y < 0 || b.y > WORLD_H) {
+        state.bullets.splice(i, 1);
+        continue;
+      }
+
+      // Check structure hit
+      let hitSolid = false;
+      const nearS = queryStructs(b.x, b.y, 38, _tmpStructs);
+      for (let j = 0; j < nearS.length; j++) {
+        const s = nearS[j];
+        if (!s.blocksBullets) continue;
+        if (s.isDoor && s.doorState === 'open') continue;
+        if (segmentIntersectsRect(b.px, b.py, b.x, b.y, s.x, s.y, s.w, s.h)) {
+          if (s.explosive || s.type === 'wall_glass') {
+            s.hp -= b.dmg;
+            s.hitFlash = 0.15;
+            if (s.hp <= 0) {
+              const idx = state.structures.indexOf(s);
+              if (idx >= 0) destroyStructure(idx);
+            }
+          }
+          spawnParticles(b.x, b.y, '#e2e8f0', 4, 70, 0.2, 2);
+          hitSolid = true;
+          break;
+        }
+      }
+      if (hitSolid) { state.bullets.splice(i, 1); continue; }
+
+      // Check zombie hit
+      const nearU = queryUnits(b.x, b.y, 24, _tmpUnits);
+      let consumed = false;
+      for (let j = 0; j < nearU.length; j++) {
+        const u = nearU[j];
+        if (u.faction !== 'zombie' || b.hitIds.has(u.id)) continue;
+        const r = u.radius + 3;
+        if (dist2(b.x, b.y, u.x, u.y) <= r * r) {
+          // Crawlers have a small dodge chance at range
+          if (u.kind === 'crawler' && Math.random() < 0.22) continue;
+          u.hp -= b.dmg;
+          u.hitFlash = 0.15;
+          b.hitIds.add(u.id);
+          spawnParticles(b.x, b.y, '#84cc16', 5, 80, 0.25, 2.6);
+          if (!b.pierce) { consumed = true; break; }
+        }
+      }
+      if (consumed) state.bullets.splice(i, 1);
+    }
+
+    // 7. Update Particles & Sound Rings
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.92; p.vy *= 0.92;
+      p.life -= dt;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+    for (let i = state.soundRings.length - 1; i >= 0; i--) {
+      const r = state.soundRings[i];
+      r.r += (r.maxR - r.r) * Math.min(1, dt * 6) + 90 * dt;
+      r.alpha -= dt * 1.1;
+      if (r.alpha <= 0 || r.r >= r.maxR) state.soundRings.splice(i, 1);
+    }
+  }
+
+  function handleCombatAI(u, def, target, d2, moveSpeed, dt, setVel) {
+    const a = Math.atan2(target.y - u.y, target.x - u.x);
+    u.angle = a;
+    const dist = Math.sqrt(d2);
+
+    if (def.melee || (rules.ammoLimits && u.ammo <= 0)) {
+      // Riot guard or out-of-ammo survivor engages in melee
+      if (dist > 26) {
+        setVel(Math.cos(a) * moveSpeed, Math.sin(a) * moveSpeed);
+      }
+      if (dist <= 34 && u.fireCd <= 0) {
+        target.hp -= def.dmg;
+        target.hitFlash = 0.16;
+        const kb = def.knockback || 85;
+        target.vx += Math.cos(a) * kb;
+        target.vy += Math.sin(a) * kb;
+        spawnParticles(target.x, target.y, '#93c5fd', 5, 70, 0.22, 2.5);
+        u.fireCd = def.fireRate;
+      }
+    } else {
+      // Ranged kiting / holding position
+      const idealMin = u.kind === 'sniper' ? 170 : 95;
+      if (dist < idealMin) {
+        setVel(-Math.cos(a) * moveSpeed * 0.78, -Math.sin(a) * moveSpeed * 0.78);
+      } else if (dist > def.range * 0.92) {
+        setVel(Math.cos(a) * moveSpeed * 0.65, Math.sin(a) * moveSpeed * 0.65);
+      }
+      if (dist <= def.range && u.fireCd <= 0 && hasLineOfSight(u.x, u.y, target.x, target.y, true)) {
+        fireWeapon(u, target.x, target.y, false);
+        u.fireCd = def.fireRate;
+      }
+    }
+  }
+
+  function humanIdleWander(u, moveSpeed, dt, setVel) {
+    u.wanderTimer -= dt;
+    if (u.wanderTimer <= 0) {
+      u.wanderTimer = 1.5 + Math.random() * 2.5;
+      u.angle += (Math.random() - 0.5) * 1.6;
+    }
+    setVel(Math.cos(u.angle) * moveSpeed * 0.25, Math.sin(u.angle) * moveSpeed * 0.25);
+  }
+
+  // =========================================================================
+  // RENDERING (CRISP, BRIGHT, READABLE TOP-DOWN)
+  // =========================================================================
+  const FLOOR_COLORS = ['#74a948', '#475569', '#e2e8f0', '#cbd5e1'];
+
+  function render() {
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Smooth camera zoom & Possess tracking
+    cam.zoom += (cam.targetZoom - cam.zoom) * 0.22;
+    const possessed = getPossessedUnit();
+    if (possessed) {
+      cam.x += (possessed.x - cam.x) * 0.14;
+      cam.y += (possessed.y - cam.y) * 0.14;
+    } else {
+      // Director WASD pan
+      const panSpeed = (520 / cam.zoom) * 0.016;
+      if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) cam.y -= panSpeed;
+      if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) cam.y += panSpeed;
+      if (input.keys.has('KeyA') || input.keys.has('ArrowLeft')) cam.x -= panSpeed;
+      if (input.keys.has('KeyD') || input.keys.has('ArrowRight')) cam.x += panSpeed;
+    }
+
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(cam.zoom, cam.zoom);
+    ctx.translate(-cam.x, -cam.y);
+
+    // Visible world bounds
+    const tl = screenToWorld(0, 0);
+    const br = screenToWorld(canvas.width, canvas.height);
+    const c0 = Math.max(0, Math.floor(tl.x / TILE));
+    const c1 = Math.min(WORLD_COLS - 1, Math.ceil(br.x / TILE));
+    const r0 = Math.max(0, Math.floor(tl.y / TILE));
+    const r1 = Math.min(WORLD_ROWS - 1, Math.ceil(br.y / TILE));
+
+    // 1. Floor Tiles
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        const ft = state.floor[r * WORLD_COLS + c];
+        const x = c * TILE, y = r * TILE;
+        ctx.fillStyle = FLOOR_COLORS[ft];
+        ctx.fillRect(x, y, TILE + 0.5, TILE + 0.5);
+
+        if (ft === FLOOR.TILE) {
+          ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, TILE, TILE);
+        } else if (ft === FLOOR.CONCRETE) {
+          ctx.strokeStyle = 'rgba(100,116,139,0.22)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, TILE, TILE);
+        } else if (ft === FLOOR.GRASS && ((c + r) & 1) === 0) {
+          ctx.fillStyle = 'rgba(255,255,255,0.035)';
+          ctx.fillRect(x, y, TILE, TILE);
+        } else if (ft === FLOOR.ASPHALT && (r === 21 || c === 31) && ((c + r) % 2 === 0)) {
+          ctx.fillStyle = 'rgba(250,204,21,0.55)';
+          if (r === 21) ctx.fillRect(x + 6, y + 14, 20, 3);
+          else ctx.fillRect(x + 14, y + 6, 3, 20);
+        }
+      }
+    }
+
+    // Subtle build grid when zoomed in & snap enabled
+    if (state.mode === 'director' && state.snapGrid && cam.zoom >= 0.45) {
+      ctx.strokeStyle = 'rgba(15,23,42,0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let c = c0; c <= c1 + 1; c++) {
+        ctx.moveTo(c * TILE, r0 * TILE);
+        ctx.lineTo(c * TILE, (r1 + 1) * TILE);
+      }
+      for (let r = r0; r <= r1 + 1; r++) {
+        ctx.moveTo(c0 * TILE, r * TILE);
+        ctx.lineTo((c1 + 1) * TILE, r * TILE);
+      }
+      ctx.stroke();
+    }
+
+    // World Border
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
+
+    // 2. Decals
+    for (let i = 0; i < state.decals.length; i++) {
+      const d = state.decals[i];
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 3. Extraction Zones
+    for (let i = 0; i < state.extractZones.length; i++) {
+      const ez = state.extractZones[i];
+      const pulse = 0.5 + 0.5 * Math.sin(state.time * 4);
+      ctx.fillStyle = 'rgba(34,197,94,0.22)';
+      ctx.beginPath();
+      ctx.arc(ez.x, ez.y, ez.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(34,197,94,${0.6 + pulse * 0.4})`;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#14532d';
+      ctx.font = '800 18px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('H', ez.x, ez.y - 6);
+      ctx.font = '700 9px Inter, sans-serif';
+      ctx.fillText('EXTRACT', ez.x, ez.y + 12);
+    }
+
+    // 4. Supply Drops & Alarms
+    for (let i = 0; i < state.supplies.length; i++) {
+      const cr = state.supplies[i];
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(cr.x - 12, cr.y - 12, 24, 24);
+      ctx.strokeStyle = '#e0f2fe';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cr.x - 12, cr.y - 12, 24, 24);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cr.x - 6, cr.y - 2, 12, 4);
+      ctx.fillRect(cr.x - 2, cr.y - 6, 4, 12);
+    }
+    for (let i = 0; i < state.alarms.length; i++) {
+      const a = state.alarms[i];
+      const flash = Math.sin(state.time * 16) > 0;
+      ctx.fillStyle = flash ? '#f97316' : '#7c2d12';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // 5. Structures (Fortifications & Props)
+    for (let i = 0; i < state.structures.length; i++) {
+      const s = state.structures[i];
+      if (s.x + s.w < tl.x || s.x - s.w > br.x || s.y + s.h < tl.y || s.y - s.h > br.y) continue;
+      drawStructure(s);
+    }
+
+    // 6. Units (Humans & Zombies)
+    for (let i = 0; i < state.units.length; i++) {
+      const u = state.units[i];
+      if (u.x + 24 < tl.x || u.x - 24 > br.x || u.y + 24 < tl.y || u.y - 24 > br.y) continue;
+      drawUnit(u, possessed && u.id === possessed.id);
+    }
+
+    // 7. Bullets & Tracers
+    ctx.lineCap = 'round';
+    for (let i = 0; i < state.bullets.length; i++) {
+      const b = state.bullets[i];
+      ctx.strokeStyle = b.color;
+      ctx.lineWidth = b.pierce ? 3 : 2;
+      ctx.beginPath();
+      ctx.moveTo(b.px, b.py);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    // 8. Fires & Cure Clouds
+    for (let i = 0; i < state.fires.length; i++) {
+      const f = state.fires[i];
+      const g = ctx.createRadialGradient(f.x, f.y, 3, f.x, f.y, f.r);
+      g.addColorStop(0, 'rgba(254,240,138,0.85)');
+      g.addColorStop(0.5, 'rgba(249,115,22,0.6)');
+      g.addColorStop(1, 'rgba(239,68,68,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < state.cureClouds.length; i++) {
+      const c = state.cureClouds[i];
+      const g = ctx.createRadialGradient(c.x, c.y, 8, c.x, c.y, c.r);
+      g.addColorStop(0, 'rgba(16,185,129,0.45)');
+      g.addColorStop(0.7, 'rgba(52,211,153,0.22)');
+      g.addColorStop(1, 'rgba(16,185,129,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 9. Particles
+    for (let i = 0; i < state.particles.length; i++) {
+      const p = state.particles[i];
+      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 10. Sound Rings & Indicators
+    if (rules.showIndicators) {
+      for (let i = 0; i < state.soundRings.length; i++) {
+        const r = state.soundRings[i];
+        ctx.strokeStyle = r.color;
+        ctx.globalAlpha = Math.max(0, r.alpha * 0.55);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // 11. Night / Power-Outage Lighting Overlay (clean radial floodlights!)
+    if (rules.nightMode) {
+      renderNightOverlay(tl, br);
+    }
+
+    // 12. Placement Ghost / Hover Cursor
+    if (state.mode === 'director') {
+      drawToolPreview();
+    } else if (state.mode === 'possess' && !possessed) {
+      // Highlight unit under cursor to possess
+      if (state.hoveredUnit) {
+        const u = state.hoveredUnit;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(u.x, u.y, u.radius + 7, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawStructure(s) {
+    const x = s.x - s.w / 2, y = s.y - s.h / 2;
+
+    if (s.type === 'wall_concrete') {
+      ctx.fillStyle = s.hitFlash > 0 ? '#f8fafc' : '#475569';
+      ctx.fillRect(x, y, s.w, s.h);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(x + 3, y + 3, s.w - 6, s.h - 6);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, s.w, s.h);
+    } else if (s.type === 'wall_wood') {
+      ctx.fillStyle = s.hitFlash > 0 ? '#fde68a' : '#92400e';
+      ctx.fillRect(x + 1, y + 1, s.w - 2, s.h - 2);
+      ctx.fillStyle = '#d97706';
+      ctx.fillRect(x + 3, y + 4, s.w - 6, 7);
+      ctx.fillRect(x + 3, y + 14, s.w - 6, 7);
+      ctx.fillRect(x + 3, y + 23, s.w - 6, 5);
+      ctx.strokeStyle = '#451a03';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(x + 1, y + 1, s.w - 2, s.h - 2);
+    } else if (s.type === 'wall_fence') {
+      ctx.fillStyle = 'rgba(148,163,184,0.22)';
+      ctx.fillRect(x + 2, y + 2, s.w - 4, s.h - 4);
+      ctx.strokeStyle = s.hitFlash > 0 ? '#fff' : '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let k = 4; k < s.w; k += 8) {
+        ctx.moveTo(x + k, y + 2); ctx.lineTo(x + s.w - 2, y + s.h - k);
+        ctx.moveTo(x + 2, y + k); ctx.lineTo(x + s.w - k, y + s.h - 2);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, s.w - 4, s.h - 4);
+    } else if (s.type === 'wall_glass') {
+      ctx.fillStyle = s.hitFlash > 0 ? '#fff' : 'rgba(125,211,252,0.45)';
+      ctx.fillRect(x + 2, y + 2, s.w - 4, s.h - 4);
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, s.w - 4, s.h - 4);
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + s.h - 6); ctx.lineTo(x + s.w - 6, y + 6);
+      ctx.stroke();
+    } else if (s.type === 'door_reinforced') {
+      if (s.doorState === 'open') {
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 2, y + 2, s.w - 4, 6);
+      } else {
+        ctx.fillStyle = s.hitFlash > 0 ? '#fff' : (s.doorState === 'locked' ? '#1d4ed8' : s.doorState === 'barricaded' ? '#b45309' : '#3b82f6');
+        ctx.fillRect(x + 2, y + 2, s.w - 4, s.h - 4);
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 2, y + 2, s.w - 4, s.h - 4);
+        if (s.doorState === 'barricaded') {
+          ctx.strokeStyle = '#fde68a';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x + 4, y + 4); ctx.lineTo(x + s.w - 4, y + s.h - 4);
+          ctx.moveTo(x + s.w - 4, y + 4); ctx.lineTo(x + 4, y + s.h - 4);
+          ctx.stroke();
+        } else if (s.doorState === 'locked') {
+          ctx.fillStyle = '#facc15';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (s.type === 'prop_wire') {
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      for (let k = 0; k < 4; k++) {
+        ctx.arc(x + 6 + k * 6.5, s.y, 5, 0, Math.PI * 2);
+      }
+      ctx.stroke();
+    } else if (s.type === 'prop_barrel') {
+      ctx.fillStyle = s.hitFlash > 0 ? '#fef08a' : '#dc2626';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#7f1d1d';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (s.type === 'prop_turret') {
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(x + 2, y + 2, s.w - 4, s.h - 4);
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.angle);
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(4, -2.5, 13, 5);
+      ctx.restore();
+      if (rules.ammoLimits) {
+        const pct = clamp(s.ammo / s.maxAmmo, 0, 1);
+        ctx.fillStyle = 'rgba(15,23,42,0.8)';
+        ctx.fillRect(x, y + s.h + 2, s.w, 3);
+        ctx.fillStyle = pct > 0.25 ? '#38bdf8' : '#ef4444';
+        ctx.fillRect(x, y + s.h + 2, s.w * pct, 3);
+      }
+    } else if (s.type === 'prop_car') {
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(x, y, s.w, s.h);
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(x + 12, y + 4, s.w - 26, s.h - 8);
+      ctx.fillStyle = '#93c5fd';
+      ctx.fillRect(x + s.w - 16, y + 5, 7, s.h - 10);
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, s.w, s.h);
+    } else if (s.type === 'prop_light') {
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // HP Bar when damaged or hovered
+    if (s.hp < s.maxHp || state.hoveredStruct === s) {
+      const pct = clamp(s.hp / s.maxHp, 0, 1);
+      const bw = Math.max(24, s.w - 4);
+      const bx = s.x - bw / 2, by = y - 7;
+      ctx.fillStyle = 'rgba(15,23,42,0.85)';
+      ctx.fillRect(bx, by, bw, 4);
+      ctx.fillStyle = pct > 0.5 ? '#22c55e' : pct > 0.25 ? '#f59e0b' : '#ef4444';
+      ctx.fillRect(bx, by, bw * pct, 4);
+    }
+  }
+
+  function drawUnit(u, isPossessed) {
+    ctx.save();
+    ctx.translate(u.x, u.y);
+
+    if (isPossessed) {
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, u.radius + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Subtle ground shadow
+    ctx.fillStyle = 'rgba(15,23,42,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(1, 2.5, u.radius, u.radius * 0.78, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.rotate(u.angle);
+
+    if (u.faction === 'human') {
+      const def = u.disguised ? HUMAN_DEFS.civilian : (HUMAN_DEFS[u.kind] || HUMAN_DEFS.civilian);
+      // Shoulders
+      ctx.fillStyle = u.hitFlash > 0 ? '#fff' : def.color;
+      ctx.beginPath();
+      ctx.ellipse(-1, 0, u.radius * 0.75, u.radius * 1.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      // Held Gear
+      if (u.kind === 'riot') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(5, -9, 4, 18);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(6, -6, 2, 12);
+      } else if (u.kind === 'sniper') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(2, 2, 16, 2.6);
+      } else if (u.armed) {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(3, 2, 10, 2.5);
+      }
+
+      // Head / Helmet
+      ctx.fillStyle = def.helm;
+      ctx.beginPath();
+      ctx.arc(1, 0, u.radius * 0.56, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Medic cross
+      if (u.kind === 'medic') {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(-1, -3, 2, 6);
+        ctx.fillRect(-3, -1, 6, 2);
+      }
+    } else {
+      const def = ZOMBIE_DEFS[u.kind] || ZOMBIE_DEFS.walker;
+      // Outstretched Zombie Arms
+      ctx.strokeStyle = def.skin;
+      ctx.lineWidth = u.kind === 'brute' ? 4.5 : 2.6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, -u.radius * 0.7); ctx.lineTo(u.radius * 1.15, -u.radius * 0.45);
+      ctx.moveTo(0, u.radius * 0.7); ctx.lineTo(u.radius * 1.15, u.radius * 0.45);
+      ctx.stroke();
+
+      // Body
+      ctx.fillStyle = u.hitFlash > 0 ? '#fff' : def.color;
+      ctx.beginPath();
+      if (u.kind === 'crawler') {
+        ctx.ellipse(-2, 0, u.radius * 1.25, u.radius * 0.75, 0, 0, Math.PI * 2);
+      } else {
+        ctx.ellipse(-1, 0, u.radius * 0.8, u.radius * 1.1, 0, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      // Head
+      ctx.fillStyle = def.skin;
+      ctx.beginPath();
+      ctx.arc(2, 0, u.radius * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // Infected / Carrier indicator
+    if (u.infected && (!u.disguised || rules.revealCarriers)) {
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(u.x, u.y - u.radius - 5, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Brute HP bar
+    if (u.kind === 'brute' && u.hp < u.maxHp) {
+      const pct = clamp(u.hp / u.maxHp, 0, 1);
+      ctx.fillStyle = 'rgba(15,23,42,0.8)';
+      ctx.fillRect(u.x - 14, u.y - u.radius - 7, 28, 3.5);
+      ctx.fillStyle = '#c084fc';
+      ctx.fillRect(u.x - 14, u.y - u.radius - 7, 28 * pct, 3.5);
+    }
+  }
+
+  let lightCanvas = null, lightCtx = null;
+  function renderNightOverlay(tl, br) {
+    if (!lightCanvas) {
+      lightCanvas = document.createElement('canvas');
+      lightCtx = lightCanvas.getContext('2d');
+    }
+    const w = Math.ceil(canvas.width / 2), h = Math.ceil(canvas.height / 2);
+    if (lightCanvas.width !== w || lightCanvas.height !== h) {
+      lightCanvas.width = w; lightCanvas.height = h;
+    }
+    lightCtx.globalCompositeOperation = 'source-over';
+    lightCtx.fillStyle = 'rgba(7, 12, 26, 0.74)';
+    lightCtx.fillRect(0, 0, w, h);
+
+    lightCtx.globalCompositeOperation = 'destination-out';
+    const punch = (wx, wy, wr, alpha = 1) => {
+      const sp = worldToScreen(wx, wy);
+      const sx = sp.x / 2, sy = sp.y / 2, sr = (wr * cam.zoom) / 2;
+      if (sx + sr < 0 || sx - sr > w || sy + sr < 0 || sy - sr > h) return;
+      const g = lightCtx.createRadialGradient(sx, sy, sr * 0.12, sx, sy, sr);
+      g.addColorStop(0, `rgba(0,0,0,${alpha})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      lightCtx.fillStyle = g;
+      lightCtx.beginPath();
+      lightCtx.arc(sx, sy, sr, 0, Math.PI * 2);
+      lightCtx.fill();
+    };
+
+    for (let i = 0; i < state.structures.length; i++) {
+      const s = state.structures[i];
+      if (s.isLight) punch(s.x, s.y, 260, 0.96);
+    }
+    for (let i = 0; i < state.fires.length; i++) {
+      punch(state.fires[i].x, state.fires[i].y, 130, 0.85);
+    }
+    for (let i = 0; i < state.bullets.length; i++) {
+      punch(state.bullets[i].x, state.bullets[i].y, 48, 0.6);
+    }
+    const p = getPossessedUnit();
+    if (p) punch(p.x, p.y, 180, 0.9);
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(lightCanvas, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
+
+  function getSnappedPos(wx, wy) {
+    if (state.snapGrid) {
+      return {
+        x: Math.floor(wx / TILE) * TILE + TILE / 2,
+        y: Math.floor(wy / TILE) * TILE + TILE / 2
+      };
+    }
+    return { x: wx, y: wy };
+  }
+
+  function drawToolPreview() {
+    const pos = getSnappedPos(input.worldX, input.worldY);
+    if (STRUCT_DEFS[state.tool]) {
+      const def = STRUCT_DEFS[state.tool];
+      ctx.strokeStyle = '#38bdf8';
+      ctx.fillStyle = 'rgba(56,189,248,0.22)';
+      ctx.lineWidth = 2;
+      ctx.fillRect(pos.x - def.w / 2, pos.y - def.h / 2, def.w, def.h);
+      ctx.strokeRect(pos.x - def.w / 2, pos.y - def.h / 2, def.w, def.h);
+    } else if (state.tool.startsWith('unit_')) {
+      const r = state.brushSize === 1 ? 12 : state.brushSize === 5 ? 36 : 68;
+      ctx.strokeStyle = state.tool.includes('walker') || state.tool.includes('sprinter') || state.tool.includes('brute') || state.tool.includes('crawler') || state.tool.includes('carrier') ? '#ef4444' : '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(input.worldX, input.worldY, r, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (state.tool === 'erase') {
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pos.x - 18, pos.y - 18, 36, 36);
+    } else if (state.tool.startsWith('floor_')) {
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pos.x - TILE / 2, pos.y - TILE / 2, TILE, TILE);
+    }
+  }
+
+  // =========================================================================
+  // TOOL APPLICATION (CLICK & DRAG)
+  // =========================================================================
+  function applyToolAt(wx, wy, isDrag = false) {
+    if (wx < 0 || wx > WORLD_W || wy < 0 || wy > WORLD_H) return;
+    const pos = getSnappedPos(wx, wy);
+
+    if (state.tool === 'interact') {
+      if (isDrag) return;
+      for (let i = 0; i < state.structures.length; i++) {
+        const s = state.structures[i];
+        if (s.isDoor && Math.abs(wx - s.x) < s.w / 2 + 8 && Math.abs(wy - s.y) < s.h / 2 + 8) {
+          cycleDoorState(s);
+          return;
+        }
+      }
+      return;
+    }
+
+    if (state.tool === 'erase') {
+      for (let i = state.structures.length - 1; i >= 0; i--) {
+        const s = state.structures[i];
+        if (Math.abs(wx - s.x) < s.w / 2 + 6 && Math.abs(wy - s.y) < s.h / 2 + 6) {
+          state.structures.splice(i, 1);
+          rebuildSpatialStructs();
+          return;
+        }
+      }
+      for (let i = state.extractZones.length - 1; i >= 0; i--) {
+        if (dist2(wx, wy, state.extractZones[i].x, state.extractZones[i].y) < 50 * 50) {
+          state.extractZones.splice(i, 1);
+          return;
+        }
+      }
+      return;
+    }
+
+    if (STRUCT_DEFS[state.tool]) {
+      if (isDrag && dist2(pos.x, pos.y, input.lastPaintX, input.lastPaintY) < (state.snapGrid ? 16 * 16 : 26 * 26)) return;
+      addStructure(state.tool, pos.x, pos.y);
+      input.lastPaintX = pos.x; input.lastPaintY = pos.y;
+      return;
+    }
+
+    if (state.tool.startsWith('floor_')) {
+      const col = Math.floor(wx / TILE), row = Math.floor(wy / TILE);
+      const map = { floor_grass: FLOOR.GRASS, floor_asphalt: FLOOR.ASPHALT, floor_tile: FLOOR.TILE, floor_concrete: FLOOR.CONCRETE };
+      setFloorRect(col, row, 1, 1, map[state.tool]);
+      return;
+    }
+
+    if (state.tool.startsWith('unit_')) {
+      if (isDrag && dist2(wx, wy, input.lastPaintX, input.lastPaintY) < 28 * 28) return;
+      const kind = state.tool.slice(5);
+      const count = state.brushSize;
+      const spread = count === 1 ? 0 : count === 5 ? 34 : 66;
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()) * spread;
+        spawnUnit(kind, wx + Math.cos(a) * r, wy + Math.sin(a) * r);
+      }
+      input.lastPaintX = wx; input.lastPaintY = wy;
+      return;
+    }
+
+    if (state.tool.startsWith('chaos_') && !isDrag) {
+      if (state.tool === 'chaos_alarm') {
+        state.alarms.push({ x: wx, y: wy, life: 22, pulseCd: 0 });
+        logEvent('Noise Lure / Alarm activated!', 'warn');
+      } else if (state.tool === 'chaos_supply') {
+        state.supplies.push({ x: wx, y: wy, uses: 6 });
+        spawnParticles(wx, wy, '#38bdf8', 16, 100, 0.5, 4);
+        logEvent('Weapon & Medkit Supply Drop landed!', 'good');
+      } else if (state.tool === 'chaos_cure') {
+        state.cureClouds.push({ x: wx, y: wy, r: 22, maxR: 150, life: 11 });
+        logEvent('Experimental Cure Cloud deployed!', 'good');
+      } else if (state.tool === 'chaos_fire') {
+        state.fires.push({ x: wx, y: wy, r: 30, life: 16, spreadCd: 1.5 });
+        logEvent('Spreading Fire ignited!', 'alert');
+      } else if (state.tool === 'chaos_extract') {
+        state.extractZones.push({ x: wx, y: wy, r: 58 });
+        logEvent('Extraction Zone (Helipad) established!', 'good');
+      }
+    }
+  }
+
+  // =========================================================================
+  // INPUT HANDLERS
+  // =========================================================================
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  canvas.addEventListener('mousedown', e => {
+    const w = screenToWorld(e.clientX, e.clientY);
+    input.worldX = w.x; input.worldY = w.y;
+
+    if (e.button === 1 || e.button === 2) {
+      input.rightDown = (e.button === 2);
+      input.midDown = (e.button === 1);
+      input.panning = true;
+      input.panStartX = e.clientX; input.panStartY = e.clientY;
+      input.camStartX = cam.x; input.camStartY = cam.y;
+      return;
+    }
+
+    if (e.button === 0) {
+      input.leftDown = true;
+      input.lastPaintX = -999; input.lastPaintY = -999;
+
+      if (state.mode === 'possess') {
+        if (!getPossessedUnit()) {
+          // Pick closest unit to click
+          let best = null, bestD2 = 34 * 34;
+          for (let i = 0; i < state.units.length; i++) {
+            const u = state.units[i];
+            const d2 = dist2(w.x, w.y, u.x, u.y);
+            if (d2 < bestD2) { bestD2 = d2; best = u; }
+          }
+          if (best) enterPossess(best);
+        }
+        return;
+      }
+
+      applyToolAt(w.x, w.y, false);
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    input.mouseX = e.clientX; input.mouseY = e.clientY;
+    const w = screenToWorld(e.clientX, e.clientY);
+    input.worldX = w.x; input.worldY = w.y;
+
+    if (input.panning) {
+      cam.x = input.camStartX - (e.clientX - input.panStartX) / cam.zoom;
+      cam.y = input.camStartY - (e.clientY - input.panStartY) / cam.zoom;
+      return;
+    }
+
+    // Hover detection
+    state.hoveredStruct = null;
+    for (let i = 0; i < state.structures.length; i++) {
+      const s = state.structures[i];
+      if (Math.abs(w.x - s.x) < s.w / 2 + 4 && Math.abs(w.y - s.y) < s.h / 2 + 4) {
+        state.hoveredStruct = s; break;
+      }
+    }
+    state.hoveredUnit = null;
+    if (state.mode === 'possess' && !getPossessedUnit()) {
+      let best = null, bestD2 = 32 * 32;
+      for (let i = 0; i < state.units.length; i++) {
+        const u = state.units[i];
+        const d2 = dist2(w.x, w.y, u.x, u.y);
+        if (d2 < bestD2) { bestD2 = d2; best = u; }
+      }
+      state.hoveredUnit = best;
+    }
+
+    if (input.leftDown && state.mode === 'director') {
+      applyToolAt(w.x, w.y, true);
+    }
+  });
+
+  window.addEventListener('mouseup', e => {
+    if (e.button === 0) input.leftDown = false;
+    if (e.button === 1) { input.midDown = false; input.panning = false; }
+    if (e.button === 2) { input.rightDown = false; input.panning = false; }
+  });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    const before = screenToWorld(e.clientX, e.clientY);
+    cam.targetZoom = clamp(cam.targetZoom * factor, 0.25, 2.5);
+    cam.zoom = cam.targetZoom;
+    const after = screenToWorld(e.clientX, e.clientY);
+    cam.x += before.x - after.x;
+    cam.y += before.y - after.y;
+  }, { passive: false });
+
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    input.keys.add(e.code);
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      togglePause();
+    } else if (e.code === 'Escape') {
+      if (state.mode === 'possess') exitPossess();
+    } else if (e.code === 'KeyC' && state.mode === 'director') {
+      resetCamera();
+    } else if (e.code === 'KeyE' && state.mode === 'possess') {
+      const p = getPossessedUnit();
+      if (p) {
+        // Toggle nearest door
+        for (let i = 0; i < state.structures.length; i++) {
+          const s = state.structures[i];
+          if (s.isDoor && dist2(p.x, p.y, s.x, s.y) < 56 * 56) {
+            cycleDoorState(s);
+            break;
+          }
+        }
+      }
+    } else if (e.code === 'KeyR' && state.mode === 'possess') {
+      const p = getPossessedUnit();
+      if (p && p.faction === 'human') {
+        p.ammo = p.maxAmmo;
+        logEvent('Reloaded weapon!');
+      }
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    input.keys.delete(e.code);
+  });
+
+  // =========================================================================
+  // UI BINDINGS
+  // =========================================================================
+  function togglePause() {
+    state.paused = !state.paused;
+    const btn = document.getElementById('btnPlayPause');
+    btn.textContent = state.paused ? '▶ Play' : '⏸ Pause';
+    btn.className = state.paused ? 'warn' : 'success';
+  }
+  document.getElementById('btnPlayPause').addEventListener('click', togglePause);
+
+  document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.simSpeed = parseFloat(btn.dataset.speed);
+      document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (state.paused) togglePause();
+    });
+  });
+
+  document.getElementById('mapSelect').addEventListener('change', e => loadMap(e.target.value));
+  document.getElementById('btnResetMap').addEventListener('click', () => loadMap(state.currentMap));
+  document.getElementById('btnResetCam').addEventListener('click', resetCamera);
+
+  function updateModeButtons() {
+    document.getElementById('btnModeDirector').classList.toggle('active', state.mode === 'director');
+    document.getElementById('btnModePossess').classList.toggle('active', state.mode === 'possess');
+  }
+  document.getElementById('btnModeDirector').addEventListener('click', () => exitPossess());
+  document.getElementById('btnModePossess').addEventListener('click', () => {
+    state.mode = 'possess';
+    state.possessedId = null;
+    updateModeButtons();
+    logEvent('Possess Mode: Click any Human or Zombie to take control!', 'good');
+  });
+  document.getElementById('btnExitPossess').addEventListener('click', exitPossess);
+
+  document.getElementById('btnNight').addEventListener('click', e => {
+    rules.nightMode = !rules.nightMode;
+    e.target.textContent = rules.nightMode ? '🌙 Night' : '☀ Day';
+    e.target.classList.toggle('active', rules.nightMode);
+  });
+
+  // Tabs
+  document.querySelectorAll('.dock-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.dock-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+      document.getElementById('tab-' + tab.dataset.tab).style.display = 'flex';
+    });
+  });
+
+  // Tool selection
+  document.querySelectorAll('.tool-select').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.tool = btn.dataset.tool;
+      if (state.mode === 'possess') exitPossess();
+      document.querySelectorAll('.tool-select').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Snap Toggle
+  document.getElementById('btnSnapToggle').addEventListener('click', e => {
+    state.snapGrid = !state.snapGrid;
+    e.target.classList.toggle('active', state.snapGrid);
+    document.getElementById('snapLabel').textContent = state.snapGrid ? 'Grid 32px' : 'Free Place';
+  });
+
+  // Brush size
+  document.querySelectorAll('.brush-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.brushSize = parseInt(btn.dataset.brush, 10);
+      document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('brushLabel').textContent = `${state.brushSize} unit${state.brushSize > 1 ? 's' : ''} / click`;
+    });
+  });
+
+  // Dock collapse toggles
+  document.getElementById('toggleLeft').addEventListener('click', e => {
+    const d = document.getElementById('leftDock');
+    const c = d.classList.toggle('collapsed');
+    e.target.classList.toggle('collapsed', c);
+    e.target.textContent = c ? '▶' : '◀';
+  });
+  document.getElementById('toggleRight').addEventListener('click', e => {
+    const d = document.getElementById('rightDock');
+    const c = d.classList.toggle('collapsed');
+    e.target.classList.toggle('collapsed', c);
+    e.target.textContent = c ? '◀' : '▶';
+  });
+
+  // Rules Lab Sliders
+  function bindSlider(id, valId, fmt, cb) {
+    const el = document.getElementById(id);
+    const vEl = document.getElementById(valId);
+    el.addEventListener('input', () => {
+      const v = parseFloat(el.value);
+      vEl.textContent = fmt(v);
+      cb(v);
+    });
+  }
+  bindSlider('slZSpeed', 'valZSpeed', v => v.toFixed(1) + 'x', v => rules.zSpeed = v);
+  bindSlider('slZHp', 'valZHp', v => v.toFixed(1) + 'x', v => rules.zHp = v);
+  bindSlider('slIncub', 'valIncub', v => v + 's', v => rules.incubation = v);
+  bindSlider('slSound', 'valSound', v => v + '%', v => rules.soundSens = v / 100);
+  bindSlider('slCourage', 'valCourage', v => v + '%', v => rules.courage = v / 100);
+  bindSlider('slShove', 'valShove', v => v.toFixed(1) + 'x', v => rules.shovePressure = v);
+
+  document.getElementById('chkAmmo').addEventListener('change', e => rules.ammoLimits = e.target.checked);
+  document.getElementById('chkIndicators').addEventListener('change', e => rules.showIndicators = e.target.checked);
+  document.getElementById('chkReveal').addEventListener('change', e => rules.revealCarriers = e.target.checked);
+
+  // Quick Chaos / Stress-Test Buttons
+  function spawnPerimeterWave(count, brutes) {
+    for (let i = 0; i < count; i++) {
+      const side = (Math.random() * 4) | 0;
+      let x = 40, y = 40;
+      if (side === 0) { x = Math.random() * WORLD_W; y = 30; }
+      else if (side === 1) { x = Math.random() * WORLD_W; y = WORLD_H - 30; }
+      else if (side === 2) { x = 30; y = Math.random() * WORLD_H; }
+      else { x = WORLD_W - 30; y = Math.random() * WORLD_H; }
+      const r = Math.random();
+      const kind = r < 0.65 ? 'walker' : r < 0.88 ? 'sprinter' : 'crawler';
+      const u = spawnUnit(kind, x, y);
+      if (u) {
+        u.targetX = WORLD_W / 2 + (Math.random() - 0.5) * 200;
+        u.targetY = WORLD_H / 2 + (Math.random() - 0.5) * 200;
+        u.investigateTimer = 25;
+      }
+    }
+    for (let i = 0; i < brutes; i++) {
+      const side = i % 4;
+      const x = side === 2 ? 40 : side === 3 ? WORLD_W - 40 : WORLD_W / 2;
+      const y = side === 0 ? 40 : side === 1 ? WORLD_H - 40 : WORLD_H / 2;
+      const u = spawnUnit('brute', x, y);
+      if (u) { u.targetX = WORLD_W / 2; u.targetY = WORLD_H / 2; u.investigateTimer = 30; }
+    }
+    logEvent(`Perimeter wave spawned: +${count} zombies${brutes ? ` & ${brutes} Brutes` : ''}!`, 'alert');
+  }
+
+  document.getElementById('btnWaveSmall').addEventListener('click', () => spawnPerimeterWave(40, 1));
+  document.getElementById('btnWaveMega').addEventListener('click', () => spawnPerimeterWave(120, 5));
+  document.getElementById('btnDropCarriers').addEventListener('click', () => {
+    for (let i = 0; i < 4; i++) {
+      spawnUnit('carrier', WORLD_W / 2 + (Math.random() - 0.5) * 260, WORLD_H / 2 + (Math.random() - 0.5) * 220);
+    }
+    logEvent('4 Stealth Carriers infiltrated the center!', 'warn');
+  });
+  document.getElementById('btnRepairAll').addEventListener('click', () => {
+    for (const s of state.structures) {
+      s.hp = s.maxHp;
+      if (s.isTurret) s.ammo = s.maxAmmo;
+    }
+    logEvent('All fortifications repaired & turrets reloaded!', 'good');
+  });
+  document.getElementById('btnClearZombies').addEventListener('click', () => {
+    state.units = state.units.filter(u => u.faction !== 'zombie');
+    logEvent('Cleared all zombies.');
+  });
+  document.getElementById('btnClearUnits').addEventListener('click', () => {
+    state.units = [];
+    exitPossess();
+    logEvent('Cleared all units.');
+  });
+
+  // =========================================================================
+  // MAIN LOOP & TELEMETRY
+  // =========================================================================
+  let lastTime = performance.now();
+  let fpsFrames = 0, fpsTimer = 0;
+  let uiTimer = 0;
+
+  function loop(now) {
+    const rawDt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    if (!state.paused) {
+      const steps = Math.max(1, Math.ceil(state.simSpeed));
+      const subDt = (rawDt * state.simSpeed) / steps;
+      for (let s = 0; s < steps; s++) stepSim(subDt);
+    }
+
+    render();
+
+    // Update Telemetry & Possess HUD at ~6 Hz
+    fpsFrames++;
+    fpsTimer += rawDt;
+    uiTimer += rawDt;
+    if (fpsTimer >= 0.5) {
+      document.getElementById('fpsReadout').textContent = Math.round(fpsFrames / fpsTimer) + ' FPS';
+      fpsFrames = 0; fpsTimer = 0;
+    }
+    if (uiTimer >= 0.16) {
+      uiTimer = 0;
+      let humans = 0, infected = 0, zombies = 0;
+      for (let i = 0; i < state.units.length; i++) {
+        const u = state.units[i];
+        if (u.faction === 'zombie') zombies++;
+        else {
+          humans++;
+          if (u.infected) infected++;
+        }
+      }
+      document.getElementById('statHumans').textContent = humans;
+      document.getElementById('statInfected').textContent = infected;
+      document.getElementById('statZombies').textContent = zombies;
+      document.getElementById('statExtracted').textContent = state.extractedCount;
+      document.getElementById('statBreaches').textContent = state.breachCount;
+
+      const p = getPossessedUnit();
+      if (p) {
+        const pct = clamp((p.hp / p.maxHp) * 100, 0, 100);
+        const bar = document.getElementById('possessHpBar');
+        bar.style.width = pct + '%';
+        bar.style.background = pct > 50 ? '#22c55e' : pct > 25 ? '#f59e0b' : '#ef4444';
+        const aw = document.getElementById('possessAmmoWrap');
+        if (p.faction === 'human' && p.maxAmmo > 0 && p.maxAmmo < 900) {
+          aw.style.display = 'block';
+          document.getElementById('possessAmmoTxt').textContent = rules.ammoLimits ? `${p.ammo}/${p.maxAmmo}` : '∞';
+        } else {
+          aw.style.display = 'none';
+        }
+      }
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // Boot!
+  loadMap('compound');
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
