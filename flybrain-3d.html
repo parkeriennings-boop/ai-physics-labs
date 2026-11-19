@@ -1,0 +1,2397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlyLab 3D · Drosophila Connectome & 3D Flight Arena</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  :root {
+    --bg: #070b12; --panel: #0d1422; --card: #151f32; --border: #263652;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --fly: #fbbf24; --field: #10b981;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #topbar { height: 56px; background: linear-gradient(180deg, #111a2d 0%, #0b111e 100%); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; gap: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.35); }
+  .brand { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .logo-badge { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #090d16; padding: 5px 10px; border-radius: 8px; font-weight: 900; font-size: 13px; letter-spacing: 0.02em; box-shadow: 0 0 14px rgba(251, 191, 36, 0.28); }
+  .mode-tabs { display: flex; background: #070b12; border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 3px; }
+  .tab-btn { border: none; background: transparent; color: var(--muted); padding: 6px 13px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active-lab { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; box-shadow: 0 2px 8px rgba(217,119,6,0.35); }
+  .tab-btn.active-arena { background: linear-gradient(135deg, #059669, #047857); color: #fff; box-shadow: 0 2px 8px rgba(5,150,105,0.35); }
+  .controls { display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+  .controls::-webkit-scrollbar { height: 4px; }
+  .controls::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  button, select { background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: border-color 0.15s, transform 0.1s; }
+  button:hover, select:hover { border-color: var(--accent); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; font-weight: 700; }
+  button.deploy { background: linear-gradient(135deg, #10b981, #059669); border-color: #34d399; color: #fff; font-weight: 700; box-shadow: 0 2px 10px rgba(16,185,129,0.25); }
+  #knowSel { border-color: #a855f7; background: #1e1338; font-weight: 600; }
+  .tut-btn { background: #1e293b; border-color: #38bdf8; color: #38bdf8; font-weight: 800; padding: 6px 9px; }
+
+  #tutArrowSvg { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 998; display: none; }
+  .tut-target-ring { outline: 2.5px solid #38bdf8 !important; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(56,189,248,0.22), 0 0 18px rgba(56,189,248,0.55) !important; position: relative; z-index: 997; }
+  #tutOverlay { position: fixed; top: 68px; right: 382px; z-index: 999; pointer-events: none; display: none; }
+  #tutCard { pointer-events: auto; width: min(370px, calc(100vw - 410px)); background: rgba(15,23,42,0.96); backdrop-filter: blur(10px); border: 1.5px solid #38bdf8; border-radius: 14px; padding: 15px 17px; box-shadow: 0 16px 40px rgba(0,0,0,0.65); display: flex; flex-direction: column; gap: 9px; }
+  #tutStepTag { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #38bdf8; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  #tutStatus { color: #4ade80; font-weight: 800; }
+  #tutTitle { font-size: 16px; font-weight: 800; color: #f8fafc; }
+  #tutBody { font-size: 12.5px; line-height: 1.5; color: #cbd5e1; }
+  .tut-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .tut-dots { display: flex; gap: 6px; }
+  .tut-dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; }
+  .tut-dot.active { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+
+  #canvas-wrap { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 40%, #0e1a30 0%, #070b12 100%); }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  #hud { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+  .pill { background: rgba(13,20,34,0.86); backdrop-filter: blur(10px); border: 1px solid rgba(56,189,248,0.25); padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.28); }
+  .pill b { color: var(--accent); }
+  #inspector { position: absolute; top: 12px; right: 12px; background: rgba(13,20,34,0.92); backdrop-filter: blur(12px); border: 1px solid rgba(56,189,248,0.3); padding: 10px 14px; border-radius: 10px; font-size: 11px; pointer-events: none; display: none; min-width: 225px; line-height: 1.5; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  #inspector b { color: #38bdf8; }
+  .bar-bg { width: 100%; height: 5px; background: #1e293b; border-radius: 3px; overflow: hidden; margin: 2px 0 5px; }
+  .bar-fill { height: 100%; }
+  .hint { position: absolute; bottom: 12px; left: 12px; background: rgba(13,20,34,0.88); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 7px 12px; border-radius: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
+
+  #sidebar { width: 372px; background: linear-gradient(180deg, #0f172a 0%, #0b111e 100%); border-left: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .sec { padding: 11px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
+  .sec h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  button.t-active { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; color: #fff; font-weight: 700; box-shadow: 0 0 12px rgba(56,189,248,0.3); }
+  #partSearch { width: 100%; background: #080d16; color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 11px; outline: none; transition: border-color 0.15s; }
+  #partSearch:focus { border-color: var(--fly); }
+  #part-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 8px 10px; display: flex; flex-direction: column; gap: 7px; }
+  #part-list::-webkit-scrollbar { width: 7px; }
+  #part-list::-webkit-scrollbar-track { background: #080d16; }
+  #part-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  .cat-menu { border: 1px solid var(--border); border-radius: 10px; background: #0b111e; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.22); }
+  .cat-hdr { width: 100%; background: linear-gradient(180deg, #162238 0%, #111a2c 100%); border: none; border-radius: 9px 9px 0 0; padding: 8px 10px; font-size: 12px; font-weight: 700; color: var(--text); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .cat-hdr:hover { background: #1b2a45; }
+  .cat-cnt { font-size: 10px; background: #1e293b; color: var(--accent); padding: 2px 7px; border-radius: 999px; margin-left: 6px; }
+  .cat-grid { padding: 7px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; border-top: 1px solid var(--border); }
+  .part-btn { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer; text-align: left; transition: all 0.12s ease; }
+  .part-btn:hover { border-color: #64748b; background: #1c2840; transform: translateY(-1px); }
+  .part-btn.active { border-color: #fbbf24; background: #2b220b; font-weight: 700; box-shadow: 0 0 12px rgba(251,191,36,0.22); }
+  .part-ico { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.18); }
+
+  .floating-arena-tools { position: fixed; bottom: 14px; left: calc((100vw - 372px) / 2); transform: translateX(-50%); z-index: 950; background: rgba(13,20,34,0.94); backdrop-filter: blur(14px); border: 1.5px solid rgba(56,189,248,0.42); border-radius: 14px; padding: 9px 12px !important; box-shadow: 0 12px 34px rgba(0,0,0,0.65); width: auto; min-width: 500px; max-width: calc(100vw - 396px); }
+  .floating-arena-tools h2 { margin-bottom: 2px; }
+  .floating-arena-tools .tool-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+
+  #flyBrainViz { position: absolute; bottom: 14px; left: 12px; width: 266px; background: rgba(13,20,34,0.93); backdrop-filter: blur(12px); border: 1.5px solid rgba(251,191,36,0.48); border-radius: 12px; padding: 10px 12px; font-size: 10.5px; display: none; z-index: 20; box-shadow: 0 10px 28px rgba(0,0,0,0.55); pointer-events: none; }
+  @media (max-width: 1220px) { #flyBrainViz { bottom: 92px; } .floating-arena-tools { min-width: 340px; } .floating-arena-tools .tool-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (max-height: 640px) { #flyBrainViz { top: 54px; bottom: auto; padding: 8px 10px; } }
+  #flyBrainViz .fb-hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 800; color: #fbbf24; margin-bottom: 4px; font-size: 11px; }
+  #flyBrainViz .fb-sub { color: #94a3b8; font-size: 9.5px; margin-bottom: 5px; }
+  #flyBrainViz .fb-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  #flyBrainViz .fb-lbl { width: 72px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #flyBrainViz .fb-bar { flex: 1; height: 5px; background: #1e293b; border-radius: 3px; overflow: hidden; }
+  #flyBrainViz .fb-fill { height: 100%; transition: width 0.08s linear; }
+
+  #toastMsg { position: fixed; top: 68px; left: calc((100vw - 372px) / 2); transform: translateX(-50%); background: rgba(15,23,42,0.95); border: 1px solid #f59e0b; color: #fef3c7; padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; z-index: 995; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.55); pointer-events: none; }
+  .sliders { padding: 9px 12px; background: #080d16; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; font-size: 11px; flex-shrink: 0; }
+  .s-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+  #part-desc { color: #cbd5e1; font-size: 11px; min-height: 36px; line-height: 1.4; background: #080d16; padding: 6px 8px; border-radius: 7px; border: 1px solid #1e293b; }
+
+  /* === PHONE OPTIMIZED MODE === */
+  body.mobile-mode { flex-direction: column; height: auto; min-height: 100dvh; overflow-y: auto; overflow-x: hidden; }
+  body.mobile-mode #main { flex: none; width: 100%; }
+  body.mobile-mode #topbar { height: auto; flex-wrap: wrap; padding: 8px 10px; gap: 6px; }
+  body.mobile-mode #topbar .brand { font-size: 14px; }
+  body.mobile-mode #topbar .controls { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-bottom: 2px; }
+  body.mobile-mode #topbar .controls > * { flex-shrink: 0; }
+  body.mobile-mode #canvas-wrap { flex: none; width: 100%; height: 55dvh; min-height: 320px; max-height: 500px; touch-action: none; }
+  body.mobile-mode #sidebar { width: 100%; height: auto; max-height: none; border-left: none; border-top: 1px solid var(--border); overflow: visible; }
+  body.mobile-mode #hud { top: 6px; left: 6px; right: 6px; gap: 4px; flex-wrap: wrap; }
+  body.mobile-mode #hud .pill { font-size: 10.5px; padding: 4px 8px; }
+  body.mobile-mode #flyBrainViz { max-width: 165px; padding: 6px 8px; font-size: 10px; bottom: 72px; right: 6px; }
+  body.mobile-mode #inspector { max-width: 170px; font-size: 10.5px; padding: 6px 8px; }
+  body.mobile-mode .floating-arena-tools {
+    left: 50% !important; width: calc(100vw - 16px); min-width: 0 !important; max-width: 520px;
+    bottom: 8px; padding: 6px 8px; border-radius: 14px;
+  }
+  body.mobile-mode .floating-arena-tools .tool-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  body.mobile-mode button, body.mobile-mode select { min-height: 34px; font-size: 12px; }
+
+</style>
+</head>
+<body>
+<div id="main">
+  <div id="topbar">
+    <div class="brand">
+      <span class="logo-badge">🪰 FlyLab 3D</span>
+      <div class="mode-tabs">
+        <button id="tabLab" class="tab-btn active-lab" onclick="setMode('lab')">🧬 Fly Lab</button>
+        <button id="tabArena" class="tab-btn" onclick="setMode('arena')">🦋 3D Space</button>
+      </div>
+    </div>
+    <div class="controls">
+        <button id="btnMobileToggle" style="cursor:pointer;" title="Toggle Phone/Desktop Layout">📱 Phone</button>
+      <select id="knowSel" onchange="setKnowledge(this.value)" title="Terminology Level">
+        <option value="noob">🎮 Arcade</option>
+        <option value="student" selected>🪰 Bio Student</option>
+        <option value="phd">🧠 Connectome PhD</option>
+      </select>
+      <div id="labControls" style="display:flex;align-items:center;gap:6px;">
+        <select id="blueprintSel" onchange="if(this.value)loadBlueprint(this.value);this.value=''">
+          <option value="">📐 Fly Blueprint...</option>
+          <option value="fruitfly">🪰 Standard Fruit Fly</option>
+          <option value="cyborg">🤖 Cyborg Thruster-Fly</option>
+          <option value="hawkmoth">🚀 Hawk-Moth Interceptor</option>
+          <option value="forager">🐝 Hovering Forager</option>
+          <option value="glider">🦋 Monarch 3D Glider</option>
+          <option value="escape">⚡ Escape-Reflex Fly</option>
+        </select>
+        <select id="layerSel" onchange="labLayer=parseInt(this.value)" title="3D Build Height Layer">
+          <option value="1">Layer +1 (Dorsal / Top)</option>
+          <option value="0" selected>Layer 0 (Thorax Core)</option>
+          <option value="-1">Layer -1 (Ventral / Legs)</option>
+        </select>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="chkMirror" checked> Mirror</label>
+        <button onclick="resetCamera()" title="Reset to Isometric View (0)">📐 Iso</button>
+        <button onclick="clearLab()">🗑 Clear</button>
+        <button class="deploy" onclick="launchToArena(1)">🦋 Launch 3D</button>
+      </div>
+      <div id="arenaControls" style="display:none;align-items:center;gap:6px;">
+        <button id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
+        <select id="speedSel" onchange="simSpeed=parseFloat(this.value)" title="Simulation Speed ([ / ])">
+          <option value="0.1">0.1x</option>
+          <option value="0.25">0.25x</option>
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="5">5x</option>
+          <option value="10">10x</option>
+          <option value="20">20x</option>
+          <option value="50">50x</option>
+        </select>
+        <select id="camSel" onchange="setCamMode(this.value)" title="3D Camera Mode (1-4)">
+          <option value="iso" selected>📐 Iso 3D</option>
+          <option value="orbit">🎥 Orbit 3D</option>
+          <option value="chase">🦋 Chase Fly</option>
+          <option value="top">🗺️ Top-Down</option>
+        </select>
+        <button onclick="resetCamera()" title="Reset Camera to Iso (0)">🎯</button>
+        <select id="arenaSel" onchange="loadArena(this.value)">
+          <option value="canopy">1: Nectar Canopy</option>
+          <option value="rings">2: 3D Ring Slalom</option>
+          <option value="swatter">3: Swatter Gauntlet</option>
+          <option value="towers">4: Skyscraper Canyon</option>
+          <option value="swarm">5: Swarm Hive</option>
+          <option value="darwin">6: Darwin Sky</option>
+          <option value="helix">7: Helix Spiral</option>
+          <option value="asteroids">8: Asteroid Belt</option>
+          <option value="thermals">9: Thermal Updrafts</option>
+          <option value="wasps">10: Wasp Nest</option>
+          <option value="canyon">11: Canyon Slalom</option>
+          <option value="honeycomb">12: Honeycombs</option>
+          <option value="zenith">13: Zenith Spire</option>
+          <option value="opensky">14: Open 3D Sky</option>
+        </select>
+        <button onclick="launchToArena(1)">➕ +1 Fly</button>
+        <button onclick="evolveAndSync()" style="border-color:#4ade80;color:#4ade80;font-weight:700;">🧬 Evolve & Sync</button>
+        <button onclick="resetArena()">🔄 Reset</button>
+      </div>
+      <button class="tut-btn" onclick="openTutorial(true)" title="Open Tutorial">❓</button>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div id="hud">
+      <div class="pill" id="pillLab"><b style="color:#fbbf24">3D FLY LAB</b> · <span id="hParts">0</span> modules</div>
+      <div class="pill" id="pillArena" style="display:none;">Gen <b id="hGen">1</b> · Flies <b id="hFlies">0</b> · Top IQ <b id="hIQ">0</b> · Alt <b id="hAlt">0m</b> · Score <b id="hScore">0</b></div>
+    </div>
+    <div id="inspector"></div>
+    <div id="flyBrainViz">
+      <div class="fb-hdr"><span>🪰 MaleCNS 3D Connectome</span><span id="fbState" style="color:#4ade80;font-size:10px;">FORAGING</span></div>
+      <div class="fb-sub">166k-neuron leaky reservoir · 3D Pos (X,Z) & Height (Y)</div>
+      <svg id="fbGraph" viewBox="0 0 242 92" width="242" height="92" style="display:block;margin-bottom:4px;">
+        <line id="fbE1" x1="22" y1="14" x2="115" y2="45" stroke="#4ade80" stroke-width="1.6" opacity="0.55"/>
+        <line id="fbE2" x1="22" y1="45" x2="115" y2="45" stroke="#f43f5e" stroke-width="1.6" opacity="0.55"/>
+        <line id="fbE3" x1="22" y1="76" x2="115" y2="45" stroke="#38bdf8" stroke-width="1.6" opacity="0.55"/>
+        <line id="fbE4" x1="115" y1="45" x2="214" y2="12" stroke="#a855f7" stroke-width="1.6" opacity="0.55"/>
+        <line id="fbE5" x1="115" y1="45" x2="214" y2="34" stroke="#38bdf8" stroke-width="1.6" opacity="0.55"/>
+        <line id="fbE6" x1="115" y1="45" x2="214" y2="56" stroke="#fbbf24" stroke-width="1.6" opacity="0.55"/>
+        <line id="fbE7" x1="115" y1="45" x2="214" y2="78" stroke="#fb7185" stroke-width="1.6" opacity="0.55"/>
+        <circle id="fbN_sugar" cx="22" cy="14" r="7" fill="#4ade80" stroke="#f8fafc" stroke-width="1.2"/>
+        <circle id="fbN_lc4" cx="22" cy="45" r="7" fill="#f43f5e" stroke="#f8fafc" stroke-width="1.2"/>
+        <circle id="fbN_lc9" cx="22" cy="76" r="7" fill="#38bdf8" stroke="#f8fafc" stroke-width="1.2"/>
+        <circle id="fbN_mb" cx="115" cy="45" r="11" fill="#fbbf24" stroke="#f8fafc" stroke-width="1.5"/>
+        <circle id="fbN_dnaL" cx="214" cy="12" r="6.5" fill="#a855f7" stroke="#f8fafc" stroke-width="1.2"/>
+        <circle id="fbN_dnaR" cx="214" cy="34" r="6.5" fill="#38bdf8" stroke="#f8fafc" stroke-width="1.2"/>
+        <circle id="fbN_lift" cx="214" cy="56" r="6.5" fill="#fbbf24" stroke="#f8fafc" stroke-width="1.2"/>
+        <circle id="fbN_dnp" cx="214" cy="78" r="6.5" fill="#fb7185" stroke="#f8fafc" stroke-width="1.2"/>
+        <text x="33" y="17" fill="#cbd5e1" font-size="8">Sugar GRN</text>
+        <text x="33" y="48" fill="#cbd5e1" font-size="8">LC4 Loom</text>
+        <text x="33" y="79" fill="#cbd5e1" font-size="8">LC9 Optic</text>
+        <text x="115" y="67" fill="#fbbf24" font-size="8" text-anchor="middle">Mushroom Body</text>
+        <text x="203" y="15" fill="#cbd5e1" font-size="7.5" text-anchor="end">DNa02 L</text>
+        <text x="203" y="37" fill="#cbd5e1" font-size="7.5" text-anchor="end">DNa02 R</text>
+        <text x="203" y="59" fill="#fde047" font-size="7.5" text-anchor="end">DNb01 Lift (Y)</text>
+        <text x="203" y="81" fill="#cbd5e1" font-size="7.5" text-anchor="end">DNp01 Esc</text>
+      </svg>
+      <div class="fb-row"><span class="fb-lbl">Sugar GRN</span><div class="fb-bar"><div id="fbBarSugar" class="fb-fill" style="width:20%;background:#4ade80"></div></div></div>
+      <div class="fb-row"><span class="fb-lbl">LC4 Loom</span><div class="fb-bar"><div id="fbBarLC4" class="fb-fill" style="width:10%;background:#f43f5e"></div></div></div>
+      <div class="fb-row"><span class="fb-lbl">DNb01 Lift Y</span><div class="fb-bar"><div id="fbBarLift" class="fb-fill" style="width:50%;background:#fbbf24"></div></div></div>
+      <div class="fb-row"><span class="fb-lbl">DNa02 Steer</span><div class="fb-bar"><div id="fbBarSteer" class="fb-fill" style="width:50%;background:#a855f7"></div></div></div>
+      <div class="fb-row"><span class="fb-lbl">DNp01 Escape</span><div class="fb-bar"><div id="fbBarEsc" class="fb-fill" style="width:5%;background:#fb7185"></div></div></div>
+    </div>
+    <div class="hint" id="hintTxt">Click 3D grid to place fly modules · Drag right-mouse to rotate 3D view · Scroll to zoom</div>
+  </div>
+  <div id="toastMsg"></div>
+</div>
+
+<svg id="tutArrowSvg">
+  <defs>
+    <marker id="tutArrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <path id="tutArrowPath" d="" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#tutArrowHead)"/>
+</svg>
+<div id="tutOverlay">
+  <div id="tutCard">
+    <div id="tutStepTag"><span id="tutStepLabel">Step 1 of 6</span><span id="tutStatus"></span></div>
+    <div id="tutTitle">Build Your First 3D Fly!</div>
+    <div id="tutBody"></div>
+    <div class="tut-foot">
+      <div class="tut-dots" id="tutDots"></div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="closeTutorial()">Skip</button>
+        <button id="tutPrev" onclick="stepTutorial(-1)">Back</button>
+        <button id="tutNext" class="primary" onclick="stepTutorial(1)">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside id="sidebar">
+  <div class="sec" style="padding-bottom:8px;">
+    <h2><span id="partCountHdr">34</span> Fly Modules <span id="knowBadge" style="color:#a855f7;">Bio Student</span></h2>
+    <div style="display:flex;gap:5px;align-items:center;">
+      <div style="position:relative;flex:1;display:flex;align-items:center;">
+        <input id="partSearch" type="text" placeholder="🔍 Filter modules..." oninput="renderParts()" style="flex:1;padding-right:24px;">
+        <button id="clearSearchBtn" onclick="document.getElementById('partSearch').value='';renderParts();" title="Clear" style="position:absolute;right:4px;background:transparent;border:none;color:#94a3b8;padding:2px 5px;font-size:11px;display:none;">✕</button>
+      </div>
+      <select id="partCat" onchange="renderParts()" style="padding:4px 6px;font-size:11px;">
+        <option value="all">All</option>
+        <option value="brain">Brains</option>
+        <option value="sensor">Eyes/Sensors</option>
+        <option value="wing">Wings/Flight</option>
+        <option value="shield">Carapace</option>
+        <option value="util">Proboscis/Util</option>
+        <option value="chaos">Absurd/Robo</option>
+      </select>
+    </div>
+    <div id="part-desc"></div>
+  </div>
+  <div id="part-list"></div>
+
+  <div class="sliders" style="border-bottom:1px solid var(--border);">
+    <div class="s-row"><span>Plasticity (LR)</span><input type="range" id="sLR" min="0.05" max="0.60" step="0.05" value="0.25"><b id="vLR">0.25</b></div>
+    <div class="s-row"><span>Wing Lift & Thrust</span><input type="range" id="sPow" min="0.4" max="2.0" step="0.1" value="1.0"><b id="vPow">1.0</b></div>
+    <div class="s-row">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkAutoEvo" checked><span>Auto-Evolve</span></label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkOptic" checked><span>3D Optic Rays</span></label>
+    </div>
+  </div>
+
+  <div class="sec" id="labToolsSec" style="border-bottom:none;">
+    <h2>3D Fly Workbench</h2>
+    <div class="tool-grid">
+      <button class="t-btn t-active" data-gt="place" onclick="setGTool('place',this)">🔧 Place</button>
+      <button class="t-btn" data-gt="weld" onclick="setGTool('weld',this)">🔗 Connect</button>
+      <button class="t-btn" data-gt="erase" onclick="setGTool('erase',this)">🗑 Remove</button>
+    </div>
+    <div class="s-row" style="margin-top:4px;">
+      <span>Spawn Height:</span>
+      <select id="spawnAltSel" style="flex:1;">
+        <option value="120">Mid Canopy (120m)</option>
+        <option value="40">Low Ground (40m)</option>
+        <option value="240">High Sky (240m)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="sec floating-arena-tools" id="arenaToolsSec" style="display:none;">
+    <h2>3D Arena Trainer <span style="color:#38bdf8;font-weight:600;text-transform:none;">Drag to Orbit 3D · Shift+Drag/Wheel to Zoom · WASD/Space/Ctrl to Pilot Selected Fly</span></h2>
+    <div class="tool-grid">
+      <button class="t-btn t-active" data-ft="reward" onclick="setFTool('reward',this)" style="color:#4ade80;">👍 Reward</button>
+      <button class="t-btn" data-ft="punish" onclick="setFTool('punish',this)" style="color:#f43f5e;">👎 Punish</button>
+      <button class="t-btn" data-ft="orbit" onclick="setFTool('orbit',this)">🎥 Select/Orbit</button>
+      <button class="t-btn" data-ft="nectar" onclick="setFTool('nectar',this)">🍯 +Nectar</button>
+      <button class="t-btn" data-ft="hazard" onclick="setFTool('hazard',this)">🕸️ +Hazard</button>
+      <button class="t-btn" data-ft="pillar" onclick="setFTool('pillar',this)">🏛️ +Pillar</button>
+      <button class="t-btn" data-ft="erase" onclick="setFTool('erase',this)" style="color:#fbbf24;">🧹 Erase</button>
+    </div>
+  </div>
+</aside>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 900, H = 600;
+function resize() { W = canvas.width = canvas.parentElement.clientWidth; H = canvas.height = canvas.parentElement.clientHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+// --- FLY MODULES ---
+const PARTS = [
+  // Brains & Neural (cat: 'brain')
+  { id:0,  cat:'brain', icon:'🪰', color:'#fbbf24', r:13, shape:'core',
+    noob:['Fruit Fly Brain','166k-neuron brain! Controls 3D position (X,Z) AND flight height (Y)!'],
+    student:['MaleCNS Connectome','Leaky tanh reservoir (LC4/LC9 -> MB -> DNa02/DNb01/DNp01) driving 3D flight.'],
+    phd:['MaleCNS 166k Reservoir','Rate-based connectome (ACh +1 / GABA -1) controlling yaw (DNa02) & lift (DNb01).'] },
+  { id:1,  cat:'brain', icon:'🍄', color:'#c084fc', r:10, shape:'lobe',
+    noob:['Mushroom Body','Makes your fly learn 2x faster and remember where high nectar is!'],
+    student:['Mushroom Body (MB)','2x associative reward plasticity & 3D spatial memory retention.'],
+    phd:['Kenyon Cell MB','2x Hebbian plasticity multiplier & persistent 3D state memory.'] },
+  { id:2,  cat:'brain', icon:'🧭', color:'#a855f7', r:10, shape:'core',
+    noob:['Sky Compass','Helps your fly hold steady altitude and fly straight!'],
+    student:['Central Complex (CX)','Stabilizes 3D heading & holds target altitude (Y) smoothly.'],
+    phd:['Ellipsoid Body EPG','Ring-attractor heading & vertical pitch stabilizer.'] },
+  { id:3,  cat:'brain', icon:'⚡', color:'#e879f9', r:9, shape:'lobe',
+    noob:['Dopamine Boost','Gives +25% bonus IQ and Score whenever you grab nectar!'],
+    student:['PAM Dopamine Cluster','+25% IQ & Score reward shaping on nectar & ring captures.'],
+    phd:['PAM Reward Shaper','1.25x dopaminergic TD-error scalar multiplier.'] },
+  { id:4,  cat:'brain', icon:'🔥', color:'#f472b6', r:9, shape:'lobe',
+    noob:['Octopamine Surge','Boosts flight speed +25% when chasing nectar!'],
+    student:['Octopamine Flight Core','+25% wing thrust & climb speed when locked onto 3D nectar.'],
+    phd:['Octopaminergic Gain','1.25x flight-state neuromodulator on target lock.'] },
+  { id:5,  cat:'brain', icon:'✂️', color:'#818cf8', r:9, shape:'lobe',
+    noob:['Spin Fixer','Stops your fly from spinning wildly in circles!'],
+    student:['GABA Spin Pruner','Continuously dampens excess yaw spin bias for clean flight.'],
+    phd:['GABAergic Damper','Continuous L2 regularization on angular yaw bias.'] },
+  { id:6,  cat:'brain', icon:'🎓', color:'#d946ef', r:9, shape:'lobe',
+    noob:['Trainer Chip','Makes 👍 Reward and 👎 Punish 1.5x stronger!'],
+    student:['RLHF Plasticity Node','Multiplies 👍 Reward and 👎 Punish updates by 1.5x.'],
+    phd:['RLHF Gain Amplifier','1.5x human-feedback gradient step multiplier.'] },
+
+  // Compound Eyes & Sensors (cat: 'sensor')
+  { id:7,  cat:'sensor', icon:'👁️', color:'#fde047', r:10, shape:'eye',
+    noob:['Compound Eye','Spots floating 3D nectar orbs and pillars up to 480m away!'],
+    student:['LC9 Optic Eye','480m 3D compound eye feeding Sugar GRN & obstacle vectors.'],
+    phd:['Ommatidia Array','480m wide-field 3D optic flow & target state encoder.'] },
+  { id:8,  cat:'sensor', icon:'🚨', color:'#f43f5e', r:9, shape:'eye',
+    noob:['Looming Eye','Spots swatters and hazards early so your fly climbs out of danger!'],
+    student:['LC4 Looming Detector','260m 3D threat scanner triggering DNp01 altitude escape.'],
+    phd:['LC4 Looming Sensor','260m looming-expansion encoder driving DNp01 escape.'] },
+  { id:9,  cat:'sensor', icon:'👅', color:'#4ade80', r:9, shape:'antenna',
+    noob:['Sugar Sensor','Sniffs out sweet nectar at any height!'],
+    student:['Sugar GRN Receptor','Extends 3D nectar lock range to 580m across all altitudes.'],
+    phd:['Gustatory Sugar GRN','580m 3D chemotaxis & altitude gradient sensor.'] },
+  { id:10, cat:'sensor', icon:'📡', color:'#38bdf8', r:9, shape:'antenna',
+    noob:['Smell Antenna','Tracks nectar scents even around tall pillars!'],
+    student:['Olfactory ORN Antenna','Retains 3D nectar coordinates even when occluded by pillars.'],
+    phd:['Antennal ORN Array','Persistent 3D plume memory behind line-of-sight occluders.'] },
+  { id:11, cat:'sensor', icon:'🌤️', color:'#facc15', r:8, shape:'eye',
+    noob:['Horizon Eyes','Measures how high you are flying so you never crash into the floor!'],
+    student:['Ocelli Altimeter','Monitors 3D pitch & ground clearance to prevent floor stalls.'],
+    phd:['Dorsal Ocelli','3D horizon-roll & ground-proximity feedback sensor.'] },
+  { id:12, cat:'sensor', icon:'💨', color:'#2dd4bf', r:8, shape:'antenna',
+    noob:['Wind Feeler','Feels air currents and helps dodge tight 3D obstacles!'],
+    student:['Johnston Organ','220m 3D airflow & pillar-clearance whisker sensor.'],
+    phd:['Mechanosensory Array','220m 3D boundary-tangent & airflow encoder.'] },
+
+  // Wings & 3D Flight Motors (cat: 'wing')
+  { id:13, cat:'wing', icon:'🪽', color:'#38bdf8', r:12, shape:'wing',
+    noob:['Fly Wing','Main flapping wing that flies forward AND controls height (Y)!'],
+    student:['Dipteran Forewing','Primary 3D flight actuator: drives forward thrust & vertical lift.'],
+    phd:['Asynchronous Wing','Primary 3D propulsion & DNb01 vertical lift actuator.'] },
+  { id:14, cat:'wing', icon:'⚖️', color:'#2dd4bf', r:9, shape:'haltere',
+    noob:['Balance Haltere','Gyroscope club-wing for super sharp 3D turns & dives!'],
+    student:['Haltere Gyro-Wing','+35% 3D yaw & altitude climb/dive agility.'],
+    phd:['Haltere Mechano-Gyro','+35% DNa02 yaw & DNb01 pitch-lift bandwidth.'] },
+  { id:15, cat:'wing', icon:'🚁', color:'#0ea5e9', r:11, shape:'wing',
+    noob:['Hover Wing','Lets your fly climb straight up fast to reach high nectar!'],
+    student:['Hover Lift Wing','+45% vertical lift (Y) power for rapid altitude climbs.'],
+    phd:['High-Lift Rotor Wing','+45% vertical thrust gain for 3D canopy foraging.'] },
+  { id:16, cat:'wing', icon:'🚀', color:'#f97316', r:10, shape:'thruster',
+    noob:['Turbo Thorax','Supercharges wing speed by +30% in all 3D directions!'],
+    student:['Turbo Thorax','+30% 3D flight velocity ceiling & wingbeat power.'],
+    phd:['Hyper-Thorax','+30% 3D actuator torque & terminal airspeed cap.'] },
+  { id:17, cat:'wing', icon:'🦅', color:'#60a5fa', r:11, shape:'wing',
+    noob:['Glide Wing','Smoothly glides through the air with very little drag!'],
+    student:['Silent Glide Wing','Low-drag 3D aerodynamics for long effortless flights.'],
+    phd:['Low-Drag Airfoil','Minimizes 3D viscous air damping for sustained glide.'] },
+  { id:18, cat:'wing', icon:'☄️', color:'#06b6d4', r:9, shape:'thruster',
+    noob:['Abdomen Jet','Gives a quick 3D boost burst every few seconds!'],
+    student:['Micro-Jet Abdomen','Periodic 3D surge impulse toward locked nectar targets.'],
+    phd:['Pulsed Abdomen Jet','Periodic 40-tick 3D impulse along target vector.'] },
+
+  // Carapace & Defense (cat: 'shield')
+  { id:19, cat:'shield', icon:'🪲', color:'#84cc16', r:11, shape:'shell',
+    noob:['Chitin Armor','Tough exoskeleton that blocks spiderweb & swatter IQ penalties!'],
+    student:['Chitin Carapace','Protects fly from 3D Hazard IQ loss & cuts HP damage 50%.'],
+    phd:['Cuticular Exoskeleton','Attenuates terminal hazard penalties & damage by 50%.'] },
+  { id:20, cat:'shield', icon:'🫧', color:'#6366f1', r:11, shape:'shell',
+    noob:['Air Bubble','Forcefield that pushes hazards away in 3D space!'],
+    student:['Repulsor Bubble','110m 3D forcefield pushing swatters & webs away.'],
+    phd:['3D Repulsor Field','110m inverse-square 3D hazard repulsion aura.'] },
+  { id:21, cat:'shield', icon:'💚', color:'#34d399', r:9, shape:'core',
+    noob:['Heal Gland','Slowly repairs your fly HP and IQ in mid-air!'],
+    student:['Hemolymph Regen','Restores +3 HP & +1 IQ every 50 ticks in flight.'],
+    phd:['Metabolic Stabilizer','Periodic +3 integrity & +1 fitness recovery.'] },
+  { id:22, cat:'shield', icon:'🪨', color:'#64748b', r:10, shape:'shell',
+    noob:['Heavy Thorax','Stops pillars and gusts from knocking your fly off course!'],
+    student:['Inertial Thorax','Reduces 3D pillar & hazard knockback by 65%.'],
+    phd:['High-Mass Thorax','0.35x 3D collision impulse attenuation.'] },
+
+  // Proboscis & Utility (cat: 'util')
+  { id:23, cat:'util', icon:'🪝', color:'#f43f5e', r:10, shape:'proboscis',
+    noob:['Long Proboscis','Slurps up 3D nectar orbs from 95m away!'],
+    student:['Proboscis Harvester','95m 3D nectar attraction beam + 15 bonus Score.'],
+    phd:['Proboscis Sink','95m 3D attractive reward field + 15 scalar bonus.'] },
+  { id:24, cat:'util', icon:'🧲', color:'#ec4899', r:10, shape:'core',
+    noob:['Pollen Magnet','Pulls nearby nectar & boosts capture radius!'],
+    student:['Pollen Basket','+16m 3D capture radius & 120m gentle nectar pull.'],
+    phd:['Electrostatic Basket','+16m 3D capture hitbox + 120m attraction field.'] },
+  { id:25, cat:'util', icon:'📻', color:'#f472b6', r:9, shape:'antenna',
+    noob:['Swarm Scent','Calls other flies over to share high nectar spots!'],
+    student:['Pheromone Relay','Broadcasts 3D nectar coordinates to nearby flies (320m).'],
+    phd:['V2V Pheromone Plume','320m 3D swarm coordinate sharing & Polyak sync.'] },
+  { id:26, cat:'util', icon:'🏆', color:'#fbbf24', r:10, shape:'core',
+    noob:['Golden Trophy','Gives +35 bonus Score on every nectar & 3D ring!'],
+    student:['Nectar Amplifier','+35 bonus Arena Score & +20% IQ on every 3D capture.'],
+    phd:['Trophy Shaper','+35 scalar score & 1.2x fitness multiplier.'] },
+  { id:27, cat:'util', icon:'🦵', color:'#a3e635', r:8, shape:'leg',
+    noob:['Tarsal Legs','Landing legs that bounce cleanly off the floor and pillars!'],
+    student:['Tarsal Cushion','Softens floor & pillar bounces (+5 IQ on clean rebound).'],
+    phd:['Tarsal Suspension','High-restitution landing gear with +5 contact bonus.'] },
+  { id:28, cat:'brain', icon:'🧬', color:'#38bdf8', r:9, shape:'lobe',
+    noob:['Circadian Clock','Keeps a steady flight rhythm and slowly earns +1 IQ!'],
+    student:['Circadian Oscillator','Stabilizes altitude cruise rhythm & grants +1 IQ every 60 ticks.'],
+    phd:['PDF Clock Neuron','Maintains rhythmic vertical cruise & +1 intrinsic IQ/60t.'] },
+  { id:29, cat:'brain', icon:'🔮', color:'#a855f7', r:9, shape:'lobe',
+    noob:['Future Sight','Predicts where moving hazards and nectar are going!'],
+    student:['Predictive Optic Core','Leads moving hazards & nectar targets by velocity vector.'],
+    phd:['Forward State Predictor','First-order kinematic lead estimator on dynamic 3D targets.'] },
+  { id:30, cat:'brain', icon:'🐝', color:'#fbbf24', r:9, shape:'core',
+    noob:['Hive Sync','Copies smart flight habits from the best fly in the arena!'],
+    student:['Hive Sync Node','Aligns weights 5% toward the top-IQ fly every 35 ticks.'],
+    phd:['Swarm Polyak Sync','Periodic 5% Polyak weight averaging toward top policy.'] },
+  { id:31, cat:'sensor', icon:'🌈', color:'#facc15', r:9, shape:'eye',
+    noob:['UV Sky Eye','Spots nectar and 3D rings from super far away (620m)!'],
+    student:['UV Polarization Eye','Ultra-long 620m 3D nectar & ring sky-compass scanner.'],
+    phd:['UV Dorsal Rim Array','620m polarized-light 3D target & ring detector.'] },
+  { id:32, cat:'sensor', icon:'🌡️', color:'#fb7185', r:9, shape:'eye',
+    noob:['Heat Sensor','Detects swatters and traps from 320m away so you dodge early!'],
+    student:['Thermal Plume Eye','320m early-warning 3D hazard & swatter repulsion scanner.'],
+    phd:['IR Threat Horizon','320m thermal looming-hazard repulsion encoder.'] },
+  { id:33, cat:'sensor', icon:'⚛️', color:'#2dd4bf', r:8, shape:'antenna',
+    noob:['Earth Compass','Guides your fly back toward the center if it drifts too far!'],
+    student:['Magnetoreceptor','3D geomagnetic centering prior preventing far-edge wandering.'],
+    phd:['Cryptochrome Compass','Injects inward 3D radial prior near arena boundaries.'] },
+  { id:34, cat:'wing', icon:'🦋', color:'#60a5fa', r:12, shape:'wing',
+    noob:['Monarch Wing','Catches warm air updrafts to glide high with almost no effort!'],
+    student:['Monarch Soar Wing','Low air drag + passive thermal updraft lift boost.'],
+    phd:['Soaring Airfoil','0.965 low-drag glide + passive +Y thermal lift.'] },
+  { id:35, cat:'wing', icon:'🌩️', color:'#f59e0b', r:10, shape:'thruster',
+    noob:['Mach Wing','Flaps ultra-fast for +40% top 3D speed and rapid climbs!'],
+    student:['Mach Wingbeat','+40% max 3D airspeed cap & rapid vertical climb thrust.'],
+    phd:['High-Freq Actuator','+40% terminal 3D velocity ceiling & climb gain.'] },
+  { id:36, cat:'wing', icon:'🌀', color:'#0ea5e9', r:10, shape:'haltere',
+    noob:['Vortex Hover','Hovers smoothly in place right next to nectar orbs!'],
+    student:['Vortex Hover Wing','Dampens overshoot when close (<90m) to 3D nectar targets.'],
+    phd:['Station-Keeping Wing','Near-field (<90m) velocity damping for precision capture.'] },
+  { id:37, cat:'wing', icon:'🏹', color:'#38bdf8', r:9, shape:'wing',
+    noob:['Dive Fin','Lets your fly swoop down 50% faster to grab low nectar!'],
+    student:['Dive-Bomb Fin','+50% downward dive acceleration when nectar is below you.'],
+    phd:['Negative-Lift Fin','+50% -Y dive impulse when target dy < -20m.'] },
+  { id:38, cat:'shield', icon:'🛡️', color:'#94a3b8', r:10, shape:'shell',
+    noob:['Waxy Shell','50% chance to bounce hazard hits right off with zero damage!'],
+    student:['Waxy Cuticle','50% chance to completely deflect 3D hazard damage & IQ loss.'],
+    phd:['Hydrophobic Cuticle','Stochastic p=0.5 hazard-contact negation shield.'] },
+  { id:39, cat:'shield', icon:'🌫️', color:'#818cf8', r:9, shape:'shell',
+    noob:['Decoy Puff','Blasts nearby hazards away if you get bumped!'],
+    student:['Pheromone Decoy','Emits a 130m shockwave pushing hazards away on contact.'],
+    phd:['Retaliatory Decoy','130m radial hazard-repulsion pulse on collision.'] },
+  { id:40, cat:'shield', icon:'❄️', color:'#7dd3fc', r:9, shape:'core',
+    noob:['Cryo Cooler','Keeps your fly rock-steady with zero wild spinning!'],
+    student:['Cryo Wing-Cooler','Cuts angular spin noise by 70% for laser-straight 3D flight.'],
+    phd:['Thermal Stabilizer','0.3x angular yaw variance damping.'] },
+  { id:41, cat:'util', icon:'💎', color:'#fbbf24', r:10, shape:'core',
+    noob:['Royal Jelly','Gives +50 bonus Score and heals +10 HP on every nectar!'],
+    student:['Royal Jelly Gland','+50 bonus Arena Score & +10 HP recovery per nectar grab.'],
+    phd:['Royal Metabolic Gland','+50 scalar score & +10 integrity per terminal capture.'] },
+  { id:42, cat:'util', icon:'🛸', color:'#c084fc', r:10, shape:'proboscis',
+    noob:['Tractor Tongue','Pulls floating 3D nectar from a huge 150m away!'],
+    student:['Tractor Proboscis','150m long-range 3D nectar attraction beam.'],
+    phd:['Long-Range Graviton','150m 3D attractive reward-sink beam.'] },
+  { id:43, cat:'util', icon:'🔭', color:'#ef4444', r:10, shape:'proboscis',
+    noob:['Laser Stinger','Zaps nearby 3D hazards away and earns +20 IQ!'],
+    student:['Laser Stinger','Zaps hazards within 140m, knocking them away for +20 IQ.'],
+    phd:['Directed Bio-Laser','140m hazard-repelling pulse (+20 fitness).'] },
+  { id:44, cat:'brain', icon:'🧠', color:'#f472b6', r:10, shape:'lobe',
+    noob:['Feeding Brain','Gives +25% bonus IQ every time you slurp up nectar!'],
+    student:['Subesophageal Ganglion','Boosts feeding reflex & grants +25% IQ per nectar capture.'],
+    phd:['SEZ Feeding Ganglion','1.25x gustatory reward shaping on proboscis contact.'] },
+  { id:45, cat:'brain', icon:'🕸️', color:'#38bdf8', r:9, shape:'lobe',
+    noob:['Fast Reflex','Makes your fly turn and climb 30% quicker!'],
+    student:['Connectome Shortcut','1.3x faster DNa02 yaw & DNb01 vertical lift response.'],
+    phd:['Giant Fiber Bypass','1.3x descending-neuron (DNa02/DNb01) gain multiplier.'] },
+  { id:46, cat:'brain', icon:'🌙', color:'#818cf8', r:9, shape:'lobe',
+    noob:['Dream Chip','Replays smart flights every few seconds for +5 free IQ!'],
+    student:['Sleep Replay Core','Consolidates policy weights every 80 ticks (+5 IQ).'],
+    phd:['Offline Replay Node','Periodic 80-tick memory consolidation (+5 intrinsic IQ).'] },
+  { id:47, cat:'brain', icon:'🎭', color:'#c084fc', r:9, shape:'lobe',
+    noob:['Copycat Brain','Copies steering & height habits from smarter nearby flies!'],
+    student:['Mimicry Cortex','Distills Goal & Lift weights from smarter flies within 250m.'],
+    phd:['Social Imitation Head','250m local behavioral cloning from higher-J(θ) agents.'] },
+  { id:48, cat:'brain', icon:'🎚️', color:'#4ade80', r:9, shape:'core',
+    noob:['Auto-Balancer','Keeps Goal, Climb, and Dodge skills balanced automatically!'],
+    student:['Homeostat Node','Auto-regulates wGoal, wLift, and wAvoid above 0.75 baseline.'],
+    phd:['Homeostatic Regulator','Enforces >=0.75 floor on core policy weight magnitudes.'] },
+  { id:49, cat:'brain', icon:'🧨', color:'#ef4444', r:10, shape:'lobe',
+    noob:['Panic Turbo','Flies 35% faster and climbs hard if HP drops below 50%!'],
+    student:['Adrenaline Burst','+35% 3D thrust & climb power when integrity < 50 HP.'],
+    phd:['Emergency Overdrive','1.35x actuator thrust triggered below 50% integrity.'] },
+  { id:50, cat:'sensor', icon:'🦉', color:'#fde047', r:10, shape:'eye',
+    noob:['Owl Night-Eye','Sees nectar right through tall pillars up to 500m away!'],
+    student:['Night-Vision Ocellus','500m pillar-piercing 3D nectar & ring locator.'],
+    phd:['Scotopic Ocellus','500m occlusion-bypassing 3D target state sensor.'] },
+  { id:51, cat:'sensor', icon:'🦇', color:'#94a3b8', r:9, shape:'antenna',
+    noob:['Bat Sonar','Bounces sound waves off pillars and walls so you never bonk!'],
+    student:['Echolocation Chirp','240m 360° acoustic pillar, floor, and ceiling clearance sonar.'],
+    phd:['Acoustic Sonar Array','240m omnidirectional boundary-normal gradient sensor.'] },
+  { id:52, cat:'sensor', icon:'💧', color:'#38bdf8', r:8, shape:'antenna',
+    noob:['Moisture Nose','Sniffs wet nectar clouds from 520m and nails the height!'],
+    student:['Humidity Hygrometer','520m moisture-gradient sensor sharpening +Y/-Y altitude aim.'],
+    phd:['Hygrosensory Plume','520m 3D vertical-gradient chemotaxis encoder.'] },
+  { id:53, cat:'sensor', icon:'🌊', color:'#2dd4bf', r:9, shape:'antenna',
+    noob:['Wind Meter','Feels air currents and rides warm updrafts higher!'],
+    student:['Air-Shear Barometer','Detects vertical air shear to stabilize altitude & ride lift.'],
+    phd:['Barometric Flow Sensor','3D vertical-shear estimator & altitude dampener.'] },
+  { id:54, cat:'sensor', icon:'🔍', color:'#facc15', r:9, shape:'eye',
+    noob:['Zoom Lens','Locks tightly onto nectar within 200m for pinpoint grabs!'],
+    student:['Foveal Zoom Lens','High-precision 200m target lock reducing wander noise by 50%.'],
+    phd:['Foveal Track Lens','0.5x exploration noise within 200m terminal approach.'] },
+  { id:55, cat:'wing', icon:'🕊️', color:'#e2e8f0', r:11, shape:'wing',
+    noob:['Silent Feather','Glides so quietly that hazards barely notice you!'],
+    student:['Silent Feathering','Halves effective hazard detection/trigger radius by 35%.'],
+    phd:['Acoustic-Stealth Wing','0.65x effective hazard trigger radius attenuation.'] },
+  { id:56, cat:'wing', icon:'🦗', color:'#84cc16', r:9, shape:'leg',
+    noob:['Spring Hopper','Launches your fly skyward whenever it gets too close to the floor!'],
+    student:['Locust Jump-Leg','Automatic +3.8m/tick upward launch when altitude < 38m.'],
+    phd:['Resilin Jump Actuator','Ground-proximity (<38m) vertical ballistic launch impulse.'] },
+  { id:57, cat:'wing', icon:'🐞', color:'#f97316', r:11, shape:'wing',
+    noob:['Bumble Wing','Heavy-lift wing that powers cleanly through tight hazard zones!'],
+    student:['Bumblebee Vortex Wing','+25% vertical lift & +20% hazard-repulsion climb power.'],
+    phd:['Leading-Edge Vortex','1.25x vertical lift + 1.2x hazard-climb authority.'] },
+  { id:58, cat:'wing', icon:'🦟', color:'#a855f7', r:9, shape:'wing',
+    noob:['Zig-Zag Wing','Dodges sideways fast whenever a swatter gets close!'],
+    student:['Mosquito Agile Wing','Triggers rapid lateral evasive strafing when hazards < 120m.'],
+    phd:['High-Frequency Strafe','120m threat-conditioned orthogonal dodge impulse.'] },
+  { id:59, cat:'wing', icon:'🪂', color:'#7dd3fc', r:10, shape:'wing',
+    noob:['Air Brake Wing','Slows down steep dives near the floor for soft landings!'],
+    student:['Parachute Alula','Cushions downward velocity (-Y) whenever altitude < 55m.'],
+    phd:['Alula Stall-Brake','Low-altitude (<55m) negative-Y velocity dampener.'] },
+  { id:60, cat:'shield', icon:'🐢', color:'#22c55e', r:11, shape:'shell',
+    noob:['Turtle Shell','Tough back plate that cuts all hazard damage & knockback 60%!'],
+    student:['Armored Pronotum','60% reduction to hazard HP damage and 3D knockback.'],
+    phd:['Dorsal Pronotum Plate','0.4x terminal damage & collision impulse multiplier.'] },
+  { id:61, cat:'shield', icon:'🦔', color:'#94a3b8', r:10, shape:'shell',
+    noob:['Spiky Back','Bounces swatters and traps backward when they hit you!'],
+    student:['Spiny Tergite','Reflects hazard collisions, knocking hazards away on contact.'],
+    phd:['Spiny Cuticle Array','Transfers 3.2x reactive impulse to colliding hazards.'] },
+  { id:62, cat:'shield', icon:'🧪', color:'#a3e635', r:9, shape:'core',
+    noob:['Acid Blood','Zaps hazards that touch you and gives +10 IQ!'],
+    student:['Acid Hemolymph','Counter-shocks colliding hazards & grants +10 IQ.'],
+    phd:['Caustic Hemolymph','Retaliatory hazard knockback +10 fitness on contact.'] },
+  { id:63, cat:'shield', icon:'🪞', color:'#cbd5e1', r:9, shape:'shell',
+    noob:['Mirror Scale','40% chance to reflect hazard hits with a bright flash!'],
+    student:['Iridescent Scale','40% chance to negate hazard hit and emit a flash pulse.'],
+    phd:['Photonic Scale','Stochastic p=0.4 hazard deflection with optical flash.'] },
+  { id:64, cat:'shield', icon:'🩹', color:'#34d399', r:9, shape:'core',
+    noob:['Repair Sac','Heals +8 HP every few seconds while flying smoothly!'],
+    student:['Fat-Body Repair','Restores +8 HP every 40 ticks during steady flight.'],
+    phd:['Adipocyte Repair','Periodic +8 integrity regeneration every 40 steps.'] },
+  { id:65, cat:'util', icon:'🍯', color:'#fbbf24', r:10, shape:'core',
+    noob:['Honey Belly','Gives +40 bonus Score and +15% IQ on every nectar orb!'],
+    student:['Nectar Crop Sac','+40 bonus Arena Score & 1.15x IQ gain per nectar capture.'],
+    phd:['Social Crop Reservoir','+40 scalar score & 1.15x terminal fitness multiplier.'] },
+  { id:66, cat:'util', icon:'🔦', color:'#fde047', r:9, shape:'core',
+    noob:['Glow Tail','Lights up like a firefly so friendly flies flock with you (+5 IQ)!'],
+    student:['Bioluminescent Tail','Attracts nearby flies into 3D formation & grants +5 IQ/70t.'],
+    phd:['Luciferin Beacon','Cooperative 280m flocking anchor (+5 intrinsic IQ/70t).'] },
+  { id:67, cat:'util', icon:'🎯', color:'#f43f5e', r:9, shape:'antenna',
+    noob:['Ring Seeker','Spots 3D Slalom Rings from 650m away!'],
+    student:['Ring-Seeker Antenna','650m long-range 3D Ring priority lock-on sensor.'],
+    phd:['Toroid Ring Seeker','650m prioritized 3D ring-center vector encoder.'] },
+  { id:68, cat:'util', icon:'⚓', color:'#64748b', r:9, shape:'leg',
+    noob:['Anchor Feet','Stops pillars and wind from shoving your fly around!'],
+    student:['Magnetic Tarsus','Absorbs 75% of pillar collision bounce & gust knockback.'],
+    phd:['Electrostatic Tarsus','0.25x pillar-contact rebound & gust disturbance.'] },
+  { id:69, cat:'util', icon:'🎇', color:'#ec4899', r:10, shape:'core',
+    noob:['Flare Gland','Fires a bright burst every few seconds that pushes hazards away!'],
+    student:['Flare Gland','Emits a 160m radial burst every 70 ticks clearing nearby hazards.'],
+    phd:['Pyrotechnic Gland','Periodic 70-tick 160m hazard-repulsion shockwave.'] },
+  { id:70, cat:'chaos', icon:'🦾', color:'#f59e0b', r:11, shape:'roboarm',
+    noob:['Hydraulic Robo-Arm','Giant robot arm on your fly that grabs nectar from 115m & slaps traps!'],
+    student:['Hydraulic Robo-Arm','Articulated 3D robo-arm: 115m nectar grab & hazard knockback.'],
+    phd:['Articulated Manipulator','3D servo-arm extending 115m reward capture & hazard deflection.'] },
+  { id:71, cat:'chaos', icon:'🤖', color:'#38bdf8', r:11, shape:'roboarm',
+    noob:['Dual Clank-Claw','Robot pincer claws that snatch 3D Rings & give +30 bonus Score!'],
+    student:['Dual Clank-Claw','Servo pincers expanding Ring capture reach (+30 bonus Score).'],
+    phd:['Biphasic Pincer Arm','Expands 3D ring-capture envelope (+30 scalar bonus).'] },
+  { id:72, cat:'chaos', icon:'💥', color:'#ef4444', r:11, shape:'thruster',
+    noob:['Afterburner Jet','Straps a literal rocket thruster onto your fly (+45% speed)!'],
+    student:['Afterburner Rocket','3D jet nozzle boosting max airspeed & thrust by +45%.'],
+    phd:['Turbojet Thruster','1.45x 3D propulsion thrust & blazing exhaust plume.'] },
+  { id:73, cat:'chaos', icon:'🌪️', color:'#22d3ee', r:10, shape:'thruster',
+    noob:['Tornado Turbine','Spins up a mini tornado that flings nearby hazards away!'],
+    student:['Tornado Turbine','140m swirling vortex thruster pushing hazards away continuously.'],
+    phd:['Vortex Turbine','140m continuous cyclonic hazard-repulsion field.'] },
+  { id:74, cat:'chaos', icon:'🎡', color:'#facc15', r:11, shape:'propeller',
+    noob:['Heli-Beanie Rotor','Silly spinning propeller hat giving +50% vertical lift!'],
+    student:['Heli-Beanie Rotor','Top-mounted 3D rotor boosting vertical climb lift by +50%.'],
+    phd:['Coaxial Rotor Hat','+50% DNb01 vertical lift authority via dorsal rotor.'] },
+  { id:75, cat:'chaos', icon:'🧀', color:'#fde047', r:10, shape:'cannon',
+    noob:['Cheese Cannon','Shoots high-speed 3D cheese wedges at hazards (+25 IQ)!'],
+    student:['Cheese Cannon','Fires kinetic cheese bolts knocking hazards away every 40 ticks (+25 IQ).'],
+    phd:['Dairy Ballistic Turret','40-tick directed cheese-wedge hazard interceptor (+25 fitness).'] },
+  { id:76, cat:'chaos', icon:'🎉', color:'#ec4899', r:10, shape:'cannon',
+    noob:['Confetti Blaster','Celebrates every nectar grab with a 3D confetti explosion (+30 Score)!'],
+    student:['Confetti Blaster','Launches celebratory 3D bursts on nectar capture (+30 Score).'],
+    phd:['Pyrotechnic Confetti','Terminal-capture radial burst (+30 scalar score).'] },
+  { id:77, cat:'chaos', icon:'🦸', color:'#ef4444', r:11, shape:'cape',
+    noob:['Tiny Hero Cape','Billowing 3D red cape giving +20% speed and +20% IQ!'],
+    student:['Tiny Hero Cape','Aerodynamic 3D cape granting +20% flight thrust & +20% IQ.'],
+    phd:['Heroic Airfoil Cape','1.2x propulsion gain & 1.2x terminal IQ shaping.'] },
+  { id:78, cat:'chaos', icon:'🪠', color:'#f43f5e', r:10, shape:'proboscis',
+    noob:['Plunger Grappler','Silly suction plunger that yanks 3D nectar from 135m away!'],
+    student:['Plunger Grappler','135m suction-cup tether reeling in 3D nectar orbs.'],
+    phd:['Pneumatic Plunger','135m 3D suction-tether reward attractor.'] },
+  { id:79, cat:'chaos', icon:'🎸', color:'#a855f7', r:10, shape:'shell',
+    noob:['Bass-Drop Woofer','Drops a massive 150m sonic boom knocking all hazards back!'],
+    student:['Bass-Drop Woofer','150m sub-bass shockwave every 65 ticks repelling hazards.'],
+    phd:['Sub-Bass Emitter','65-tick 150m acoustic shockwave hazard repulsor.'] },
+  { id:80, cat:'chaos', icon:'🪩', color:'#e2e8f0', r:10, shape:'core',
+    noob:['Disco Thorax Ball','Dazzles hazards with disco lights so they miss you 30% easier!'],
+    student:['Disco Thorax Ball','Confuses nearby hazards (-30% effective hazard radius).'],
+    phd:['Optical Disco Core','0.7x effective hazard collision radius via strobing glare.'] },
+  { id:81, cat:'chaos', icon:'🥾', color:'#fb923c', r:10, shape:'leg',
+    noob:['Giant Spring Boot','Boings off the floor with a huge +5.2m/tick mega-bounce!'],
+    student:['Giant Spring Boot','Super-elastic floor bounce (+5.2m/tick upward launch).'],
+    phd:['High-K Spring Boot','+5.2m/tick ground-contact vertical rebound impulse.'] },
+  { id:82, cat:'chaos', icon:'🌭', color:'#f97316', r:9, shape:'core',
+    noob:['Hotdog Fuel Tank','Yummy emergency snacks healing +5 HP & +2 IQ every 45 ticks!'],
+    student:['Hotdog Fuel Tank','Restores +5 HP & +2 IQ every 45 ticks in 3D flight.'],
+    phd:['Caloric Fuel Cell','45-tick +5 integrity & +2 fitness regeneration.'] },
+  { id:83, cat:'chaos', icon:'🎺', color:'#fbbf24', r:10, shape:'cannon',
+    noob:['Honk Horn','HONK! Scares away any hazard within 120m!'],
+    student:['Honk Horn','Emits 120m acoustic honk repulsion pushing hazards away.'],
+    phd:['Acoustic Honk Array','120m continuous hazard-repulsion pressure wave.'] },
+  { id:84, cat:'chaos', icon:'🪀', color:'#f472b6', r:9, shape:'roboarm',
+    noob:['Yo-Yo Tether','Flings a 3D yo-yo at nectar orbs to reel them in!'],
+    student:['Yo-Yo Tether','125m 3D yo-yo reel pulling nectar toward your fly.'],
+    phd:['Orbital Yo-Yo Arm','125m oscillating nectar-retrieval tether.'] },
+  { id:85, cat:'chaos', icon:'👑', color:'#facc15', r:10, shape:'core',
+    noob:['Tiny Fly Crown','Royal golden crown giving +60 Score & +15% IQ on every grab!'],
+    student:['Tiny Fly Crown','3D golden crown granting +60 Score & 1.15x IQ multiplier.'],
+    phd:['Sovereign Fly Crown','+60 scalar score & 1.15x terminal fitness multiplier.'] }
+];
+
+const PART_CATS = [
+  { key:'brain',  icon:'🧠', label:'Fly Brains & Neural' },
+  { key:'sensor', icon:'👁️', label:'Eyes & 3D Sensors' },
+  { key:'wing',   icon:'🪽', label:'Wings & 3D Flight' },
+  { key:'shield', icon:'🛡️', label:'Carapace & Defense' },
+  { key:'util',   icon:'🍯', label:'Proboscis & Utility' },
+  { key:'chaos',  icon:'🤪', label:'Absurd & Robo-Gear' }
+];
+
+let mode = 'lab'; // 'lab' or 'arena'
+let knowledge = 'student', selectedPart = 0, gTool = 'place', fTool = 'reward';
+let labLayer = 0, paused = false, simSpeed = 1, camMode = 'iso', generation = 1, arenaScore = 0, currentArena = 'canopy';
+
+// 3D Lab Blueprint State: gx (forward/back), gy (height layer -1..1), gz (left/right)
+let gNodes = []; // { gx, gy, gz, type }
+let gWelds = []; // [idxA, idxB]
+let labBrain = { wGoal: 0.85, wAvoid: 0.85, wLift: 0.85, wWander: 0.35, wSpin: 0.05, iq: 0 };
+
+// 3D Lab Camera (starts in Isometric 3/4 view)
+const ISO_YAW = 0.7854, ISO_PITCH = 0.6155;
+let labCam = { yaw: ISO_YAW, pitch: ISO_PITCH, zoom: 1.0, targetYaw: ISO_YAW, targetPitch: ISO_PITCH, targetZoom: 1.0 };
+
+// 3D Arena State (X: -580..580, Y: 0..420 height, Z: -580..580)
+const ARENA_R = 560, ARENA_H = 400;
+let arenaCam = { yaw: ISO_YAW, pitch: ISO_PITCH, dist: 1120, tx: 0, ty: 110, tz: 0, targetYaw: ISO_YAW, targetPitch: ISO_PITCH, targetDist: 1120 };
+let fNodes = [], fWelds = [], nectars = [], hazards = [], pillars = [], rings = [], fx = [], fBrains = {};
+let nextGid = 1, hoveredGid = null, pinnedGid = null;
+
+const UI_TXT = { noob:'Arcade', student:'Bio Student', phd:'Connectome PhD' };
+function setKnowledge(lvl) {
+  knowledge = lvl;
+  document.getElementById('knowSel').value = lvl;
+  document.getElementById('knowBadge').textContent = UI_TXT[lvl];
+  renderParts();
+}
+
+let openCats = { brain: true, sensor: true, wing: false, shield: false, util: false, chaos: true };
+function toggleCat(key) { openCats[key] = !openCats[key]; renderParts(); }
+
+function renderParts() {
+  const list = document.getElementById('part-list');
+  const prevScroll = list ? list.scrollTop : 0;
+  const q = (document.getElementById('partSearch')?.value || '').trim().toLowerCase();
+  const catFilter = document.getElementById('partCat')?.value || 'all';
+  list.innerHTML = '';
+  let shown = 0;
+
+  PART_CATS.forEach(c => {
+    if (catFilter !== 'all' && catFilter !== c.key) return;
+    const matches = PARTS.filter(p => {
+      if (p.cat !== c.key) return false;
+      const [name, desc] = p[knowledge];
+      return !q || name.toLowerCase().includes(q) || desc.toLowerCase().includes(q);
+    });
+    if (!matches.length) return;
+    shown += matches.length;
+    const isOpen = Boolean(q || catFilter !== 'all' || openCats[c.key]);
+    const wrap = document.createElement('div');
+    wrap.className = 'cat-menu';
+    const hdr = document.createElement('button');
+    hdr.className = 'cat-hdr';
+    hdr.innerHTML = `<span>${c.icon} ${c.label}<span class="cat-cnt">${matches.length}</span></span><span>${isOpen ? '▾' : '▸'}</span>`;
+    hdr.onclick = () => toggleCat(c.key);
+    wrap.appendChild(hdr);
+    if (isOpen) {
+      const grid = document.createElement('div');
+      grid.className = 'cat-grid';
+      matches.forEach(p => {
+        const [name] = p[knowledge];
+        const b = document.createElement('button');
+        b.className = 'part-btn' + (p.id === selectedPart ? ' active' : '');
+        b.innerHTML = `<span class="part-ico" style="background:${p.color}28;border-color:${p.color};">${p.icon}</span><span>${name}</span>`;
+        b.onclick = () => { selectedPart = p.id; renderParts(); };
+        grid.appendChild(b);
+      });
+      wrap.appendChild(grid);
+    }
+    list.appendChild(wrap);
+  });
+
+  if (list) list.scrollTop = prevScroll;
+  document.getElementById('partCountHdr').textContent = (q || catFilter !== 'all') ? `${shown}/${PARTS.length}` : PARTS.length;
+  document.getElementById('clearSearchBtn').style.display = q ? 'inline-block' : 'none';
+  const sp = PARTS[selectedPart];
+  document.getElementById('part-desc').innerHTML = `<b>${sp.icon} ${sp[knowledge][0]}</b> — ${sp[knowledge][1]}`;
+  updateFlyBrainViz();
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('tabLab').className = 'tab-btn' + (m === 'lab' ? ' active-lab' : '');
+  document.getElementById('tabArena').className = 'tab-btn' + (m === 'arena' ? ' active-arena' : '');
+  document.getElementById('labControls').style.display = m === 'lab' ? 'flex' : 'none';
+  document.getElementById('arenaControls').style.display = m === 'arena' ? 'flex' : 'none';
+  document.getElementById('labToolsSec').style.display = m === 'lab' ? 'flex' : 'none';
+  document.getElementById('arenaToolsSec').style.display = m === 'arena' ? 'flex' : 'none';
+  document.getElementById('pillLab').style.display = m === 'lab' ? 'block' : 'none';
+  document.getElementById('pillArena').style.display = m === 'arena' ? 'block' : 'none';
+  document.getElementById('hintTxt').style.display = m === 'lab' ? 'block' : 'none';
+  updateFlyBrainViz();
+  if (m === 'arena' && tutActive && tutIdx === 4) stepTutorial(1);
+}
+
+function setGTool(t, btn) {
+  gTool = t;
+  document.querySelectorAll('[data-gt]').forEach(x => x.classList.remove('t-active'));
+  btn.classList.add('t-active');
+}
+function setFTool(t, btn) {
+  fTool = t;
+  document.querySelectorAll('[data-ft]').forEach(x => x.classList.remove('t-active'));
+  btn.classList.add('t-active');
+}
+['sLR','sPow'].forEach(id => document.getElementById(id).oninput = e => { document.getElementById('v'+id.slice(1)).textContent = e.target.value; saveState(); });
+
+let toastTimer = null;
+function showToast(msg, dur = 2800) {
+  const el = document.getElementById('toastMsg');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display = 'none'; }, dur);
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('flylab3d_v1', JSON.stringify({
+      gNodes, gWelds, labBrain, knowledge, arenaScore, currentArena, simSpeed, camMode,
+      mirror: document.getElementById('chkMirror').checked,
+      sLR: document.getElementById('sLR').value,
+      sPow: document.getElementById('sPow').value,
+      autoEvo: document.getElementById('chkAutoEvo').checked,
+      optic: document.getElementById('chkOptic').checked
+    }));
+  } catch (e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem('flylab3d_v1');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (typeof s.mirror === 'boolean') document.getElementById('chkMirror').checked = s.mirror;
+    if (s.currentArena) { currentArena = s.currentArena; document.getElementById('arenaSel').value = s.currentArena; }
+    if (typeof s.simSpeed === 'number') { simSpeed = s.simSpeed; document.getElementById('speedSel').value = String(s.simSpeed); }
+    if (s.camMode) { camMode = s.camMode; document.getElementById('camSel').value = s.camMode; }
+    if (s.sLR) { document.getElementById('sLR').value = s.sLR; document.getElementById('vLR').textContent = s.sLR; }
+    if (s.sPow) { document.getElementById('sPow').value = s.sPow; document.getElementById('vPow').textContent = s.sPow; }
+    if (typeof s.autoEvo === 'boolean') document.getElementById('chkAutoEvo').checked = s.autoEvo;
+    if (typeof s.optic === 'boolean') document.getElementById('chkOptic').checked = s.optic;
+    if (s.labBrain) labBrain = { ...labBrain, ...s.labBrain };
+    if (typeof s.arenaScore === 'number') { arenaScore = s.arenaScore; document.getElementById('hScore').textContent = arenaScore; }
+    if (Array.isArray(s.gNodes) && s.gNodes.length > 0) {
+      gNodes = s.gNodes.filter(n => PARTS[n.type]);
+      gWelds = Array.isArray(s.gWelds) ? s.gWelds.filter(([a,b]) => gNodes[a] && gNodes[b]) : [];
+      document.getElementById('hParts').textContent = gNodes.length;
+    }
+    if (s.knowledge) setKnowledge(s.knowledge);
+    else renderParts();
+    updateFlyBrainViz();
+    return gNodes.length > 0;
+  } catch (e) {}
+  return false;
+}
+['chkMirror','chkAutoEvo','chkOptic','speedSel','camSel','arenaSel'].forEach(id => document.getElementById(id)?.addEventListener('change', saveState));
+
+// --- 3D FLY LAB FUNCTIONS ---
+function clearLab() {
+  gNodes = []; gWelds = [];
+  document.getElementById('hParts').textContent = 0;
+  updateFlyBrainViz();
+  saveState();
+}
+function addLabWeld(ia, ib) {
+  if (ia === -1 || ib === -1 || ia === ib) return;
+  if (!gWelds.some(([a,b]) => (a===ia&&b===ib)||(a===ib&&b===ia))) gWelds.push([ia, ib]);
+}
+function addLabPart(gx, gy, gz, type) {
+  const ex = gNodes.findIndex(n => n.gx === gx && n.gy === gy && n.gz === gz);
+  if (ex !== -1) { gNodes[ex].type = type; updateFlyBrainViz(); saveState(); return; }
+  const idx = gNodes.length;
+  gNodes.push({ gx, gy, gz, type });
+  for (let i = 0; i < idx; i++) {
+    const o = gNodes[i];
+    if (Math.hypot(o.gx - gx, o.gy - gy, o.gz - gz) <= 1.6) addLabWeld(i, idx);
+  }
+  document.getElementById('hParts').textContent = gNodes.length;
+  updateFlyBrainViz();
+  saveState();
+  checkTutorialProgress();
+}
+function removeLabPart(gx, gy, gz) {
+  const idx = gNodes.findIndex(n => n.gx === gx && n.gy === gy && n.gz === gz);
+  if (idx === -1) return;
+  gNodes.splice(idx, 1);
+  gWelds = gWelds.filter(([a,b]) => a !== idx && b !== idx).map(([a,b]) => [a>idx?a-1:a, b>idx?b-1:b]);
+  document.getElementById('hParts').textContent = gNodes.length;
+  updateFlyBrainViz();
+  saveState();
+  checkTutorialProgress();
+}
+
+function loadBlueprint(name) {
+  clearLab();
+  if (name === 'fruitfly') {
+    addLabPart(1, 0, 0, 0);   // Head: MaleCNS Brain
+    addLabPart(2, 0, 0, 9);   // Proboscis Sugar GRN
+    addLabPart(1, 0, -1, 7);  // Left Compound Eye
+    addLabPart(1, 0, 1, 7);   // Right Compound Eye
+    addLabPart(0, 0, 0, 19);  // Thorax Chitin
+    addLabPart(0, 1, -1, 13); // Left Wing (top)
+    addLabPart(0, 1, 1, 13);  // Right Wing (top)
+    addLabPart(-1, 0, -1, 14);// Left Haltere
+    addLabPart(-1, 0, 1, 14); // Right Haltere
+    addLabPart(-1, 0, 0, 1);  // Abdomen Mushroom Body
+    addLabPart(0, -1, 0, 27); // Ventral Tarsal Legs
+  } else if (name === 'hawkmoth') {
+    addLabPart(1, 0, 0, 0); addLabPart(2, 0, 0, 23); addLabPart(1, 0, -1, 7); addLabPart(1, 0, 1, 7);
+    addLabPart(0, 0, 0, 16); addLabPart(0, 1, -1, 13); addLabPart(0, 1, 1, 13); addLabPart(-1, 0, 0, 18);
+    addLabPart(-1, 1, -1, 15); addLabPart(-1, 1, 1, 15); addLabPart(0, -1, 0, 4);
+  } else if (name === 'forager') {
+    addLabPart(1, 0, 0, 0); addLabPart(2, 0, 0, 24); addLabPart(1, 0, -1, 9); addLabPart(1, 0, 1, 10);
+    addLabPart(0, 0, 0, 2); addLabPart(0, 1, -1, 15); addLabPart(0, 1, 1, 15); addLabPart(-1, 0, 0, 26);
+    addLabPart(-1, 0, -1, 25); addLabPart(-1, 0, 1, 3);
+  } else if (name === 'glider') {
+    addLabPart(1, 0, 0, 0); addLabPart(1, 0, -1, 7); addLabPart(1, 0, 1, 11); addLabPart(0, 0, 0, 5);
+    addLabPart(0, 1, -1, 17); addLabPart(0, 1, 1, 17); addLabPart(-1, 1, -1, 17); addLabPart(-1, 1, 1, 17);
+    addLabPart(-1, 0, 0, 1);
+  } else if (name === 'escape') {
+    addLabPart(1, 0, 0, 0); addLabPart(1, 0, -1, 8); addLabPart(1, 0, 1, 8); addLabPart(0, 0, 0, 20);
+    addLabPart(0, 1, -1, 13); addLabPart(0, 1, 1, 13); addLabPart(-1, 0, -1, 14); addLabPart(-1, 0, 1, 14);
+    addLabPart(-1, 0, 0, 21); addLabPart(0, -1, 0, 22);
+  } else if (name === 'cyborg') {
+    addLabPart(1, 0, 0, 0);   // MaleCNS Brain
+    addLabPart(2, 0, 0, 75);  // Cheese Cannon
+    addLabPart(1, 0, -1, 70); // Left Hydraulic Robo-Arm
+    addLabPart(1, 0, 1, 70);  // Right Hydraulic Robo-Arm
+    addLabPart(0, 1, 0, 74);  // Heli-Beanie Rotor
+    addLabPart(0, 0, 0, 85);  // Tiny Fly Crown
+    addLabPart(0, 1, -1, 13); // Left Wing
+    addLabPart(0, 1, 1, 13);  // Right Wing
+    addLabPart(-1, 0, -1, 72);// Left Afterburner Jet
+    addLabPart(-1, 0, 1, 72); // Right Afterburner Jet
+    addLabPart(-1, 0, 0, 77); // Tiny Hero Cape
+    addLabPart(0, -1, 0, 81); // Giant Spring Boot
+  }
+  updateFlyBrainViz();
+  saveState();
+}
+
+// --- 3D PROJECTION & CAMERA ---
+function project3D(wx, wy, wz, cam, fov = 760) {
+  // Translate relative to target
+  const dx = wx - cam.tx, dy = wy - cam.ty, dz = wz - cam.tz;
+  const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  // Rotate around Y (yaw)
+  const rx = dx * cy - dz * sy;
+  const rz = dx * sy + dz * cy;
+  // Rotate around X (pitch)
+  const ry = dy * cp - rz * sp;
+  const pz = dy * sp + rz * cp + cam.dist;
+  if (pz < 25) return null;
+  const scale = fov / pz;
+  return { sx: W / 2 + rx * scale, sy: H / 2 - ry * scale, scale, depth: pz };
+}
+
+// --- 3D ARENA SPAWNING ---
+function makeFlyBrain() {
+  return {
+    wGoal: labBrain.wGoal, wAvoid: labBrain.wAvoid, wLift: labBrain.wLift,
+    wWander: labBrain.wWander, wSpin: labBrain.wSpin, iq: 15, hp: 100, maxHp: 100,
+    memX: 0, memY: 0, memZ: 0,
+    fly: { sugar: 0.2, lc4: 0.05, lc9: 0.35, mb: 0.3, dnaL: 0.2, dnaR: 0.2, lift: 0, dnp: 0, state: 'FORAGING' },
+    thought: 'MaleCNS 3D flight loop online!', thoughtTimer: 40, thoughtTick: 0,
+    stuckTicks: 0, escapeTimer: 0, lastPos: null
+  };
+}
+
+function spawnFlyAt(cx, cy, cz) {
+  if (!gNodes.length) return;
+  const gid = nextGid++;
+  const hasBrain = gNodes.some(n => n.type === 0);
+  const b = makeFlyBrain();
+  if (!hasBrain) { b.inert = true; b.thought = 'No Fly Brain installed!'; }
+  fBrains[gid] = b;
+  const created = gNodes.map(gn => {
+    const n = {
+      x: cx + gn.gx * 16, y: cy + gn.gy * 16, z: cz + gn.gz * 16,
+      vx: 0, vy: 0, vz: 0,
+      gx: gn.gx, gy: gn.gy, gz: gn.gz,
+      type: gn.type, r: PARTS[gn.type].r, color: PARTS[gn.type].color,
+      gid, yaw: Math.random() * Math.PI * 2, pitch: 0, wingPhase: Math.random() * 6
+    };
+    fNodes.push(n);
+    return n;
+  });
+  gWelds.forEach(([ia, ib]) => {
+    const a = created[ia], b_ = created[ib];
+    if (a && b_) fWelds.push({ a, b: b_, len: Math.max(12, Math.hypot(b_.x-a.x, b_.y-a.y, b_.z-a.z)) });
+  });
+  pinnedGid = gid;
+  updateFlyBrainViz();
+}
+
+function launchToArena(count = 1) {
+  if (!gNodes.length) loadBlueprint('fruitfly');
+  const hasBrain = gNodes.some(n => n.type === 0);
+  const hasWing = gNodes.some(n => { const pt = PARTS[n.type]; return pt.cat === 'wing' || pt.shape === 'thruster' || pt.shape === 'propeller'; });
+  if (!hasBrain) showToast('⚠️ No Fruit Fly Brain equipped — fly will be inert!');
+  else if (!hasWing) showToast('⚠️ No Wings, Thrusters, or Rotors equipped — fly cannot lift off!');
+  setMode('arena');
+  if (tutActive && tutIdx === 4) stepTutorial(1);
+  if (!fNodes.length && !nectars.length && !pillars.length) loadArena(currentArena, false);
+  const alt = parseInt(document.getElementById('spawnAltSel').value) || 120;
+  for (let i = 0; i < count; i++) {
+    spawnFlyAt((Math.random()-0.5)*220, alt + (Math.random()-0.5)*40, (Math.random()-0.5)*220);
+  }
+}
+
+function clearArena() {
+  fNodes = []; fWelds = []; nectars = []; hazards = []; pillars = []; rings = []; fx = []; fBrains = {};
+  pinnedGid = null; arenaScore = 0; generation = 1;
+  document.getElementById('hGen').textContent = 1;
+  document.getElementById('hScore').textContent = 0;
+}
+function resetArena() { loadArena(currentArena, true); saveState(); }
+
+function spawnNectar(px = null, py = null, pz = null) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const x = px ?? (Math.random() - 0.5) * (ARENA_R * 1.65);
+    const y = py ?? (38 + Math.random() * (ARENA_H - 95));
+    const z = pz ?? (Math.random() - 0.5) * (ARENA_R * 1.65);
+    let ok = true;
+    for (const p of pillars) if (Math.hypot(x - p.x, z - p.z) < p.r + 28 && y < p.h + 15) { ok = false; break; }
+    if (ok || attempt === 39) { nectars.push({ x, y, z, r: 16, pulse: Math.random() * 6 }); return; }
+  }
+}
+
+function loadArena(name, spawnFlies = true) {
+  currentArena = name;
+  clearArena();
+  if (name === 'canopy') {
+    for (let i = 0; i < 8; i++) {
+      const a = i * 0.78, d = 160 + (i % 3) * 120;
+      pillars.push({ x: Math.cos(a)*d, z: Math.sin(a)*d, r: 28, h: 210 + (i % 3) * 70, color: '#1e3a2f' });
+    }
+    for (let i = 0; i < 10; i++) spawnNectar();
+    for (let i = 0; i < 4; i++) hazards.push({ x:(Math.random()-0.5)*700, y: 70+Math.random()*220, z:(Math.random()-0.5)*700, r:26, vx:(Math.random()-0.5)*1.2, vz:(Math.random()-0.5)*1.2 });
+  } else if (name === 'rings') {
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.05, r = 270;
+      rings.push({ x: Math.cos(a)*r, y: 90 + (i%3)*85, z: Math.sin(a)*r, r: 52, rotY: a + Math.PI/2, pulse: 0 });
+    }
+    for (let i = 0; i < 8; i++) spawnNectar();
+  } else if (name === 'swatter') {
+    for (let i = 0; i < 10; i++) hazards.push({ x:(Math.random()-0.5)*820, y: 55+Math.random()*270, z:(Math.random()-0.5)*820, r:28, vx:(Math.random()-0.5)*2.4, vy:(Math.random()-0.5)*1.0, vz:(Math.random()-0.5)*2.4 });
+    for (let i = 0; i < 9; i++) spawnNectar();
+  } else if (name === 'towers') {
+    for (let gx = -320; gx <= 320; gx += 210) {
+      for (let gz = -320; gz <= 320; gz += 210) {
+        if (Math.abs(gx) < 90 && Math.abs(gz) < 90) continue;
+        pillars.push({ x: gx, z: gz, r: 34, h: 170 + Math.abs(gx + gz) * 0.3, color: '#334155' });
+      }
+    }
+    for (let i = 0; i < 10; i++) spawnNectar(null, 150 + Math.random()*210, null);
+  } else if (name === 'swarm') {
+    for (let i = 0; i < 12; i++) spawnNectar();
+    for (let i = 0; i < 3; i++) hazards.push({ x:(Math.random()-0.5)*600, y:120+i*70, z:(Math.random()-0.5)*600, r:25, vx:1.2, vz:-1.0 });
+    if (spawnFlies) {
+      for (let i = 0; i < 3; i++) spawnFlyAt((i-1)*110, 110 + i*35, (i%2)*80);
+      return;
+    }
+  } else if (name === 'darwin') {
+    for (let i = 0; i < 7; i++) hazards.push({ x:(Math.random()-0.5)*800, y:60+Math.random()*260, z:(Math.random()-0.5)*800, r:26, vx:(Math.random()-0.5)*1.5, vz:(Math.random()-0.5)*1.5 });
+    for (let i = 0; i < 10; i++) spawnNectar();
+    if (spawnFlies) {
+      for (let i = 0; i < 3; i++) spawnFlyAt((Math.random()-0.5)*250, 90 + i*50, (Math.random()-0.5)*250);
+      return;
+    }
+  } else if (name === 'helix') {
+    for (let t = 0; t < 16; t++) {
+      const a = t * 0.48, rad = 110 + t * 22;
+      pillars.push({ x: Math.cos(a)*rad, z: Math.sin(a)*rad, r: 24, h: 60 + t * 20, color: '#1e293b' });
+      if (t % 2 === 0) spawnNectar(Math.cos(a + 0.25)*rad, 50 + t * 20, Math.sin(a + 0.25)*rad);
+    }
+  } else if (name === 'asteroids') {
+    for (let i = 0; i < 14; i++) hazards.push({ x:(Math.random()-0.5)*860, y:50+Math.random()*290, z:(Math.random()-0.5)*860, r:28+Math.random()*8, vx:(Math.random()-0.5)*0.8, vy:(Math.random()-0.5)*0.5, vz:(Math.random()-0.5)*0.8 });
+    for (let i = 0; i < 12; i++) spawnNectar();
+  } else if (name === 'thermals') {
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.05, r = 240;
+      rings.push({ x: Math.cos(a)*r, y: 150 + (i%2)*110, z: Math.sin(a)*r, r: 58, rotY: a + Math.PI/2, pulse: 0 });
+    }
+    for (let i = 0; i < 8; i++) spawnNectar(null, 190 + Math.random()*170, null);
+  } else if (name === 'wasps') {
+    for (let i = 0; i < 12; i++) hazards.push({ x:(Math.random()-0.5)*680, y:60+Math.random()*260, z:(Math.random()-0.5)*680, r:24, vx:(Math.random()-0.5)*3.1, vy:(Math.random()-0.5)*1.4, vz:(Math.random()-0.5)*3.1 });
+    for (let i = 0; i < 10; i++) spawnNectar((Math.random()-0.5)*300, 100+Math.random()*160, (Math.random()-0.5)*300);
+  } else if (name === 'canyon') {
+    for (let x = -420; x <= 420; x += 140) {
+      pillars.push({ x, z: -150, r: 34, h: 280, color: '#451a03' });
+      pillars.push({ x, z:  150, r: 34, h: 280, color: '#451a03' });
+    }
+    for (let i = 0; i < 5; i++) rings.push({ x: -320 + i*160, y: 90 + (i%2)*110, z: 0, r: 48, rotY: 0, pulse: 0 });
+    for (let i = 0; i < 8; i++) spawnNectar((Math.random()-0.5)*760, 60+Math.random()*220, (Math.random()-0.5)*160);
+  } else if (name === 'honeycomb') {
+    for (let gx = -320; gx <= 320; gx += 160) {
+      for (let gz = -320; gz <= 320; gz += 160) {
+        if ((Math.abs(gx) + Math.abs(gz)) % 320 === 0) pillars.push({ x: gx, z: gz, r: 30, h: 240, color: '#422006' });
+        else spawnNectar(gx, 90 + ((Math.abs(gx)+Math.abs(gz))%240), gz);
+      }
+    }
+  } else if (name === 'zenith') {
+    pillars.push({ x: 0, z: 0, r: 58, h: 360, color: '#1e293b' });
+    for (let i = 0; i < 8; i++) {
+      const a = i * 0.785;
+      rings.push({ x: Math.cos(a)*210, y: 80 + i*35, z: Math.sin(a)*210, r: 50, rotY: a, pulse: 0 });
+      spawnNectar(Math.cos(a)*160, 120 + i*30, Math.sin(a)*160);
+    }
+  } else if (name === 'opensky') {
+    for (let i = 0; i < 12; i++) spawnNectar();
+  }
+  if (spawnFlies && gNodes.length > 0) {
+    const alt = parseInt(document.getElementById('spawnAltSel').value) || 120;
+    spawnFlyAt(0, alt, 0);
+  }
+}
+
+// --- RL REWARD / PUNISH & EVOLVE ---
+let tutRewarded = false;
+function applyRL(pos) {
+  const lr = parseFloat(document.getElementById('sLR').value);
+  const gids = [...new Set(fNodes.map(n => n.gid))];
+  if (!gids.length) { showToast('Launch a fly into 3D Space first!'); return; }
+  const targetGid = pinnedGid && fBrains[pinnedGid] ? pinnedGid : gids[0];
+  const targetsList = [targetGid];
+  targetsList.forEach(gid => {
+    const b = fBrains[gid]; if (!b) return;
+    const nodes = fNodes.filter(n => n.gid === gid);
+    const hasTuner = nodes.some(n => n.type === 6);
+    const hasMB = nodes.some(n => n.type === 1);
+    const rlM = (hasTuner ? 1.5 : 1.0) * (hasMB ? 1.4 : 1.0);
+    const cx = nodes.reduce((s,n)=>s+n.x,0)/nodes.length;
+    const cy = nodes.reduce((s,n)=>s+n.y,0)/nodes.length;
+    const cz = nodes.reduce((s,n)=>s+n.z,0)/nodes.length;
+    if (pos) {
+      b.wGoal = Math.min(1.8, b.wGoal + lr * 0.6 * rlM);
+      b.wLift = Math.min(1.8, b.wLift + lr * 0.55 * rlM);
+      b.wAvoid = Math.min(1.8, b.wAvoid + lr * 0.4 * rlM);
+      b.wSpin *= 0.35;
+      b.wWander = Math.max(0.08, b.wWander * 0.7);
+      b.iq += 25; arenaScore += 25;
+      document.getElementById('hScore').textContent = arenaScore;
+      b.thought = '👍 Reinforced 3D flight path!'; b.thoughtTimer = 60;
+      nodes.forEach(n => { n.vy += 1.2; });
+      fx.push({ x:cx, y:cy+20, z:cz, r:10, maxR:65, color:'#4ade80', alpha:1, text:'+25 IQ 👍' });
+    } else {
+      b.wSpin *= 0.5;
+      b.wAvoid = Math.min(1.8, b.wAvoid + lr * 0.65 * rlM);
+      b.wLift = Math.min(1.8, b.wLift + lr * 0.45 * rlM);
+      b.iq = Math.max(-50, b.iq - 15);
+      b.thought = '👎 Avoiding hazard / climbing!'; b.thoughtTimer = 60;
+      nodes.forEach(n => { n.vy += 2.6; n.yaw += 1.4; });
+      fx.push({ x:cx, y:cy+20, z:cz, r:10, maxR:65, color:'#f43f5e', alpha:1, text:'-15 IQ 👎' });
+    }
+  });
+  tutRewarded = true;
+  updateFlyBrainViz();
+  saveState();
+  checkTutorialProgress();
+}
+
+function getBestFlyBrain() {
+  let best = null, top = -Infinity;
+  for (const gid in fBrains) if (fBrains[gid].iq > top) { top = fBrains[gid].iq; best = fBrains[gid]; }
+  return best;
+}
+
+let lastEvoTick = -999;
+function evolveAndSync(manual = true) {
+  const best = getBestFlyBrain();
+  if (!best) { if (manual) showToast('Launch a fly first to evolve!'); return; }
+  lastEvoTick = simTick;
+  labBrain = { wGoal: best.wGoal, wAvoid: best.wAvoid, wLift: best.wLift, wWander: best.wWander, wSpin: best.wSpin, iq: 20 };
+  generation++;
+  document.getElementById('hGen').textContent = generation;
+  for (const gid in fBrains) {
+    const b = fBrains[gid];
+    if (b !== best) {
+      b.wGoal = Math.max(0.3, Math.min(1.8, best.wGoal + (Math.random()-0.5)*0.16));
+      b.wLift = Math.max(0.3, Math.min(1.8, best.wLift + (Math.random()-0.5)*0.16));
+      b.wAvoid = Math.max(0.3, Math.min(1.8, best.wAvoid + (Math.random()-0.5)*0.16));
+      b.wSpin = best.wSpin * 0.4;
+      b.iq = Math.round(best.iq * 0.6);
+      b.thought = `Gen ${generation} Connectome Synced!`;
+    }
+  }
+  fx.push({ x:0, y:140, z:0, r:30, maxR:280, color:'#a855f7', alpha:0.9, text:`GEN ${generation}` });
+  if (manual) showToast(`🧬 Gen ${generation} synced from top fly (IQ ${Math.round(best.iq)})!`);
+  updateFlyBrainViz();
+  saveState();
+}
+
+function togglePause() { paused = !paused; document.getElementById('pauseBtn').textContent = paused ? '▶ Play' : '⏸ Pause'; }
+
+// --- CAMERA HELPERS & KEYBOARD PILOT ---
+function setCamMode(m) {
+  camMode = m;
+  const sel = document.getElementById('camSel');
+  if (sel) sel.value = m;
+  if (m === 'iso') {
+    arenaCam.targetYaw = ISO_YAW; arenaCam.targetPitch = ISO_PITCH; arenaCam.targetDist = 1120;
+  } else if (m === 'top') {
+    arenaCam.targetPitch = 1.44; arenaCam.targetDist = 1180;
+  } else if (m === 'chase') {
+    arenaCam.targetDist = 640; arenaCam.targetPitch = 0.42;
+  }
+  saveState();
+}
+function resetCamera() {
+  if (mode === 'lab') {
+    labCam.targetYaw = ISO_YAW; labCam.targetPitch = ISO_PITCH; labCam.targetZoom = 1.0;
+  } else {
+    setCamMode('iso');
+    arenaCam.targetYaw = ISO_YAW; arenaCam.targetPitch = ISO_PITCH; arenaCam.targetDist = 1120;
+  }
+}
+function stepSpeed(dir) {
+  const sel = document.getElementById('speedSel');
+  if (!sel) return;
+  const ni = Math.max(0, Math.min(sel.options.length - 1, sel.selectedIndex + dir));
+  sel.selectedIndex = ni;
+  simSpeed = parseFloat(sel.value);
+  showToast(`⏱ Speed: ${simSpeed}x`, 1200);
+  saveState();
+}
+
+const keys = {};
+window.addEventListener('keydown', e => {
+  const inInput = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
+  if (e.key === 'Escape') {
+    if (tutActive) closeTutorial();
+    else if (document.getElementById('partSearch').value) { document.getElementById('partSearch').value = ''; renderParts(); }
+    return;
+  }
+  if (inInput) return;
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ' && mode === 'arena') { e.preventDefault(); }
+  else if (e.key === 'p' || e.key === 'P') { if (mode === 'arena') togglePause(); }
+  else if (e.key === 'g' || e.key === 'G') setMode('lab');
+  else if (e.key === 'f' || e.key === 'F') setMode('arena');
+  else if ((e.key === 'r' || e.key === 'R') && mode === 'arena') resetArena();
+  else if (e.key === '0') resetCamera();
+  else if (e.key === '1' && mode === 'arena') setCamMode('iso');
+  else if (e.key === '2' && mode === 'arena') setCamMode('orbit');
+  else if (e.key === '3' && mode === 'arena') setCamMode('chase');
+  else if (e.key === '4' && mode === 'arena') setCamMode('top');
+  else if (e.key === '[' || e.key === '-') { if (mode === 'arena') stepSpeed(-1); }
+  else if (e.key === ']' || e.key === '=' || e.key === '+') { if (mode === 'arena') stepSpeed(1); }
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// --- MOUSE INPUT ---
+let dragging = false, dragBtn = 0, lastMX = 0, lastMY = 0;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('dblclick', () => resetCamera());
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (mode === 'lab') labCam.targetZoom = Math.max(0.55, Math.min(2.2, labCam.targetZoom * (e.deltaY < 0 ? 1.09 : 0.91)));
+  else arenaCam.targetDist = Math.max(360, Math.min(2200, arenaCam.targetDist * (e.deltaY < 0 ? 0.91 : 1.09)));
+}, { passive: false });
+
+function pickLabGrid(sx, sy) {
+  // Raycast-free closest grid point on current labLayer (gy === labLayer)
+  let best = null, bd = 34;
+  for (let gx = -3; gx <= 3; gx++) {
+    for (let gz = -3; gz <= 3; gz++) {
+      const p = project3D(gx * 42, labLayer * 42, gz * 42, { yaw: labCam.yaw, pitch: labCam.pitch, dist: 520 / labCam.zoom, tx: 0, ty: 0, tz: 0 }, 560);
+      if (!p) continue;
+      const d = Math.hypot(p.sx - sx, p.sy - sy);
+      if (d < bd) { bd = d; best = { gx, gy: labLayer, gz }; }
+    }
+  }
+  return best;
+}
+
+let weldStart = -1, labHover = null;
+canvas.addEventListener('mousedown', e => {
+  const r = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  dragging = true; dragBtn = e.button; lastMX = sx; lastMY = sy;
+
+  if (mode === 'lab') {
+    if (e.button === 2) return; // Right-drag orbits 3D lab
+    const cell = pickLabGrid(sx, sy);
+    if (!cell) return;
+    const mirrorOn = document.getElementById('chkMirror').checked;
+    if (gTool === 'erase') {
+      removeLabPart(cell.gx, cell.gy, cell.gz);
+      if (mirrorOn && cell.gz !== 0) removeLabPart(cell.gx, cell.gy, -cell.gz);
+    } else if (gTool === 'place') {
+      addLabPart(cell.gx, cell.gy, cell.gz, selectedPart);
+      if (mirrorOn && cell.gz !== 0) addLabPart(cell.gx, cell.gy, -cell.gz, selectedPart);
+    } else if (gTool === 'weld') {
+      weldStart = gNodes.findIndex(n => n.gx === cell.gx && n.gy === cell.gy && n.gz === cell.gz);
+    }
+    return;
+  }
+
+  // 3D Arena click
+  if (e.button === 2 || fTool === 'orbit') {
+    // Select closest fly if clicking near one
+    let bestGid = null, bd = 38;
+    for (const n of fNodes) {
+      const p = project3D(n.x, n.y, n.z, arenaCam);
+      if (!p) continue;
+      const d = Math.hypot(p.sx - sx, p.sy - sy);
+      if (d < bd) { bd = d; bestGid = n.gid; }
+    }
+    if (bestGid !== null) { pinnedGid = bestGid; updateFlyBrainViz(); }
+    return;
+  }
+  if (fTool === 'reward') applyRL(true);
+  else if (fTool === 'punish') applyRL(false);
+  else {
+    // Project click onto horizontal plane at selected fly's altitude (or y=120)
+    const refY = (pinnedGid && fNodes.find(n => n.gid === pinnedGid)?.y) || 120;
+    let bestPt = { x: 0, y: refY, z: 0 }, bd = Infinity;
+    for (let x = -ARENA_R; x <= ARENA_R; x += 40) {
+      for (let z = -ARENA_R; z <= ARENA_R; z += 40) {
+        const p = project3D(x, refY, z, arenaCam);
+        if (!p) continue;
+        const d = Math.hypot(p.sx - sx, p.sy - sy);
+        if (d < bd) { bd = d; bestPt = { x, y: refY, z }; }
+      }
+    }
+    if (fTool === 'nectar') spawnNectar(bestPt.x, refY, bestPt.z);
+    else if (fTool === 'hazard') hazards.push({ x: bestPt.x, y: refY, z: bestPt.z, r: 26, vx: (Math.random()-0.5)*1.4, vz: (Math.random()-0.5)*1.4 });
+    else if (fTool === 'pillar') pillars.push({ x: bestPt.x, z: bestPt.z, r: 30, h: 220, color: '#334155' });
+    else if (fTool === 'erase') {
+      const rm = (arr, maxD) => {
+        let idx = -1, dMin = maxD;
+        for (let i = 0; i < arr.length; i++) {
+          const p = project3D(arr[i].x, arr[i].y ?? 80, arr[i].z, arenaCam);
+          if (!p) continue;
+          const d = Math.hypot(p.sx - sx, p.sy - sy);
+          if (d < dMin) { dMin = d; idx = i; }
+        }
+        if (idx !== -1) { arr.splice(idx, 1); return true; }
+        return false;
+      };
+      if (!rm(nectars, 42) && !rm(hazards, 42)) rm(pillars, 50);
+    }
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  if (dragging) {
+    const dx = sx - lastMX, dy = sy - lastMY;
+    lastMX = sx; lastMY = sy;
+    if (mode === 'lab' && (dragBtn === 2 || dragBtn === 1 || e.shiftKey)) {
+      labCam.targetYaw += dx * 0.01;
+      labCam.targetPitch = Math.max(-1.2, Math.min(1.25, labCam.targetPitch + dy * 0.01));
+    } else if (mode === 'arena' && (dragBtn === 2 || dragBtn === 1 || e.shiftKey || fTool === 'orbit')) {
+      arenaCam.targetYaw += dx * 0.008;
+      arenaCam.targetPitch = Math.max(-1.35, Math.min(1.48, arenaCam.targetPitch + dy * 0.008));
+      if (camMode === 'top' || camMode === 'iso') { camMode = 'orbit'; document.getElementById('camSel').value = 'orbit'; }
+    }
+  }
+  const insp = document.getElementById('inspector');
+  if (mode === 'lab') {
+    labHover = e.target === canvas ? pickLabGrid(sx, sy) : null;
+    if (labHover) {
+      const ex = gNodes.find(n => n.gx === labHover.gx && n.gy === labHover.gy && n.gz === labHover.gz);
+      if (ex) {
+        insp.style.display = 'block';
+        insp.innerHTML = `<b>${PARTS[ex.type].icon} ${PARTS[ex.type][knowledge][0]}</b><br><span style="color:#94a3b8">${PARTS[ex.type][knowledge][1]}</span>`;
+      } else insp.style.display = 'none';
+    } else insp.style.display = 'none';
+    return;
+  }
+
+  // Arena hover inspector
+  let hov = null, bd = 28;
+  for (const n of fNodes) {
+    const p = project3D(n.x, n.y, n.z, arenaCam);
+    if (!p) continue;
+    const d = Math.hypot(p.sx - sx, p.sy - sy);
+    if (d < bd) { bd = d; hov = n; }
+  }
+  hoveredGid = hov ? hov.gid : null;
+  const showGid = hoveredGid || (pinnedGid && fBrains[pinnedGid] ? pinnedGid : null);
+  const showNode = hov || (showGid ? fNodes.find(n => n.gid === showGid) : null);
+  if (showNode) {
+    const b = fBrains[showNode.gid];
+    insp.style.display = 'block';
+    const alt = Math.round(showNode.y);
+    insp.innerHTML = `<b>${PARTS[showNode.type].icon} Fly #${showNode.gid}${pinnedGid===showNode.gid?' 📌':''}</b> · Alt: <b>${alt}m</b><br>IQ: <b>${Math.round(b.iq)}</b> · HP: <b style="color:${b.hp<40?'#f43f5e':'#4ade80'}">${Math.round(b.hp)}%</b><br><i style="color:#e2e8f0">"${b.thought}"</i><br>
+      Goal (${b.wGoal.toFixed(2)})<div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,b.wGoal/1.8*100)}%;background:#4ade80"></div></div>
+      Lift Y (${b.wLift.toFixed(2)})<div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,b.wLift/1.8*100)}%;background:#fbbf24"></div></div>
+      Avoid (${b.wAvoid.toFixed(2)})<div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,b.wAvoid/1.8*100)}%;background:#f43f5e"></div></div>`;
+  } else insp.style.display = 'none';
+});
+
+window.addEventListener('mouseup', e => {
+  if (mode === 'lab' && gTool === 'weld' && weldStart !== -1) {
+    const r = canvas.getBoundingClientRect();
+    const cell = pickLabGrid(e.clientX - r.left, e.clientY - r.top);
+    if (cell) {
+      const endIdx = gNodes.findIndex(n => n.gx === cell.gx && n.gy === cell.gy && n.gz === cell.gz);
+      if (endIdx !== -1 && endIdx !== weldStart) { addLabWeld(weldStart, endIdx); saveState(); }
+    }
+  }
+  dragging = false; weldStart = -1;
+});
+
+// --- 3D SIMULATION ---
+let simTick = 0, simTime = 0, opticRays = {};
+function stepArena(dt = 1) {
+  simTick++;
+  const prevTime = simTime;
+  simTime += dt;
+  const everyTicks = n => Math.floor(simTime / n) > Math.floor(prevTime / n);
+  const pow = parseFloat(document.getElementById('sPow').value);
+  const lr = parseFloat(document.getElementById('sLR').value);
+  const autoEvo = document.getElementById('chkAutoEvo').checked;
+
+  // Move dynamic hazards
+  for (const h of hazards) {
+    h.x += (h.vx || 0) * dt; h.y += (h.vy || 0) * dt; h.z += (h.vz || 0) * dt;
+    if (Math.abs(h.x) > ARENA_R - 40) h.vx *= -1;
+    if (Math.abs(h.z) > ARENA_R - 40) h.vz *= -1;
+    if (h.y < 35 || h.y > ARENA_H - 40) h.vy = -(h.vy || 0);
+  }
+
+  const gids = new Set();
+  const centers = {};
+  const hasPart = {};
+  for (const n of fNodes) {
+    gids.add(n.gid);
+    if (!centers[n.gid]) centers[n.gid] = { x:0, y:0, z:0, vx:0, vy:0, vz:0, yaw:0, cnt:0 };
+    const c = centers[n.gid];
+    c.x += n.x; c.y += n.y; c.z += n.z; c.vx += n.vx; c.vy += n.vy; c.vz += n.vz; c.yaw += n.yaw; c.cnt++;
+    if (!hasPart[n.gid]) hasPart[n.gid] = new Set();
+    hasPart[n.gid].add(n.type);
+  }
+
+  opticRays = {};
+  gids.forEach(gid => {
+    const c = centers[gid];
+    if (!c || !c.cnt) return;
+    c.x /= c.cnt; c.y /= c.cnt; c.z /= c.cnt; c.vx /= c.cnt; c.vy /= c.cnt; c.vz /= c.cnt; c.yaw /= c.cnt;
+    const b = fBrains[gid], hpSet = hasPart[gid];
+    if (!b) return;
+    if (hpSet.has(5)) b.wSpin *= Math.pow(0.99, dt);
+    if (hpSet.has(21) && everyTicks(50)) { b.hp = Math.min(b.maxHp, b.hp + 3); b.iq += 1; }
+    if (hpSet.has(28) && everyTicks(60)) { b.iq += 1; }
+    if (hpSet.has(30) && everyTicks(35)) {
+      const bestB = getBestFlyBrain();
+      if (bestB && bestB !== b) {
+        b.wGoal += (bestB.wGoal - b.wGoal) * 0.05;
+        b.wLift += (bestB.wLift - b.wLift) * 0.05;
+        b.wAvoid += (bestB.wAvoid - b.wAvoid) * 0.05;
+      }
+    }
+    if (hpSet.has(43) && everyTicks(45)) {
+      for (const hz of hazards) {
+        const d = Math.hypot(hz.x - c.x, hz.y - c.y, hz.z - c.z);
+        if (d < 140 && d > 1) {
+          hz.vx = (hz.x - c.x)/d * 2.8; hz.vz = (hz.z - c.z)/d * 2.8;
+          b.iq += 20;
+          fx.push({ x:hz.x, y:hz.y, z:hz.z, r:8, maxR:42, color:'#ef4444', alpha:0.95, text:'ZAP +20' });
+          break;
+        }
+      }
+    }
+    if (hpSet.has(46) && everyTicks(80)) { b.iq += 5; }
+    if (hpSet.has(48)) { b.wGoal = Math.max(0.75, b.wGoal); b.wLift = Math.max(0.75, b.wLift); b.wAvoid = Math.max(0.75, b.wAvoid); }
+    if (hpSet.has(64) && everyTicks(40)) { b.hp = Math.min(b.maxHp, b.hp + 8); }
+    if (hpSet.has(66) && everyTicks(70)) { b.iq += 5; }
+    if (hpSet.has(47)) {
+      for (const ogid of gids) {
+        if (ogid !== gid && fBrains[ogid] && fBrains[ogid].iq > b.iq && centers[ogid]) {
+          if (Math.hypot(centers[ogid].x - c.x, centers[ogid].y - c.y, centers[ogid].z - c.z) < 250) {
+            b.wGoal += (fBrains[ogid].wGoal - b.wGoal) * 0.04 * dt;
+            b.wLift += (fBrains[ogid].wLift - b.wLift) * 0.04 * dt;
+          }
+        }
+      }
+    }
+    if (hpSet.has(69) && everyTicks(70)) {
+      fx.push({ x:c.x, y:c.y, z:c.z, r:12, maxR:160, color:'#ec4899', alpha:0.85 });
+      for (const hz of hazards) {
+        const d = Math.hypot(hz.x - c.x, hz.y - c.y, hz.z - c.z);
+        if (d < 160 && d > 1) { hz.vx = (hz.x - c.x)/d * 3.2; hz.vz = (hz.z - c.z)/d * 3.2; }
+      }
+    }
+    if (hpSet.has(75) && everyTicks(40)) {
+      for (const hz of hazards) {
+        const d = Math.hypot(hz.x - c.x, hz.y - c.y, hz.z - c.z);
+        if (d < 220 && d > 1) {
+          hz.vx = (hz.x - c.x)/d * 3.8; hz.vz = (hz.z - c.z)/d * 3.8; b.iq += 25;
+          fx.push({ x:hz.x, y:hz.y, z:hz.z, r:8, maxR:48, color:'#fde047', alpha:0.95, text:'🧀 +25' });
+          break;
+        }
+      }
+    }
+    if (hpSet.has(79) && everyTicks(65)) {
+      fx.push({ x:c.x, y:c.y, z:c.z, r:14, maxR:150, color:'#a855f7', alpha:0.9, text:'🎸 BASS' });
+      for (const hz of hazards) {
+        const d = Math.hypot(hz.x - c.x, hz.y - c.y, hz.z - c.z);
+        if (d < 150 && d > 1) { hz.vx = (hz.x - c.x)/d * 3.6; hz.vz = (hz.z - c.z)/d * 3.6; }
+      }
+    }
+    if (hpSet.has(82) && everyTicks(45)) { b.hp = Math.min(b.maxHp, b.hp + 5); b.iq += 2; }
+    b.center = { x: c.x, y: c.y, z: c.z, yaw: Math.hypot(c.vx, c.vz) > 0.25 ? Math.atan2(c.vz, c.vx) : c.yaw, pitch: Math.max(-0.55, Math.min(0.55, c.vy * 0.08)), hasPart: hpSet };
+
+    // 3D Sensor Sweep (Sugar GRN + UV + Ring-Seeker + Humidity + Ocellus + LC9 + LC4 + Thermal + Sonar + Pillars + Bounds)
+    const range = hpSet.has(31) ? 620 : (hpSet.has(9) ? 580 : (hpSet.has(52) ? 520 : (hpSet.has(50) ? 500 : (hpSet.has(7) ? 480 : 320))));
+    const hazRange = hpSet.has(32) ? 320 : (hpSet.has(8) ? 260 : 170);
+    let gx = 0, gy = 0, gz = 0, tx = null, ty = null, tz = null, bestD = range;
+    if (hpSet.has(67) && rings.length > 0) {
+      let rBest = 650;
+      for (const rg of rings) {
+        const d = Math.hypot(rg.x - c.x, rg.y - c.y, rg.z - c.z);
+        if (d < rBest && d > 1) { rBest = d; bestD = d; gx = (rg.x - c.x)/d; gy = (rg.y - c.y)/d; gz = (rg.z - c.z)/d; tx = rg.x; ty = rg.y; tz = rg.z; }
+      }
+    }
+    if (tx === null) {
+      for (const nc of nectars) {
+        const d = Math.hypot(nc.x - c.x, nc.y - c.y, nc.z - c.z);
+        if (d < bestD && d > 1) { bestD = d; gx = (nc.x - c.x)/d; gy = (nc.y - c.y)/d; gz = (nc.z - c.z)/d; tx = nc.x; ty = nc.y; tz = nc.z; }
+      }
+    }
+    if (tx === null && rings.length > 0) {
+      for (const rg of rings) {
+        const d = Math.hypot(rg.x - c.x, rg.y - c.y, rg.z - c.z);
+        if (d < bestD && d > 1) { bestD = d; gx = (rg.x - c.x)/d; gy = (rg.y - c.y)/d; gz = (rg.z - c.z)/d; tx = rg.x; ty = rg.y; tz = rg.z; }
+      }
+    }
+    if (hpSet.has(10) || hpSet.has(50)) {
+      if (tx !== null) { b.memX = tx; b.memY = ty; b.memZ = tz; }
+      else if (b.memX || b.memY || b.memZ) {
+        const md = Math.hypot(b.memX - c.x, b.memY - c.y, b.memZ - c.z);
+        if (md > 30) { gx = (b.memX-c.x)/md; gy = (b.memY-c.y)/md; gz = (b.memZ-c.z)/md; tx = b.memX; ty = b.memY; tz = b.memZ; bestD = md; }
+      }
+    }
+
+    let ax = 0, ay = 0, az = 0, obsCount = 0;
+    for (const hz of hazards) {
+      const lead = hpSet.has(29) ? 8 : 0;
+      const hx = hz.x + (hz.vx || 0) * lead, hy = hz.y + (hz.vy || 0) * lead, hz_ = hz.z + (hz.vz || 0) * lead;
+      const d = Math.hypot(hx - c.x, hy - c.y, hz_ - c.z);
+      if (d < hazRange && d > 1) {
+        obsCount++;
+        const s = (1 - d / hazRange) * 1.4;
+        ax += (c.x - hx)/d * s; ay += (c.y - hy)/d * s + 0.35; az += (c.z - hz_)/d * s;
+      }
+    }
+    const pilPad = hpSet.has(51) ? 140 : 95;
+    for (const pl of pillars) {
+      if (c.y < pl.h + 30) {
+        const d = Math.hypot(pl.x - c.x, pl.z - c.z);
+        const pr = pl.r + pilPad;
+        if (d < pr && d > 1) {
+          obsCount++;
+          const s = (1 - d / pr) * 1.3;
+          ax += (c.x - pl.x)/d * s; az += (c.z - pl.z)/d * s;
+          if (c.y > pl.h - 45) ay += 0.6;
+        }
+      }
+    }
+    if (hpSet.has(33)) {
+      const radD = Math.hypot(c.x, c.z);
+      if (radD > 360) { ax -= (c.x / radD) * 0.45; az -= (c.z / radD) * 0.45; }
+    }
+    const pad = 90;
+    if (c.x < -ARENA_R + pad) ax += (-ARENA_R + pad - c.x) / pad;
+    if (c.x >  ARENA_R - pad) ax -= (c.x - (ARENA_R - pad)) / pad;
+    if (c.z < -ARENA_R + pad) az += (-ARENA_R + pad - c.z) / pad;
+    if (c.z >  ARENA_R - pad) az -= (c.z - (ARENA_R - pad)) / pad;
+    const minAlt = hpSet.has(11) ? 50 : 32;
+    if (c.y < minAlt) ay += (minAlt - c.y) / minAlt * 1.4;
+    if (c.y > ARENA_H - 45) ay -= (c.y - (ARENA_H - 45)) / 45 * 1.2;
+
+    opticRays[gid] = { sx:c.x, sy:c.y, sz:c.z, gx, gy, gz, tx, ty, tz, ax, ay, az, bestD, range, obsCount };
+
+    if (hpSet.has(0) && b.fly) {
+      const f = b.fly;
+      const sugarIn = tx !== null ? Math.max(0.2, 1 - bestD / range) : 0;
+      const lc4In = Math.min(1, Math.hypot(ax, ay, az));
+      const mbGain = hpSet.has(1) ? 1.7 : 1.0;
+      const a = 0.85 * dt;
+      const goalYaw = tx !== null ? Math.atan2(gz, gx) : c.yaw;
+      const yawErr = Math.sin(goalYaw - c.yaw);
+      f.sugar = (1 - a) * f.sugar + a * Math.tanh(sugarIn * 1.6);
+      f.lc4   = (1 - a) * f.lc4   + a * Math.tanh(lc4In * 1.8);
+      f.lc9   = (1 - a) * f.lc9   + a * Math.tanh(0.4 + sugarIn * 0.9 - lc4In * 0.4);
+      f.mb    = (1 - a) * f.mb    + a * Math.tanh((f.sugar * 1.1 + f.lc9 * 0.7 - f.lc4 * 0.9) * mbGain);
+      f.dnaL  = (1 - a) * f.dnaL  + a * Math.tanh(f.mb * 0.75 + Math.max(0, -yawErr) * 0.8 - f.lc4 * 0.4);
+      f.dnaR  = (1 - a) * f.dnaR  + a * Math.tanh(f.mb * 0.75 + Math.max(0,  yawErr) * 0.8 - f.lc4 * 0.4);
+      f.lift  = (1 - a) * f.lift  + a * Math.tanh((gy * 1.4 + ay * 1.1) * (hpSet.has(15) ? 1.45 : 1.0));
+      f.dnp   = (1 - a) * f.dnp   + a * Math.tanh(f.lc4 * 1.7 - f.sugar * 0.5);
+      f.state = f.dnp > 0.45 ? 'ESCAPING' : (Math.abs(f.lift) > 0.42 ? (f.lift > 0 ? 'CLIMBING' : 'DIVING') : (f.sugar > 0.35 ? 'FEEDING' : 'FORAGING'));
+      b.wGoal = Math.max(0.45, Math.min(1.8, 0.85 + f.mb * 0.55));
+      b.wAvoid = Math.max(0.5, Math.min(1.8, 0.85 + f.dnp * 0.75));
+      b.wLift = Math.max(0.45, Math.min(1.8, 0.85 + Math.abs(f.lift) * 0.6));
+    }
+
+    if ((!b.thoughtTimer || b.thoughtTimer <= 0) && everyTicks(35)) {
+      const alt = Math.round(c.y);
+      if (b.inert) b.thought = 'No MaleCNS Brain installed.';
+      else if (b.fly.state === 'ESCAPING') b.thought = `DNp01 escape at ${alt}m! Climbing clear of ${obsCount} hazards.`;
+      else if (tx !== null) b.thought = `Sugar GRN locked (${Math.round(bestD)}m, Y=${Math.round(ty)}m); DNb01 ${ty > c.y ? 'climbing' : 'diving'}.`;
+      else b.thought = `Cruising at ${alt}m altitude with ${obsCount} obstacles nearby.`;
+    }
+  });
+
+  for (let sub = 0; sub < 2; sub++) {
+    for (const s of fWelds) {
+      const dx = s.b.x-s.a.x, dy = s.b.y-s.a.y, dz = s.b.z-s.a.z;
+      const d = Math.hypot(dx, dy, dz) || 0.001, nx = dx/d, ny = dy/d, nz = dz/d;
+      const f = Math.max(-6, Math.min(6, (d - s.len) * 0.22)) * dt;
+      s.a.vx += nx*f; s.a.vy += ny*f; s.a.vz += nz*f;
+      s.b.vx -= nx*f; s.b.vy -= ny*f; s.b.vz -= nz*f;
+    }
+  }
+
+  for (const n of fNodes) {
+    const b = fBrains[n.gid], hpSet = hasPart[n.gid];
+    if (!b || !hpSet) continue;
+    const ptObj = PARTS[n.type], pCat = ptObj.cat, pShape = ptObj.shape;
+    n.wingPhase += (0.45 + Math.hypot(n.vx, n.vy, n.vz) * 0.08) * dt;
+
+    if (!b.inert && (pCat === 'wing' || pShape === 'thruster' || pShape === 'propeller' || pShape === 'cape')) {
+      const sv = opticRays[n.gid] || { gx:0, gy:0, gz:0, ax:0, ay:0, az:0, tx:null, bestD:999 };
+      const octM = (hpSet.has(4) && sv.tx !== null) ? 1.25 : 1.0;
+      const adrM = (hpSet.has(49) && b.hp < 50) ? 1.35 : 1.0;
+      const capeM = hpSet.has(77) ? 1.2 : 1.0;
+      const thorM = (hpSet.has(72) ? 1.45 : (hpSet.has(35) ? 1.4 : (hpSet.has(16) ? 1.3 : 1.0))) * adrM * capeM;
+      const liftM = (n.type === 15 ? 1.45 : 1.0) * (hpSet.has(74) ? 1.5 : 1.0) * (hpSet.has(14) ? 1.2 : 1.0) * (hpSet.has(35) ? 1.25 : 1.0) * (hpSet.has(57) ? 1.25 : 1.0);
+      const diveM = (hpSet.has(37) && sv.gy < -0.15) ? 1.5 : 1.0;
+      const cxM = (hpSet.has(2) ? 0.35 : 1.0) * (hpSet.has(40) ? 0.3 : 1.0);
+      const fovealM = (hpSet.has(54) && sv.bestD < 200) ? 0.5 : 1.0;
+      const shortM = hpSet.has(45) ? 1.3 : 1.0;
+      if (b.fly) n.yaw += (b.fly.dnaR - b.fly.dnaL) * (hpSet.has(14) ? 0.16 : 0.11) * shortM * dt;
+      n.yaw += (b.wSpin * cxM + (Math.random()-0.5) * b.wWander * 0.18 * cxM * fovealM) * dt;
+
+      const thermalUp = (currentArena === 'thermals' ? 0.16 : 0) + (hpSet.has(34) ? 0.08 : 0) + (hpSet.has(53) ? 0.07 : 0);
+      let fx_ = sv.gx * b.wGoal + sv.ax * b.wAvoid + Math.cos(n.yaw) * b.wWander * 0.45 * fovealM;
+      let fy_ = sv.gy * b.wLift * (hpSet.has(52) ? 1.2 : 1.0) * diveM + sv.ay * b.wAvoid * (hpSet.has(57) ? 1.2 : 1.0) + Math.sin(simTime * 0.05) * 0.12 + thermalUp;
+      let fz_ = sv.gz * b.wGoal + sv.az * b.wAvoid + Math.sin(n.yaw) * b.wWander * 0.45 * fovealM;
+
+      if (hpSet.has(58) && Math.hypot(sv.ax, sv.az) > 0.35) {
+        fx_ += -sv.az * 0.7; fz_ += sv.ax * 0.7;
+      }
+
+      if (n.gid === pinnedGid) {
+        const camForwardX = Math.sin(arenaCam.yaw), camForwardZ = Math.cos(arenaCam.yaw);
+        const camRightX = Math.cos(arenaCam.yaw), camRightZ = -Math.sin(arenaCam.yaw);
+        let mx = 0, my = 0, mz = 0;
+        if (keys['w'] || keys['arrowup'])    { mx -= camForwardX; mz -= camForwardZ; }
+        if (keys['s'] || keys['arrowdown'])  { mx += camForwardX; mz += camForwardZ; }
+        if (keys['a'] || keys['arrowleft'])  { mx -= camRightX;   mz -= camRightZ; }
+        if (keys['d'] || keys['arrowright']) { mx += camRightX;   mz += camRightZ; }
+        if (keys[' ']) my += 1.4;
+        if (keys['shift'] || keys['c']) my -= 1.4;
+        if (mx || my || mz) { fx_ = mx * 1.8; fy_ = my * 1.5; fz_ = mz * 1.8; }
+      }
+
+      const mag = Math.hypot(fx_, fy_, fz_) || 1;
+      const hoverDamp = (hpSet.has(36) && sv.bestD < 90) ? 0.65 : 1.0;
+      const thrust = pow * 0.34 * octM * thorM * hoverDamp * dt;
+      n.vx += (fx_ / mag) * thrust;
+      n.vy += (fy_ / mag) * thrust * liftM;
+      n.vz += (fz_ / mag) * thrust;
+
+      if (n.type === 18 && everyTicks(40) && sv.tx !== null) {
+        n.vx += sv.gx * 3.0; n.vy += sv.gy * 3.0; n.vz += sv.gz * 3.0;
+      }
+      if (hpSet.has(56) && n.y < 38 && everyTicks(20)) { n.vy += 3.8; }
+      if (hpSet.has(59) && n.y < 55 && n.vy < 0) { n.vy *= 0.75; }
+    }
+
+    const grabR = (hpSet.has(24) ? 28 : 16) + (hpSet.has(70) ? 14 : 0);
+    for (let i = nectars.length - 1; i >= 0; i--) {
+      const nc = nectars[i], d = Math.hypot(nc.x - n.x, nc.y - n.y, nc.z - n.z);
+      const pullR = hpSet.has(42) ? 150 : (hpSet.has(78) ? 135 : (hpSet.has(84) ? 125 : (hpSet.has(70) ? 115 : (hpSet.has(24) ? 120 : (hpSet.has(23) ? 95 : 0)))));
+      if (pullR > 0 && d < pullR && d > 1) { nc.x += (n.x-nc.x)*0.13*dt; nc.y += (n.y-nc.y)*0.13*dt; nc.z += (n.z-nc.z)*0.13*dt; }
+      if (d < n.r + nc.r + grabR) {
+        const amp = (hpSet.has(3) ? 1.25 : 1.0) * (hpSet.has(26) ? 1.2 : 1.0) * (hpSet.has(44) ? 1.25 : 1.0) * (hpSet.has(65) ? 1.15 : 1.0) * (hpSet.has(77) ? 1.2 : 1.0) * (hpSet.has(85) ? 1.15 : 1.0);
+        b.iq += Math.round(50 * amp);
+        if (hpSet.has(41)) b.hp = Math.min(b.maxHp, b.hp + 10);
+        arenaScore += Math.round(100 * amp) + (hpSet.has(23) ? 15 : 0) + (hpSet.has(26) ? 35 : 0) + (hpSet.has(41) ? 50 : 0) + (hpSet.has(65) ? 40 : 0) + (hpSet.has(76) ? 30 : 0) + (hpSet.has(85) ? 60 : 0);
+        document.getElementById('hScore').textContent = arenaScore;
+        b.wGoal = Math.min(1.8, b.wGoal + lr * 0.35);
+        b.wLift = Math.min(1.8, b.wLift + lr * 0.3);
+        fx.push({ x:nc.x, y:nc.y, z:nc.z, r:8, maxR:hpSet.has(76)?85:55, color:hpSet.has(76)?'#ec4899':'#4ade80', alpha:1, text:hpSet.has(76)?'🎉 +130!':'+100 🍯' });
+        nectars.splice(i, 1);
+        spawnNectar();
+        if (autoEvo && b.iq >= 130 && simTick - lastEvoTick >= 150 && Math.random() < 0.35) evolveAndSync(false);
+      }
+    }
+
+    const ringReach = hpSet.has(71) ? 24 : 0;
+    for (const rg of rings) {
+      const d = Math.hypot(rg.x - n.x, rg.y - n.y, rg.z - n.z);
+      if (d < rg.r + ringReach && (!rg.cd || simTime - rg.cd > 50)) {
+        rg.cd = simTime;
+        b.iq += 45; arenaScore += 150 + (hpSet.has(26) ? 35 : 0) + (hpSet.has(71) ? 30 : 0);
+        document.getElementById('hScore').textContent = arenaScore;
+        fx.push({ x:rg.x, y:rg.y, z:rg.z, r:12, maxR:75, color:'#38bdf8', alpha:1, text:'RING +150!' });
+      }
+    }
+
+    for (const hz of hazards) {
+      const d = Math.hypot(hz.x - n.x, hz.y - n.y, hz.z - n.z);
+      if ((hpSet.has(20) || hpSet.has(73) || hpSet.has(83)) && d < (hpSet.has(73)?140:(hpSet.has(83)?120:110)) && d > 1) {
+        const rep = hpSet.has(73) ? 1.1 : 0.7;
+        n.vx += (n.x-hz.x)/d * rep * dt; n.vy += (n.y-hz.y)/d * rep * dt; n.vz += (n.z-hz.z)/d * rep * dt;
+        if (hpSet.has(73) || hpSet.has(83)) { hz.vx = (hz.x-n.x)/d*1.8; hz.vz = (hz.z-n.z)/d*1.8; }
+      }
+      const effHzR = hz.r * (hpSet.has(55) ? 0.65 : 1.0) * (hpSet.has(80) ? 0.7 : 1.0);
+      if (d < n.r + effHzR) {
+        if (hpSet.has(39)) {
+          for (const h2 of hazards) { const hd = Math.hypot(h2.x-n.x, h2.y-n.y, h2.z-n.z); if (hd < 130 && hd > 1) { h2.vx = (h2.x-n.x)/hd*2.5; h2.vz = (h2.z-n.z)/hd*2.5; } }
+        }
+        if (hpSet.has(61) || hpSet.has(70)) { hz.vx = (hz.x-n.x)/(d||1)*3.2; hz.vz = (hz.z-n.z)/(d||1)*3.2; }
+        if (hpSet.has(62)) { hz.vx = (hz.x-n.x)/(d||1)*2.0; hz.vz = (hz.z-n.z)/(d||1)*2.0; b.iq += 10; }
+        if ((hpSet.has(38) && Math.random() < 0.5) || (hpSet.has(63) && Math.random() < 0.4)) {
+          fx.push({ x:n.x, y:n.y, z:n.z, r:8, maxR:34, color:'#cbd5e1', alpha:0.9 });
+          continue;
+        }
+        const kb = hpSet.has(60) ? 0.4 : (hpSet.has(22) ? 0.35 : 1.0);
+        n.vx += (n.x-hz.x)/(d||1) * 4.5 * kb; n.vy += (n.y-hz.y)/(d||1) * 4.5 * kb; n.vz += (n.z-hz.z)/(d||1) * 4.5 * kb;
+        if (!hpSet.has(19)) {
+          const dmgScale = hpSet.has(60) ? 0.4 : 1.0;
+          b.iq = Math.max(-50, b.iq - 12 * dmgScale);
+          b.hp = Math.max(0, b.hp - 5 * dmgScale);
+          b.wAvoid = Math.min(1.8, b.wAvoid + lr * 0.45);
+          fx.push({ x:n.x, y:n.y, z:n.z, r:8, maxR:36, color:'#f43f5e', alpha:1 });
+        }
+      }
+    }
+
+    for (const pl of pillars) {
+      if (n.y < pl.h + n.r) {
+        const d = Math.hypot(n.x - pl.x, n.z - pl.z);
+        if (d < n.r + pl.r && d > 0.01) {
+          const nx = (n.x - pl.x) / d, nz = (n.z - pl.z) / d;
+          n.x = pl.x + nx * (n.r + pl.r); n.z = pl.z + nz * (n.r + pl.r);
+          const kb = hpSet.has(68) ? 0.25 : (hpSet.has(22) ? 0.35 : 1.0);
+          n.vx += nx * 1.4 * kb; n.vz += nz * 1.4 * kb;
+          if (hpSet.has(27)) b.iq += 1;
+        }
+      }
+    }
+
+    const drag = Math.pow(hpSet.has(34) ? 0.965 : (hpSet.has(17) ? 0.96 : 0.925), dt);
+    n.vx *= drag; n.vy *= drag; n.vz *= drag;
+    const maxS = hpSet.has(72) ? 12.2 : (hpSet.has(35) ? 11.5 : (hpSet.has(16) ? 10.5 : 8.2));
+    const spd = Math.hypot(n.vx, n.vy, n.vz);
+    if (spd > maxS) { n.vx = n.vx/spd*maxS; n.vy = n.vy/spd*maxS; n.vz = n.vz/spd*maxS; }
+    n.x += n.vx * dt; n.y += n.vy * dt; n.z += n.vz * dt;
+
+    if (n.x < -ARENA_R) { n.x = -ARENA_R; n.vx = Math.abs(n.vx)*0.6; }
+    if (n.x >  ARENA_R) { n.x =  ARENA_R; n.vx = -Math.abs(n.vx)*0.6; }
+    if (n.z < -ARENA_R) { n.z = -ARENA_R; n.vz = Math.abs(n.vz)*0.6; }
+    if (n.z >  ARENA_R) { n.z =  ARENA_R; n.vz = -Math.abs(n.vz)*0.6; }
+    if (n.y < 14) { n.y = 14; n.vy = hpSet.has(81) ? 5.2 : Math.abs(n.vy) * (hpSet.has(27) ? 0.85 : 0.45); }
+    if (n.y > ARENA_H) { n.y = ARENA_H; n.vy = -Math.abs(n.vy)*0.5; }
+  }
+
+  for (let i = fx.length - 1; i >= 0; i--) { fx[i].r += 2.2*dt; fx[i].alpha -= 0.045*dt; if (fx[i].alpha <= 0 || fx[i].r > fx[i].maxR) fx.splice(i, 1); }
+
+  // Camera follow
+  if (camMode === 'chase' && pinnedGid && centers[pinnedGid]) {
+    const c = centers[pinnedGid];
+    arenaCam.tx += (c.x - arenaCam.tx) * 0.14;
+    arenaCam.ty += (c.y - arenaCam.ty) * 0.14;
+    arenaCam.tz += (c.z - arenaCam.tz) * 0.14;
+    if (!dragging) {
+      const desiredYaw = -c.yaw + Math.PI / 2;
+      const diff = Math.atan2(Math.sin(desiredYaw - arenaCam.targetYaw), Math.cos(desiredYaw - arenaCam.targetYaw));
+      arenaCam.targetYaw += diff * 0.04;
+    }
+  } else if (camMode === 'top') {
+    arenaCam.targetPitch = 1.44; arenaCam.tx *= 0.9; arenaCam.ty *= 0.9; arenaCam.tz *= 0.9;
+  } else {
+    arenaCam.tx *= 0.92; arenaCam.ty += (110 - arenaCam.ty)*0.08; arenaCam.tz *= 0.92;
+  }
+
+  const best = getBestFlyBrain();
+  document.getElementById('hFlies').textContent = gids.size;
+  document.getElementById('hIQ').textContent = best ? Math.round(best.iq) : 0;
+  const pC = pinnedGid && centers[pinnedGid];
+  document.getElementById('hAlt').textContent = (pC ? Math.round(pC.y) : 0) + 'm';
+}
+
+// --- 3D FLY BODY & 3D PART MODEL HELPERS ---
+function flyToWorld3D(lx, ly, lz, cx, cy, cz, yaw, pitch) {
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const x1 = lx * cp - ly * sp, y1 = lx * sp + ly * cp, z1 = lz;
+  const cyw = Math.cos(yaw), syw = Math.sin(yaw);
+  return { x: cx + x1 * cyw - z1 * syw, y: cy + y1, z: cz + x1 * syw + z1 * cyw };
+}
+
+function drawFlyBody3D(cx, cy, cz, yaw, pitch, cam, fov, bodyScale, hasPartSet, isPinned, wingPhase, isLab) {
+  const pt3 = (lx, ly, lz) => {
+    const w = flyToWorld3D(lx * bodyScale, ly * bodyScale, lz * bodyScale, cx, cy, cz, yaw, pitch);
+    return project3D(w.x, w.y, w.z, cam, fov);
+  };
+  if (!isLab) {
+    const pCen = project3D(cx, cy, cz, cam, fov);
+    const pSh = project3D(cx, 0, cz, cam, fov);
+    if (pCen && pSh) {
+      ctx.beginPath(); ctx.moveTo(pCen.sx, pCen.sy); ctx.lineTo(pSh.sx, pSh.sy);
+      ctx.strokeStyle = isPinned ? 'rgba(56,189,248,0.35)' : 'rgba(251,191,36,0.22)';
+      ctx.lineWidth = 1.2; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.ellipse(pSh.sx, pSh.sy, 22 * pSh.scale, 9 * pSh.scale, 0, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fill();
+    }
+  }
+  for (const side of [-1, 1]) {
+    for (const lx of [-0.6, 0.1, 0.7]) {
+      const p0 = pt3(lx*10, -2, side*8);
+      const p1 = pt3(lx*12, -13, side*20);
+      const p2 = pt3(lx*14, -22, side*24);
+      if (p0 && p1 && p2) {
+        ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy);
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = Math.max(1.2, 2.2 * p0.scale); ctx.stroke();
+      }
+    }
+  }
+  const segs = [
+    { lx: -24, ly: -1, lz: 0, rx: 16, ry: 12, col: '#b45309', stripe: true },
+    { lx: -34, ly: -3, lz: 0, rx: 11, ry: 9,  col: '#78350f', stripe: true },
+    { lx:   0, ly:  0, lz: 0, rx: 14, ry: 13, col: '#d97706', stripe: false },
+    { lx:  18, ly:  3, lz: 0, rx: 10, ry: 10, col: '#f59e0b', stripe: false, isHead: true }
+  ].map(s => ({ ...s, p: pt3(s.lx, s.ly, s.lz) })).filter(s => s.p).sort((a, b) => b.p.depth - a.p.depth);
+
+  for (const s of segs) {
+    const r = s.rx * s.p.scale * bodyScale;
+    const ry = s.ry * s.p.scale * bodyScale;
+    ctx.beginPath(); ctx.ellipse(s.p.sx, s.p.sy, r, ry, 0, 0, Math.PI*2);
+    ctx.fillStyle = s.col; ctx.fill();
+    ctx.strokeStyle = isPinned ? '#38bdf8' : '#fef3c7'; ctx.lineWidth = isPinned ? 2 : 1.2; ctx.stroke();
+    if (s.stripe) {
+      ctx.beginPath(); ctx.ellipse(s.p.sx, s.p.sy, r*0.55, ry*0.92, 0, 0, Math.PI*2);
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = Math.max(1.5, r*0.22); ctx.stroke();
+    }
+    if (s.isHead) {
+      for (const side of [-1, 1]) {
+        const pe = pt3(22, 5, side * 8);
+        if (pe) {
+          const er = 5.8 * pe.scale * bodyScale;
+          ctx.beginPath(); ctx.arc(pe.sx, pe.sy, er, 0, Math.PI*2);
+          ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.strokeStyle = '#fecaca'; ctx.lineWidth = 1; ctx.stroke();
+          ctx.beginPath(); ctx.arc(pe.sx - er*0.25, pe.sy - er*0.25, er*0.32, 0, Math.PI*2);
+          ctx.fillStyle = '#fff'; ctx.fill();
+        }
+      }
+      if (hasPartSet && hasPartSet.has(85)) {
+        const pc = pt3(18, 16, 0);
+        if (pc) {
+          const cr = 7 * pc.scale * bodyScale;
+          ctx.beginPath();
+          ctx.moveTo(pc.sx - cr, pc.sy + cr*0.4); ctx.lineTo(pc.sx - cr, pc.sy - cr*0.6);
+          ctx.lineTo(pc.sx - cr*0.3, pc.sy); ctx.lineTo(pc.sx, pc.sy - cr*0.8);
+          ctx.lineTo(pc.sx + cr*0.3, pc.sy); ctx.lineTo(pc.sx + cr, pc.sy - cr*0.6);
+          ctx.lineTo(pc.sx + cr, pc.sy + cr*0.4); ctx.closePath();
+          ctx.fillStyle = '#facc15'; ctx.fill(); ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 1.2; ctx.stroke();
+        }
+      }
+    }
+  }
+  if (hasPartSet && hasPartSet.has(77)) {
+    const wave = Math.sin(wingPhase * 0.6) * 6;
+    const c0 = pt3(-2, 10, -9), c1 = pt3(-2, 10, 9);
+    const c2 = pt3(-42, 6 + wave, 14), c3 = pt3(-42, 6 - wave, -14);
+    if (c0 && c1 && c2 && c3) {
+      ctx.beginPath(); ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(c2.sx, c2.sy); ctx.lineTo(c3.sx, c3.sy); ctx.closePath();
+      ctx.fillStyle = 'rgba(239,68,68,0.82)'; ctx.fill(); ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+  }
+}
+
+function drawPartModel3D(pt, wx, wy, wz, gzSide, yaw, pitch, cam, fov, wingPhase, isLab, isWeldSel) {
+  const p = project3D(wx, wy, wz, cam, fov);
+  if (!p) return;
+  const sc = p.scale * (isLab ? 1.35 : 1.15);
+  const rad = pt.r * sc;
+  const ptOff = (lx, ly, lz) => {
+    const w = flyToWorld3D(lx, ly, lz, wx, wy, wz, yaw, pitch);
+    return project3D(w.x, w.y, w.z, cam, fov);
+  };
+
+  if (pt.shape === 'wing') {
+    const flap = Math.sin(wingPhase) * 18;
+    const side = gzSide < 0 ? -1 : (gzSide > 0 ? 1 : (Math.sin(wingPhase) > 0 ? 1 : -1));
+    const p1 = ptOff(6, 4 + flap*0.4, side*10), p2 = ptOff(-18, 12 + flap, side*36), p3 = ptOff(-28, 4 + flap*0.6, side*22);
+    if (p1 && p2 && p3) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.quadraticCurveTo(p1.sx, p1.sy, p2.sx, p2.sy); ctx.quadraticCurveTo(p3.sx, p3.sy, p.sx, p.sy);
+      ctx.fillStyle = pt.color + '55'; ctx.fill(); ctx.strokeStyle = '#bae6fd'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(p2.sx, p2.sy); ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+  } else if (pt.shape === 'thruster') {
+    const pBack = ptOff(-18, 0, 0), pTip = ptOff(-30 - (isLab ? 0 : Math.random()*12), (Math.random()-0.5)*3, 0);
+    if (pBack) {
+      ctx.beginPath(); ctx.moveTo(p.sx - rad*0.3, p.sy - rad*0.5); ctx.lineTo(p.sx + rad*0.3, p.sy + rad*0.5);
+      ctx.lineTo(pBack.sx + rad*0.5, pBack.sy + rad*0.5); ctx.lineTo(pBack.sx - rad*0.5, pBack.sy - rad*0.5); ctx.closePath();
+      ctx.fillStyle = '#475569'; ctx.fill(); ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.4; ctx.stroke();
+      if (pTip) {
+        ctx.beginPath(); ctx.moveTo(pBack.sx, pBack.sy - rad*0.45); ctx.lineTo(pTip.sx, pTip.sy); ctx.lineTo(pBack.sx, pBack.sy + rad*0.45); ctx.closePath();
+        ctx.fillStyle = pt.id === 73 ? '#22d3ee' : '#f97316'; ctx.fill();
+      }
+    }
+  } else if (pt.shape === 'roboarm') {
+    const pinch = 0.25 + 0.25 * Math.sin(wingPhase * 0.8);
+    const side = gzSide < 0 ? -1 : 1;
+    const elb = ptOff(10, -4, side*16), hand = ptOff(24, 2, side*12);
+    if (elb && hand) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(elb.sx, elb.sy); ctx.lineTo(hand.sx, hand.sy);
+      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = Math.max(2.5, 4 * p.scale); ctx.lineCap = 'round'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(elb.sx, elb.sy, rad*0.35, 0, Math.PI*2); ctx.fillStyle = pt.color; ctx.fill();
+      const cA = ptOff(32, 6 + pinch*8, side*12), cB = ptOff(32, -4 - pinch*8, side*12);
+      if (cA && cB) {
+        ctx.beginPath(); ctx.moveTo(hand.sx, hand.sy); ctx.lineTo(cA.sx, cA.sy);
+        ctx.moveTo(hand.sx, hand.sy); ctx.lineTo(cB.sx, cB.sy);
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = Math.max(2, 3 * p.scale); ctx.stroke();
+      }
+    }
+  } else if (pt.shape === 'propeller') {
+    const mast = ptOff(0, 14, 0), ang = wingPhase * 1.4;
+    if (mast) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(mast.sx, mast.sy); ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2.5; ctx.stroke();
+      const b1 = ptOff(Math.cos(ang)*24, 14, Math.sin(ang)*24), b2 = ptOff(-Math.cos(ang)*24, 14, -Math.sin(ang)*24);
+      if (b1 && b2) {
+        ctx.beginPath(); ctx.moveTo(b1.sx, b1.sy); ctx.lineTo(b2.sx, b2.sy);
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = Math.max(2.5, 4 * p.scale); ctx.stroke();
+      }
+    }
+  } else if (pt.shape === 'cannon') {
+    const muz = ptOff(22, 2, 0);
+    if (muz) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(muz.sx, muz.sy);
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(4, 7 * p.scale); ctx.stroke();
+      ctx.beginPath(); ctx.arc(muz.sx, muz.sy, rad*0.35, 0, Math.PI*2); ctx.fillStyle = pt.color; ctx.fill();
+    }
+  } else if (pt.shape === 'haltere') {
+    const stalk = ptOff(-12, 6 + Math.sin(wingPhase*1.3)*5, (gzSide<0?-1:1)*14);
+    if (stalk) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(stalk.sx, stalk.sy); ctx.strokeStyle = '#2dd4bf'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(stalk.sx, stalk.sy, rad*0.42, 0, Math.PI*2); ctx.fillStyle = '#2dd4bf'; ctx.fill();
+    }
+  } else if (pt.shape === 'proboscis') {
+    const tip = ptOff(22, -8, 0);
+    if (tip) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(tip.sx, tip.sy);
+      ctx.strokeStyle = pt.color; ctx.lineWidth = Math.max(2, 3 * p.scale); ctx.stroke();
+      ctx.beginPath(); ctx.arc(tip.sx, tip.sy, rad*0.38, 0, Math.PI*2); ctx.fillStyle = pt.color; ctx.fill();
+    }
+  } else if (pt.shape === 'shell') {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      const hx = p.sx + Math.cos(a) * rad * 1.15, hy = p.sy + Math.sin(a) * rad * 1.15;
+      if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+    }
+    ctx.closePath(); ctx.fillStyle = pt.color + '88'; ctx.fill(); ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.6; ctx.stroke();
+  } else if (pt.shape === 'antenna') {
+    const tip = ptOff(14, 12, (gzSide<0?-1:1)*8);
+    if (tip) {
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(tip.sx, tip.sy); ctx.strokeStyle = pt.color; ctx.lineWidth = 1.8; ctx.stroke();
+      ctx.beginPath(); ctx.arc(tip.sx, tip.sy, rad*0.28, 0, Math.PI*2); ctx.fillStyle = pt.color; ctx.fill();
+    }
+  }
+
+  if (isLab) {
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, rad * 0.72, 0, Math.PI*2); ctx.fillStyle = pt.color + 'cc'; ctx.fill();
+    ctx.strokeStyle = isWeldSel ? '#38bdf8' : '#f8fafc'; ctx.lineWidth = isWeldSel ? 2.5 : 1.2; ctx.stroke();
+    if (rad > 7.5) {
+      ctx.font = `${Math.max(8, rad * 0.95)}px sans-serif`;
+      ctx.fillText(pt.icon, p.sx, p.sy + 0.5);
+    }
+  } else if (pt.shape === 'core' || pt.shape === 'lobe' || pt.shape === 'eye' || pt.shape === 'leg') {
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, rad * 0.42, 0, Math.PI*2); ctx.fillStyle = pt.color + 'bb'; ctx.fill();
+    ctx.strokeStyle = 'rgba(248,250,252,0.65)'; ctx.lineWidth = 1; ctx.stroke();
+  }
+}
+
+// --- 3D RENDERING ---
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  if (mode === 'lab') {
+    const cam = { yaw: labCam.yaw, pitch: labCam.pitch, dist: 520 / labCam.zoom, tx: 0, ty: 0, tz: 0 };
+    const grd = ctx.createRadialGradient(W/2, H/2, 40, W/2, H/2, Math.max(W,H)*0.7);
+    grd.addColorStop(0, '#0f1c33'); grd.addColorStop(1, '#070b12');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+
+    // Draw 3D grid on active labLayer
+    const ly = labLayer * 42;
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.22)'; ctx.lineWidth = 1;
+    for (let i = -3; i <= 3; i++) {
+      const a = project3D(i*42, ly, -126, cam, 560), b = project3D(i*42, ly, 126, cam, 560);
+      if (a && b) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); }
+      const c = project3D(-126, ly, i*42, cam, 560), d = project3D(126, ly, i*42, cam, 560);
+      if (c && d) { ctx.beginPath(); ctx.moveTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.stroke(); }
+    }
+    // Mirror plane indicator (gz = 0)
+    if (document.getElementById('chkMirror').checked) {
+      const m1 = project3D(-135, ly, 0, cam, 560), m2 = project3D(135, ly, 0, cam, 560);
+      if (m1 && m2) {
+        ctx.beginPath(); ctx.moveTo(m1.sx, m1.sy); ctx.lineTo(m2.sx, m2.sy);
+        ctx.strokeStyle = 'rgba(56,189,248,0.65)'; ctx.lineWidth = 2; ctx.setLineDash([6,4]); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+
+    // Actual 3D Fly Body in the Lab
+    const labSet = new Set(gNodes.map(n => n.type));
+    if (gNodes.length > 0) drawFlyBody3D(0, 0, 0, 0, 0, cam, 560, 1.85, labSet, false, Date.now() * 0.015, true);
+
+    // Welds
+    for (const [ia, ib] of gWelds) {
+      const a = gNodes[ia], b = gNodes[ib];
+      if (!a || !b) continue;
+      const pa = project3D(a.gx*42, a.gy*42, a.gz*42, cam, 560), pb = project3D(b.gx*42, b.gy*42, b.gz*42, cam, 560);
+      if (pa && pb) { ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.strokeStyle = '#64748b'; ctx.lineWidth = 3.5; ctx.stroke(); }
+    }
+
+    // Depth-sorted 3D part models
+    const sorted = gNodes.map((n, idx) => {
+      const p = project3D(n.gx*42, n.gy*42, n.gz*42, cam, 560);
+      return p ? { n, idx, p } : null;
+    }).filter(Boolean).sort((a, b) => b.p.depth - a.p.depth);
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const item of sorted) {
+      const { n, idx } = item;
+      drawPartModel3D(PARTS[n.type], n.gx*42, n.gy*42, n.gz*42, n.gz, 0, 0, cam, 560, Date.now() * 0.015, true, gTool === 'weld' && weldStart === idx);
+    }
+
+    if (labHover && gTool === 'place') {
+      const p = project3D(labHover.gx*42, labHover.gy*42, labHover.gz*42, cam, 560);
+      if (p) {
+        const pt = PARTS[selectedPart], rad = pt.r * p.scale * 1.45;
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, rad + 2, 0, Math.PI*2);
+        ctx.strokeStyle = pt.color; ctx.lineWidth = 2; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+    // 3D Orientation Axis Gizmo (bottom-right of Lab)
+    const gx0 = W - 56, gy0 = H - 56, gLen = 28;
+    const cy = Math.cos(labCam.yaw), sy = Math.sin(labCam.yaw), cp = Math.cos(labCam.pitch), sp = Math.sin(labCam.pitch);
+    const rotAxis = (ax, ay, az) => {
+      const rx = ax * cy - az * sy, rz = ax * sy + az * cy, ry = ay * cp - rz * sp;
+      return { x: gx0 + rx * gLen, y: gy0 - ry * gLen };
+    };
+    const axes = [
+      { v: rotAxis(1,0,0), col:'#f43f5e', lbl:'X' },
+      { v: rotAxis(0,1,0), col:'#4ade80', lbl:'Y' },
+      { v: rotAxis(0,0,1), col:'#38bdf8', lbl:'Z' }
+    ];
+    ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    axes.forEach(a => {
+      ctx.beginPath(); ctx.moveTo(gx0, gy0); ctx.lineTo(a.v.x, a.v.y);
+      ctx.strokeStyle = a.col; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = a.col; ctx.fillText(a.lbl, a.v.x + (a.v.x - gx0)*0.25, a.v.y + (a.v.y - gy0)*0.25);
+    });
+    return;
+  }
+
+  // --- 3D FLIGHT ARENA RENDER ---
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070f1e'); sky.addColorStop(0.6, '#0c1a30'); sky.addColorStop(1, '#070b12');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+  // 3D Floor Grid (Y = 0)
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)'; ctx.lineWidth = 1;
+  for (let i = -ARENA_R; i <= ARENA_R; i += 140) {
+    const a = project3D(i, 0, -ARENA_R, arenaCam), b = project3D(i, 0, ARENA_R, arenaCam);
+    if (a && b) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); }
+    const c = project3D(-ARENA_R, 0, i, arenaCam), d = project3D(ARENA_R, 0, i, arenaCam);
+    if (c && d) { ctx.beginPath(); ctx.moveTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.stroke(); }
+  }
+  // 3D Sky Ceiling Perimeter (Y = ARENA_H)
+  const cCorners = [[-ARENA_R,ARENA_H,-ARENA_R],[ARENA_R,ARENA_H,-ARENA_R],[ARENA_R,ARENA_H,ARENA_R],[-ARENA_R,ARENA_H,ARENA_R]].map(v => project3D(v[0],v[1],v[2],arenaCam));
+  if (cCorners.every(Boolean)) {
+    ctx.beginPath(); ctx.moveTo(cCorners[0].sx, cCorners[0].sy);
+    for (let i=1;i<4;i++) ctx.lineTo(cCorners[i].sx, cCorners[i].sy);
+    ctx.closePath(); ctx.strokeStyle = 'rgba(16, 185, 129, 0.2)'; ctx.setLineDash([6,6]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Optic Rays
+  if (document.getElementById('chkOptic').checked) {
+    for (const gid in opticRays) {
+      const sv = opticRays[gid], p0 = project3D(sv.sx, sv.sy, sv.sz, arenaCam);
+      if (!p0) continue;
+      if (sv.tx !== null) {
+        const pt = project3D(sv.tx, sv.ty, sv.tz, arenaCam);
+        if (pt) { ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(pt.sx, pt.sy); ctx.strokeStyle='rgba(74,222,128,0.48)'; ctx.setLineDash([5,4]); ctx.lineWidth=1.8; ctx.stroke(); ctx.setLineDash([]); }
+      }
+      if (sv.ax || sv.ay || sv.az) {
+        const pa = project3D(sv.sx + sv.ax*80, sv.sy + sv.ay*80, sv.sz + sv.az*80, arenaCam);
+        if (pa) { ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(pa.sx, pa.sy); ctx.strokeStyle='rgba(244,63,94,0.6)'; ctx.lineWidth=2; ctx.stroke(); }
+      }
+    }
+  }
+
+  // Collect all 3D drawables for painter's depth sort
+  const items = [];
+  for (const pl of pillars) {
+    const pTop = project3D(pl.x, pl.h, pl.z, arenaCam), pBot = project3D(pl.x, 0, pl.z, arenaCam);
+    if (pTop && pBot) items.push({ kind:'pillar', depth:(pTop.depth+pBot.depth)*0.5, pl, pTop, pBot });
+  }
+  for (const nc of nectars) {
+    const p = project3D(nc.x, nc.y, nc.z, arenaCam), sh = project3D(nc.x, 0, nc.z, arenaCam);
+    if (p) items.push({ kind:'nectar', depth:p.depth, nc, p, sh });
+  }
+  for (const hz of hazards) {
+    const p = project3D(hz.x, hz.y, hz.z, arenaCam), sh = project3D(hz.x, 0, hz.z, arenaCam);
+    if (p) items.push({ kind:'hazard', depth:p.depth, hz, p, sh });
+  }
+  for (const rg of rings) {
+    const p = project3D(rg.x, rg.y, rg.z, arenaCam);
+    if (p) items.push({ kind:'ring', depth:p.depth, rg, p });
+  }
+  const flyBodyCenters = {};
+  for (const n of fNodes) {
+    if (!flyBodyCenters[n.gid]) flyBodyCenters[n.gid] = { x:0, y:0, z:0, cnt:0, wp:n.wingPhase };
+    const fc = flyBodyCenters[n.gid];
+    fc.x += n.x; fc.y += n.y; fc.z += n.z; fc.cnt++;
+    const p = project3D(n.x, n.y, n.z, arenaCam);
+    if (p) items.push({ kind:'node', depth:p.depth, n });
+  }
+  for (const gid in flyBodyCenters) {
+    const fc = flyBodyCenters[gid], b = fBrains[gid];
+    if (!fc.cnt) continue;
+    const cx = b?.center?.x ?? (fc.x / fc.cnt), cy = b?.center?.y ?? (fc.y / fc.cnt), cz = b?.center?.z ?? (fc.z / fc.cnt);
+    const p = project3D(cx, cy, cz, arenaCam);
+    if (p) items.push({ kind:'flybody', depth:p.depth + 2, gid:Number(gid), cx, cy, cz, yaw:b?.center?.yaw ?? 0, pitch:b?.center?.pitch ?? 0, hasPart:b?.center?.hasPart, wp:fc.wp });
+  }
+  for (const f of fx) {
+    const p = project3D(f.x, f.y, f.z, arenaCam);
+    if (p) items.push({ kind:'fx', depth:p.depth, f, p });
+  }
+
+  items.sort((a, b) => b.depth - a.depth);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  for (const it of items) {
+    if (it.kind === 'pillar') {
+      const { pl, pTop, pBot } = it, w = pl.r * pBot.scale * 1.8;
+      ctx.beginPath(); ctx.moveTo(pBot.sx - w*0.5, pBot.sy); ctx.lineTo(pTop.sx - w*0.45, pTop.sy);
+      ctx.lineTo(pTop.sx + w*0.45, pTop.sy); ctx.lineTo(pBot.sx + w*0.5, pBot.sy); ctx.closePath();
+      ctx.fillStyle = pl.color; ctx.fill(); ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(pTop.sx, pTop.sy, w*0.45, w*0.18, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#475569'; ctx.fill(); ctx.stroke();
+    } else if (it.kind === 'nectar') {
+      const { nc, p, sh } = it, rad = nc.r * p.scale * 1.25;
+      if (sh) {
+        ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(sh.sx, sh.sy);
+        ctx.strokeStyle = 'rgba(74,222,128,0.18)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.ellipse(sh.sx, sh.sy, rad*0.7, rad*0.3, 0, 0, Math.PI*2); ctx.fillStyle='rgba(74,222,128,0.22)'; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, rad + 4, 0, Math.PI*2); ctx.fillStyle='rgba(74,222,128,0.22)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, Math.PI*2); ctx.fillStyle='#4ade80'; ctx.fill();
+      ctx.strokeStyle='#bbf7d0'; ctx.lineWidth=1.5; ctx.stroke();
+    } else if (it.kind === 'hazard') {
+      const { hz, p, sh } = it, rad = hz.r * p.scale * 1.2;
+      if (sh) {
+        ctx.beginPath(); ctx.ellipse(sh.sx, sh.sy, rad*0.8, rad*0.32, 0, 0, Math.PI*2); ctx.fillStyle='rgba(244,63,94,0.22)'; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, Math.PI*2); ctx.fillStyle='rgba(244,63,94,0.22)'; ctx.fill();
+      ctx.strokeStyle='#f43f5e'; ctx.lineWidth=1.8; ctx.stroke();
+      for (let k = 0; k < 4; k++) {
+        const a = k * Math.PI / 4;
+        ctx.beginPath(); ctx.moveTo(p.sx - Math.cos(a)*rad, p.sy - Math.sin(a)*rad);
+        ctx.lineTo(p.sx + Math.cos(a)*rad, p.sy + Math.sin(a)*rad);
+        ctx.strokeStyle = 'rgba(251,113,133,0.45)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, rad*0.45, 0, Math.PI*2); ctx.strokeStyle='rgba(251,113,133,0.65)'; ctx.lineWidth=1.2; ctx.stroke();
+    } else if (it.kind === 'ring') {
+      const { rg, p } = it, rad = rg.r * p.scale * 1.1;
+      ctx.beginPath(); ctx.ellipse(p.sx, p.sy, rad * 0.65, rad, 0, 0, Math.PI*2);
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = Math.max(2, 4 * p.scale); ctx.stroke();
+    } else if (it.kind === 'flybody') {
+      drawFlyBody3D(it.cx, it.cy, it.cz, it.yaw, it.pitch, arenaCam, 760, 1.05, it.hasPart, pinnedGid === it.gid, it.wp, false);
+    } else if (it.kind === 'node') {
+      const { n } = it, b = fBrains[n.gid];
+      const yaw = b?.center?.yaw ?? n.yaw, pitch = b?.center?.pitch ?? 0;
+      drawPartModel3D(PARTS[n.type], n.x, n.y, n.z, n.gz, yaw, pitch, arenaCam, 760, n.wingPhase, false, false);
+    } else if (it.kind === 'fx') {
+      const { f, p } = it, rad = f.r * p.scale * 1.2;
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, Math.PI*2); ctx.strokeStyle = f.color; ctx.globalAlpha = Math.max(0, f.alpha); ctx.lineWidth = 2.2; ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function updateFlyBrainViz() {
+  const viz = document.getElementById('flyBrainViz');
+  const hasInLab = gNodes.some(n => n.type === 0);
+  let flyNode = null;
+  if (mode === 'arena') {
+    if (hoveredGid !== null) flyNode = fNodes.find(n => n.gid === hoveredGid && n.type === 0) || null;
+    if (!flyNode && pinnedGid !== null) flyNode = fNodes.find(n => n.gid === pinnedGid && n.type === 0) || null;
+    if (!flyNode) flyNode = fNodes.find(n => n.type === 0) || null;
+  }
+  const active = (mode === 'lab' && hasInLab) || (mode === 'arena' && Boolean(flyNode));
+  viz.style.display = active ? 'block' : 'none';
+  if (!active) return;
+
+  const fly = (mode === 'arena' && flyNode && fBrains[flyNode.gid]?.fly) ? fBrains[flyNode.gid].fly : { sugar:0.25, lc4:0.1, lc9:0.4, mb:0.4, dnaL:0.3, dnaR:0.35, lift:0.3, dnp:0.05, state:'READY' };
+  const pct = v => Math.max(4, Math.min(100, Math.abs(v) * 100));
+  document.getElementById('fbState').textContent = flyNode ? `#${flyNode.gid} ${fly.state}` : fly.state;
+  document.getElementById('fbState').style.color = fly.state==='ESCAPING' ? '#f43f5e' : (fly.state==='FEEDING' ? '#4ade80' : '#38bdf8');
+  document.getElementById('fbBarSugar').style.width = pct(fly.sugar) + '%';
+  document.getElementById('fbBarLC4').style.width = pct(fly.lc4) + '%';
+  document.getElementById('fbBarLift').style.width = pct(fly.lift) + '%';
+  document.getElementById('fbBarSteer').style.width = pct(Math.max(fly.dnaL, fly.dnaR)) + '%';
+  document.getElementById('fbBarEsc').style.width = pct(fly.dnp) + '%';
+  const setR = (id, v) => { const el = document.getElementById(id); if (el) el.setAttribute('r', (5.5 + Math.min(4.5, Math.abs(v) * 4.5)).toFixed(1)); };
+  setR('fbN_sugar', fly.sugar); setR('fbN_lc4', fly.lc4); setR('fbN_lc9', fly.lc9);
+  setR('fbN_mb', fly.mb + 0.3); setR('fbN_dnaL', fly.dnaL); setR('fbN_dnaR', fly.dnaR); setR('fbN_lift', fly.lift); setR('fbN_dnp', fly.dnp);
+  const setEdge = (id, v) => { const el = document.getElementById(id); if (!el) return; const m = Math.min(1, Math.abs(v)); el.setAttribute('stroke-width', (1.1 + m * 2.4).toFixed(2)); el.setAttribute('opacity', (0.25 + m * 0.72).toFixed(2)); };
+  setEdge('fbE1', fly.sugar); setEdge('fbE2', fly.lc4); setEdge('fbE3', fly.lc9);
+  setEdge('fbE4', fly.dnaL); setEdge('fbE5', fly.dnaR); setEdge('fbE6', fly.lift); setEdge('fbE7', fly.dnp);
+}
+
+let simAccum = 0;
+function loop() {
+  labCam.yaw += (labCam.targetYaw - labCam.yaw) * 0.22;
+  labCam.pitch += (labCam.targetPitch - labCam.pitch) * 0.22;
+  labCam.zoom += (labCam.targetZoom - labCam.zoom) * 0.22;
+  arenaCam.yaw += (arenaCam.targetYaw - arenaCam.yaw) * 0.18;
+  arenaCam.pitch += (arenaCam.targetPitch - arenaCam.pitch) * 0.18;
+  arenaCam.dist += (arenaCam.targetDist - arenaCam.dist) * 0.18;
+  if (mode === 'arena' && !paused) {
+    if (simSpeed < 1) { stepArena(simSpeed); updateFlyBrainViz(); }
+    else {
+      simAccum += simSpeed;
+      const steps = Math.floor(simAccum);
+      simAccum -= steps;
+      for (let s = 0; s < steps; s++) stepArena(1);
+      if (steps > 0) updateFlyBrainViz();
+    }
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// --- GUIDED TUTORIAL ---
+const TUT_STEPS = [
+  { title:'Build Your First 3D Fly!', body:'Welcome to <b>FlyLab 3D</b>! Build a Drosophila with a real MaleCNS brain and modules, then watch it control <b>height (Y)</b> and <b>3D position (X, Z)</b>!', cat:'brain', part:0, target:'#part-list' },
+  { title:'Step 1: Add the Fruit Fly Brain', body:'We selected <b>🪰 MaleCNS Connectome</b>. <b>Click the center of the 3D grid</b> to place your fly\'s brain!', cat:'brain', part:0, req:'brain', target:'#c' },
+  { title:'Step 2: Add Compound Eyes', body:'Now we selected <b>👁️ LC9 Optic Eye</b>. <b>Click in front of the brain</b> so your fly can spot 3D nectar orbs and pillars!', cat:'sensor', part:7, req:'sensor', target:'#c' },
+  { title:'Step 3: Add Wings for 3D Lift', body:'Now we selected <b>🪽 Dipteran Forewing</b>. <b>Click beside the brain</b> to add wings (Mirror adds both sides automatically)!', cat:'wing', part:13, req:'wing', target:'#c' },
+  { title:'Step 4: Launch into 3D Space!', body:'Your 3D fly is ready! Click <b>🦋 Launch 3D</b> in the top bar to drop it into the 3D flight arena.', cat:'brain', part:0, target:'.deploy' },
+  { title:'Step 5: Train & Pilot in 3D!', body:'Use <b>👍 Reward</b> / <b>👎 Punish</b> to train its 3D height & steering, right-drag to orbit 3D, or use <b>WASD + Space/Shift</b> to pilot!', cat:'brain', part:0, req:'rl', target:'[data-ft="reward"]' }
+];
+let tutIdx = 0, tutActive = false;
+function hasCatOnLab(catKey) {
+  if (catKey === 'rl') return tutRewarded;
+  return gNodes.some(n => PARTS[n.type].cat === catKey);
+}
+function updateTutPointer() {
+  document.querySelectorAll('.tut-target-ring').forEach(el => el.classList.remove('tut-target-ring'));
+  const svg = document.getElementById('tutArrowSvg'), path = document.getElementById('tutArrowPath');
+  if (!tutActive || !svg || !path) { if (svg) svg.style.display = 'none'; return; }
+  const s = TUT_STEPS[tutIdx], card = document.getElementById('tutCard'), targetEl = s?.target ? document.querySelector(s.target) : null;
+  if (!card || !targetEl) { svg.style.display = 'none'; return; }
+  const cr = card.getBoundingClientRect(), tr = targetEl.getBoundingClientRect();
+  if (!tr.width || !tr.height) { svg.style.display = 'none'; return; }
+  if (s.target !== '#c') targetEl.classList.add('tut-target-ring');
+  const tx = tr.left + tr.width * 0.5, ty = tr.top + tr.height * 0.5;
+  let sx = cr.left + cr.width * 0.5, sy = cr.bottom;
+  if (tx > cr.right + 12) { sx = cr.right; sy = cr.top + cr.height * 0.5; }
+  else if (tx < cr.left - 12) { sx = cr.left; sy = cr.top + cr.height * 0.5; }
+  else if (ty < cr.top) { sx = cr.left + cr.width * 0.5; sy = cr.top; }
+  const cx = (sx + tx) / 2, cy = Math.min(sy, ty) - 24;
+  path.setAttribute('d', `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`);
+  svg.style.display = 'block';
+}
+function renderTutStep() {
+  const s = TUT_STEPS[tutIdx];
+  document.getElementById('tutStepLabel').textContent = `Step ${tutIdx + 1} of ${TUT_STEPS.length}`;
+  document.getElementById('tutTitle').textContent = s.title;
+  document.getElementById('tutBody').innerHTML = s.body;
+  const done = s.req ? hasCatOnLab(s.req) : false;
+  document.getElementById('tutStatus').textContent = done ? '✓ Done!' : '';
+  document.getElementById('tutPrev').style.display = tutIdx === 0 ? 'none' : 'inline-block';
+  document.getElementById('tutNext').textContent = tutIdx === 0 ? 'Start Guided Build' : (tutIdx === TUT_STEPS.length - 1 ? 'Finish' : 'Next');
+  document.getElementById('tutDots').innerHTML = TUT_STEPS.map((_, i) => `<span class="tut-dot${i===tutIdx?' active':''}"></span>`).join('');
+  if (tutIdx >= 1 && tutIdx <= 3 && s.cat) {
+    Object.keys(openCats).forEach(k => openCats[k] = (k === s.cat));
+    selectedPart = s.part; setMode('lab'); renderParts();
+  } else if (tutIdx === 5 && mode !== 'arena') setMode('arena');
+  requestAnimationFrame(updateTutPointer);
+}
+function checkTutorialProgress() {
+  if (!tutActive) return;
+  const s = TUT_STEPS[tutIdx];
+  if (s && s.req && hasCatOnLab(s.req)) {
+    renderTutStep();
+    setTimeout(() => { if (tutActive && TUT_STEPS[tutIdx]?.req === s.req && hasCatOnLab(s.req)) stepTutorial(1); }, 450);
+  }
+}
+function openTutorial(force = false) {
+  if (!force && localStorage.getItem('flylab3d_tut_seen') === '1') return;
+  tutIdx = 0; tutRewarded = false; tutActive = true;
+  document.getElementById('tutOverlay').style.display = 'block';
+  renderTutStep();
+}
+function stepTutorial(dir) {
+  if (tutIdx === 0 && dir > 0) { clearLab(); setMode('lab'); }
+  tutIdx += dir;
+  if (tutIdx >= TUT_STEPS.length) { closeTutorial(); return; }
+  if (tutIdx < 0) tutIdx = 0;
+  renderTutStep();
+}
+function closeTutorial() {
+  tutActive = false; localStorage.setItem('flylab3d_tut_seen', '1');
+  document.getElementById('tutOverlay').style.display = 'none';
+  document.getElementById('tutArrowSvg').style.display = 'none';
+  document.querySelectorAll('.tut-target-ring').forEach(el => el.classList.remove('tut-target-ring'));
+}
+window.addEventListener('resize', () => { if (tutActive) updateTutPointer(); });
+
+setKnowledge('student');
+if (!loadState()) loadBlueprint('fruitfly');
+setMode('lab');
+openTutorial(false);
+loop();
+
+// === PHONE OPTIMIZED MODE + TOUCH-TO-MOUSE / PINCH-ZOOM BRIDGE ===
+(function initAppMobileMode() {
+  let mobileOverride = null;
+  function detectPhone() {
+    return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+  function applyMobileMode() {
+    const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+    document.body.classList.toggle('mobile-mode', isMob);
+    const btn = document.getElementById('btnMobileToggle');
+    if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+    window.dispatchEvent(new Event('resize'));
+  }
+  const mobBtn = document.getElementById('btnMobileToggle');
+  if (mobBtn) mobBtn.addEventListener('click', () => {
+    mobileOverride = !document.body.classList.contains('mobile-mode');
+    applyMobileMode();
+  });
+  window.addEventListener('resize', applyMobileMode);
+
+  const cv = document.getElementById('c');
+  if (cv) {
+    let lastPinchDist = 0;
+    const fireMouse = (type, t, target) => {
+      (target || cv).dispatchEvent(new MouseEvent(type, {
+        bubbles: true, cancelable: true, clientX: t.clientX, clientY: t.clientY, button: 0, buttons: type === 'mouseup' ? 0 : 1
+      }));
+    };
+    cv.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      } else if (e.touches.length === 1) {
+        fireMouse('mousedown', e.touches[0]);
+      }
+    }, { passive: false });
+    cv.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        if (lastPinchDist > 0) {
+          const deltaY = (lastPinchDist - d) * 3;
+          cv.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY }));
+        }
+        lastPinchDist = d;
+      } else if (e.touches.length === 1) {
+        fireMouse('mousemove', e.touches[0], window);
+      }
+    }, { passive: false });
+    cv.addEventListener('touchend', e => {
+      if (e.touches.length < 2) lastPinchDist = 0;
+      const t = e.changedTouches[0];
+      if (t) fireMouse('mouseup', t, window);
+    });
+  }
+  applyMobileMode();
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Physics &amp; Robotics Arcade — Game Hub</title>
+<style>
+  :root {
+    --bg: #050811;
+    --glass: rgba(15, 22, 38, 0.58);
+    --glass-strong: rgba(11, 16, 28, 0.78);
+    --glass-card: rgba(255, 255, 255, 0.045);
+    --glass-hover: rgba(255, 255, 255, 0.085);
+    --border: rgba(255, 255, 255, 0.13);
+    --border-spec: rgba(255, 255, 255, 0.26);
+    --text: #f1f5ff;
+    --muted: #94a3b8;
+    --cyan: #38bdf8;
+    --emerald: #34d399;
+    --violet: #a855f7;
+    --amber: #facc15;
+    --rose: #fb7185;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Inter, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    line-height: 1.5;
+  }
+
+  /* Ambient Liquid Glass background glow */
+  .bg-orbs {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(110px);
+    opacity: 0.34;
+    animation: floatOrb 18s ease-in-out infinite alternate;
+  }
+  .orb-1 { width: 520px; height: 520px; background: #0284c7; top: -140px; left: -100px; }
+  .orb-2 { width: 480px; height: 480px; background: #7c3aed; top: 18%; right: -120px; animation-delay: -6s; }
+  .orb-3 { width: 500px; height: 500px; background: #059669; bottom: -160px; left: 32%; animation-delay: -11s; }
+
+  @keyframes floatOrb {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(36px, -28px) scale(1.08); }
+  }
+
+  #starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 22px 64px;
+  }
+
+  /* Top Navigation Bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    border-radius: 20px;
+    background: var(--glass-strong);
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--border-spec), 0 14px 36px rgba(0, 0, 0, 0.38);
+    margin-bottom: 36px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+  }
+  .logo-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.16);
+    color: var(--cyan);
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 13px;
+    color: var(--text);
+    font-size: 13px;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .search-box:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+  }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--glass-card);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    text-decoration: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    transition: transform 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 189, 248, 0.6);
+    background: var(--glass-hover);
+  }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    color: #03101c;
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 24px rgba(56, 189, 248, 0.34);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.07);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 10px 28px rgba(56, 189, 248, 0.48);
+  }
+
+  /* Hero Section */
+  .hero {
+    text-align: center;
+    max-width: 740px;
+    margin: 0 auto 42px;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.34);
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 900;
+    letter-spacing: -1.2px;
+    line-height: 1.08;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #ffffff 0%, #bae6fd 52%, #c4b5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+
+  /* Live Hub Stats Bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 0 auto 30px;
+  }
+  .stat-card {
+    position: relative;
+    border-radius: 20px;
+    padding: 16px 20px;
+    background: var(--glass);
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--border-spec), 0 12px 30px rgba(0, 0, 0, 0.34);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 12% 0%, var(--stat-glow, rgba(56, 189, 248, 0.2)), transparent 60%);
+    pointer-events: none;
+  }
+  .stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .stat-meta {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+  }
+  .stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-value {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.6px;
+    line-height: 1.15;
+    background: linear-gradient(135deg, #ffffff 0%, #bae6fd 65%, #c4b5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-sub {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-stats-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin-bottom: 12px;
+  }
+  .card-stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.11);
+  }
+
+  /* Game Cards Grid */
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 22px;
+  }
+
+  .game-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 24px;
+    padding: 24px;
+    background: var(--glass);
+    backdrop-filter: blur(28px) saturate(185%);
+    -webkit-backdrop-filter: blur(28px) saturate(185%);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--border-spec), 0 18px 42px rgba(0, 0, 0, 0.42);
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+    overflow: hidden;
+  }
+  .game-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 18% 0%, var(--card-glow, rgba(56, 189, 248, 0.22)), transparent 58%);
+    opacity: 0.7;
+    pointer-events: none;
+    transition: opacity 0.22s;
+  }
+  .game-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--card-accent, var(--cyan));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 24px 54px rgba(0, 0, 0, 0.55), 0 0 36px var(--card-glow, rgba(56, 189, 248, 0.24));
+  }
+  .game-card:hover::before { opacity: 1; }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .game-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.14);
+    border: 1px solid rgba(34, 197, 94, 0.38);
+    color: #86efac;
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
+  }
+
+  .card-body {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-title {
+    font-size: 23px;
+    font-weight: 850;
+    letter-spacing: -0.4px;
+    margin-bottom: 4px;
+  }
+  .game-subtitle {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--card-accent, var(--cyan));
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 12px;
+  }
+  .game-desc {
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.58;
+    margin-bottom: 18px;
+  }
+
+  .feature-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 22px;
+  }
+  .chip {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+  }
+
+  .card-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+  }
+  .card-footer .launch-btn {
+    flex: 1;
+    padding: 11px 16px;
+    font-size: 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--btn-from, #38bdf8), var(--btn-to, #2563eb));
+    color: #03101a;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 24px var(--card-glow, rgba(56, 189, 248, 0.3));
+  }
+  .card-footer .launch-btn:hover { filter: brightness(1.08); }
+  .copy-btn {
+    padding: 11px 13px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .url-preview {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin-bottom: 12px;
+    opacity: 0.85;
+  }
+
+  /* About the Creator Section */
+  .creator-section {
+    margin-top: 40px;
+    position: relative;
+    border-radius: 24px;
+    padding: 28px;
+    background: var(--glass);
+    backdrop-filter: blur(28px) saturate(185%);
+    -webkit-backdrop-filter: blur(28px) saturate(185%);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--border-spec), 0 18px 42px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    overflow: hidden;
+  }
+  .creator-section::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 8% 50%, rgba(56, 189, 248, 0.16), transparent 45%),
+                radial-gradient(circle at 92% 50%, rgba(168, 85, 247, 0.15), transparent 45%);
+    pointer-events: none;
+  }
+  .creator-avatar {
+    position: relative;
+    z-index: 1;
+    width: 78px;
+    height: 78px;
+    border-radius: 22px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: #03101c;
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 55%, #c084fc 100%);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 10px 28px rgba(56, 189, 248, 0.34);
+  }
+  .creator-info {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+  }
+  .creator-kicker {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--cyan);
+    margin-bottom: 4px;
+  }
+  .creator-name {
+    font-size: 24px;
+    font-weight: 850;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .creator-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+  .creator-bio {
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.6;
+    max-width: 780px;
+  }
+  @media (max-width: 680px) {
+    .creator-section { flex-direction: column; align-items: flex-start; padding: 22px; gap: 16px; }
+  }
+
+  /* Footer Bar */
+  .footer {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .kbd {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    margin: 0 2px;
+  }
+
+  .empty-state {
+    display: none;
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(14, 22, 38, 0.88);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(56, 189, 248, 0.55);
+    color: var(--text);
+    padding: 9px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 99;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 640px) {
+    .topbar { padding: 12px 14px; }
+    .search-box { width: 100%; }
+    .topbar-actions { width: 100%; }
+  }
+
+  /* === PHONE OPTIMIZED MODE === */
+  body.mobile-mode .page { padding: 14px 12px 48px; }
+  body.mobile-mode .topbar { padding: 10px 12px; gap: 8px; margin-bottom: 20px; border-radius: 16px; }
+  body.mobile-mode .logo { font-size: 15px; width: 100%; justify-content: space-between; }
+  body.mobile-mode .topbar-actions { width: 100%; gap: 8px; }
+  body.mobile-mode .search-box { flex: 1; width: auto; min-width: 0; padding: 10px 12px; font-size: 14px; }
+  body.mobile-mode .btn { min-height: 40px; padding: 9px 13px; font-size: 13px; }
+  body.mobile-mode .hero { margin-bottom: 22px; }
+  body.mobile-mode .hero-kicker { font-size: 10.5px; padding: 5px 11px; }
+  body.mobile-mode .hero h1 { font-size: 30px; letter-spacing: -0.8px; }
+  body.mobile-mode .hero p { font-size: 14px; }
+  body.mobile-mode .stats-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
+  body.mobile-mode .stats-bar .stat-card:last-child { grid-column: 1 / -1; }
+  body.mobile-mode .stat-card { padding: 12px 13px; gap: 10px; border-radius: 16px; }
+  body.mobile-mode .stat-icon { width: 38px; height: 38px; font-size: 18px; border-radius: 11px; }
+  body.mobile-mode .stat-value { font-size: 21px; }
+  body.mobile-mode .stat-label { font-size: 9.5px; }
+  body.mobile-mode .games-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  body.mobile-mode .game-card { padding: 18px; border-radius: 20px; }
+  body.mobile-mode .game-icon { width: 48px; height: 48px; font-size: 24px; border-radius: 14px; }
+  body.mobile-mode .game-title { font-size: 20px; }
+  body.mobile-mode .card-footer .launch-btn { min-height: 46px; font-size: 15px; }
+  body.mobile-mode .copy-btn { min-height: 46px; min-width: 46px; }
+  body.mobile-mode .footer .desktop-only-hint { display: none; }
+  body.mobile-mode .creator-section { padding: 18px; gap: 14px; border-radius: 20px; margin-top: 26px; }
+  body.mobile-mode .creator-avatar { width: 60px; height: 60px; font-size: 22px; border-radius: 16px; }
+
+</style>
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <canvas id="starfield"></canvas>
+
+  <div class="page">
+    <header class="topbar">
+      <div class="logo">
+        <span>⚡ AI Physics Labs</span>
+        <span class="logo-badge">4 Live Games</span>
+      </div>
+      <div class="topbar-actions">
+        <input type="search" id="searchInput" class="search-box" placeholder="Search games or features..." aria-label="Search games" />
+        <button class="btn" id="btnMobileToggle" title="Switch Phone/Desktop Layout">📱 Phone</button>
+        <button class="btn btn-primary" id="btnRandom">🎲 Random</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-kicker">🧠 Modular AI • Real-Time Physics • Browser Sandboxes</div>
+      <h1>Build Robots. Train Brains.<br>Break Physics.</h1>
+      <p>Pick a lab below to engineer custom creatures, vehicles, and flying drones, then watch neural networks and bio-inspired brains master wild physics arenas.</p>
+    </section>
+
+    <section class="stats-bar" aria-label="Hub Live Statistics">
+      <div class="stat-card" style="--stat-glow: rgba(56, 189, 248, 0.24);">
+        <div class="stat-icon">🧩</div>
+        <div class="stat-meta">
+          <div class="stat-label">Total Parts Across All Apps</div>
+          <div class="stat-value" id="totalPartsVal">0</div>
+          <div class="stat-sub" id="totalPartsSub">Across all 4 physics labs</div>
+        </div>
+      </div>
+      <div class="stat-card" style="--stat-glow: rgba(168, 85, 247, 0.26);">
+        <div class="stat-icon">🌍</div>
+        <div class="stat-meta">
+          <div class="stat-label">Total Visits Across All Apps <span id="visitScopeBadge" style="font-size:9.5px;padding:1px 6px;border-radius:999px;background:rgba(52,211,153,0.16);color:#86efac;border:1px solid rgba(52,211,153,0.35);">LIVE</span></div>
+          <div class="stat-value" id="totalVisitsVal">—</div>
+          <div class="stat-sub" id="totalVisitsSub">Hub + game launches combined</div>
+        </div>
+      </div>
+      <div class="stat-card" style="--stat-glow: rgba(52, 211, 153, 0.22);">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-meta">
+          <div class="stat-label">Published Labs</div>
+          <div class="stat-value" id="totalAppsVal">4</div>
+          <div class="stat-sub">Browser AI &amp; Physics Sandboxes</div>
+        </div>
+      </div>
+    </section>
+
+    <main class="games-grid" id="gamesGrid"></main>
+    <div class="empty-state" id="emptyState">No games matched your search. Try clearing the filter!</div>
+
+    <section class="creator-section" aria-label="About the Creator">
+      <div class="creator-avatar">PJ</div>
+      <div class="creator-info">
+        <div class="creator-kicker">About the Creator</div>
+        <h2 class="creator-name">Parker Jennings</h2>
+        <div class="creator-pills">
+          <span class="chip">📍 Kansas City</span>
+          <span class="chip">⚡ Age 15</span>
+          <span class="chip">🧠 AI &amp; Physics Builder</span>
+        </div>
+        <p class="creator-bio">Hi, I'm Parker Jennings—a 15-year-old creator from Kansas City building interactive AI, neural network, and physics sandbox games right in the browser. Every project in this hub is designed to let you build wild machines, experiment with real-time machine learning, and see what happens when you push physics to the limit.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Created by <strong>Parker Jennings</strong> <span class="desktop-only-hint">• Press <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> to launch a game directly, or tap any card to play.</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const GAMES = [
+    {
+      key: '1',
+      slug: 'walkerlab-2d',
+      parts: 200,
+      name: 'WalkerLab 2D',
+      subtitle: 'Liquid Glass 2D Physics & Neural ML',
+      icon: '🦖',
+      url: './walkerlab-2d.html',
+      displayUrl: '/walkerlab-2d.html',
+      accent: '#38bdf8',
+      glow: 'rgba(56, 189, 248, 0.28)',
+      btnFrom: '#38bdf8',
+      btnTo: '#2563eb',
+      desc: 'Build custom 2D walkers, monster trucks, and superhero bots from 200 unique parts—including 12 true rolling wheels, Captain America’s throwable Vibranium shield, and Einstein sensor AI. Prompt custom bots with the built-in AI Robot Builder and train up to 128 neural learners at speeds up to 200x across 12 interactive maps.',
+      features: ['200 Unique Parts', '12 True Wheels', '12 Physics Maps', 'AI Robot Builder', 'Up to 200x ML']
+    },
+    {
+      key: '2',
+      slug: 'flylab-3d',
+      parts: 86,
+      name: 'FlyLab 3D',
+      subtitle: 'Drosophila Connectome & 3D Flight Arena',
+      icon: '🪰',
+      url: './flybrain-3d.html',
+      displayUrl: '/flybrain-3d.html',
+      accent: '#34d399',
+      glow: 'rgba(52, 211, 153, 0.26)',
+      btnFrom: '#34d399',
+      btnTo: '#059669',
+      desc: 'Engineer 3D flying creatures powered by a modular Drosophila fly brain. Snap on wings, thrusters, and bio-sensors in the Fly Lab, then launch into 3D space to test altitude control, obstacle navigation, and flight stability across multiple arenas with free-orbit camera and time controls.',
+      features: ['3D Flight Physics', 'Fly Brain Modules', 'Isometric & Free Cam', 'Multiple 3D Arenas', 'Time Controls']
+    },
+    {
+      key: '3',
+      slug: 'roborage',
+      parts: 450,
+      name: 'RoboRage',
+      subtitle: 'AI Robotics Garage & Testing Field',
+      icon: '🤖',
+      url: './dumbbot-academy.html',
+      displayUrl: '/dumbbot-academy.html',
+      accent: '#c084fc',
+      glow: 'rgba(168, 85, 247, 0.28)',
+      btnFrom: '#c084fc',
+      btnTo: '#7c3aed',
+      desc: 'Design chaotic modular AI robots in the Garage and drop them straight onto a live interactive Testing Field. Toggle between Arcade, ML Student, and AI Researcher modes to customize how deep the controls go while watching reinforcement learning and wild physics collide in real time.',
+      features: ['Modular Bot Garage', 'Live Testing Field', '3 Complexity Tiers', 'Reinforcement Learning', 'Instant Sandbox']
+    },
+    {
+      key: '4',
+      slug: 'orbitlab',
+      parts: 400,
+      name: 'OrbitLab',
+      subtitle: 'Blue & Purple Rocket Physics & Neural ML',
+      icon: '🚀',
+      url: './orbitlab.html',
+      displayUrl: '/orbitlab.html',
+      accent: '#8b5cf6',
+      glow: 'rgba(139, 92, 246, 0.32)',
+      btnFrom: '#60a5fa',
+      btnTo: '#8b5cf6',
+      desc: 'Engineer custom reusable rockets from 400 unique parts and 14 blueprints in the Rocket Garage, then train up to 256 neural rockets simultaneously at up to 200x speed across 12 worlds—from Earth and Ocean Barges to Io Lava Geysers, Europa Ice, and Black Hole Horizons.',
+      features: ['400 Rocket Parts', '12 Worlds & 4 Missions', 'Up to 256 Rockets', 'Live Neural Map', 'AI Rocket Builder']
+    }
+  ];
+
+  const grid = document.getElementById('gamesGrid');
+  const emptyState = document.getElementById('emptyState');
+  const searchInput = document.getElementById('searchInput');
+  const toastEl = document.getElementById('toast');
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastEl._tid);
+    toastEl._tid = setTimeout(() => toastEl.classList.remove('show'), 2000);
+  }
+
+  function renderGames(filter = '') {
+    const q = filter.trim().toLowerCase();
+    const list = GAMES.filter(g => {
+      if (!q) return true;
+      return (
+        g.name.toLowerCase().includes(q) ||
+        g.subtitle.toLowerCase().includes(q) ||
+        g.desc.toLowerCase().includes(q) ||
+        g.features.some(f => f.toLowerCase().includes(q))
+      );
+    });
+
+    grid.innerHTML = '';
+    emptyState.style.display = list.length === 0 ? 'block' : 'none';
+
+    list.forEach(g => {
+      const card = document.createElement('article');
+      card.className = 'game-card';
+      card.style.setProperty('--card-accent', g.accent);
+      card.style.setProperty('--card-glow', g.glow);
+      card.style.setProperty('--btn-from', g.btnFrom);
+      card.style.setProperty('--btn-to', g.btnTo);
+
+      card.innerHTML = `
+        <div class="card-header">
+          <div class="game-icon">${g.icon}</div>
+          <span class="status-pill"><span class="status-dot"></span>LIVE</span>
+        </div>
+        <div class="card-body">
+          <h2 class="game-title">${g.name}</h2>
+          <div class="game-subtitle">${g.subtitle}</div>
+          <div class="url-preview">${g.displayUrl}</div>
+          <div class="card-stats-row">
+            <span class="card-stat-pill">🧩 ${g.parts.toLocaleString()} Parts</span>
+            <span class="card-stat-pill">👁️ <span class="card-visit-count" data-slug="${g.slug}">${(appVisits[g.slug] || 0).toLocaleString()}</span> Visits</span>
+          </div>
+          <p class="game-desc">${g.desc}</p>
+          <div class="feature-chips">
+            ${g.features.map(f => `<span class="chip">${f}</span>`).join('')}
+          </div>
+        </div>
+        <div class="card-footer">
+          <a class="btn launch-btn" href="${g.url}" target="_blank" rel="noopener noreferrer">
+            ▶ Play ${g.name} ↗
+          </a>
+          <button class="btn copy-btn" data-url="${g.url}" title="Copy game link">🔗</button>
+        </div>
+      `;
+
+      card.querySelector('.launch-btn').addEventListener('click', () => {
+        recordAppVisit(g.slug);
+      });
+
+      card.querySelector('.copy-btn').addEventListener('click', () => {
+        const fullUrl = new URL(g.url, window.location.href).href;
+        navigator.clipboard?.writeText(fullUrl).then(() => {
+          showToast(`Copied ${g.name} link!`);
+        }).catch(() => {
+          showToast(fullUrl);
+        });
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  searchInput.addEventListener('input', e => renderGames(e.target.value));
+
+  document.getElementById('btnRandom').addEventListener('click', () => {
+    const pick = GAMES[Math.floor(Math.random() * GAMES.length)];
+    recordAppVisit(pick.slug);
+    showToast(`Launching ${pick.icon} ${pick.name}...`);
+    window.open(pick.url, '_blank', 'noopener,noreferrer');
+  });
+
+  window.addEventListener('keydown', e => {
+    if (document.activeElement === searchInput) return;
+    const match = GAMES.find(g => g.key === e.key);
+    if (match) {
+      recordAppVisit(match.slug);
+      showToast(`Opening ${match.icon} ${match.name}...`);
+      window.open(match.url, '_blank', 'noopener,noreferrer');
+    }
+  });
+
+
+  // === TOTAL PARTS & CROSS-APP VISIT COUNTER ===
+  const STATS_KEY = 'ai_physics_labs_stats_v1';
+  const COUNTER_NS = 'parker-ai-physics-labs';
+  let localStats = { total: 0, apps: {} };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+    if (saved && typeof saved === 'object') {
+      localStats.total = Number.isFinite(saved.total) ? saved.total : 0;
+      localStats.apps = (saved.apps && typeof saved.apps === 'object') ? saved.apps : {};
+    }
+  } catch (_) {}
+
+  const appVisits = {};
+  GAMES.forEach(g => { appVisits[g.slug] = localStats.apps[g.slug] || 0; });
+  let totalVisits = localStats.total;
+  let globalSynced = false;
+
+  function saveLocalStats() {
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify({ total: totalVisits, apps: appVisits }));
+    } catch (_) {}
+  }
+
+  function animateNumber(el, target, duration = 650) {
+    if (!el) return;
+    const startVal = parseInt((el.textContent || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const t0 = performance.now();
+    function tick(now) {
+      const p = Math.min(1, (now - t0) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const cur = Math.round(startVal + (target - startVal) * eased);
+      el.textContent = cur.toLocaleString();
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function updateCountersUI(animate = false) {
+    const totalParts = GAMES.reduce((sum, g) => sum + (g.parts || 0), 0);
+    const partsEl = document.getElementById('totalPartsVal');
+    const partsSub = document.getElementById('totalPartsSub');
+    const visitsEl = document.getElementById('totalVisitsVal');
+    const appsEl = document.getElementById('totalAppsVal');
+    const scopeEl = document.getElementById('visitScopeBadge');
+
+    if (animate) animateNumber(partsEl, totalParts, 750);
+    else if (partsEl) partsEl.textContent = totalParts.toLocaleString();
+    if (partsSub) partsSub.textContent = GAMES.map(g => `${g.icon} ${g.parts}`).join(' • ');
+    if (appsEl) appsEl.textContent = String(GAMES.length);
+    if (visitsEl) visitsEl.textContent = totalVisits.toLocaleString();
+    if (scopeEl) scopeEl.textContent = globalSynced ? 'GLOBAL' : 'LOCAL';
+
+    document.querySelectorAll('.card-visit-count').forEach(el => {
+      const slug = el.dataset.slug;
+      if (slug && appVisits[slug] !== undefined) {
+        el.textContent = appVisits[slug].toLocaleString();
+      }
+    });
+  }
+
+  async function hitCounterAPI(key, increment = true) {
+    const endpoint = `https://api.counterapi.dev/v1/${COUNTER_NS}/${key}${increment ? '/up' : '/'}`;
+    try {
+      const res = await fetch(endpoint, { mode: 'cors' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return (typeof data.count === 'number' && Number.isFinite(data.count)) ? data.count : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function initVisits() {
+    // Immediate local increment so offline/local use always works smoothly
+    totalVisits = Math.max(1, totalVisits + 1);
+    saveLocalStats();
+    updateCountersUI(true);
+
+    // Sync global total visits + each app's global visit count
+    const globalTotal = await hitCounterAPI('all-apps-visits', true);
+    if (globalTotal !== null) {
+      globalSynced = true;
+      totalVisits = Math.max(totalVisits, globalTotal);
+      saveLocalStats();
+      updateCountersUI(false);
+    }
+    await Promise.all(GAMES.map(async g => {
+      const c = await hitCounterAPI(`app-${g.slug}`, false);
+      if (c !== null) {
+        appVisits[g.slug] = Math.max(appVisits[g.slug] || 0, c);
+      }
+    }));
+    saveLocalStats();
+    updateCountersUI(false);
+  }
+
+  function recordAppVisit(slug) {
+    appVisits[slug] = (appVisits[slug] || 0) + 1;
+    totalVisits += 1;
+    saveLocalStats();
+    updateCountersUI(false);
+    hitCounterAPI(`app-${slug}`, true).then(c => {
+      if (c !== null) { appVisits[slug] = Math.max(appVisits[slug], c); saveLocalStats(); updateCountersUI(false); }
+    });
+    hitCounterAPI('all-apps-visits', true).then(c => {
+      if (c !== null) { globalSynced = true; totalVisits = Math.max(totalVisits, c); saveLocalStats(); updateCountersUI(false); }
+    });
+  }
+
+
+  // === AUTO PHONE MODE + TOGGLE ===
+  let mobileOverride = null;
+  function detectPhone() {
+    return window.innerWidth <= 820 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+  function applyMobileMode() {
+    const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+    document.body.classList.toggle('mobile-mode', isMob);
+    const btn = document.getElementById('btnMobileToggle');
+    if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+  }
+  const mobBtn = document.getElementById('btnMobileToggle');
+  if (mobBtn) mobBtn.addEventListener('click', () => {
+    mobileOverride = !document.body.classList.contains('mobile-mode');
+    applyMobileMode();
+    showToast(mobileOverride ? '📱 Phone Optimized Mode ON' : '💻 Desktop Mode ON');
+  });
+  window.addEventListener('resize', applyMobileMode);
+  applyMobileMode();
+
+  renderGames();
+  initVisits();
+
+  // Subtle animated starfield canvas
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+  function resizeStars() {
+    canvas.width = window.innerWidth * devicePixelRatio;
+    canvas.height = window.innerHeight * devicePixelRatio;
+    stars = Array.from({ length: 75 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: 0.7 + Math.random() * 1.5,
+      vy: 4 + Math.random() * 10,
+      a: 0.25 + Math.random() * 0.55
+    }));
+  }
+  resizeStars();
+  window.addEventListener('resize', resizeStars);
+
+  let lastT = performance.now();
+  function animStars(now) {
+    requestAnimationFrame(animStars);
+    const dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    ctx.save();
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    for (const s of stars) {
+      s.y -= s.vy * dt;
+      if (s.y < -4) { s.y = window.innerHeight + 4; s.x = Math.random() * window.innerWidth; }
+      ctx.fillStyle = `rgba(226, 232, 240, ${s.a})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  requestAnimationFrame(animStars);
+})();
+</script>
+</body>
+</html>
