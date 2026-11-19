@@ -470,7 +470,7 @@
 
 <script>
 (() => {
-  const STORAGE_KEY = 'orbitlab_v3';
+  const STORAGE_KEY = 'orbitlab_v4';
   const GW = 11, GH = 9, CX = 5, CY = 4;
 
   // =========================================================
@@ -588,7 +588,7 @@
       <div class="stat-row"><span>Fuel / Regen</span><span>${Math.round(spec.fuel)} (+${spec.fuelRegen}/s)</span></div>
       <div class="stat-row"><span>Gimbal / Stability</span><span>${spec.gimbal.toFixed(1)} / ${spec.damp.toFixed(1)}</span></div>
       <div class="stat-row"><span>Touchdown Safety</span><span>${Math.round(spec.forgive * 100)}%</span></div>
-      <div class="stat-row"><span>Flight Brain</span><span>${spec.einstein ? '🧠 Einstein Pre-Trained' : '🧠 Blank Neural ML'}</span></div>
+      <div class="stat-row"><span>Flight Brain</span><span>${spec.einstein ? '🧠 Blank Neural ML (+Einstein LR)' : '🧠 Blank Neural ML'}</span></div>
       ${earthTwr < 1.1 ? '<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(168,85,247,0.2);border:1px solid #a855f7;font-size:11px;color:#e9d5ff;">⚠️ Low TWR! Add more engines to lift off easily.</div>' : ''}
     `;
     document.getElementById('banTwr').textContent = earthTwr.toFixed(2) + 'x';
@@ -614,13 +614,19 @@
       this.w1 = new Float32Array(inN * hidN); this.b1 = new Float32Array(hidN);
       this.w2 = new Float32Array(hidN * outN); this.b2 = new Float32Array(outN);
       this.lastIn = new Float32Array(inN); this.lastHid = new Float32Array(hidN); this.lastOut = new Float32Array(outN);
-      this.randomize();
+      this.resetBlank();
+    }
+    resetBlank() {
+      this.w1.fill(0); this.b1.fill(0); this.w2.fill(0); this.b2.fill(0);
+      this.lastIn.fill(0); this.lastHid.fill(0); this.lastOut.fill(0);
+    }
+    isBlank() {
+      for (let i = 0; i < this.w1.length; i++) if (Math.abs(this.w1[i]) > 1e-4) return false;
+      for (let i = 0; i < this.w2.length; i++) if (Math.abs(this.w2[i]) > 1e-4) return false;
+      return true;
     }
     randomize() {
-      const s1 = Math.sqrt(2 / (this.inN + this.hidN)), s2 = Math.sqrt(2 / (this.hidN + this.outN));
-      for (let i = 0; i < this.w1.length; i++) this.w1[i] = randn() * s1;
-      for (let i = 0; i < this.w2.length; i++) this.w2[i] = randn() * s2;
-      this.b1.fill(0); this.b2.fill(0);
+      this.resetBlank();
     }
     copyFrom(o) { this.w1.set(o.w1); this.b1.set(o.b1); this.w2.set(o.w2); this.b2.set(o.b2); }
     cloneNoise(sig, noise, sign) {
@@ -790,10 +796,17 @@
       aiMode: 'CRUISE'
     });
     rockets.push(mkRocket(masterNN.cloneNoise(0, makeNoise(), 0), true));
-    for (let i = 1; i < n; i += 2) {
-      const nz = makeNoise();
-      rockets.push(mkRocket(masterNN.cloneNoise(sigma, nz, 1), false));
-      if (i + 1 < n) rockets.push(mkRocket(masterNN.cloneNoise(sigma, nz, -1), false));
+    const blankStart = masterNN.isBlank();
+    if (blankStart) {
+      for (let i = 1; i < n; i++) {
+        rockets.push(mkRocket(masterNN.cloneNoise(sigma, makeNoise(), 1), false));
+      }
+    } else {
+      for (let i = 1; i < n; i += 2) {
+        const nz = makeNoise();
+        rockets.push(mkRocket(masterNN.cloneNoise(sigma, nz, 1), false));
+        if (i + 1 < n) rockets.push(mkRocket(masterNN.cloneNoise(sigma, nz, -1), false));
+      }
     }
   }
 
@@ -803,6 +816,7 @@
     const mean = rews.reduce((a, b) => a + b, 0) / rews.length;
     let bestI = 0; for (let i = 1; i < rews.length; i++) if (rews[i] > rews[bestI]) bestI = i;
     const bestR = rews[bestI];
+    const wasBlank = masterNN.isBlank();
     if (bestR > eliteBest) { eliteBest = bestR; eliteNN.copyFrom(rockets[bestI].nn); }
 
     const order = rews.map((r, i) => ({ r, i })).sort((a, b) => a.r - b.r);
@@ -826,7 +840,16 @@
     adam.step(masterNN.w2, gw2, adam.mw2, adam.vw2, effLR);
     adam.step(masterNN.b2, gb2, adam.mb2, adam.vb2, effLR);
 
-    if (bestR < eliteBest - 60 && Number.isFinite(eliteBest)) { for (let k = 0; k < masterNN.w1.length; k++) masterNN.w1[k] = masterNN.w1[k] * 0.75 + eliteNN.w1[k] * 0.25; for (let k = 0; k < masterNN.w2.length; k++) masterNN.w2[k] = masterNN.w2[k] * 0.75 + eliteNN.w2[k] * 0.25; }
+    if (wasBlank && bestI > 0) {
+      const bnn = rockets[bestI].nn;
+      for (let k = 0; k < masterNN.w1.length; k++) masterNN.w1[k] = masterNN.w1[k] * 0.65 + bnn.w1[k] * 0.35;
+      for (let k = 0; k < masterNN.b1.length; k++) masterNN.b1[k] = masterNN.b1[k] * 0.65 + bnn.b1[k] * 0.35;
+      for (let k = 0; k < masterNN.w2.length; k++) masterNN.w2[k] = masterNN.w2[k] * 0.65 + bnn.w2[k] * 0.35;
+      for (let k = 0; k < masterNN.b2.length; k++) masterNN.b2[k] = masterNN.b2[k] * 0.65 + bnn.b2[k] * 0.35;
+    } else if (bestR < eliteBest - 60 && Number.isFinite(eliteBest)) {
+      for (let k = 0; k < masterNN.w1.length; k++) masterNN.w1[k] = masterNN.w1[k] * 0.75 + eliteNN.w1[k] * 0.25;
+      for (let k = 0; k < masterNN.w2.length; k++) masterNN.w2[k] = masterNN.w2[k] * 0.75 + eliteNN.w2[k] * 0.25;
+    }
     history.push({ gen: generation, best: Number.isFinite(bestR) ? bestR : 0, mean: Number.isFinite(mean) ? mean : 0 });
     if (history.length > 70) history.shift();
     generation++;
@@ -880,7 +903,7 @@
         Math.max(-1, Math.min(1, windNow / 120))
       ];
       const nnOut = r.nn.forward(nnInputs);
-      const useAuto = mode === 'pilot' || (mode === 'ai' && spec.einstein);
+      const useAuto = mode === 'pilot';
 
       if (mode === 'manual') {
         throttle = (keys['KeyW'] || keys['ArrowUp'] || keys['Space']) ? 1.0 : 0;
@@ -926,7 +949,7 @@
         }
         r.nn.lastOut[0] = throttle * 2 - 1; r.nn.lastOut[1] = steer;
       } else {
-        throttle = (nnOut[0] + 1) * 0.5;
+        throttle = Math.max(0, nnOut[0]);
         steer = nnOut[1];
         r.aiMode = 'NEURAL';
       }
@@ -1229,7 +1252,7 @@
         heroTrail.forEach((pt, i) => i === 0 ? aCtx.moveTo(pt.x, pt.y) : aCtx.lineTo(pt.x, pt.y)); aCtx.stroke();
       }
       drawRocket(hero, 1.0);
-      if (spec.einstein && !hero.done) {
+      if (mode === 'pilot' && !hero.done) {
         aCtx.strokeStyle = 'rgba(251,191,36,0.35)'; aCtx.setLineDash([4, 4]); aCtx.lineWidth = 1.5;
         aCtx.beginPath(); aCtx.moveTo(hero.x, hero.y); aCtx.lineTo(padX, pGy - 8); aCtx.stroke(); aCtx.setLineDash([]);
       }
@@ -1253,7 +1276,7 @@
       const curTwr = (spec.thrust + spec.lift) / (spec.mass * WORLDS[worldKey].g);
       document.getElementById('banTwr').textContent = curTwr.toFixed(2) + 'x (' + WORLDS[worldKey].name + ')';
       document.getElementById('hudThr').textContent = Math.round(hero.throttle * 100) + '%';
-      document.getElementById('banMode').textContent = mode === 'manual' ? 'Manual WASD' : (mode === 'pilot' || spec.einstein ? 'Einstein Autopilot' : 'Neural Swarm');
+      document.getElementById('banMode').textContent = mode === 'manual' ? 'Manual WASD' : (mode === 'pilot' ? 'Einstein Autopilot' : 'Neural Swarm');
       const stEl = document.getElementById('banStatus');
       stEl.textContent = hero.landed ? '✅ SOFT LANDING!' : (hero.crashed ? '💥 CRASHED' : hero.aiMode);
       stEl.style.color = hero.landed ? '#4ade80' : (hero.crashed ? '#ef4444' : '#38bdf8');
@@ -1266,6 +1289,7 @@
     const s = ensureSize(nnCanvas); if (s.w <= 0 || s.h <= 0) return;
     nnCtx.save(); nnCtx.scale(s.dpr, s.dpr); nnCtx.clearRect(0, 0, s.w, s.h);
     const nn = hero ? hero.nn : masterNN;
+    const wSrc = masterNN;
     const inLabels = ['DX', 'ALT', 'VX', 'VY', 'SIN', 'COS', 'ω', 'WND'];
     const outLabels = ['THR', 'STR'];
     const xs = [44, s.w * 0.52, s.w - 48];
@@ -1278,23 +1302,34 @@
       const step = (s.h - topPad - botPad) / Math.max(1, n - 1);
       for (let i = 0; i < n; i++) pos[l].push({ x: xs[l], y: n === 1 ? s.h / 2 : topPad + i * step });
     }
-    // Synapses (Blue = excitatory +, Purple = inhibitory -)
-    for (let h = 0; h < nn.hidN; h++) {
-      for (let i = 0; i < nn.inN; i++) {
-        const wt = nn.w1[h * nn.inN + i];
-        if (Math.abs(wt) < 0.25) continue;
+    // Learned Synapses from masterNN (starts completely blank on Gen 1!)
+    let drawnSynapses = 0;
+    for (let h = 0; h < wSrc.hidN; h++) {
+      for (let i = 0; i < wSrc.inN; i++) {
+        const wt = wSrc.w1[h * wSrc.inN + i];
+        if (Math.abs(wt) < 0.08) continue;
+        drawnSynapses++;
         const a = Math.min(0.65, Math.abs(wt) * 0.45);
         nnCtx.strokeStyle = wt > 0 ? `rgba(96,165,250,${a})` : `rgba(192,132,252,${a})`;
         nnCtx.lineWidth = Math.min(1.8, Math.abs(wt) * 0.9);
         nnCtx.beginPath(); nnCtx.moveTo(pos[0][i].x, pos[0][i].y); nnCtx.lineTo(pos[1][h].x, pos[1][h].y); nnCtx.stroke();
       }
-      for (let o = 0; o < nn.outN; o++) {
-        const wt = nn.w2[o * nn.hidN + h];
+      for (let o = 0; o < wSrc.outN; o++) {
+        const wt = wSrc.w2[o * wSrc.hidN + h];
+        if (Math.abs(wt) < 0.08) continue;
+        drawnSynapses++;
         const a = Math.min(0.85, Math.abs(wt) * 0.6);
         nnCtx.strokeStyle = wt > 0 ? `rgba(96,165,250,${a})` : `rgba(192,132,252,${a})`;
         nnCtx.lineWidth = Math.min(2.2, Math.abs(wt) * 1.1);
         nnCtx.beginPath(); nnCtx.moveTo(pos[1][h].x, pos[1][h].y); nnCtx.lineTo(pos[2][o].x, pos[2][o].y); nnCtx.stroke();
       }
+    }
+    if (drawnSynapses === 0) {
+      nnCtx.fillStyle = 'rgba(165,180,252,0.55)';
+      nnCtx.font = '600 10.5px "Space Grotesk", sans-serif';
+      nnCtx.textAlign = 'center';
+      nnCtx.textBaseline = 'middle';
+      nnCtx.fillText('Blank Neural Map (Gen 1)', s.w * 0.52, s.h * 0.5);
     }
     const acts = [nn.lastIn, nn.lastHid, nn.lastOut];
     nnCtx.font = '600 9.5px "Space Grotesk", sans-serif';
@@ -1601,7 +1636,7 @@
   document.getElementById('selPop').onchange = e => { popSize = parseInt(e.target.value, 10); spawnSwarm(); };
   document.getElementById('btnGhosts').onclick = () => { showGhosts = !showGhosts; const b = document.getElementById('btnGhosts'); b.textContent = `👻 Ghosts: ${showGhosts ? 'ON' : 'OFF'}`; b.classList.toggle('active', showGhosts); };
   document.getElementById('btnLoadElite').onclick = () => { if (eliteBest === -Infinity) return showToast('Train at least 1 gen first!'); masterNN.copyFrom(eliteNN); spawnSwarm(); showToast('🏆 Loaded Elite Brain!'); };
-  document.getElementById('btnResetBrain').onclick = () => { masterNN.randomize(); eliteNN.copyFrom(masterNN); adam = new AdamOpt(masterNN); eliteBest = -Infinity; generation = 1; history = []; spawnSwarm(); showToast('🌱 Brain reset!'); };
+  document.getElementById('btnResetBrain').onclick = () => { masterNN.resetBlank(); eliteNN.copyFrom(masterNN); adam = new AdamOpt(masterNN); eliteBest = -Infinity; generation = 1; totalLandings = 0; landingStreak = 0; history = []; saveState(); spawnSwarm(); showToast('🌱 Blank neural map restored!'); };
   document.getElementById('rngLR').oninput = e => { learningRate = +e.target.value; document.getElementById('valLR').textContent = learningRate.toFixed(2); };
   document.getElementById('rngSigma').oninput = e => { sigma = +e.target.value; document.getElementById('valSigma').textContent = sigma.toFixed(2); };
 
@@ -1645,8 +1680,6 @@
   drawGarage();
   spawnSwarm();
 
-  function loop() {
-  
   // === PHONE OPTIMIZED MODE + TOUCH CONTROLS ===
   let mobileOverride = null;
   function detectPhone() {
@@ -1707,7 +1740,8 @@
   bindTouchKey('tfThrust', 'Space');
   applyMobileMode();
 
-  requestAnimationFrame(loop);
+  function loop() {
+    requestAnimationFrame(loop);
     if (!document.getElementById('view-arena').classList.contains('active')) return;
     try {
       if (isPlaying) {
