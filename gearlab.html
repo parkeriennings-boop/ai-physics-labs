@@ -1,0 +1,3609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GearLab — Rigid-Body Tooth, Chain, Belt & Ratchet Physics Sandbox</title>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --panel: #121826;
+    --panel2: #182133;
+    --border: #26334d;
+    --text: #e6edf7;
+    --muted: #8ea0bd;
+    --accent: #38bdf8;
+    --accent2: #f59e0b;
+    --green: #22c55e;
+    --red: #ef4444;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+  }
+  #topbar {
+    height: 48px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    z-index: 20;
+    flex-shrink: 0;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.3px;
+    color: #fff;
+    padding-right: 10px;
+    border-right: 1px solid var(--border);
+  }
+  .brand span.badge {
+    font-size: 10px;
+    background: rgba(56,189,248,0.16);
+    color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.35);
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .top-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-right: 8px;
+    border-right: 1px solid var(--border);
+  }
+  .top-group:last-child { border-right: none; margin-left: auto; padding-right: 0; }
+  button, select {
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  button:hover, select:hover { border-color: #425a85; background: #1e2a40; }
+  button.active {
+    background: rgba(56,189,248,0.2);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.danger:hover { border-color: var(--red); background: rgba(239,68,68,0.2); color: #fecaca; }
+  button.primary {
+    background: rgba(34,197,94,0.2);
+    border-color: rgba(34,197,94,0.55);
+    color: #bbf7d0;
+  }
+  button.primary:hover { background: rgba(34,197,94,0.3); }
+
+  #main {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+  }
+  #leftbar {
+    width: 242px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 10;
+    flex-shrink: 0;
+    padding: 10px;
+    gap: 10px;
+  }
+  #rightbar {
+    width: 280px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 10;
+    flex-shrink: 0;
+    padding: 10px;
+    gap: 10px;
+  }
+  .section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .tool-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .tool-btn {
+    flex-direction: column;
+    justify-content: center;
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 10.5px;
+    gap: 3px;
+  }
+  .tool-btn .icon { font-size: 15px; line-height: 1; }
+  .control-box {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .row label { color: var(--muted); font-size: 11px; }
+  .row .val { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #fff; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  input[type="number"] {
+    width: 58px;
+    background: #0b0f17;
+    color: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    text-align: center;
+  }
+  .pill-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .pill-row button { flex: 1; justify-content: center; padding: 4px 5px; font-size: 10.5px; }
+  .stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stepper button {
+    padding: 2px 7px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  #canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #090d14;
+  }
+  canvas#sim {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #hud-bottom {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    background: rgba(15, 22, 36, 0.88);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    pointer-events: none;
+  }
+  #hud-bottom strong { color: var(--text); font-family: ui-monospace, monospace; }
+  #scope-wrap {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: 260px;
+    height: 116px;
+    background: rgba(12, 18, 30, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 15;
+  }
+  #scope-wrap.visible { display: flex; }
+  #scope-canvas { width: 100%; height: 82px; display: block; }
+  #toast {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(18, 24, 38, 0.95);
+    border: 1px solid var(--accent);
+    color: #fff;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 30;
+  }
+  #toast.show { opacity: 1; }
+  #planetary-quick {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(15, 22, 36, 0.92);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 15;
+  }
+  #planetary-quick.visible { display: flex; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .stat-card {
+    background: rgba(11, 15, 23, 0.65);
+    border: 1px solid rgba(38, 51, 77, 0.8);
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  .stat-card .k { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+  .stat-card .v { font-size: 13px; font-weight: 700; font-family: ui-monospace, monospace; color: #fff; margin-top: 2px; }
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .toggle-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+  input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">
+    ⚙ GearLab <span class="badge">v2 Rigid Physics</span>
+  </div>
+
+  <div class="top-group">
+    <button id="btn-play" class="primary">⏸ Pause</button>
+    <button id="btn-step" title="Step 1 physics frame">⏭ Step</button>
+    <select id="sel-speed" title="Simulation Time Scale">
+      <option value="0.05">0.05× Ultra Slow</option>
+      <option value="0.1">0.1× Slow-Mo</option>
+      <option value="0.25">0.25× Slow-Mo</option>
+      <option value="0.5">0.5× Half</option>
+      <option value="1" selected>1.0× Real-Time</option>
+      <option value="1.5">1.5× Fast</option>
+    </select>
+  </div>
+
+  <div class="top-group">
+    <label style="font-size:11px;color:var(--muted);">Preset:</label>
+    <select id="sel-preset" style="max-width:255px;">
+      <option value="planetary">Planetary Gearbox (4:1 / Rev / Overdrive)</option>
+      <option value="double_planetary">Double Planetary Compound (16:1)</option>
+      <option value="chain">Chain Drive + Tensioner (Real Links)</option>
+      <option value="bike">Bicycle Derailleur Chain (2:1 Speedup)</option>
+      <option value="belt_crossed">Crossed Friction Belt Drive (Slip & Rev)</option>
+      <option value="sector">Intermittent Sector Gear (Pulse Drive)</option>
+      <option value="ratchet">Ratchet & Pawl One-Way Mechanism</option>
+      <option value="winch">Planetary Winch Hoist (Hanging Weight)</option>
+      <option value="compound">2-Stage Compound Reduction (9:1)</option>
+      <option value="compound3">3-Stage Extreme Reduction (27:1)</option>
+      <option value="overdrive">2-Stage Overdrive Speedup (1:9)</option>
+      <option value="idler">Idler Reverse Train (14T → 16T → 28T)</option>
+      <option value="splitter">Dual-Output Torque / Speed Splitter</option>
+      <option value="hybrid">Planetary → Chain Drive Hybrid</option>
+      <option value="rack">Rack & Pinion Auto-Reciprocator</option>
+      <option value="empty">Empty Sandbox</option>
+    </select>
+    <button id="btn-reset">↺ Reload</button>
+  </div>
+
+  <div class="top-group">
+    <button id="btn-forces" class="active" title="Show tooth contact force vectors">⚡ Forces</button>
+    <button id="btn-pitch" class="active" title="Show pitch circles">◎ Pitch</button>
+    <button id="btn-scope" class="active" title="Toggle live RPM telemetry graph">📈 Graph</button>
+    <button id="btn-center" title="Reset camera view">⌖ Center</button>
+    <button id="btn-clear" class="danger">✕ Clear</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="leftbar">
+    <div>
+      <div class="section-title">Manipulate & Connect</div>
+      <div class="tool-grid">
+        <button class="tool-btn active" data-tool="select"><span class="icon">🖱</span>Select / Inspect</button>
+        <button class="tool-btn" data-tool="move"><span class="icon">✋</span>Move Part</button>
+        <button class="tool-btn" data-tool="wrench"><span class="icon">🔧</span>Hand Wrench</button>
+        <button class="tool-btn" data-tool="clone"><span class="icon">📋</span>Clone Part</button>
+        <button class="tool-btn" data-tool="couple"><span class="icon">🔩</span>Shaft Bolt</button>
+        <button class="tool-btn" data-tool="oneway"><span class="icon">🔁</span>Freewheel</button>
+        <button class="tool-btn" data-tool="chain"><span class="icon">⛓</span>Chain Loop</button>
+        <button class="tool-btn" data-tool="belt"><span class="icon">➰</span>Belt Loop</button>
+        <button class="tool-btn" data-tool="delete"><span class="icon">🗑</span>Delete Part</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Gear & Drive Parts</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-tool="spur"><span class="icon">⚙</span>Spur Gear</button>
+        <button class="tool-btn" data-tool="ring"><span class="icon">⭕</span>Ring Gear</button>
+        <button class="tool-btn" data-tool="planetary"><span class="icon">🪐</span>Planetary Set</button>
+        <button class="tool-btn" data-tool="sector"><span class="icon">🌓</span>Sector Gear</button>
+        <button class="tool-btn" data-tool="ratchet"><span class="icon">🪚</span>Ratchet+Pawl</button>
+        <button class="tool-btn" data-tool="sprocket"><span class="icon">✺</span>Sprocket</button>
+        <button class="tool-btn" data-tool="pulley"><span class="icon">💿</span>Belt Pulley</button>
+        <button class="tool-btn" data-tool="rack"><span class="icon">📏</span>Linear Rack</button>
+        <button class="tool-btn" data-tool="winch"><span class="icon">⚓</span>Winch Weight</button>
+      </div>
+    </div>
+
+    <div id="tool-options" class="control-box">
+      <div class="section-title" style="margin-bottom:0;">Placement Settings</div>
+      <div class="row">
+        <label>Teeth / Size</label>
+        <div class="stepper">
+          <button id="btn-place-teeth-dec">−</button>
+          <input type="number" id="num-teeth" min="3" max="240" value="18">
+          <button id="btn-place-teeth-inc">+</button>
+        </div>
+      </div>
+      <input type="range" id="inp-teeth" min="3" max="240" value="18">
+      <div class="pill-row">
+        <button class="place-teeth-preset" data-z="4">4T</button>
+        <button class="place-teeth-preset" data-z="12">12T</button>
+        <button class="place-teeth-preset" data-z="48">48T</button>
+        <button class="place-teeth-preset" data-z="120">120T</button>
+        <button class="place-teeth-preset" data-z="240">240T</button>
+      </div>
+
+      <div class="row">
+        <label>Plane Layer</label>
+        <div class="pill-row" style="width:110px;">
+          <button id="btn-layer-0" class="active">Front</button>
+          <button id="btn-layer-1">Back</button>
+        </div>
+      </div>
+
+      <div class="toggle-line">
+        <label style="font-size:11px;color:var(--muted);">Auto-Snap Mesh</label>
+        <input type="checkbox" id="chk-snap" checked>
+      </div>
+      <div class="hint" id="tool-hint">
+        Click any part to inspect. Click overlapping coaxial parts repeatedly to cycle layers!
+      </div>
+    </div>
+
+    <div id="chain-builder-box" class="control-box" style="display:none;">
+      <div class="section-title" style="margin-bottom:0;">Chain Builder</div>
+      <div class="hint">Click 2+ sprockets in wrap order, then build a physical roller chain.</div>
+      <div class="row"><label>Selected Sprockets:</label><span class="val" id="chain-count">0</span></div>
+      <div class="pill-row">
+        <button id="btn-build-chain" class="primary">⛓ Build Chain</button>
+        <button id="btn-cancel-chain">Cancel</button>
+      </div>
+    </div>
+
+    <div id="belt-builder-box" class="control-box" style="display:none;">
+      <div class="section-title" style="margin-bottom:0;">Belt Drive Builder</div>
+      <div class="hint">Click 2 pulleys to connect with a real friction belt (slips under overload).</div>
+      <div class="toggle-line">
+        <label style="font-size:11px;color:var(--muted);">Crossed (Figure-8 Rev)</label>
+        <input type="checkbox" id="chk-belt-crossed">
+      </div>
+      <div class="row"><label>Selected Pulleys:</label><span class="val" id="belt-count">0</span></div>
+      <div class="pill-row">
+        <button id="btn-build-belt" class="primary">➰ Build Belt</button>
+        <button id="btn-cancel-belt">Cancel</button>
+      </div>
+    </div>
+
+    <div class="control-box">
+      <div class="section-title" style="margin-bottom:0;">Physics Solver</div>
+      <div class="row">
+        <label>Base Substeps</label>
+        <span class="val" id="val-substeps">12</span>
+      </div>
+      <input type="range" id="inp-substeps" min="6" max="28" value="12">
+      <div class="row">
+        <label>Tooth Friction (μ)</label>
+        <span class="val" id="val-friction">0.08</span>
+      </div>
+      <input type="range" id="inp-friction" min="0" max="0.4" step="0.02" value="0.08">
+      <div class="toggle-line">
+        <label style="font-size:11px;color:var(--muted);">Adaptive Anti-Tunnel</label>
+        <input type="checkbox" id="chk-adaptive" checked>
+      </div>
+      <div class="toggle-line">
+        <label style="font-size:11px;color:var(--muted);">Gravity (Chains/Winch)</label>
+        <input type="checkbox" id="chk-gravity" checked>
+      </div>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="sim"></canvas>
+    <div id="toast"></div>
+
+    <div id="planetary-quick">
+      <div class="section-title" style="margin-bottom:0;">Planetary Mode (Live Physical Brakes)</div>
+      <div class="pill-row">
+        <button data-pmode="reduction" class="active">4:1 Reduction</button>
+        <button data-pmode="reverse">-3:1 Reverse</button>
+        <button data-pmode="overdrive">0.75:1 Overdrive</button>
+        <button data-pmode="diff">Free Diff</button>
+      </div>
+    </div>
+
+    <div id="scope-wrap" class="visible">
+      <div class="row" style="font-size:10px;">
+        <span style="color:#f59e0b;font-weight:700;">━ Ref RPM</span>
+        <span style="color:#38bdf8;font-weight:700;">━ Selected RPM</span>
+        <span id="scope-scale" style="color:var(--muted);font-family:ui-monospace,monospace;">±100</span>
+      </div>
+      <canvas id="scope-canvas" width="244" height="82"></canvas>
+    </div>
+
+    <div id="hud-bottom">
+      <span>Bodies: <strong id="hud-bodies">0</strong></span>
+      <span>Links: <strong id="hud-links">0</strong></span>
+      <span>Contacts: <strong id="hud-contacts">0</strong></span>
+      <span>Substeps: <strong id="hud-sub">12</strong></span>
+      <span>FPS: <strong id="hud-fps">60</strong></span>
+      <span>Zoom: <strong id="hud-zoom">100%</strong></span>
+    </div>
+  </div>
+
+  <div id="rightbar">
+    <div class="section-title">Selected Part Telemetry</div>
+    <div id="inspector-empty" class="control-box">
+      <div class="hint">No part selected. Click any part to edit its teeth, motor, brake, load, or lock state. Click overlapping gears repeatedly to cycle Front/Back layers.</div>
+    </div>
+
+    <div id="inspector-body" style="display:none;flex-direction:column;gap:9px;">
+      <div class="control-box">
+        <div class="row">
+          <strong id="insp-name" style="font-size:13px;color:#fff;">Spur Gear (18T)</strong>
+          <span class="val" id="insp-layer" style="color:var(--accent);">Front</span>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="k">Speed (RPM)</div>
+            <div class="v" id="stat-rpm">0.0</div>
+          </div>
+          <div class="stat-card">
+            <div class="k">Ratio vs Ref</div>
+            <div class="v" id="stat-ratio">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="k">Tooth Force</div>
+            <div class="v" id="stat-force">0.0 N</div>
+          </div>
+          <div class="stat-card">
+            <div class="k">Inertia (I)</div>
+            <div class="v" id="stat-inertia">0.0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-box" id="box-teeth">
+        <div class="section-title" style="margin-bottom:0;">Gear / Sprocket / Pulley Size</div>
+        <div class="row">
+          <label id="lbl-teeth-type">Tooth Count (Z)</label>
+          <div class="stepper">
+            <button id="btn-insp-teeth-dec">−</button>
+            <input type="number" id="num-insp-teeth" min="3" max="240" value="18">
+            <button id="btn-insp-teeth-inc">+</button>
+          </div>
+        </div>
+        <input type="range" id="insp-teeth" min="3" max="240" step="1" value="18">
+        <div class="pill-row">
+          <button class="insp-teeth-preset" data-z="4">4T</button>
+          <button class="insp-teeth-preset" data-z="12">12T</button>
+          <button class="insp-teeth-preset" data-z="48">48T</button>
+          <button class="insp-teeth-preset" data-z="120">120T</button>
+          <button class="insp-teeth-preset" data-z="240">240T</button>
+        </div>
+        <div id="sector-arc-wrap" style="display:none;">
+          <div class="row">
+            <label>Toothed Arc (%)</label>
+            <span class="val" id="val-sector">50%</span>
+          </div>
+          <input type="range" id="insp-sector" min="15" max="90" step="5" value="50">
+        </div>
+        <button id="btn-remesh" style="justify-content:center;">🧲 Re-Mesh to Nearest Gear</button>
+      </div>
+
+      <div class="control-box" id="box-winch" style="display:none;">
+        <div class="section-title" style="margin-bottom:0;">Hanging Weight Load</div>
+        <div class="row">
+          <label>Weight Mass</label>
+          <span class="val" id="val-weight">25 kg</span>
+        </div>
+        <input type="range" id="insp-weight" min="2" max="400" step="2" value="25">
+      </div>
+
+      <div class="control-box" id="box-motor">
+        <div class="section-title" style="margin-bottom:0;">Motor Drive (High Power)</div>
+        <div class="toggle-line">
+          <label style="font-size:12px;">Motor Enabled</label>
+          <input type="checkbox" id="insp-motor-on">
+        </div>
+        <div class="toggle-line">
+          <label style="font-size:11px;color:#fbbf24;">⚡ Unstoppable Torque (∞)</label>
+          <input type="checkbox" id="insp-motor-inf">
+        </div>
+        <div class="toggle-line">
+          <label style="font-size:11px;color:var(--muted);">↔ Auto-Reverse Oscillate</label>
+          <input type="checkbox" id="insp-motor-osc">
+        </div>
+        <div class="row">
+          <label>Stall Torque</label>
+          <span class="val" id="val-torque">250 N·m</span>
+        </div>
+        <input type="range" id="insp-torque" min="10" max="25000" step="10" value="250">
+        <div class="pill-row">
+          <button class="torque-preset" data-tq="250">250</button>
+          <button class="torque-preset" data-tq="2000">2k</button>
+          <button class="torque-preset" data-tq="10000">10k</button>
+          <button class="torque-preset" data-tq="25000">25k</button>
+        </div>
+        <div class="row">
+          <label>No-Load RPM</label>
+          <span class="val" id="val-maxrpm">90 RPM</span>
+        </div>
+        <input type="range" id="insp-maxrpm" min="5" max="1000" step="5" value="90">
+        <div class="pill-row">
+          <button id="btn-dir-cw">↻ CW</button>
+          <button id="btn-dir-ccw">↺ CCW</button>
+        </div>
+      </div>
+
+      <div class="control-box" id="box-brake">
+        <div class="section-title" style="margin-bottom:0;">Brake, Lock & Inertia</div>
+        <div class="toggle-line">
+          <label style="font-size:12px;">🔒 Lock / Clamp Fixed</label>
+          <input type="checkbox" id="insp-locked">
+        </div>
+        <div class="row">
+          <label>Dyno Load / Brake</label>
+          <span class="val" id="val-brake">0 N·m</span>
+        </div>
+        <input type="range" id="insp-brake" min="0" max="10000" step="10" value="0">
+        <div class="row">
+          <label>Flywheel Mass Scale</label>
+          <span class="val" id="val-mass">1.0×</span>
+        </div>
+        <input type="range" id="insp-mass" min="0.2" max="20" step="0.1" value="1">
+      </div>
+
+      <div class="control-box">
+        <div class="section-title" style="margin-bottom:0;">Actions</div>
+        <div class="pill-row">
+          <button id="btn-flip-layer">⇄ Flip Layer</button>
+          <button id="btn-rotate-rack" style="display:none;">⟳ Rot 90°</button>
+          <button id="btn-set-ref" title="Use as 1:1 ratio reference">◎ Ref</button>
+        </div>
+        <button id="btn-del-selected" class="danger" style="justify-content:center;">🗑 Delete Selected Part</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MODULE = 8;
+const SPROCKET_PITCH = 22;
+const ROLLER_RADIUS = 5.6;
+const PRESSURE_ANGLE = 20 * Math.PI / 180;
+const TAN_ALPHA = Math.tan(PRESSURE_ANGLE);
+
+const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+const hypot = Math.hypot;
+
+let NEXT_ID = 1;
+
+class RigidBody {
+  constructor(opts) {
+    this.id = NEXT_ID++;
+    this.type = opts.type; // 'spur'|'ring'|'carrier'|'sprocket'|'rack'|'sector'|'ratchet'|'pawl'|'pulley'|'winch'
+    this.name = opts.name || opts.type;
+    this.x = opts.x || 0;
+    this.y = opts.y || 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.theta = opts.theta || 0;
+    this.omega = 0;
+    this.layer = opts.layer || 0;
+
+    this.teeth = opts.teeth || 18;
+    this.module = opts.module || MODULE;
+    this.pitch = opts.pitch || SPROCKET_PITCH;
+    this.sectorRatio = opts.sectorRatio || 0.5; // fraction of teeth present on sector gear
+
+    this.pinned = opts.pinned !== undefined ? opts.pinned : true;
+    this.locked = !!opts.locked;
+    this.massScale = opts.massScale || 1.0;
+
+    this.motorOn = !!opts.motorOn;
+    this.motorInfinite = !!opts.motorInfinite;
+    this.motorOscillate = !!opts.motorOscillate;
+    this.oscTimer = 0;
+    this.oscPeriod = opts.oscPeriod || 2.2;
+    this.motorTorque = opts.motorTorque || 250;
+    this.motorMaxRpm = opts.motorMaxRpm || 90;
+    this.motorDir = opts.motorDir || 1;
+    this.brakeTorque = opts.brakeTorque || 0;
+    this.damping = opts.damping !== undefined ? opts.damping : 0.10;
+
+    // Rack
+    this.rackLength = opts.rackLength || 280;
+    this.rackHomeX = this.x;
+    this.rackHomeY = this.y;
+    this.rackTravel = opts.rackTravel || 140;
+    this.rackSpring = opts.rackSpring || 0;
+
+    // Winch hanging weight
+    this.weightMass = opts.weightMass || 25;
+    this.cableLen = opts.cableLen || 120;
+
+    // Pawl
+    this.pawlRestTheta = opts.pawlRestTheta || 0;
+    this.pawlLength = opts.pawlLength || 52;
+    this.pawlSpring = opts.pawlSpring || 45;
+
+    // Planetary metadata
+    this.planetaryRole = opts.planetaryRole || null;
+    this.planetaryGroup = opts.planetaryGroup || null;
+    this.carrierPins = opts.carrierPins || [];
+    this.color = opts.color || this.defaultColor();
+
+    this.lastContactForce = 0;
+    this.contactForceAccum = 0;
+    this.localTeeth = [];
+    this.activeToothMask = null; // for sector gears
+    this.rebuildGeometry();
+  }
+
+  defaultColor() {
+    if (this.type === 'ring') return '#3b82f6';
+    if (this.type === 'carrier') return '#a855f7';
+    if (this.type === 'sprocket') return '#f59e0b';
+    if (this.type === 'rack') return '#10b981';
+    if (this.type === 'sector') return '#ec4899';
+    if (this.type === 'ratchet') return '#f97316';
+    if (this.type === 'pawl') return '#e2e8f0';
+    if (this.type === 'pulley') return '#06b6d4';
+    if (this.type === 'winch') return '#eab308';
+    return this.layer === 0 ? '#64748b' : '#475569';
+  }
+
+  rebuildGeometry() {
+    this.localTeeth = [];
+    this.activeToothMask = null;
+
+    if (this.type === 'spur' || this.type === 'sector') {
+      const m = this.module;
+      const Z = this.teeth;
+      this.pitchR = (m * Z) / 2;
+      this.addendum = 0.78 * m;
+      this.dedendum = 1.15 * m;
+      this.rootR = Math.max(4, this.pitchR - this.dedendum);
+      this.outerR = this.pitchR + this.addendum;
+
+      const halfPitch = (Math.PI / 4 - 0.035) * m;
+      const maxHalfRoot = this.rootR * Math.sin(Math.PI / Z) * 0.88;
+      const halfRoot = Math.min(halfPitch + this.dedendum * TAN_ALPHA * 0.68, maxHalfRoot);
+      const halfTip = Math.min(halfRoot * 0.85, Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA));
+
+      const activeCount = this.type === 'sector' ? Math.max(1, Math.round(Z * this.sectorRatio)) : Z;
+      this.activeToothMask = this.type === 'sector' ? new Uint8Array(Z) : null;
+
+      for (let i = 0; i < Z; i++) {
+        const a = (i * 2 * Math.PI) / Z;
+        const c = Math.cos(a), s = Math.sin(a);
+        const tx = -s, ty = c;
+        if (this.activeToothMask) this.activeToothMask[i] = i < activeCount ? 1 : 0;
+        this.localTeeth.push([
+          { x: this.rootR * c - halfRoot * tx, y: this.rootR * s - halfRoot * ty },
+          { x: this.outerR * c - halfTip * tx,  y: this.outerR * s - halfTip * ty },
+          { x: this.outerR * c + halfTip * tx,  y: this.outerR * s + halfTip * ty },
+          { x: this.rootR * c + halfRoot * tx, y: this.rootR * s + halfRoot * ty }
+        ]);
+      }
+      this.baseMass = Math.max(0.8, (this.pitchR * this.pitchR) / 1400);
+      this.baseInertia = 0.5 * this.baseMass * this.pitchR * this.pitchR;
+    } else if (this.type === 'ratchet') {
+      const m = this.module;
+      const Z = this.teeth;
+      this.pitchR = (m * Z) / 2;
+      this.rootR = Math.max(8, this.pitchR - 1.1 * m);
+      this.outerR = this.pitchR + 1.0 * m;
+      const step = (2 * Math.PI) / Z;
+      // Asymmetric sawtooth: steep lock face on CCW side, gentle ramp on CW side
+      for (let i = 0; i < Z; i++) {
+        const a0 = i * step;
+        const aTip = a0 + step * 0.14;
+        const aEnd = a0 + step * 0.88;
+        const p0 = { x: this.rootR * Math.cos(a0),    y: this.rootR * Math.sin(a0) };
+        const p1 = { x: this.outerR * Math.cos(aTip), y: this.outerR * Math.sin(aTip) };
+        const p2 = { x: (this.rootR + 0.55 * m) * Math.cos(a0 + step * 0.5), y: (this.rootR + 0.55 * m) * Math.sin(a0 + step * 0.5) };
+        const p3 = { x: this.rootR * Math.cos(aEnd),  y: this.rootR * Math.sin(aEnd) };
+        this.localTeeth.push([p0, p1, p2, p3]);
+      }
+      this.baseMass = Math.max(1.2, (this.pitchR * this.pitchR) / 1300);
+      this.baseInertia = 0.5 * this.baseMass * this.pitchR * this.pitchR;
+    } else if (this.type === 'pawl') {
+      const L = this.pawlLength;
+      this.outerR = L + 8;
+      this.pitchR = L;
+      this.rootR = 8;
+      // Rigid arm with hooked tip polygon
+      this.localTeeth.push([
+        { x: 0, y: -5 },
+        { x: L, y: -4 },
+        { x: L - 3, y: 7 },
+        { x: 0, y: 5 }
+      ]);
+      this.baseMass = 0.8;
+      this.baseInertia = 900;
+    } else if (this.type === 'ring') {
+      const m = this.module;
+      const Z = this.teeth;
+      this.pitchR = (m * Z) / 2;
+      this.addendum = 0.72 * m;
+      this.dedendum = 1.15 * m;
+      this.innerTipR = Math.max(10, this.pitchR - this.addendum);
+      this.rootR = this.pitchR + this.dedendum;
+      this.outerR = this.rootR + 1.6 * m;
+
+      const halfPitch = (Math.PI / 4 - 0.04) * m;
+      const halfTip = Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA);
+      const halfRoot = halfPitch + this.dedendum * TAN_ALPHA * 0.6;
+
+      for (let i = 0; i < Z; i++) {
+        const a = (i * 2 * Math.PI) / Z;
+        const c = Math.cos(a), s = Math.sin(a);
+        const tx = -s, ty = c;
+        this.localTeeth.push([
+          { x: this.innerTipR * c - halfTip * tx, y: this.innerTipR * s - halfTip * ty },
+          { x: this.rootR * c - halfRoot * tx,    y: this.rootR * s - halfRoot * ty },
+          { x: this.rootR * c + halfRoot * tx,    y: this.rootR * s + halfRoot * ty },
+          { x: this.innerTipR * c + halfTip * tx, y: this.innerTipR * s + halfTip * ty }
+        ]);
+      }
+      this.baseMass = Math.max(3, (this.outerR * this.outerR - this.innerTipR * this.innerTipR) / 1100);
+      this.baseInertia = 0.5 * this.baseMass * (this.outerR * this.outerR + this.innerTipR * this.innerTipR);
+    } else if (this.type === 'carrier') {
+      const r = this.carrierPins.length ? hypot(this.carrierPins[0].x, this.carrierPins[0].y) : 80;
+      this.pitchR = r;
+      this.outerR = r + 14;
+      this.rootR = 14;
+      this.baseMass = 2.0;
+      this.baseInertia = 0.6 * this.baseMass * r * r;
+    } else if (this.type === 'sprocket') {
+      const Z = this.teeth;
+      const P = this.pitch;
+      this.pitchR = P / (2 * Math.sin(Math.PI / Z));
+      this.rootR = Math.max(5, this.pitchR - ROLLER_RADIUS);
+      this.outerR = this.pitchR + ROLLER_RADIUS * 1.28;
+
+      const maxHalfBase = this.rootR * Math.sin(Math.PI / Z) * 0.86;
+      const halfBase = Math.min(Math.max(2.2, (P * 0.5 - ROLLER_RADIUS * 0.90)), maxHalfBase);
+      const halfTip = Math.max(1.2, halfBase * 0.38);
+      for (let i = 0; i < Z; i++) {
+        const a = ((i + 0.5) * 2 * Math.PI) / Z;
+        const c = Math.cos(a), s = Math.sin(a);
+        const tx = -s, ty = c;
+        const rIn = this.rootR - 1.5;
+        const rOut = this.outerR;
+        this.localTeeth.push([
+          { x: rIn * c - halfBase * tx, y: rIn * s - halfBase * ty },
+          { x: rOut * c - halfTip * tx, y: rOut * s - halfTip * ty },
+          { x: rOut * c + halfTip * tx, y: rOut * s + halfTip * ty },
+          { x: rIn * c + halfBase * tx, y: rIn * s + halfBase * ty }
+        ]);
+      }
+      this.baseMass = Math.max(1.2, (this.pitchR * this.pitchR) / 1400);
+      this.baseInertia = 0.5 * this.baseMass * this.pitchR * this.pitchR;
+    } else if (this.type === 'pulley' || this.type === 'winch') {
+      this.pitchR = Math.max(14, (this.module * this.teeth) / 2);
+      this.rootR = this.pitchR - 4;
+      this.outerR = this.pitchR + 5;
+      this.baseMass = Math.max(1.2, (this.pitchR * this.pitchR) / 1300);
+      this.baseInertia = 0.5 * this.baseMass * this.pitchR * this.pitchR;
+    } else if (this.type === 'rack') {
+      const m = this.module;
+      const p = Math.PI * m;
+      const count = Math.max(6, Math.floor(this.rackLength / p));
+      this.teeth = count;
+      this.rackLength = count * p;
+      this.addendum = 0.78 * m;
+      this.dedendum = 1.15 * m;
+      this.outerR = this.rackLength * 0.55;
+      const halfPitch = (Math.PI / 4 - 0.035) * m;
+      const halfTip = Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA);
+      const halfRoot = halfPitch + this.dedendum * TAN_ALPHA * 0.68;
+
+      for (let i = 0; i < count; i++) {
+        const cx = -this.rackLength / 2 + (i + 0.5) * p;
+        const yRoot = this.dedendum;
+        const yTip = -this.addendum;
+        this.localTeeth.push([
+          { x: cx - halfRoot, y: yRoot },
+          { x: cx + halfRoot, y: yRoot },
+          { x: cx + halfTip,  y: yTip },
+          { x: cx - halfTip,  y: yTip }
+        ]);
+      }
+      this.pinned = false;
+      this.baseMass = 4.0;
+      this.baseInertia = 1e9;
+    }
+    this.updateMassProps();
+  }
+
+  updateMassProps() {
+    if (this.type === 'rack') {
+      this.mass = this.baseMass * this.massScale;
+      this.invMass = this.locked ? 0 : 1 / this.mass;
+      this.inertia = 1e9;
+      this.invInertia = 0;
+      return;
+    }
+    this.mass = this.baseMass * this.massScale;
+    this.invMass = (this.pinned || this.locked) ? 0 : 1 / this.mass;
+    this.inertia = this.baseInertia * this.massScale;
+    this.invInertia = this.locked ? 0 : 1 / this.inertia;
+  }
+
+  getWorldTooth(idx, outPoly) {
+    const local = this.localTeeth[idx];
+    const c = Math.cos(this.theta), s = Math.sin(this.theta);
+    const x = this.x, y = this.y;
+    for (let i = 0; i < 4; i++) {
+      const lx = local[i].x, ly = local[i].y;
+      outPoly[i].x = x + lx * c - ly * s;
+      outPoly[i].y = y + lx * s + ly * c;
+    }
+    return outPoly;
+  }
+
+  getRPM() {
+    if (this.type === 'rack') return hypot(this.vx, this.vy);
+    return (this.omega * 60) / (2 * Math.PI);
+  }
+}
+
+class CarrierPinJoint {
+  constructor(carrier, planet, localX, localY) {
+    this.carrier = carrier;
+    this.planet = planet;
+    this.lx = localX;
+    this.ly = localY;
+  }
+}
+
+class ShaftCoupler {
+  constructor(bodyA, bodyB, oneWay = false) {
+    this.a = bodyA;
+    this.b = bodyB;
+    this.oneWay = oneWay;
+    this.restAngleDiff = bodyB.theta - bodyA.theta;
+  }
+}
+
+class RollerChain {
+  constructor(sprockets, nodes, pitch) {
+    this.id = NEXT_ID++;
+    this.sprockets = sprockets;
+    this.nodes = nodes;
+    this.pitch = pitch;
+    this.layer = sprockets[0].layer;
+  }
+}
+
+class BeltDrive {
+  constructor(pulleyA, pulleyB, crossed = false, maxFriction = 380000) {
+    this.id = NEXT_ID++;
+    this.a = pulleyA;
+    this.b = pulleyB;
+    this.crossed = crossed;
+    this.maxFriction = maxFriction;
+    this.slipping = false;
+    this.tension = 0;
+    this.layer = pulleyA.layer;
+  }
+}
+
+const POLY_A = [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}];
+const POLY_B = [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}];
+
+function satPolyPoly(A, B, out) {
+  let minOverlap = Infinity;
+  let bestNx = 0, bestNy = 0;
+  let refIsA = true;
+
+  for (let pass = 0; pass < 2; pass++) {
+    const P = pass === 0 ? A : B;
+    for (let i = 0; i < 4; i++) {
+      const p1 = P[i];
+      const p2 = P[(i + 1) & 3];
+      const ex = p2.x - p1.x;
+      const ey = p2.y - p1.y;
+      const len = hypot(ex, ey);
+      if (len < 1e-6) continue;
+      const nx = ey / len;
+      const ny = -ex / len;
+
+      let minA = Infinity, maxA = -Infinity;
+      for (let k = 0; k < 4; k++) {
+        const d = A[k].x * nx + A[k].y * ny;
+        if (d < minA) minA = d;
+        if (d > maxA) maxA = d;
+      }
+      let minB = Infinity, maxB = -Infinity;
+      for (let k = 0; k < 4; k++) {
+        const d = B[k].x * nx + B[k].y * ny;
+        if (d < minB) minB = d;
+        if (d > maxB) maxB = d;
+      }
+      const overlap = Math.min(maxA, maxB) - Math.max(minA, minB);
+      if (overlap <= 0) return false;
+      if (overlap < minOverlap) {
+        minOverlap = overlap;
+        bestNx = nx;
+        bestNy = ny;
+        refIsA = (pass === 0);
+      }
+    }
+  }
+
+  const cAx = (A[0].x + A[1].x + A[2].x + A[3].x) * 0.25;
+  const cAy = (A[0].y + A[1].y + A[2].y + A[3].y) * 0.25;
+  const cBx = (B[0].x + B[1].x + B[2].x + B[3].x) * 0.25;
+  const cBy = (B[0].y + B[1].y + B[2].y + B[3].y) * 0.25;
+  if ((cBx - cAx) * bestNx + (cBy - cAy) * bestNy < 0) {
+    bestNx = -bestNx;
+    bestNy = -bestNy;
+  }
+
+  let px = 0, py = 0, cnt = 0;
+  if (refIsA) {
+    let minD = Infinity;
+    for (let k = 0; k < 4; k++) {
+      const d = B[k].x * bestNx + B[k].y * bestNy;
+      if (d < minD) minD = d;
+    }
+    for (let k = 0; k < 4; k++) {
+      const d = B[k].x * bestNx + B[k].y * bestNy;
+      if (d <= minD + 0.5) { px += B[k].x; py += B[k].y; cnt++; }
+    }
+  } else {
+    let maxD = -Infinity;
+    for (let k = 0; k < 4; k++) {
+      const d = A[k].x * bestNx + A[k].y * bestNy;
+      if (d > maxD) maxD = d;
+    }
+    for (let k = 0; k < 4; k++) {
+      const d = A[k].x * bestNx + A[k].y * bestNy;
+      if (d >= maxD - 0.5) { px += A[k].x; py += A[k].y; cnt++; }
+    }
+  }
+
+  out.nx = bestNx;
+  out.ny = bestNy;
+  out.pen = minOverlap;
+  out.px = px / (cnt || 1);
+  out.py = py / (cnt || 1);
+  return true;
+}
+
+function satCirclePoly(cx, cy, r, poly, out) {
+  let minOverlap = Infinity;
+  let bestNx = 0, bestNy = 0;
+
+  for (let i = 0; i < 4; i++) {
+    const p1 = poly[i];
+    const p2 = poly[(i + 1) & 3];
+    const ex = p2.x - p1.x, ey = p2.y - p1.y;
+    const len = hypot(ex, ey);
+    if (len < 1e-6) continue;
+    const nx = ey / len, ny = -ex / len;
+
+    let minP = Infinity, maxP = -Infinity;
+    for (let k = 0; k < 4; k++) {
+      const d = poly[k].x * nx + poly[k].y * ny;
+      if (d < minP) minP = d;
+      if (d > maxP) maxP = d;
+    }
+    const cProj = cx * nx + cy * ny;
+    const overlap = Math.min(maxP, cProj + r) - Math.max(minP, cProj - r);
+    if (overlap <= 0) return false;
+    if (overlap < minOverlap) {
+      minOverlap = overlap;
+      bestNx = nx;
+      bestNy = ny;
+    }
+  }
+
+  let closestV = poly[0], minDist2 = Infinity;
+  for (let k = 0; k < 4; k++) {
+    const dx = cx - poly[k].x, dy = cy - poly[k].y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < minDist2) { minDist2 = d2; closestV = poly[k]; }
+  }
+  const dLen = Math.sqrt(minDist2);
+  if (dLen > 1e-6) {
+    const nx = (cx - closestV.x) / dLen;
+    const ny = (cy - closestV.y) / dLen;
+    let minP = Infinity, maxP = -Infinity;
+    for (let k = 0; k < 4; k++) {
+      const d = poly[k].x * nx + poly[k].y * ny;
+      if (d < minP) minP = d;
+      if (d > maxP) maxP = d;
+    }
+    const cProj = cx * nx + cy * ny;
+    const overlap = Math.min(maxP, cProj + r) - Math.max(minP, cProj - r);
+    if (overlap <= 0) return false;
+    if (overlap < minOverlap) {
+      minOverlap = overlap;
+      bestNx = nx;
+      bestNy = ny;
+    }
+  }
+
+  const pcx = (poly[0].x + poly[1].x + poly[2].x + poly[3].x) * 0.25;
+  const pcy = (poly[0].y + poly[1].y + poly[2].y + poly[3].y) * 0.25;
+  if ((cx - pcx) * bestNx + (cy - pcy) * bestNy < 0) {
+    bestNx = -bestNx;
+    bestNy = -bestNy;
+  }
+
+  out.nx = bestNx;
+  out.ny = bestNy;
+  out.pen = minOverlap;
+  out.px = cx - bestNx * r;
+  out.py = cy - bestNy * r;
+  return true;
+}
+
+class PhysicsWorld {
+  constructor() {
+    this.bodies = [];
+    this.pinJoints = [];
+    this.couplers = [];
+    this.chains = [];
+    this.belts = [];
+    this.contacts = [];
+    this.substeps = 12;
+    this.lastSubstepsUsed = 12;
+    this.adaptiveSubsteps = true;
+    this.friction = 0.08;
+    this.gravity = 320;
+    this.gravityOn = true;
+    this.activeContactsCount = 0;
+    this.wrench = null;
+  }
+
+  clear() {
+    this.bodies = [];
+    this.pinJoints = [];
+    this.couplers = [];
+    this.chains = [];
+    this.belts = [];
+    this.contacts = [];
+    this.wrench = null;
+  }
+
+  addBody(body) {
+    this.bodies.push(body);
+    return body;
+  }
+
+  removeBody(body) {
+    this.bodies = this.bodies.filter(b => b !== body);
+    this.pinJoints = this.pinJoints.filter(j => j.carrier !== body && j.planet !== body);
+    this.couplers = this.couplers.filter(c => c.a !== body && c.b !== body);
+    this.chains = this.chains.filter(ch => !ch.sprockets.includes(body));
+    this.belts = this.belts.filter(bl => bl.a !== body && bl.b !== body);
+  }
+
+  step(dt) {
+    // Adaptive anti-tunneling substeps based on fastest rim speed!
+    let N = this.substeps;
+    if (this.adaptiveSubsteps) {
+      let maxRimSpeed = 0;
+      for (const b of this.bodies) {
+        if (b.type === 'rack') {
+          maxRimSpeed = Math.max(maxRimSpeed, hypot(b.vx, b.vy));
+        } else {
+          maxRimSpeed = Math.max(maxRimSpeed, Math.abs(b.omega) * (b.outerR || 40));
+        }
+      }
+      const needed = Math.ceil((maxRimSpeed * dt) / 3.2);
+      N = clamp(Math.max(this.substeps, needed), this.substeps, 48);
+    }
+    this.lastSubstepsUsed = N;
+
+    const h = dt / N;
+    this.contacts.length = 0;
+    for (const b of this.bodies) b.contactForceAccum = 0;
+
+    let totalContacts = 0;
+    for (let s = 0; s < N; s++) {
+      this.applyExternalForces(h);
+      this.integrateVelocities(h);
+      totalContacts += this.solveAllConstraints(h, s === N - 1);
+      this.integratePositions(h);
+    }
+
+    this.activeContactsCount = Math.round(totalContacts / N);
+    for (const b of this.bodies) {
+      b.lastContactForce = b.lastContactForce * 0.7 + (b.contactForceAccum / dt) * 0.3;
+    }
+  }
+
+  applyExternalForces(h) {
+    for (const b of this.bodies) {
+      if (b.locked) {
+        b.vx = 0; b.vy = 0; b.omega = 0;
+        continue;
+      }
+
+      if (b.type === 'rack') {
+        const ax = Math.cos(b.theta), ay = Math.sin(b.theta);
+        if (b.rackSpring > 0) {
+          const disp = (b.x - b.rackHomeX) * ax + (b.y - b.rackHomeY) * ay;
+          const f = -disp * b.rackSpring;
+          b.vx += f * ax * b.invMass * h;
+          b.vy += f * ay * b.invMass * h;
+        }
+        const speed = b.vx * ax + b.vy * ay;
+        const drag = Math.exp(-b.damping * 2.5 * h);
+        b.vx *= drag;
+        b.vy *= drag;
+        if (b.brakeTorque > 0 && Math.abs(speed) > 1e-4) {
+          const decel = (b.brakeTorque * 8) * b.invMass * h;
+          const newSpeed = Math.sign(speed) * Math.max(0, Math.abs(speed) - decel);
+          b.vx = newSpeed * ax;
+          b.vy = newSpeed * ay;
+        }
+        continue;
+      }
+
+      if (b.type === 'pawl') {
+        // Spring presses pawl gently toward its rest engagement angle
+        const err = b.pawlRestTheta - b.theta;
+        b.omega += err * b.pawlSpring * h;
+        b.omega *= Math.exp(-8.5 * h);
+        continue;
+      }
+
+      if (b.type === 'winch' && this.gravityOn && b.invInertia > 0) {
+        // Real gravity torque from hanging weight on right side of drum!
+        const weightTorque = b.weightMass * this.gravity * b.pitchR * 0.45;
+        b.omega += weightTorque * b.invInertia * h;
+      }
+
+      if (b.motorOn && b.invInertia > 0) {
+        if (b.motorOscillate) {
+          b.oscTimer += h;
+          if (b.oscTimer >= b.oscPeriod) {
+            b.oscTimer = 0;
+            b.motorDir *= -1;
+          }
+        }
+        const targetOmega = (b.motorMaxRpm * 2 * Math.PI / 60) * b.motorDir;
+        if (b.motorInfinite) {
+          // Unstoppable motor: smoothly locks directly to target RPM
+          b.omega += (targetOmega - b.omega) * Math.min(1, 30 * h);
+        } else {
+          // Glitch #5 fix: anti-overshoot clamping for ultra-high torque motors on tiny pinions!
+          const stallTorque = b.motorTorque * 1200;
+          const err = targetOmega - b.omega;
+          const maxDelta = stallTorque * b.invInertia * h;
+          if (Math.sign(err) === b.motorDir) {
+            b.omega += Math.sign(err) * Math.min(Math.abs(err), maxDelta);
+          } else {
+            // Mild regenerative braking if oversped in same direction
+            b.omega += Math.sign(err) * Math.min(Math.abs(err), maxDelta * 0.35);
+          }
+        }
+      }
+
+      b.omega *= Math.exp(-b.damping * h);
+
+      if (b.brakeTorque > 0 && b.invInertia > 0) {
+        const brakeTau = b.brakeTorque * 1200;
+        const maxDelta = brakeTau * b.invInertia * h;
+        if (Math.abs(b.omega) <= maxDelta) b.omega = 0;
+        else b.omega -= Math.sign(b.omega) * maxDelta;
+      }
+    }
+
+    const g = this.gravityOn ? this.gravity : 0;
+    for (const ch of this.chains) {
+      for (const n of ch.nodes) {
+        n.vy += g * h;
+        n.vx *= Math.exp(-0.25 * h);
+        n.vy *= Math.exp(-0.25 * h);
+      }
+    }
+
+    if (this.wrench) {
+      if (this.wrench.body) {
+        const b = this.wrench.body;
+        const c = Math.cos(b.theta), s = Math.sin(b.theta);
+        const rx = this.wrench.localX * c - this.wrench.localY * s;
+        const ry = this.wrench.localX * s + this.wrench.localY * c;
+        const wx = b.x + rx, wy = b.y + ry;
+        const fx = (this.wrench.worldX - wx) * 240;
+        const fy = (this.wrench.worldY - wy) * 240;
+        if (b.type === 'rack') {
+          const ax = Math.cos(b.theta), ay = Math.sin(b.theta);
+          const fAlong = fx * ax + fy * ay;
+          b.vx += fAlong * ax * b.invMass * h;
+          b.vy += fAlong * ay * b.invMass * h;
+        } else if (!b.locked) {
+          const tau = rx * fy - ry * fx;
+          b.omega += tau * b.invInertia * h * 8;
+          b.omega *= 0.96;
+        }
+      } else if (this.wrench.chainNode) {
+        const n = this.wrench.chainNode;
+        n.vx += (this.wrench.worldX - n.x) * 45 * h;
+        n.vy += (this.wrench.worldY - n.y) * 45 * h;
+        n.vx *= 0.92; n.vy *= 0.92;
+      }
+    }
+  }
+
+  integrateVelocities(h) {
+    for (const b of this.bodies) {
+      b.omega = clamp(b.omega, -115, 115); // supports >1,000 RPM
+      b.vx = clamp(b.vx, -2000, 2000);
+      b.vy = clamp(b.vy, -2000, 2000);
+    }
+  }
+
+  solveAllConstraints(h, recordVisuals) {
+    let contactCount = 0;
+    const hit = { nx: 0, ny: 0, pen: 0, px: 0, py: 0 };
+
+    const isSpurLike = t => (t === 'spur' || t === 'sector');
+    const bodies = this.bodies;
+    const len = bodies.length;
+    for (let i = 0; i < len; i++) {
+      const A = bodies[i];
+      if (A.type === 'carrier' || A.type === 'sprocket' || A.type === 'pulley' || A.type === 'winch') continue;
+      for (let j = i + 1; j < len; j++) {
+        const B = bodies[j];
+        if (B.type === 'carrier' || B.type === 'sprocket' || B.type === 'pulley' || B.type === 'winch') continue;
+        if (A.layer !== B.layer) continue;
+        if (A.locked && B.locked) continue;
+
+        if (isSpurLike(A.type) && isSpurLike(B.type)) {
+          contactCount += this.collideSpurSpur(A, B, h, hit, recordVisuals);
+        } else if (isSpurLike(A.type) && B.type === 'ring') {
+          contactCount += this.collideSpurRing(A, B, h, hit, recordVisuals);
+        } else if (A.type === 'ring' && isSpurLike(B.type)) {
+          contactCount += this.collideSpurRing(B, A, h, hit, recordVisuals);
+        } else if (isSpurLike(A.type) && B.type === 'rack') {
+          contactCount += this.collideSpurRack(A, B, h, hit, recordVisuals);
+        } else if (A.type === 'rack' && isSpurLike(B.type)) {
+          contactCount += this.collideSpurRack(B, A, h, hit, recordVisuals);
+        } else if (A.type === 'ratchet' && B.type === 'pawl') {
+          contactCount += this.collideRatchetPawl(A, B, h, hit, recordVisuals);
+        } else if (A.type === 'pawl' && B.type === 'ratchet') {
+          contactCount += this.collideRatchetPawl(B, A, h, hit, recordVisuals);
+        }
+      }
+    }
+
+    for (const ch of this.chains) {
+      contactCount += this.solveChain(ch, h, hit, recordVisuals);
+    }
+
+    for (const bl of this.belts) {
+      this.solveBelt(bl, h);
+    }
+
+    for (let iter = 0; iter < 6; iter++) {
+      for (const j of this.pinJoints) this.solveCarrierPin(j, h);
+      for (const c of this.couplers) this.solveShaftCoupler(c, h);
+    }
+
+    return contactCount;
+  }
+
+  resolveContactImpulse(A, B, hit, h, recordVisuals) {
+    const rAx = hit.px - A.x, rAy = hit.py - A.y;
+    const rBx = hit.px - B.x, rBy = hit.py - B.y;
+
+    const vAx = A.vx - A.omega * rAy;
+    const vAy = A.vy + A.omega * rAx;
+    const vBx = B.vx - B.omega * rBy;
+    const vBy = B.vy + B.omega * rBx;
+
+    const rvx = vBx - vAx;
+    const rvy = vBy - vAy;
+    const vn = rvx * hit.nx + rvy * hit.ny;
+
+    const rAxn = rAx * hit.ny - rAy * hit.nx;
+    const rBxn = rBx * hit.ny - rBy * hit.nx;
+    const kNormal = A.invMass + B.invMass + rAxn * rAxn * A.invInertia + rBxn * rBxn * B.invInertia;
+    if (kNormal < 1e-12) return;
+
+    const slop = 0.08;
+    const baumgarte = 0.28;
+    const bias = baumgarte * Math.max(0, hit.pen - slop) / h;
+    let jn = (-vn + bias) / kNormal;
+    if (jn < 0) jn = 0;
+
+    const ix = jn * hit.nx;
+    const iy = jn * hit.ny;
+
+    A.vx -= ix * A.invMass;
+    A.vy -= iy * A.invMass;
+    A.omega -= rAxn * jn * A.invInertia;
+
+    B.vx += ix * B.invMass;
+    B.vy += iy * B.invMass;
+    B.omega += rBxn * jn * B.invInertia;
+
+    if (this.friction > 0 && jn > 0) {
+      const tx = -hit.ny, ty = hit.nx;
+      const vt = rvx * tx + rvy * ty;
+      const rAxt = rAx * ty - rAy * tx;
+      const rBxt = rBx * ty - rBy * tx;
+      const kTan = A.invMass + B.invMass + rAxt * rAxt * A.invInertia + rBxt * rBxt * B.invInertia;
+      if (kTan > 1e-12) {
+        let jt = clamp(-vt / kTan, -jn * this.friction, jn * this.friction);
+        A.vx -= jt * tx * A.invMass;
+        A.vy -= jt * ty * A.invMass;
+        A.omega -= rAxt * jt * A.invInertia;
+        B.vx += jt * tx * B.invMass;
+        B.vy += jt * ty * B.invMass;
+        B.omega += rBxt * jt * B.invInertia;
+      }
+    }
+
+    const fMag = jn / 10;
+    A.contactForceAccum += fMag;
+    B.contactForceAccum += fMag;
+
+    if (recordVisuals && jn > 0.01) {
+      this.contacts.push({
+        px: hit.px, py: hit.py,
+        nx: hit.nx, ny: hit.ny,
+        mag: Math.min(48, Math.sqrt(jn) * 1.8)
+      });
+    }
+  }
+
+  collideSpurSpur(A, B, h, hit, recordVisuals) {
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const dist2 = dx * dx + dy * dy;
+    const maxR = A.outerR + B.outerR + 2;
+    if (dist2 > maxR * maxR || dist2 < 1e-4) return 0;
+
+    const angleAB = Math.atan2(dy, dx);
+    const angleBA = angleAB + Math.PI;
+    const stepA = (2 * Math.PI) / A.teeth;
+    const stepB = (2 * Math.PI) / B.teeth;
+    const centerA = Math.round((angleAB - A.theta) / stepA);
+    const centerB = Math.round((angleBA - B.theta) / stepB);
+
+    let count = 0;
+    for (let da = -2; da <= 2; da++) {
+      const idxA = ((centerA + da) % A.teeth + A.teeth) % A.teeth;
+      if (A.activeToothMask && !A.activeToothMask[idxA]) continue;
+      A.getWorldTooth(idxA, POLY_A);
+      for (let db = -2; db <= 2; db++) {
+        const idxB = ((centerB + db) % B.teeth + B.teeth) % B.teeth;
+        if (B.activeToothMask && !B.activeToothMask[idxB]) continue;
+        B.getWorldTooth(idxB, POLY_B);
+        if (satPolyPoly(POLY_A, POLY_B, hit)) {
+          this.resolveContactImpulse(A, B, hit, h, recordVisuals);
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  collideSpurRing(spur, ring, h, hit, recordVisuals) {
+    const dx = spur.x - ring.x, dy = spur.y - ring.y;
+    const dist = hypot(dx, dy);
+    if (dist + spur.outerR < ring.innerTipR - 2) return 0;
+    if (dist > ring.outerR + spur.outerR) return 0;
+
+    const angle = Math.atan2(dy, dx);
+    const stepS = (2 * Math.PI) / spur.teeth;
+    const stepR = (2 * Math.PI) / ring.teeth;
+    const centerS = Math.round((angle - spur.theta) / stepS);
+    const centerR = Math.round((angle - ring.theta) / stepR);
+
+    let count = 0;
+    for (let ds = -2; ds <= 2; ds++) {
+      const idxS = ((centerS + ds) % spur.teeth + spur.teeth) % spur.teeth;
+      if (spur.activeToothMask && !spur.activeToothMask[idxS]) continue;
+      spur.getWorldTooth(idxS, POLY_A);
+      for (let dr = -2; dr <= 2; dr++) {
+        const idxR = ((centerR + dr) % ring.teeth + ring.teeth) % ring.teeth;
+        ring.getWorldTooth(idxR, POLY_B);
+        if (satPolyPoly(POLY_A, POLY_B, hit)) {
+          this.resolveContactImpulse(spur, ring, hit, h, recordVisuals);
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  collideSpurRack(spur, rack, h, hit, recordVisuals) {
+    const c = Math.cos(-rack.theta), s = Math.sin(-rack.theta);
+    const dx = spur.x - rack.x, dy = spur.y - rack.y;
+    const lx = dx * c - dy * s;
+    const ly = dx * s + dy * c;
+
+    if (Math.abs(lx) > rack.rackLength * 0.5 + spur.outerR + 4) return 0;
+    if (Math.abs(ly) > spur.outerR + rack.dedendum + 16) return 0;
+
+    // Glitch #4 fix: face toward rack regardless of rack rotation or side
+    const angleTowardRack = rack.theta + (ly <= 0 ? Math.PI / 2 : -Math.PI / 2);
+    const stepS = (2 * Math.PI) / spur.teeth;
+    const centerS = Math.round((angleTowardRack - spur.theta) / stepS);
+    const p = Math.PI * rack.module;
+    const centerR = Math.round((lx + rack.rackLength / 2) / p - 0.5);
+
+    let count = 0;
+    for (let ds = -2; ds <= 2; ds++) {
+      const idxS = ((centerS + ds) % spur.teeth + spur.teeth) % spur.teeth;
+      if (spur.activeToothMask && !spur.activeToothMask[idxS]) continue;
+      spur.getWorldTooth(idxS, POLY_A);
+      for (let dr = -2; dr <= 2; dr++) {
+        const idxR = centerR + dr;
+        if (idxR < 0 || idxR >= rack.teeth) continue;
+        rack.getWorldTooth(idxR, POLY_B);
+        if (satPolyPoly(POLY_A, POLY_B, hit)) {
+          this.resolveContactImpulse(spur, rack, hit, h, recordVisuals);
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  collideRatchetPawl(ratchet, pawl, h, hit, recordVisuals) {
+    const dx = pawl.x - ratchet.x, dy = pawl.y - ratchet.y;
+    if (hypot(dx, dy) > ratchet.outerR + pawl.outerR + 10) return 0;
+
+    pawl.getWorldTooth(0, POLY_B);
+    // Tip world position to narrow tooth window
+    const tipX = (POLY_B[1].x + POLY_B[2].x) * 0.5;
+    const tipY = (POLY_B[1].y + POLY_B[2].y) * 0.5;
+    const ang = Math.atan2(tipY - ratchet.y, tipX - ratchet.x);
+    const step = (2 * Math.PI) / ratchet.teeth;
+    const center = Math.round((ang - ratchet.theta) / step);
+
+    let count = 0;
+    for (let d = -2; d <= 2; d++) {
+      const idx = ((center + d) % ratchet.teeth + ratchet.teeth) % ratchet.teeth;
+      ratchet.getWorldTooth(idx, POLY_A);
+      if (satPolyPoly(POLY_A, POLY_B, hit)) {
+        this.resolveContactImpulse(ratchet, pawl, hit, h, recordVisuals);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  solveBelt(bl, h) {
+    const A = bl.a, B = bl.b;
+    const rA = A.pitchR, rB = B.pitchR;
+    const dir = bl.crossed ? -1 : 1;
+    // Belt surface relative velocity: vB - dir * vA = 0
+    const vRel = (B.omega * rB) - dir * (A.omega * rA);
+    const k = (rA * rA * A.invInertia) + (rB * rB * B.invInertia);
+    if (k < 1e-12) return;
+
+    const maxImpulse = bl.maxFriction * h;
+    let j = -vRel / k;
+    if (Math.abs(j) > maxImpulse) {
+      j = Math.sign(j) * maxImpulse;
+      bl.slipping = true;
+    } else {
+      bl.slipping = false;
+    }
+    bl.tension = Math.abs(j) / h;
+
+    A.omega -= dir * j * rA * A.invInertia;
+    B.omega += j * rB * B.invInertia;
+    A.contactForceAccum += Math.abs(j) / 10;
+    B.contactForceAccum += Math.abs(j) / 10;
+  }
+
+  solveCarrierPin(j, h) {
+    const C = j.carrier;
+    const P = j.planet;
+    const cos = Math.cos(C.theta), sin = Math.sin(C.theta);
+    const rx = j.lx * cos - j.ly * sin;
+    const ry = j.lx * sin + j.ly * cos;
+
+    const pinX = C.x + rx;
+    const pinY = C.y + ry;
+
+    const vCx = C.vx - C.omega * ry;
+    const vCy = C.vy + C.omega * rx;
+    const rvx = P.vx - vCx;
+    const rvy = P.vy - vCy;
+
+    const errX = P.x - pinX;
+    const errY = P.y - pinY;
+    const baum = 0.35 / h;
+
+    const invM = P.invMass + C.invMass;
+    const k11 = invM + ry * ry * C.invInertia;
+    const k22 = invM + rx * rx * C.invInertia;
+    const k12 = -rx * ry * C.invInertia;
+    const det = k11 * k22 - k12 * k12;
+    if (det < 1e-12) return;
+
+    const rhsX = -(rvx + errX * baum);
+    const rhsY = -(rvy + errY * baum);
+    const jx = ( k22 * rhsX - k12 * rhsY) / det;
+    const jy = (-k12 * rhsX + k11 * rhsY) / det;
+
+    P.vx += jx * P.invMass;
+    P.vy += jy * P.invMass;
+    C.vx -= jx * C.invMass;
+    C.vy -= jy * C.invMass;
+    C.omega -= (rx * jy - ry * jx) * C.invInertia;
+  }
+
+  solveShaftCoupler(c, h) {
+    const A = c.a, B = c.b;
+    const invI = A.invInertia + B.invInertia;
+    if (invI < 1e-12) return;
+    const relOmega = B.omega - A.omega;
+    if (c.oneWay) {
+      // Freewheel: only locks when A tries to spin faster than B in positive drive direction
+      if (relOmega > 0) return;
+      const j = -relOmega / invI;
+      A.omega -= j * A.invInertia;
+      B.omega += j * B.invInertia;
+      return;
+    }
+    // Glitch #6 fix: rigid shaft coupler also eliminates angular drift!
+    const angleErr = (B.theta - A.theta) - c.restAngleDiff;
+    const bias = 0.22 * angleErr / h;
+    const j = -(relOmega + bias) / invI;
+    A.omega -= j * A.invInertia;
+    B.omega += j * B.invInertia;
+  }
+
+  solveChain(ch, h, hit, recordVisuals) {
+    const nodes = ch.nodes;
+    const N = nodes.length;
+    const L = ch.pitch;
+    let contacts = 0;
+
+    for (const sp of ch.sprockets) {
+      const maxR = sp.outerR + ROLLER_RADIUS + 4;
+      const maxR2 = maxR * maxR;
+      const step = (2 * Math.PI) / sp.teeth;
+
+      for (let i = 0; i < N; i++) {
+        const n = nodes[i];
+        const dx = n.x - sp.x, dy = n.y - sp.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > maxR2) continue;
+
+        const dist = Math.sqrt(d2) || 1e-4;
+        const nx = dx / dist, ny = dy / dist;
+
+        const minDist = sp.rootR + ROLLER_RADIUS;
+        if (dist < minDist) {
+          const pen = minDist - dist;
+          const px = sp.x + nx * sp.rootR;
+          const py = sp.y + ny * sp.rootR;
+          const rSx = px - sp.x, rSy = py - sp.y;
+          const vSx = -sp.omega * rSy, vSy = sp.omega * rSx;
+          const vn = (n.vx - vSx) * nx + (n.vy - vSy) * ny;
+          const jn = Math.max(0, (-vn + 0.35 * pen / h) / n.invMass);
+          n.vx += jn * nx * n.invMass;
+          n.vy += jn * ny * n.invMass;
+          n.x += nx * pen * 0.72;
+          n.y += ny * pen * 0.72;
+        }
+
+        const ang = Math.atan2(dy, dx);
+        const centerTooth = Math.round((ang - sp.theta) / step - 0.5);
+        for (let dt = -1; dt <= 1; dt++) {
+          const idx = ((centerTooth + dt) % sp.teeth + sp.teeth) % sp.teeth;
+          sp.getWorldTooth(idx, POLY_A);
+          if (satCirclePoly(n.x, n.y, ROLLER_RADIUS, POLY_A, hit)) {
+            const rSx = hit.px - sp.x, rSy = hit.py - sp.y;
+            const vSx = -sp.omega * rSy, vSy = sp.omega * rSx;
+            const rvx = n.vx - vSx, rvy = n.vy - vSy;
+            const vn = rvx * hit.nx + rvy * hit.ny;
+            const rSxn = rSx * hit.ny - rSy * hit.nx;
+            const kN = n.invMass + rSxn * rSxn * sp.invInertia;
+            if (kN > 1e-12) {
+              const jn = Math.max(0, (-vn + 0.32 * Math.max(0, hit.pen - 0.04) / h) / kN);
+              n.vx += jn * hit.nx * n.invMass;
+              n.vy += jn * hit.ny * n.invMass;
+              sp.omega -= rSxn * jn * sp.invInertia;
+
+              sp.contactForceAccum += jn / 10;
+              contacts++;
+              if (recordVisuals && jn > 0.05) {
+                this.contacts.push({
+                  px: hit.px, py: hit.py,
+                  nx: hit.nx, ny: hit.ny,
+                  mag: Math.min(30, Math.sqrt(jn) * 2.2)
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Glitch #2 fix: stiffer 16-iteration inextensible chain solver
+    for (let i = 0; i < N; i++) nodes[i].tension = 0;
+    for (let iter = 0; iter < 16; iter++) {
+      for (let i = 0; i < N; i++) {
+        const a = nodes[i];
+        const b = nodes[(i + 1) % N];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = hypot(dx, dy) || 1e-4;
+        const nx = dx / d, ny = dy / d;
+        const err = d - L;
+
+        const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        const invM = a.invMass + b.invMass;
+        const j = -(rv + 0.45 * err / h) / invM;
+        a.vx -= j * nx * a.invMass;
+        a.vy -= j * ny * a.invMass;
+        b.vx += j * nx * b.invMass;
+        b.vy += j * ny * b.invMass;
+
+        if (j < 0) a.tension += -j;
+
+        const corr = err * 0.46;
+        a.x += nx * corr;
+        a.y += ny * corr;
+        b.x -= nx * corr;
+        b.y -= ny * corr;
+      }
+    }
+
+    return contacts;
+  }
+
+  integratePositions(h) {
+    for (const b of this.bodies) {
+      if (b.locked) continue;
+      if (b.type === 'rack') {
+        const ax = Math.cos(b.theta), ay = Math.sin(b.theta);
+        const speed = b.vx * ax + b.vy * ay;
+        b.vx = speed * ax;
+        b.vy = speed * ay;
+        b.x += b.vx * h;
+        b.y += b.vy * h;
+        const disp = (b.x - b.rackHomeX) * ax + (b.y - b.rackHomeY) * ay;
+        if (Math.abs(disp) > b.rackTravel) {
+          const clamped = clamp(disp, -b.rackTravel, b.rackTravel);
+          b.x = b.rackHomeX + clamped * ax;
+          b.y = b.rackHomeY + clamped * ay;
+          b.vx = 0; b.vy = 0;
+        }
+        continue;
+      }
+      if (!b.pinned) {
+        b.x += b.vx * h;
+        b.y += b.vy * h;
+      }
+      b.theta += b.omega * h;
+      if (b.type === 'winch') {
+        b.cableLen = clamp(b.cableLen + b.omega * b.pitchR * h, 24, 280);
+      }
+    }
+
+    for (const ch of this.chains) {
+      for (const n of ch.nodes) {
+        n.vx = clamp(n.vx, -2000, 2000);
+        n.vy = clamp(n.vy, -2000, 2000);
+        n.x += n.vx * h;
+        n.y += n.vy * h;
+      }
+    }
+  }
+}
+
+function buildPhysicalChain(sprockets, pitch = SPROCKET_PITCH) {
+  if (sprockets.length < 2) return null;
+
+  let cx = 0, cy = 0;
+  for (const s of sprockets) { cx += s.x; cy += s.y; }
+  cx /= sprockets.length; cy /= sprockets.length;
+  const ordered = sprockets.slice().sort((a, b) =>
+    Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
+  );
+
+  const M = ordered.length;
+  const tangents = [];
+  for (let i = 0; i < M; i++) {
+    const A = ordered[i];
+    const B = ordered[(i + 1) % M];
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const d = hypot(dx, dy);
+    const rA = A.pitchR, rB = B.pitchR;
+    const baseAngle = Math.atan2(dy, dx);
+    const cosPhi = clamp((rA - rB) / Math.max(d, 1), -0.99, 0.99);
+    const phi = Math.acos(cosPhi);
+    const tAngle = baseAngle - phi;
+    tangents.push({
+      ax: A.x + rA * Math.cos(tAngle),
+      ay: A.y + rA * Math.sin(tAngle),
+      bx: B.x + rB * Math.cos(tAngle),
+      by: B.y + rB * Math.sin(tAngle),
+      angle: tAngle
+    });
+  }
+
+  const poly = [];
+  for (let i = 0; i < M; i++) {
+    const S = ordered[i];
+    const prevT = tangents[(i - 1 + M) % M];
+    const nextT = tangents[i];
+    let aStart = prevT.angle;
+    let aEnd = nextT.angle;
+    while (aEnd <= aStart) aEnd += Math.PI * 2;
+    const arcLen = (aEnd - aStart) * S.pitchR;
+    const steps = Math.max(4, Math.ceil(arcLen / 4));
+    for (let k = 0; k < steps; k++) {
+      const a = aStart + (aEnd - aStart) * (k / steps);
+      poly.push({ x: S.x + S.pitchR * Math.cos(a), y: S.y + S.pitchR * Math.sin(a) });
+    }
+    const segLen = hypot(nextT.bx - nextT.ax, nextT.by - nextT.ay);
+    const segSteps = Math.max(2, Math.ceil(segLen / 4));
+    for (let k = 0; k < segSteps; k++) {
+      const t = k / segSteps;
+      poly.push({
+        x: nextT.ax + (nextT.bx - nextT.ax) * t,
+        y: nextT.ay + (nextT.by - nextT.ay) * t
+      });
+    }
+  }
+
+  let perim = 0;
+  const cum = [0];
+  for (let i = 0; i < poly.length; i++) {
+    const p1 = poly[i], p2 = poly[(i + 1) % poly.length];
+    perim += hypot(p2.x - p1.x, p2.y - p1.y);
+    cum.push(perim);
+  }
+
+  const finalCount = Math.max(12, Math.ceil(perim / pitch));
+  const nodes = [];
+  for (let i = 0; i < finalCount; i++) {
+    const targetD = (i / finalCount) * perim;
+    let seg = 0;
+    while (seg < poly.length - 1 && cum[seg + 1] < targetD) seg++;
+    const segStart = cum[seg], segEnd = cum[seg + 1];
+    const t = (segEnd - segStart) > 1e-6 ? (targetD - segStart) / (segEnd - segStart) : 0;
+    const p1 = poly[seg], p2 = poly[(seg + 1) % poly.length];
+    nodes.push({
+      x: p1.x + (p2.x - p1.x) * t,
+      y: p1.y + (p2.y - p1.y) * t,
+      vx: 0, vy: 0,
+      invMass: 1 / 0.18,
+      tension: 0
+    });
+  }
+
+  return new RollerChain(ordered, nodes, pitch);
+}
+
+function spawnPlanetarySet(world, cx, cy, zSun = 12, zPlanet = 12, numPlanets = 3, layer = 0) {
+  let zS = zSun;
+  while ((zS + (zS + 2 * zPlanet)) % numPlanets !== 0) zS++;
+  const finalZRing = zS + 2 * zPlanet;
+  const groupId = NEXT_ID++;
+
+  const sun = world.addBody(new RigidBody({
+    type: 'spur', name: `Sun Gear (${zS}T)`,
+    x: cx, y: cy, teeth: zS, theta: 0, layer,
+    color: '#f59e0b', planetaryRole: 'sun', planetaryGroup: groupId,
+    motorOn: true, motorTorque: 300, motorMaxRpm: 100, motorDir: 1
+  }));
+
+  const ringTheta = (zPlanet % 2 === 0) ? 0 : (Math.PI / finalZRing);
+  const ring = world.addBody(new RigidBody({
+    type: 'ring', name: `Ring Gear (${finalZRing}T)`,
+    x: cx, y: cy, teeth: finalZRing, theta: ringTheta, layer,
+    color: '#3b82f6', planetaryRole: 'ring', planetaryGroup: groupId,
+    locked: true
+  }));
+
+  const orbitR = sun.pitchR + (zPlanet * MODULE) / 2;
+  const pins = [];
+  for (let i = 0; i < numPlanets; i++) {
+    const a = (i * 2 * Math.PI) / numPlanets;
+    pins.push({ x: orbitR * Math.cos(a), y: orbitR * Math.sin(a) });
+  }
+
+  const carrier = world.addBody(new RigidBody({
+    type: 'carrier', name: `Planet Carrier (${numPlanets}×)`,
+    x: cx, y: cy, theta: 0, layer,
+    carrierPins: pins, color: '#a855f7',
+    planetaryRole: 'carrier', planetaryGroup: groupId,
+    massScale: 1.4
+  }));
+
+  const planets = [];
+  for (let i = 0; i < numPlanets; i++) {
+    const a = (i * 2 * Math.PI) / numPlanets;
+    const px = cx + orbitR * Math.cos(a);
+    const py = cy + orbitR * Math.sin(a);
+    const sunTeethAtA = (a * zS) / (2 * Math.PI);
+    const pTheta = a + Math.PI + ((0.5 - sunTeethAtA) * 2 * Math.PI) / zPlanet;
+
+    const planet = world.addBody(new RigidBody({
+      type: 'spur', name: `Planet ${i + 1} (${zPlanet}T)`,
+      x: px, y: py, teeth: zPlanet, theta: pTheta, layer,
+      pinned: false, color: '#38bdf8',
+      planetaryRole: 'planet', planetaryGroup: groupId
+    }));
+    world.pinJoints.push(new CarrierPinJoint(carrier, planet, pins[i].x, pins[i].y));
+    planets.push(planet);
+  }
+
+  return { sun, ring, carrier, planets, groupId };
+}
+
+function spawnRatchetWithPawl(world, cx, cy, teeth = 16, layer = 0) {
+  const ratchet = world.addBody(new RigidBody({
+    type: 'ratchet', name: `Ratchet Wheel (${teeth}T)`,
+    x: cx, y: cy, teeth, layer, color: '#f97316',
+    motorOn: true, motorOscillate: true, oscPeriod: 1.8, motorTorque: 350, motorMaxRpm: 70, motorDir: 1
+  }));
+  const pawlLen = 58;
+  const pawlX = cx - ratchet.outerR - 36;
+  const pawlY = cy - ratchet.outerR * 0.72;
+  const restAngle = Math.atan2((cy - ratchet.rootR * 0.92) - pawlY, cx - pawlX);
+  const pawl = world.addBody(new RigidBody({
+    type: 'pawl', name: 'Spring Pawl',
+    x: pawlX, y: pawlY, theta: restAngle, pawlRestTheta: restAngle,
+    pawlLength: pawlLen, pawlSpring: 55, layer, color: '#e2e8f0'
+  }));
+  return { ratchet, pawl };
+}
+
+function meshedTheta(sourceGear, targetTeeth, angleToTarget) {
+  const srcPhase = ((angleToTarget - sourceGear.theta) * sourceGear.teeth) / (2 * Math.PI);
+  return angleToTarget + Math.PI + ((0.5 - srcPhase) * 2 * Math.PI) / targetTeeth;
+}
+
+let activePlanetary = null;
+let refGear = null;
+
+function loadPreset(world, name) {
+  world.clear();
+  activePlanetary = null;
+  refGear = null;
+  cam.x = 0; cam.y = 0; cam.zoom = 1.0;
+
+  if (name === 'planetary') {
+    activePlanetary = spawnPlanetarySet(world, 0, 0, 12, 12, 3, 0);
+    refGear = activePlanetary.sun;
+    setPlanetaryMode('reduction');
+  } else if (name === 'double_planetary') {
+    const p1 = spawnPlanetarySet(world, 0, 0, 12, 12, 3, 0);
+    const p2 = spawnPlanetarySet(world, 0, 0, 12, 12, 3, 1);
+    p2.sun.motorOn = false;
+    p2.sun.name = 'Stage 2 Sun (12T)';
+    p2.ring.name = 'Stage 2 Ring (36T)';
+    p2.carrier.name = 'Final Output Carrier (16:1)';
+    p2.carrier.color = '#22c55e';
+    p2.carrier.massScale = 2.5;
+    p2.carrier.brakeTorque = 40;
+    p1.sun.motorTorque = 800;
+    p1.sun.motorMaxRpm = 180;
+    world.couplers.push(new ShaftCoupler(p1.carrier, p2.sun));
+    activePlanetary = p1;
+    refGear = p1.sun;
+  } else if (name === 'chain') {
+    const s1 = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Drive Sprocket (12T)',
+      x: -165, y: 10, teeth: 12, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 450, motorMaxRpm: 110, motorDir: 1
+    }));
+    const s2 = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Driven Sprocket (24T)',
+      x: 155, y: 10, teeth: 24, layer: 0, color: '#38bdf8',
+      massScale: 2.5, brakeTorque: 25
+    }));
+    const idler = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Tensioner Idler (9T)',
+      x: -5, y: 112, teeth: 9, layer: 0, color: '#94a3b8',
+      massScale: 0.5
+    }));
+    const ch = buildPhysicalChain([s1, s2, idler], SPROCKET_PITCH);
+    if (ch) world.chains.push(ch);
+    refGear = s1;
+  } else if (name === 'bike') {
+    const crank = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Crank Chainring (24T)',
+      x: -170, y: 0, teeth: 24, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 600, motorMaxRpm: 80, motorDir: 1
+    }));
+    const rear = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Rear Cog (12T)',
+      x: 175, y: -15, teeth: 12, layer: 0, color: '#22c55e',
+      massScale: 2.0, brakeTorque: 15
+    }));
+    const j1 = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Derailleur Jockey 1 (9T)',
+      x: 145, y: 105, teeth: 9, layer: 0, color: '#94a3b8',
+      massScale: 0.4
+    }));
+    const j2 = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Derailleur Jockey 2 (9T)',
+      x: 20, y: 118, teeth: 9, layer: 0, color: '#94a3b8',
+      massScale: 0.4
+    }));
+    const ch = buildPhysicalChain([crank, rear, j1, j2], SPROCKET_PITCH);
+    if (ch) world.chains.push(ch);
+    refGear = crank;
+  } else if (name === 'belt_crossed') {
+    const p1 = world.addBody(new RigidBody({
+      type: 'pulley', name: 'Motor Pulley (14T)',
+      x: -165, y: 0, teeth: 14, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 800, motorMaxRpm: 160, motorDir: 1
+    }));
+    const p2 = world.addBody(new RigidBody({
+      type: 'pulley', name: 'Driven Pulley (28T)',
+      x: 165, y: 0, teeth: 28, layer: 0, color: '#06b6d4',
+      massScale: 4.0, brakeTorque: 60
+    }));
+    world.belts.push(new BeltDrive(p1, p2, true, 260000));
+    refGear = p1;
+  } else if (name === 'sector') {
+    const sec = world.addBody(new RigidBody({
+      type: 'sector', name: 'Intermittent Sector (20T, 45%)',
+      x: -95, y: 0, teeth: 20, sectorRatio: 0.45, theta: 0, layer: 0, color: '#ec4899',
+      motorOn: true, motorTorque: 500, motorMaxRpm: 65, motorDir: 1
+    }));
+    const x2 = -95 + sec.pitchR + (16 * MODULE) / 2;
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'Pulsed Flywheel (16T)',
+      x: x2, y: 0, teeth: 16, theta: meshedTheta(sec, 16, 0), layer: 0, color: '#38bdf8',
+      massScale: 2.5, damping: 0.45
+    }));
+    refGear = sec;
+  } else if (name === 'ratchet') {
+    const { ratchet } = spawnRatchetWithPawl(world, 0, 15, 16, 0);
+    refGear = ratchet;
+  } else if (name === 'winch') {
+    activePlanetary = spawnPlanetarySet(world, -120, 0, 12, 12, 3, 0);
+    const drum = world.addBody(new RigidBody({
+      type: 'winch', name: 'Hoist Winch Drum (16T)',
+      x: -120, y: 0, teeth: 16, layer: 1, color: '#eab308',
+      weightMass: 65, cableLen: 150
+    }));
+    world.couplers.push(new ShaftCoupler(activePlanetary.carrier, drum));
+    activePlanetary.sun.motorTorque = 450;
+    activePlanetary.sun.motorMaxRpm = 90;
+    activePlanetary.sun.motorDir = -1; // hoist UP against gravity!
+    refGear = activePlanetary.sun;
+  } else if (name === 'compound') {
+    const g1 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Input Pinion (10T)',
+      x: -190, y: 0, teeth: 10, theta: 0, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 350, motorMaxRpm: 140, motorDir: 1
+    }));
+    const xMid = -190 + g1.pitchR + (30 * MODULE) / 2;
+    const g2 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 1 Gear (30T)',
+      x: xMid, y: 0, teeth: 30, theta: meshedTheta(g1, 30, 0), layer: 0, color: '#38bdf8'
+    }));
+    const g3 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 2 Pinion (10T)',
+      x: xMid, y: 0, teeth: 10, theta: 0, layer: 1, color: '#a855f7'
+    }));
+    world.couplers.push(new ShaftCoupler(g2, g3));
+    const xOut = xMid + g3.pitchR + (30 * MODULE) / 2;
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'Output Flywheel (30T)',
+      x: xOut, y: 0, teeth: 30, theta: meshedTheta(g3, 30, 0), layer: 1, color: '#22c55e',
+      massScale: 4.0, brakeTorque: 40
+    }));
+    refGear = g1;
+  } else if (name === 'compound3') {
+    const g1 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Motor Pinion (10T)',
+      x: -290, y: 0, teeth: 10, theta: 0, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 800, motorMaxRpm: 300, motorDir: 1
+    }));
+    const x1 = -290 + g1.pitchR + (30 * MODULE) / 2;
+    const g2 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 1 Gear (30T)',
+      x: x1, y: 0, teeth: 30, theta: meshedTheta(g1, 30, 0), layer: 0, color: '#38bdf8'
+    }));
+    const g3 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 2 Pinion (10T)',
+      x: x1, y: 0, teeth: 10, theta: 0, layer: 1, color: '#a855f7'
+    }));
+    world.couplers.push(new ShaftCoupler(g2, g3));
+    const x2 = x1 + g3.pitchR + (30 * MODULE) / 2;
+    const g4 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 2 Gear (30T)',
+      x: x2, y: 0, teeth: 30, theta: meshedTheta(g3, 30, 0), layer: 1, color: '#60a5fa'
+    }));
+    const g5 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 3 Pinion (10T)',
+      x: x2, y: 0, teeth: 10, theta: 0, layer: 0, color: '#f472b6'
+    }));
+    world.couplers.push(new ShaftCoupler(g4, g5));
+    const x3 = x2 + g5.pitchR + (30 * MODULE) / 2;
+    world.addBody(new RigidBody({
+      type: 'spur', name: '27:1 Heavy Flywheel (30T)',
+      x: x3, y: 0, teeth: 30, theta: meshedTheta(g5, 30, 0), layer: 0, color: '#22c55e',
+      massScale: 8.0, brakeTorque: 200
+    }));
+    cam.zoom = 0.78;
+    refGear = g1;
+  } else if (name === 'overdrive') {
+    const g1 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Torque Motor Gear (36T)',
+      x: -220, y: 0, teeth: 36, theta: 0, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 3500, motorMaxRpm: 55, motorDir: 1
+    }));
+    const x1 = -220 + g1.pitchR + (12 * MODULE) / 2;
+    const g2 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 1 Pinion (12T)',
+      x: x1, y: 0, teeth: 12, theta: meshedTheta(g1, 12, 0), layer: 0, color: '#38bdf8'
+    }));
+    const g3 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Stage 2 Gear (36T)',
+      x: x1, y: 0, teeth: 36, theta: 0, layer: 1, color: '#a855f7'
+    }));
+    world.couplers.push(new ShaftCoupler(g2, g3));
+    const x2 = x1 + g3.pitchR + (12 * MODULE) / 2;
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'High-RPM Output (12T)',
+      x: x2, y: 0, teeth: 12, theta: meshedTheta(g3, 12, 0), layer: 1, color: '#22c55e',
+      massScale: 0.6
+    }));
+    cam.zoom = 0.85;
+    refGear = g1;
+  } else if (name === 'idler') {
+    const g1 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Driver Gear (14T)',
+      x: -210, y: 0, teeth: 14, theta: 0, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 350, motorMaxRpm: 100, motorDir: 1
+    }));
+    const x2 = -210 + g1.pitchR + (16 * MODULE) / 2;
+    const g2 = world.addBody(new RigidBody({
+      type: 'spur', name: 'Idler Gear (16T)',
+      x: x2, y: 0, teeth: 16, theta: meshedTheta(g1, 16, 0), layer: 0, color: '#94a3b8'
+    }));
+    const x3 = x2 + g2.pitchR + (28 * MODULE) / 2;
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'Output Gear (28T)',
+      x: x3, y: 0, teeth: 28, theta: meshedTheta(g2, 28, 0), layer: 0, color: '#22c55e',
+      massScale: 2.5, brakeTorque: 20
+    }));
+    refGear = g1;
+  } else if (name === 'splitter') {
+    const center = world.addBody(new RigidBody({
+      type: 'spur', name: 'Center Motor Gear (20T)',
+      x: 0, y: 0, teeth: 20, theta: 0, layer: 0, color: '#f59e0b',
+      motorOn: true, motorTorque: 900, motorMaxRpm: 110, motorDir: 1
+    }));
+    const xLeft = -(center.pitchR + (36 * MODULE) / 2);
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'High-Torque Output (36T)',
+      x: xLeft, y: 0, teeth: 36, theta: meshedTheta(center, 36, Math.PI), layer: 0, color: '#3b82f6',
+      massScale: 4.5, brakeTorque: 60
+    }));
+    const xRight = center.pitchR + (10 * MODULE) / 2;
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'High-Speed Pinion (10T)',
+      x: xRight, y: 0, teeth: 10, theta: meshedTheta(center, 10, 0), layer: 0, color: '#22c55e',
+      massScale: 0.7
+    }));
+    const yUp = -(center.pitchR + (16 * MODULE) / 2);
+    world.addBody(new RigidBody({
+      type: 'spur', name: 'Auxiliary PTO (16T)',
+      x: 0, y: yUp, teeth: 16, theta: meshedTheta(center, 16, -Math.PI / 2), layer: 0, color: '#a855f7',
+      massScale: 1.5
+    }));
+    refGear = center;
+  } else if (name === 'hybrid') {
+    activePlanetary = spawnPlanetarySet(world, -165, 0, 12, 12, 3, 0);
+    const sp1 = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Carrier Output Sprocket (14T)',
+      x: -165, y: 0, teeth: 14, layer: 1, color: '#a855f7'
+    }));
+    world.couplers.push(new ShaftCoupler(activePlanetary.carrier, sp1));
+    const sp2 = world.addBody(new RigidBody({
+      type: 'sprocket', name: 'Final Flywheel Sprocket (22T)',
+      x: 175, y: 0, teeth: 22, layer: 1, color: '#22c55e',
+      massScale: 3.5, brakeTorque: 25
+    }));
+    const ch = buildPhysicalChain([sp1, sp2], SPROCKET_PITCH);
+    if (ch) world.chains.push(ch);
+    refGear = activePlanetary.sun;
+    setPlanetaryMode('reduction');
+  } else if (name === 'rack') {
+    const pinion = world.addBody(new RigidBody({
+      type: 'spur', name: 'Drive Pinion (16T)',
+      x: 0, y: -64, teeth: 16, theta: Math.PI / 2 + Math.PI / 16, layer: 0, color: '#f59e0b',
+      motorOn: true, motorOscillate: true, oscPeriod: 1.6, motorTorque: 350, motorMaxRpm: 50, motorDir: 1
+    }));
+    world.addBody(new RigidBody({
+      type: 'rack', name: 'Linear Rack',
+      x: 0, y: 0, rackLength: 320, rackTravel: 145, rackSpring: 0, layer: 0, color: '#10b981'
+    }));
+    refGear = pinion;
+  }
+
+  document.getElementById('planetary-quick').classList.toggle('visible', !!activePlanetary);
+}
+
+function setPlanetaryMode(mode) {
+  if (!activePlanetary) return;
+  const { sun, ring, carrier } = activePlanetary;
+  for (const b of [sun, ring, carrier]) {
+    b.locked = false;
+    b.motorOn = false;
+    b.brakeTorque = 0;
+  }
+  if (mode === 'reduction') {
+    ring.locked = true;
+    sun.motorOn = true; sun.motorTorque = 400; sun.motorMaxRpm = 100; sun.motorDir = 1;
+    carrier.brakeTorque = 20;
+    refGear = sun;
+  } else if (mode === 'reverse') {
+    carrier.locked = true;
+    sun.motorOn = true; sun.motorTorque = 400; sun.motorMaxRpm = 100; sun.motorDir = 1;
+    ring.brakeTorque = 20;
+    refGear = sun;
+  } else if (mode === 'overdrive') {
+    sun.locked = true;
+    carrier.motorOn = true; carrier.motorTorque = 700; carrier.motorMaxRpm = 70; carrier.motorDir = 1;
+    ring.brakeTorque = 12;
+    refGear = carrier;
+  } else if (mode === 'diff') {
+    sun.motorOn = true; sun.motorTorque = 400; sun.motorMaxRpm = 100; sun.motorDir = 1;
+    ring.brakeTorque = 10;
+    carrier.brakeTorque = 10;
+    refGear = sun;
+  }
+  for (const b of [sun, ring, carrier]) b.updateMassProps();
+  document.querySelectorAll('#planetary-quick button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.pmode === mode);
+  });
+  syncInspector();
+}
+
+const canvas = document.getElementById('sim');
+const ctx = canvas.getContext('2d');
+const scopeCanvas = document.getElementById('scope-canvas');
+const scopeCtx = scopeCanvas.getContext('2d');
+const world = new PhysicsWorld();
+
+const cam = { x: 0, y: 0, zoom: 1.0 };
+let paused = false;
+let timeScale = 1.0;
+let showForces = true;
+let showPitch = true;
+let showScope = true;
+
+let currentTool = 'select';
+let placeTeeth = 18;
+let placeLayer = 0;
+let autoSnap = true;
+let selectedBody = null;
+let coupleFirst = null;
+let chainSelection = [];
+let beltSelection = [];
+let draggingBody = null;
+
+// Coaxial click-cycle state (Glitch #7 fix)
+let lastClickPos = { x: 1e9, y: 1e9 };
+let lastClickCycleIdx = 0;
+
+// Live oscilloscope ring buffer
+const SCOPE_LEN = 180;
+const scopeRef = new Float32Array(SCOPE_LEN);
+const scopeSel = new Float32Array(SCOPE_LEN);
+let scopeIdx = 0;
+
+let mouseScreen = { x: 0, y: 0 };
+let mouseWorld = { x: 0, y: 0 };
+let isPanning = false;
+let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
+let shiftDown = false;
+
+function screenToWorld(sx, sy) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (sx - rect.width / 2) / cam.zoom + cam.x,
+    y: (sy - rect.height / 2) / cam.zoom + cam.y
+  };
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function computeSnapForBody(wx, wy, teeth, layer, type, ignoreBody = null) {
+  let x = wx, y = wy, theta = ignoreBody ? ignoreBody.theta : 0, snappedTo = null;
+  const newPitchR = type === 'sprocket'
+    ? SPROCKET_PITCH / (2 * Math.sin(Math.PI / teeth))
+    : (MODULE * teeth) / 2;
+
+  if (autoSnap && !shiftDown && (type === 'spur' || type === 'sector')) {
+    let bestDist = 42;
+    for (const b of world.bodies) {
+      if (b === ignoreBody || b.layer !== layer) continue;
+      if (b.type === 'spur' || b.type === 'sector') {
+        const d = hypot(wx - b.x, wy - b.y);
+        const targetD = b.pitchR + newPitchR;
+        if (Math.abs(d - targetD) < bestDist) {
+          bestDist = Math.abs(d - targetD);
+          const ang = Math.atan2(wy - b.y, wx - b.x);
+          x = b.x + Math.cos(ang) * targetD;
+          y = b.y + Math.sin(ang) * targetD;
+          theta = meshedTheta(b, teeth, ang);
+          snappedTo = b;
+        }
+      } else if (b.type === 'rack') {
+        const targetY = b.y - newPitchR;
+        if (Math.abs(wy - targetY) < bestDist && Math.abs(wx - b.x) < b.rackLength * 0.5) {
+          bestDist = Math.abs(wy - targetY);
+          x = wx;
+          y = targetY;
+          theta = Math.PI / 2 + Math.PI / teeth;
+          snappedTo = b;
+        }
+      }
+    }
+  }
+  return { x, y, theta, pitchR: newPitchR, snappedTo };
+}
+
+function computePlacementPreview(wx, wy) {
+  const placeable = ['spur', 'ring', 'sprocket', 'planetary', 'rack', 'sector', 'ratchet', 'pulley', 'winch'];
+  if (!placeable.includes(currentTool)) return null;
+  return computeSnapForBody(wx, wy, placeTeeth, placeLayer, currentTool, null);
+}
+
+function rebuildChainsForSprocket(sp) {
+  for (let i = 0; i < world.chains.length; i++) {
+    const ch = world.chains[i];
+    if (ch.sprockets.includes(sp)) {
+      const rebuilt = buildPhysicalChain(ch.sprockets, ch.pitch);
+      if (rebuilt) world.chains[i] = rebuilt;
+    }
+  }
+}
+
+function updateSelectedTeeth(newZ) {
+  if (!selectedBody) return;
+  const b = selectedBody;
+  const resizable = ['spur', 'ring', 'sprocket', 'sector', 'ratchet', 'pulley', 'winch'];
+  if (!resizable.includes(b.type)) return;
+  const minZ = b.type === 'ring' ? 12 : 3;
+  const maxZ = b.type === 'sprocket' ? 120 : 240;
+  const clamped = clamp(Math.round(newZ), minZ, maxZ);
+  if (clamped === b.teeth) return;
+
+  b.teeth = clamped;
+  b.rebuildGeometry();
+  if (/\(\d+T/.test(b.name)) {
+    b.name = b.name.replace(/\(\d+T/, `(${clamped}T`);
+  } else {
+    b.name = `${b.name} (${clamped}T)`;
+  }
+
+  if (b.type === 'sprocket') rebuildChainsForSprocket(b);
+  syncInspector();
+}
+
+function remeshSelectedToNearest() {
+  if (!selectedBody || (selectedBody.type !== 'spur' && selectedBody.type !== 'sector')) {
+    showToast('Select a Spur or Sector Gear to re-mesh');
+    return;
+  }
+  const b = selectedBody;
+  let best = null, bestDist = Infinity;
+  for (const other of world.bodies) {
+    if (other === b || other.layer !== b.layer || (other.type !== 'spur' && other.type !== 'sector')) continue;
+    const d = hypot(b.x - other.x, b.y - other.y);
+    if (d < bestDist && d > 1) { bestDist = d; best = other; }
+  }
+  if (!best) {
+    showToast('No neighbor gear found on same layer');
+    return;
+  }
+  const ang = Math.atan2(b.y - best.y, b.x - best.x);
+  const targetD = best.pitchR + b.pitchR;
+  b.x = best.x + Math.cos(ang) * targetD;
+  b.y = best.y + Math.sin(ang) * targetD;
+  b.theta = meshedTheta(best, b.teeth, ang);
+  b.vx = 0; b.vy = 0;
+  showToast(`Snapped ${b.name} cleanly to ${best.name}`);
+}
+
+function findBodiesAt(wx, wy) {
+  const candidates = [];
+  for (const b of world.bodies) {
+    if (b.type === 'rack') {
+      const c = Math.cos(-b.theta), s = Math.sin(-b.theta);
+      const lx = (wx - b.x) * c - (wy - b.y) * s;
+      const ly = (wx - b.x) * s + (wy - b.y) * c;
+      if (Math.abs(lx) <= b.rackLength * 0.5 && Math.abs(ly) <= 24) {
+        candidates.push({ b, score: b.layer * 1000 + 10 });
+      }
+      continue;
+    }
+    const d = hypot(wx - b.x, wy - b.y);
+    if (b.type === 'ring') {
+      if (d >= b.innerTipR - 6 && d <= b.outerR + 4) {
+        candidates.push({ b, score: b.layer * 1000 + 500 });
+      }
+    } else if (b.type === 'carrier') {
+      if (d <= 22) {
+        candidates.push({ b, score: b.layer * 1000 + 5 });
+      } else if (d <= b.outerR) {
+        for (const p of b.carrierPins) {
+          const c = Math.cos(b.theta), s = Math.sin(b.theta);
+          const px = b.x + p.x * c - p.y * s;
+          const py = b.y + p.x * s + p.y * c;
+          if (hypot(wx - px, wy - py) < 12) {
+            candidates.push({ b, score: b.layer * 1000 + 8 });
+            break;
+          }
+        }
+      }
+    } else if (b.type === 'pawl') {
+      if (d <= b.pawlLength + 10) {
+        candidates.push({ b, score: b.layer * 1000 + 15 });
+      }
+    } else {
+      if (d <= b.outerR + 3) {
+        candidates.push({ b, score: b.layer * 1000 + b.outerR });
+      }
+    }
+  }
+  candidates.sort((a, b) => a.score - b.score);
+  return candidates.map(c => c.b);
+}
+
+function findBodyAt(wx, wy, allowCycle = false) {
+  const list = findBodiesAt(wx, wy);
+  if (!list.length) return null;
+  if (allowCycle && list.length > 1 && hypot(wx - lastClickPos.x, wy - lastClickPos.y) < 12) {
+    lastClickCycleIdx = (lastClickCycleIdx + 1) % list.length;
+  } else {
+    lastClickCycleIdx = 0;
+  }
+  lastClickPos = { x: wx, y: wy };
+  return list[lastClickCycleIdx];
+}
+
+function findChainNodeAt(wx, wy) {
+  for (const ch of world.chains) {
+    for (const n of ch.nodes) {
+      if (hypot(wx - n.x, wy - n.y) < ROLLER_RADIUS * 2.4) return n;
+    }
+  }
+  return null;
+}
+
+/* ============================================================================
+ * RENDERING
+ * ============================================================================ */
+function drawBody(b, alpha = 1.0) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(b.x, b.y);
+  ctx.rotate(b.theta);
+
+  const isSelected = (b === selectedBody);
+  const isRef = (b === refGear);
+
+  if (b.type === 'spur' || b.type === 'sector') {
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = isSelected ? 2 : 1;
+
+    ctx.beginPath();
+    for (let i = 0; i < b.localTeeth.length; i++) {
+      if (b.activeToothMask && !b.activeToothMask[i]) continue;
+      const t = b.localTeeth[i];
+      ctx.moveTo(t[0].x, t[0].y);
+      ctx.lineTo(t[1].x, t[1].y);
+      ctx.lineTo(t[2].x, t[2].y);
+      ctx.lineTo(t[3].x, t[3].y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, b.rootR + 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (b.rootR > 26) {
+      ctx.fillStyle = '#0b0f17';
+      const holes = b.rootR > 120 ? 8 : 5;
+      const hr = b.rootR * (b.rootR > 120 ? 0.16 : 0.22);
+      const hd = b.rootR * 0.58;
+      for (let i = 0; i < holes; i++) {
+        const a = (i * 2 * Math.PI) / holes;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * hd, Math.sin(a) * hd, hr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(4, 0);
+    ctx.lineTo(Math.max(6, b.rootR - 3), 0);
+    ctx.stroke();
+
+    ctx.fillStyle = b.locked ? '#ef4444' : (b.motorOn ? '#22c55e' : '#1e293b');
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.min(10, b.rootR * 0.65), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (showPitch) {
+      ctx.strokeStyle = 'rgba(56,189,248,0.35)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, b.pitchR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  } else if (b.type === 'ratchet') {
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = isSelected ? 2 : 1;
+    ctx.beginPath();
+    for (const t of b.localTeeth) {
+      ctx.moveTo(t[0].x, t[0].y);
+      ctx.lineTo(t[1].x, t[1].y);
+      ctx.lineTo(t[2].x, t[2].y);
+      ctx.lineTo(t[3].x, t[3].y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, b.rootR + 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = b.locked ? '#ef4444' : (b.motorOn ? '#22c55e' : '#1e293b');
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (b.type === 'pawl') {
+    const t = b.localTeeth[0];
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = isSelected ? '#38bdf8' : '#475569';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(t[0].x, t[0].y);
+    ctx.lineTo(t[1].x, t[1].y);
+    ctx.lineTo(t[2].x, t[2].y);
+    ctx.lineTo(t[3].x, t[3].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (b.type === 'pulley' || b.type === 'winch') {
+    // Outer flange
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = isSelected ? '#fff' : b.color;
+    ctx.lineWidth = isSelected ? 2.5 : 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, b.outerR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Inner drum
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, b.pitchR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Spokes
+    ctx.strokeStyle = 'rgba(11,15,23,0.75)';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * (b.pitchR - 4), Math.sin(a) * (b.pitchR - 4));
+      ctx.stroke();
+    }
+    ctx.fillStyle = b.locked ? '#ef4444' : (b.motorOn ? '#22c55e' : '#0f172a');
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (beltSelection.includes(b)) {
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, b.outerR + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Hanging cable + weight block (world vertical)
+    if (b.type === 'winch') {
+      ctx.rotate(-b.theta);
+      const cx = b.pitchR;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, b.cableLen);
+      ctx.stroke();
+
+      const sz = clamp(22 + b.weightMass * 0.14, 24, 52);
+      ctx.fillStyle = '#334155';
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.fillRect(cx - sz / 2, b.cableLen, sz, sz * 0.8);
+      ctx.strokeRect(cx - sz / 2, b.cableLen, sz, sz * 0.8);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${b.weightMass}kg`, cx, b.cableLen + sz * 0.48);
+      ctx.rotate(b.theta);
+    }
+  } else if (b.type === 'ring') {
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = isSelected ? 2 : 1;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, b.outerR, 0, Math.PI * 2);
+    ctx.arc(0, 0, b.rootR - 1, 0, Math.PI * 2, true);
+    ctx.fill('evenodd');
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (const t of b.localTeeth) {
+      ctx.moveTo(t[0].x, t[0].y);
+      ctx.lineTo(t[1].x, t[1].y);
+      ctx.lineTo(t[2].x, t[2].y);
+      ctx.lineTo(t[3].x, t[3].y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (b.rootR + 2), Math.sin(a) * (b.rootR + 2));
+      ctx.lineTo(Math.cos(a) * (b.outerR - 2), Math.sin(a) * (b.outerR - 2));
+      ctx.stroke();
+    }
+
+    if (b.locked) {
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.arc(0, 0, b.outerR + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  } else if (b.type === 'carrier') {
+    ctx.strokeStyle = isSelected ? '#fff' : b.color;
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    for (const p of b.carrierPins) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+    for (const p of b.carrierPins) {
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#e9d5ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.fillStyle = b.locked ? '#ef4444' : (b.motorOn ? '#22c55e' : b.color);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (b.type === 'sprocket') {
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = isSelected ? 2 : 1;
+
+    ctx.beginPath();
+    for (const t of b.localTeeth) {
+      ctx.moveTo(t[0].x, t[0].y);
+      ctx.lineTo(t[1].x, t[1].y);
+      ctx.lineTo(t[2].x, t[2].y);
+      ctx.lineTo(t[3].x, t[3].y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, b.rootR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(11,15,23,0.75)';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * (b.rootR - 4), Math.sin(a) * (b.rootR - 4));
+      ctx.stroke();
+    }
+    ctx.fillStyle = b.locked ? '#ef4444' : (b.motorOn ? '#22c55e' : '#1e293b');
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (chainSelection.includes(b)) {
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, b.outerR + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  } else if (b.type === 'rack') {
+    ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(-b.rackLength * 0.5 - b.rackTravel, 16);
+    ctx.lineTo(b.rackLength * 0.5 + b.rackTravel, 16);
+    ctx.stroke();
+
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = isSelected ? 2 : 1;
+    ctx.beginPath();
+    for (const t of b.localTeeth) {
+      ctx.moveTo(t[0].x, t[0].y);
+      ctx.lineTo(t[1].x, t[1].y);
+      ctx.lineTo(t[2].x, t[2].y);
+      ctx.lineTo(t[3].x, t[3].y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillRect(-b.rackLength * 0.5, b.dedendum, b.rackLength, 16);
+    ctx.strokeRect(-b.rackLength * 0.5, b.dedendum, b.rackLength, 16);
+  }
+
+  if (isRef) {
+    ctx.rotate(-b.theta);
+    ctx.fillStyle = 'rgba(245,158,11,0.95)';
+    ctx.font = 'bold 10px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('1:1 REF', 0, -b.outerR - 8);
+  }
+
+  ctx.restore();
+}
+
+function drawBelt(bl) {
+  const A = bl.a, B = bl.b;
+  const dx = B.x - A.x, dy = B.y - A.y;
+  const d = hypot(dx, dy) || 1;
+  const base = Math.atan2(dy, dx);
+  const rA = A.pitchR, rB = B.pitchR;
+
+  ctx.save();
+  ctx.strokeStyle = bl.slipping ? '#ef4444' : '#38bdf8';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+
+  if (!bl.crossed) {
+    const phi = Math.acos(clamp((rA - rB) / d, -0.99, 0.99));
+    for (const sign of [-1, 1]) {
+      const ang = base + sign * phi;
+      ctx.beginPath();
+      ctx.moveTo(A.x + rA * Math.cos(ang), A.y + rA * Math.sin(ang));
+      ctx.lineTo(B.x + rB * Math.cos(ang), B.y + rB * Math.sin(ang));
+      ctx.stroke();
+    }
+  } else {
+    const phi = Math.acos(clamp((rA + rB) / d, -0.99, 0.99));
+    for (const sign of [-1, 1]) {
+      const aA = base + sign * phi;
+      const aB = aA + Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(A.x + rA * Math.cos(aA), A.y + rA * Math.sin(aA));
+      ctx.lineTo(B.x + rB * Math.cos(aB), B.y + rB * Math.sin(aB));
+      ctx.stroke();
+    }
+  }
+  if (bl.slipping) {
+    ctx.fillStyle = '#fca5a5';
+    ctx.font = 'bold 11px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SLIP!', (A.x + B.x) * 0.5, (A.y + B.y) * 0.5 - 10);
+  }
+  ctx.restore();
+}
+
+function drawChain(ch) {
+  const nodes = ch.nodes;
+  const N = nodes.length;
+  for (let i = 0; i < N; i++) {
+    const a = nodes[i], b = nodes[(i + 1) % N];
+    const tNorm = clamp(a.tension / 150, 0, 1);
+    const r = Math.round(100 + 155 * tNorm);
+    const g = Math.round(180 - 110 * tNorm);
+    const bl = Math.round(230 - 180 * tNorm);
+    ctx.strokeStyle = `rgb(${r},${g},${bl})`;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  for (let i = 0; i < N; i++) {
+    const n = nodes[i];
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, ROLLER_RADIUS - 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function drawScope() {
+  if (!showScope) return;
+  const w = scopeCanvas.width, h = scopeCanvas.height;
+  scopeCtx.fillStyle = '#090d14';
+  scopeCtx.fillRect(0, 0, w, h);
+
+  // Zero line
+  scopeCtx.strokeStyle = 'rgba(148,163,184,0.25)';
+  scopeCtx.beginPath();
+  scopeCtx.moveTo(0, h / 2);
+  scopeCtx.lineTo(w, h / 2);
+  scopeCtx.stroke();
+
+  let maxAbs = 20;
+  for (let i = 0; i < SCOPE_LEN; i++) {
+    maxAbs = Math.max(maxAbs, Math.abs(scopeRef[i]), Math.abs(scopeSel[i]));
+  }
+  maxAbs = Math.ceil(maxAbs / 20) * 20;
+  document.getElementById('scope-scale').textContent = `±${maxAbs} RPM`;
+
+  const plot = (arr, color) => {
+    scopeCtx.strokeStyle = color;
+    scopeCtx.lineWidth = 1.7;
+    scopeCtx.beginPath();
+    for (let i = 0; i < SCOPE_LEN; i++) {
+      const idx = (scopeIdx + i) % SCOPE_LEN;
+      const x = (i / (SCOPE_LEN - 1)) * w;
+      const y = h / 2 - (arr[idx] / maxAbs) * (h * 0.44);
+      if (i === 0) scopeCtx.moveTo(x, y);
+      else scopeCtx.lineTo(x, y);
+    }
+    scopeCtx.stroke();
+  };
+  plot(scopeRef, '#f59e0b');
+  plot(scopeSel, '#38bdf8');
+}
+
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#090d14';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.translate(w / 2, h / 2);
+  ctx.scale(cam.zoom, cam.zoom);
+  ctx.translate(-cam.x, -cam.y);
+
+  const gridStep = cam.zoom < 0.35 ? 160 : 40;
+  const left = cam.x - (w / 2) / cam.zoom;
+  const right = cam.x + (w / 2) / cam.zoom;
+  const top = cam.y - (h / 2) / cam.zoom;
+  const bottom = cam.y + (h / 2) / cam.zoom;
+  ctx.strokeStyle = 'rgba(38, 51, 77, 0.35)';
+  ctx.lineWidth = 1 / cam.zoom;
+  ctx.beginPath();
+  for (let gx = Math.floor(left / gridStep) * gridStep; gx <= right; gx += gridStep) {
+    ctx.moveTo(gx, top); ctx.lineTo(gx, bottom);
+  }
+  for (let gy = Math.floor(top / gridStep) * gridStep; gy <= bottom; gy += gridStep) {
+    ctx.moveTo(left, gy); ctx.lineTo(right, gy);
+  }
+  ctx.stroke();
+
+  // Back plane
+  for (const bl of world.belts) if (bl.layer === 1) drawBelt(bl);
+  for (const b of world.bodies) if (b.layer === 1 && b.type !== 'carrier') drawBody(b, 0.72);
+  for (const b of world.bodies) if (b.layer === 1 && b.type === 'carrier') drawBody(b, 0.72);
+  for (const ch of world.chains) if (ch.layer === 1) drawChain(ch);
+
+  // Front plane
+  for (const bl of world.belts) if (bl.layer === 0) drawBelt(bl);
+  for (const b of world.bodies) if (b.layer === 0 && b.type !== 'carrier') drawBody(b, 1.0);
+  for (const b of world.bodies) if (b.layer === 0 && b.type === 'carrier') drawBody(b, 0.9);
+  for (const ch of world.chains) if (ch.layer === 0) drawChain(ch);
+
+  // Shaft Bolt & Freewheel indicators
+  for (const c of world.couplers) {
+    ctx.save();
+    ctx.strokeStyle = c.oneWay ? '#22c55e' : '#facc15';
+    ctx.lineWidth = 2.5;
+    if (c.oneWay) ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.arc(c.a.x, c.a.y, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  if (showForces) {
+    for (const ct of world.contacts) {
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(ct.px, ct.py, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ct.px, ct.py);
+      ctx.lineTo(ct.px + ct.nx * ct.mag, ct.py + ct.ny * ct.mag);
+      ctx.stroke();
+    }
+  }
+
+  const prev = computePlacementPreview(mouseWorld.x, mouseWorld.y);
+  if (prev) {
+    ctx.save();
+    ctx.translate(prev.x, prev.y);
+    ctx.strokeStyle = prev.snappedTo ? '#22c55e' : '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    if (currentTool === 'rack') {
+      ctx.strokeRect(-140, -6, 280, 24);
+    } else if (currentTool === 'planetary') {
+      const rRing = (MODULE * (placeTeeth + 24)) / 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, rRing, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, prev.pitchR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  if (world.wrench) {
+    let ax = 0, ay = 0;
+    if (world.wrench.body) {
+      const b = world.wrench.body;
+      const c = Math.cos(b.theta), s = Math.sin(b.theta);
+      ax = b.x + world.wrench.localX * c - world.wrench.localY * s;
+      ay = b.y + world.wrench.localX * s + world.wrench.localY * c;
+    } else if (world.wrench.chainNode) {
+      ax = world.wrench.chainNode.x;
+      ay = world.wrench.chainNode.y;
+    }
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(world.wrench.worldX, world.wrench.worldY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+  drawScope();
+}
+
+/* ============================================================================
+ * INSPECTOR & UI BINDINGS
+ * ============================================================================ */
+function selectBody(b) {
+  selectedBody = b;
+  syncInspector();
+}
+
+function syncInspector() {
+  const empty = document.getElementById('inspector-empty');
+  const box = document.getElementById('inspector-body');
+  if (!selectedBody || !world.bodies.includes(selectedBody)) {
+    selectedBody = null;
+    empty.style.display = 'flex';
+    box.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  box.style.display = 'flex';
+
+  const b = selectedBody;
+  document.getElementById('insp-name').textContent = b.name;
+  document.getElementById('insp-layer').textContent = b.layer === 0 ? 'Front Plane' : 'Back Plane';
+
+  const resizable = ['spur', 'ring', 'sprocket', 'sector', 'ratchet', 'pulley', 'winch'];
+  const hasTeeth = resizable.includes(b.type);
+  document.getElementById('box-teeth').style.display = hasTeeth ? 'flex' : 'none';
+  if (hasTeeth) {
+    const minZ = b.type === 'ring' ? 12 : 3;
+    const maxZ = b.type === 'sprocket' ? 120 : 240;
+    const inpT = document.getElementById('insp-teeth');
+    const numT = document.getElementById('num-insp-teeth');
+    inpT.min = minZ; inpT.max = maxZ; inpT.value = b.teeth;
+    numT.min = minZ; numT.max = maxZ; numT.value = b.teeth;
+    document.getElementById('lbl-teeth-type').textContent = (b.type === 'pulley' || b.type === 'winch') ? 'Drum Size' : 'Tooth Count (Z)';
+    document.getElementById('btn-remesh').style.display = (b.type === 'spur' || b.type === 'sector') ? 'inline-flex' : 'none';
+    document.getElementById('sector-arc-wrap').style.display = b.type === 'sector' ? 'block' : 'none';
+    if (b.type === 'sector') {
+      document.getElementById('insp-sector').value = Math.round(b.sectorRatio * 100);
+      document.getElementById('val-sector').textContent = `${Math.round(b.sectorRatio * 100)}%`;
+    }
+  }
+
+  document.getElementById('box-winch').style.display = b.type === 'winch' ? 'flex' : 'none';
+  if (b.type === 'winch') {
+    document.getElementById('insp-weight').value = b.weightMass;
+    document.getElementById('val-weight').textContent = `${b.weightMass} kg`;
+  }
+
+  document.getElementById('btn-rotate-rack').style.display = b.type === 'rack' ? 'inline-flex' : 'none';
+  document.getElementById('box-motor').style.display = (b.type === 'rack' || b.type === 'pawl') ? 'none' : 'flex';
+  document.getElementById('insp-motor-on').checked = b.motorOn;
+  document.getElementById('insp-motor-inf').checked = b.motorInfinite;
+  document.getElementById('insp-motor-osc').checked = b.motorOscillate;
+  document.getElementById('insp-torque').value = b.motorTorque;
+  document.getElementById('val-torque').textContent = b.motorInfinite ? '∞ N·m' : `${b.motorTorque} N·m`;
+  document.getElementById('insp-maxrpm').value = b.motorMaxRpm;
+  document.getElementById('val-maxrpm').textContent = `${b.motorMaxRpm} RPM`;
+  document.getElementById('btn-dir-cw').classList.toggle('active', b.motorDir === 1);
+  document.getElementById('btn-dir-ccw').classList.toggle('active', b.motorDir === -1);
+
+  document.getElementById('insp-locked').checked = b.locked;
+  document.getElementById('insp-brake').value = b.brakeTorque;
+  document.getElementById('val-brake').textContent = `${b.brakeTorque} N·m`;
+  document.getElementById('insp-mass').value = b.massScale;
+  document.getElementById('val-mass').textContent = `${b.massScale.toFixed(1)}×`;
+}
+
+function updateLiveTelemetry() {
+  let totalLinks = 0;
+  for (const ch of world.chains) totalLinks += ch.nodes.length;
+  document.getElementById('hud-bodies').textContent = world.bodies.length;
+  document.getElementById('hud-links').textContent = totalLinks;
+  document.getElementById('hud-contacts').textContent = world.activeContactsCount;
+  document.getElementById('hud-sub').textContent = world.lastSubstepsUsed;
+  document.getElementById('hud-zoom').textContent = `${Math.round(cam.zoom * 100)}%`;
+
+  const refRpm = refGear ? refGear.getRPM() : 0;
+  const selRpm = selectedBody ? selectedBody.getRPM() : 0;
+  scopeRef[scopeIdx] = refRpm;
+  scopeSel[scopeIdx] = selRpm;
+  scopeIdx = (scopeIdx + 1) % SCOPE_LEN;
+
+  if (selectedBody) {
+    const b = selectedBody;
+    document.getElementById('stat-rpm').textContent = b.type === 'rack'
+      ? `${selRpm.toFixed(1)} px/s` : `${selRpm.toFixed(1)}`;
+    document.getElementById('stat-force').textContent = `${b.lastContactForce.toFixed(1)} N`;
+    document.getElementById('stat-inertia').textContent = b.type === 'rack'
+      ? `${b.mass.toFixed(1)} kg` : `${(b.inertia / 1000).toFixed(2)}`;
+
+    if (refGear && refGear !== b && Math.abs(selRpm) > 0.2 && Math.abs(refRpm) > 0.2 && b.type !== 'rack') {
+      document.getElementById('stat-ratio').textContent = `${(refRpm / selRpm).toFixed(2)} : 1`;
+    } else if (refGear === b) {
+      document.getElementById('stat-ratio').textContent = '1.00 : 1 (Ref)';
+    } else {
+      document.getElementById('stat-ratio').textContent = '—';
+    }
+  }
+}
+
+const TOOL_HINTS = {
+  select: 'Click any part to inspect. Click overlapping gears repeatedly to cycle Front/Back layers.',
+  move: 'Drag any gear, sprocket, pulley, or rack to reposition it (auto-snaps to mesh!).',
+  wrench: 'Grab and physically crank any gear tooth or tug a chain link.',
+  clone: 'Click any part to duplicate it with the same teeth, layer, and motor settings.',
+  couple: 'Click two coaxial parts (Front + Back) to rigidly bolt them onto one shaft.',
+  oneway: 'Click two coaxial parts to link with a One-Way Freewheel Clutch (coasts on overrun).',
+  chain: 'Click 2+ sprockets on the same layer, then click "Build Chain".',
+  belt: 'Click 2 pulleys on the same layer, then click "Build Belt" (supports Crossed Figure-8!).',
+  delete: 'Click any part to delete it from the sandbox.',
+  spur: 'Click canvas to place a Spur Gear (3T–240T). Auto-snaps to mesh.',
+  ring: 'Click canvas to place an Internal Ring Gear (12T–240T).',
+  planetary: 'Click canvas to spawn a matched Planetary Set (Sun + 3 Planets + Carrier + Ring).',
+  sector: 'Click canvas to place an Intermittent Sector Gear (partial teeth for pulsing drives!).',
+  ratchet: 'Click canvas to spawn a Sawtooth Ratchet Wheel + Spring Pawl assembly.',
+  sprocket: 'Click canvas to place a Chain Sprocket (3T–120T).',
+  pulley: 'Click canvas to place a Belt Pulley, then connect with the Belt Loop tool.',
+  rack: 'Click canvas to place a Linear Rack (press R or Rot 90° in inspector to rotate).',
+  winch: 'Click canvas to place a Winch Drum with a real gravity-pulled hanging weight!'
+};
+
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentTool = btn.dataset.tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('tool-hint').textContent = TOOL_HINTS[currentTool] || '';
+    document.getElementById('chain-builder-box').style.display = currentTool === 'chain' ? 'flex' : 'none';
+    document.getElementById('belt-builder-box').style.display = currentTool === 'belt' ? 'flex' : 'none';
+    coupleFirst = null;
+    if (currentTool !== 'chain') chainSelection = [];
+    if (currentTool !== 'belt') beltSelection = [];
+    document.getElementById('chain-count').textContent = chainSelection.length;
+    document.getElementById('belt-count').textContent = beltSelection.length;
+  });
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  mouseWorld = screenToWorld(mouseScreen.x, mouseScreen.y);
+
+  if (e.button === 1 || e.button === 2) {
+    isPanning = true;
+    panStart = { x: e.clientX, y: e.clientY, camX: cam.x, camY: cam.y };
+    return;
+  }
+
+  if (currentTool === 'select') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y, true);
+    if (hit) {
+      selectBody(hit);
+      if (findBodiesAt(mouseWorld.x, mouseWorld.y).length > 1) {
+        showToast(`Selected: ${hit.name} (${hit.layer === 0 ? 'Front' : 'Back'})`);
+      }
+    } else {
+      isPanning = true;
+      panStart = { x: e.clientX, y: e.clientY, camX: cam.x, camY: cam.y };
+    }
+  } else if (currentTool === 'move') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y, false);
+    if (hit) {
+      draggingBody = hit;
+      selectBody(hit);
+    } else {
+      isPanning = true;
+      panStart = { x: e.clientX, y: e.clientY, camX: cam.x, camY: cam.y };
+    }
+  } else if (currentTool === 'clone') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y, false);
+    if (hit && hit.type !== 'carrier' && hit.type !== 'pawl') {
+      const copy = world.addBody(new RigidBody({
+        type: hit.type, name: hit.name,
+        x: hit.x + hit.outerR + 24, y: hit.y,
+        teeth: hit.teeth, layer: hit.layer, color: hit.color,
+        sectorRatio: hit.sectorRatio, massScale: hit.massScale,
+        motorOn: hit.motorOn, motorTorque: hit.motorTorque, motorMaxRpm: hit.motorMaxRpm,
+        motorDir: hit.motorDir, brakeTorque: hit.brakeTorque, weightMass: hit.weightMass
+      }));
+      selectBody(copy);
+      showToast(`Cloned ${hit.name}`);
+    }
+  } else if (currentTool === 'wrench') {
+    const cn = findChainNodeAt(mouseWorld.x, mouseWorld.y);
+    if (cn) {
+      world.wrench = { chainNode: cn, worldX: mouseWorld.x, worldY: mouseWorld.y };
+      return;
+    }
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
+    if (hit) {
+      const c = Math.cos(-hit.theta), s = Math.sin(-hit.theta);
+      const dx = mouseWorld.x - hit.x, dy = mouseWorld.y - hit.y;
+      world.wrench = {
+        body: hit,
+        localX: dx * c - dy * s,
+        localY: dx * s + dy * c,
+        worldX: mouseWorld.x,
+        worldY: mouseWorld.y
+      };
+      selectBody(hit);
+    }
+  } else if (currentTool === 'spur' || currentTool === 'sector') {
+    const prev = computePlacementPreview(mouseWorld.x, mouseWorld.y);
+    const label = currentTool === 'sector' ? `Sector Gear (${placeTeeth}T)` : `Spur Gear (${placeTeeth}T)`;
+    const g = world.addBody(new RigidBody({
+      type: currentTool, name: label,
+      x: prev.x, y: prev.y, teeth: placeTeeth, theta: prev.theta, layer: placeLayer
+    }));
+    selectBody(g);
+    if (!refGear) refGear = g;
+  } else if (currentTool === 'ring') {
+    const z = clamp(placeTeeth, 12, 240);
+    const g = world.addBody(new RigidBody({
+      type: 'ring', name: `Ring Gear (${z}T)`,
+      x: mouseWorld.x, y: mouseWorld.y, teeth: z, layer: placeLayer
+    }));
+    selectBody(g);
+  } else if (currentTool === 'planetary') {
+    const zS = clamp(placeTeeth, 6, 72);
+    const pset = spawnPlanetarySet(world, mouseWorld.x, mouseWorld.y, zS, 12, 3, placeLayer);
+    activePlanetary = pset;
+    document.getElementById('planetary-quick').classList.add('visible');
+    selectBody(pset.sun);
+    showToast(`Spawned Planetary Set (${pset.sun.teeth}T Sun / ${pset.ring.teeth}T Ring)`);
+  } else if (currentTool === 'ratchet') {
+    const z = clamp(placeTeeth, 8, 48);
+    const { ratchet } = spawnRatchetWithPawl(world, mouseWorld.x, mouseWorld.y, z, placeLayer);
+    selectBody(ratchet);
+    showToast(`Spawned Ratchet (${z}T) + Spring Pawl`);
+  } else if (currentTool === 'sprocket') {
+    const z = clamp(placeTeeth, 3, 120);
+    const sp = world.addBody(new RigidBody({
+      type: 'sprocket', name: `Sprocket (${z}T)`,
+      x: mouseWorld.x, y: mouseWorld.y, teeth: z, layer: placeLayer
+    }));
+    selectBody(sp);
+  } else if (currentTool === 'pulley') {
+    const z = clamp(placeTeeth, 6, 120);
+    const p = world.addBody(new RigidBody({
+      type: 'pulley', name: `Belt Pulley (${z}T)`,
+      x: mouseWorld.x, y: mouseWorld.y, teeth: z, layer: placeLayer
+    }));
+    selectBody(p);
+  } else if (currentTool === 'winch') {
+    const z = clamp(placeTeeth, 8, 60);
+    const w = world.addBody(new RigidBody({
+      type: 'winch', name: `Winch Drum (${z}T)`,
+      x: mouseWorld.x, y: mouseWorld.y, teeth: z, layer: placeLayer, weightMass: 40
+    }));
+    selectBody(w);
+  } else if (currentTool === 'rack') {
+    const r = world.addBody(new RigidBody({
+      type: 'rack', name: 'Linear Rack',
+      x: mouseWorld.x, y: mouseWorld.y, rackLength: 280, rackTravel: 140, rackSpring: 0, layer: placeLayer
+    }));
+    selectBody(r);
+  } else if (currentTool === 'chain') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
+    if (hit && hit.type === 'sprocket') {
+      if (!chainSelection.includes(hit)) {
+        chainSelection.push(hit);
+        document.getElementById('chain-count').textContent = chainSelection.length;
+        showToast(`Added ${hit.name} to chain loop (${chainSelection.length})`);
+      }
+    } else {
+      showToast('Click a Sprocket to add it to the chain loop');
+    }
+  } else if (currentTool === 'belt') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
+    if (hit && hit.type === 'pulley') {
+      if (!beltSelection.includes(hit)) {
+        beltSelection.push(hit);
+        document.getElementById('belt-count').textContent = beltSelection.length;
+        showToast(`Added ${hit.name} to belt drive (${beltSelection.length}/2)`);
+      }
+    } else {
+      showToast('Click a Belt Pulley to connect a belt');
+    }
+  } else if (currentTool === 'couple' || currentTool === 'oneway') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y, true);
+    if (!hit) return;
+    if (!coupleFirst) {
+      coupleFirst = hit;
+      showToast(`Selected ${hit.name} — now click a 2nd coaxial part`);
+    } else if (coupleFirst !== hit) {
+      const isOneWay = (currentTool === 'oneway');
+      world.couplers.push(new ShaftCoupler(coupleFirst, hit, isOneWay));
+      showToast(`${isOneWay ? 'Freewheel Clutch' : 'Shaft Bolt'}: ${coupleFirst.name} ↔ ${hit.name}`);
+      coupleFirst = null;
+    }
+  } else if (currentTool === 'delete') {
+    const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
+    if (hit) {
+      world.removeBody(hit);
+      if (selectedBody === hit) selectBody(null);
+      if (refGear === hit) refGear = null;
+    }
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  mouseWorld = screenToWorld(mouseScreen.x, mouseScreen.y);
+
+  if (isPanning) {
+    cam.x = panStart.camX - (e.clientX - panStart.x) / cam.zoom;
+    cam.y = panStart.camY - (e.clientY - panStart.y) / cam.zoom;
+  }
+  if (draggingBody) {
+    const snap = computeSnapForBody(mouseWorld.x, mouseWorld.y, draggingBody.teeth, draggingBody.layer, draggingBody.type, draggingBody);
+    draggingBody.x = snap.x;
+    draggingBody.y = snap.y;
+    if (snap.snappedTo) draggingBody.theta = snap.theta;
+    if (draggingBody.type === 'rack') {
+      draggingBody.rackHomeX = snap.x;
+      draggingBody.rackHomeY = snap.y;
+    }
+    draggingBody.vx = 0; draggingBody.vy = 0;
+  }
+  if (world.wrench) {
+    world.wrench.worldX = mouseWorld.x;
+    world.wrench.worldY = mouseWorld.y;
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (draggingBody && draggingBody.type === 'sprocket') {
+    rebuildChainsForSprocket(draggingBody);
+  }
+  draggingBody = null;
+  isPanning = false;
+  world.wrench = null;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.12 : 0.89;
+  cam.zoom = clamp(cam.zoom * factor, 0.1, 4.0);
+}, { passive: false });
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Shift') shiftDown = true;
+  if (e.key === ' ') {
+    e.preventDefault();
+    paused = !paused;
+    document.getElementById('btn-play').textContent = paused ? '▶ Play' : '⏸ Pause';
+  }
+  if ((e.key === 'r' || e.key === 'R') && selectedBody && selectedBody.type === 'rack') {
+    selectedBody.theta += Math.PI / 2;
+    selectedBody.rackHomeX = selectedBody.x;
+    selectedBody.rackHomeY = selectedBody.y;
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'Shift') shiftDown = false;
+});
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  paused = !paused;
+  document.getElementById('btn-play').textContent = paused ? '▶ Play' : '⏸ Pause';
+});
+document.getElementById('btn-step').addEventListener('click', () => {
+  paused = true;
+  document.getElementById('btn-play').textContent = '▶ Play';
+  world.step((1 / 60) * timeScale);
+});
+document.getElementById('sel-speed').addEventListener('change', e => { timeScale = parseFloat(e.target.value); });
+document.getElementById('sel-preset').addEventListener('change', e => {
+  loadPreset(world, e.target.value);
+  selectBody(world.bodies[0] || null);
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  loadPreset(world, document.getElementById('sel-preset').value);
+  selectBody(world.bodies[0] || null);
+});
+document.getElementById('btn-forces').addEventListener('click', e => {
+  showForces = !showForces;
+  e.currentTarget.classList.toggle('active', showForces);
+});
+document.getElementById('btn-pitch').addEventListener('click', e => {
+  showPitch = !showPitch;
+  e.currentTarget.classList.toggle('active', showPitch);
+});
+document.getElementById('btn-scope').addEventListener('click', e => {
+  showScope = !showScope;
+  e.currentTarget.classList.toggle('active', showScope);
+  document.getElementById('scope-wrap').classList.toggle('visible', showScope);
+});
+document.getElementById('btn-center').addEventListener('click', () => { cam.x = 0; cam.y = 0; cam.zoom = 1.0; });
+document.getElementById('btn-clear').addEventListener('click', () => {
+  world.clear();
+  activePlanetary = null;
+  refGear = null;
+  document.getElementById('planetary-quick').classList.remove('visible');
+  selectBody(null);
+});
+
+function setPlaceTeeth(v) {
+  if (isNaN(v)) return;
+  placeTeeth = clamp(Math.round(v), 3, 240);
+  document.getElementById('inp-teeth').value = placeTeeth;
+  document.getElementById('num-teeth').value = placeTeeth;
+}
+document.getElementById('inp-teeth').addEventListener('input', e => setPlaceTeeth(parseInt(e.target.value, 10)));
+document.getElementById('num-teeth').addEventListener('change', e => setPlaceTeeth(parseInt(e.target.value, 10)));
+document.getElementById('btn-place-teeth-dec').addEventListener('click', () => setPlaceTeeth(placeTeeth - 1));
+document.getElementById('btn-place-teeth-inc').addEventListener('click', () => setPlaceTeeth(placeTeeth + 1));
+document.querySelectorAll('.place-teeth-preset').forEach(btn => {
+  btn.addEventListener('click', () => setPlaceTeeth(parseInt(btn.dataset.z, 10)));
+});
+
+document.getElementById('btn-layer-0').addEventListener('click', () => {
+  placeLayer = 0;
+  document.getElementById('btn-layer-0').classList.add('active');
+  document.getElementById('btn-layer-1').classList.remove('active');
+});
+document.getElementById('btn-layer-1').addEventListener('click', () => {
+  placeLayer = 1;
+  document.getElementById('btn-layer-1').classList.add('active');
+  document.getElementById('btn-layer-0').classList.remove('active');
+});
+document.getElementById('chk-snap').addEventListener('change', e => { autoSnap = e.target.checked; });
+
+document.getElementById('btn-build-chain').addEventListener('click', () => {
+  if (chainSelection.length < 2) { showToast('Select at least 2 sprockets first!'); return; }
+  const ch = buildPhysicalChain(chainSelection, SPROCKET_PITCH);
+  if (ch) { world.chains.push(ch); showToast(`Built physical ${ch.nodes.length}-link roller chain!`); }
+  chainSelection = [];
+  document.getElementById('chain-count').textContent = '0';
+});
+document.getElementById('btn-cancel-chain').addEventListener('click', () => {
+  chainSelection = [];
+  document.getElementById('chain-count').textContent = '0';
+});
+
+document.getElementById('btn-build-belt').addEventListener('click', () => {
+  if (beltSelection.length < 2) { showToast('Select 2 pulleys first!'); return; }
+  const crossed = document.getElementById('chk-belt-crossed').checked;
+  for (let i = 0; i < beltSelection.length - 1; i++) {
+    world.belts.push(new BeltDrive(beltSelection[i], beltSelection[i + 1], crossed));
+  }
+  showToast(`Connected ${crossed ? 'Crossed' : 'Open'} Friction Belt!`);
+  beltSelection = [];
+  document.getElementById('belt-count').textContent = '0';
+});
+document.getElementById('btn-cancel-belt').addEventListener('click', () => {
+  beltSelection = [];
+  document.getElementById('belt-count').textContent = '0';
+});
+
+document.getElementById('inp-substeps').addEventListener('input', e => {
+  world.substeps = parseInt(e.target.value, 10);
+  document.getElementById('val-substeps').textContent = world.substeps;
+});
+document.getElementById('inp-friction').addEventListener('input', e => {
+  world.friction = parseFloat(e.target.value);
+  document.getElementById('val-friction').textContent = world.friction.toFixed(2);
+});
+document.getElementById('chk-adaptive').addEventListener('change', e => { world.adaptiveSubsteps = e.target.checked; });
+document.getElementById('chk-gravity').addEventListener('change', e => { world.gravityOn = e.target.checked; });
+
+document.querySelectorAll('#planetary-quick button').forEach(btn => {
+  btn.addEventListener('click', () => setPlanetaryMode(btn.dataset.pmode));
+});
+
+// Inspector controls
+document.getElementById('insp-teeth').addEventListener('input', e => updateSelectedTeeth(parseInt(e.target.value, 10)));
+document.getElementById('num-insp-teeth').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (!isNaN(v)) updateSelectedTeeth(v);
+});
+document.getElementById('btn-insp-teeth-dec').addEventListener('click', () => { if (selectedBody) updateSelectedTeeth(selectedBody.teeth - 1); });
+document.getElementById('btn-insp-teeth-inc').addEventListener('click', () => { if (selectedBody) updateSelectedTeeth(selectedBody.teeth + 1); });
+document.querySelectorAll('.insp-teeth-preset').forEach(btn => {
+  btn.addEventListener('click', () => updateSelectedTeeth(parseInt(btn.dataset.z, 10)));
+});
+document.getElementById('insp-sector').addEventListener('input', e => {
+  if (!selectedBody || selectedBody.type !== 'sector') return;
+  selectedBody.sectorRatio = parseInt(e.target.value, 10) / 100;
+  selectedBody.rebuildGeometry();
+  document.getElementById('val-sector').textContent = `${e.target.value}%`;
+});
+document.getElementById('btn-remesh').addEventListener('click', () => remeshSelectedToNearest());
+
+document.getElementById('insp-weight').addEventListener('input', e => {
+  if (!selectedBody || selectedBody.type !== 'winch') return;
+  selectedBody.weightMass = parseFloat(e.target.value);
+  document.getElementById('val-weight').textContent = `${selectedBody.weightMass} kg`;
+});
+
+document.getElementById('insp-motor-on').addEventListener('change', e => { if (selectedBody) selectedBody.motorOn = e.target.checked; });
+document.getElementById('insp-motor-inf').addEventListener('change', e => {
+  if (!selectedBody) return;
+  selectedBody.motorInfinite = e.target.checked;
+  if (e.target.checked) selectedBody.motorOn = true;
+  syncInspector();
+});
+document.getElementById('insp-motor-osc').addEventListener('change', e => { if (selectedBody) selectedBody.motorOscillate = e.target.checked; });
+document.getElementById('insp-torque').addEventListener('input', e => {
+  if (!selectedBody) return;
+  selectedBody.motorTorque = parseFloat(e.target.value);
+  selectedBody.motorInfinite = false;
+  document.getElementById('insp-motor-inf').checked = false;
+  document.getElementById('val-torque').textContent = `${selectedBody.motorTorque} N·m`;
+});
+document.querySelectorAll('.torque-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!selectedBody) return;
+    selectedBody.motorTorque = parseFloat(btn.dataset.tq);
+    selectedBody.motorInfinite = false;
+    selectedBody.motorOn = true;
+    syncInspector();
+  });
+});
+document.getElementById('insp-maxrpm').addEventListener('input', e => {
+  if (!selectedBody) return;
+  selectedBody.motorMaxRpm = parseFloat(e.target.value);
+  document.getElementById('val-maxrpm').textContent = `${selectedBody.motorMaxRpm} RPM`;
+});
+document.getElementById('btn-dir-cw').addEventListener('click', () => { if (selectedBody) { selectedBody.motorDir = 1; syncInspector(); } });
+document.getElementById('btn-dir-ccw').addEventListener('click', () => { if (selectedBody) { selectedBody.motorDir = -1; syncInspector(); } });
+document.getElementById('insp-locked').addEventListener('change', e => {
+  if (!selectedBody) return;
+  selectedBody.locked = e.target.checked;
+  selectedBody.updateMassProps();
+});
+document.getElementById('insp-brake').addEventListener('input', e => {
+  if (!selectedBody) return;
+  selectedBody.brakeTorque = parseFloat(e.target.value);
+  document.getElementById('val-brake').textContent = `${selectedBody.brakeTorque} N·m`;
+});
+document.getElementById('insp-mass').addEventListener('input', e => {
+  if (!selectedBody) return;
+  selectedBody.massScale = parseFloat(e.target.value);
+  selectedBody.updateMassProps();
+  document.getElementById('val-mass').textContent = `${selectedBody.massScale.toFixed(1)}×`;
+});
+document.getElementById('btn-flip-layer').addEventListener('click', () => {
+  if (!selectedBody) return;
+  selectedBody.layer = selectedBody.layer === 0 ? 1 : 0;
+  syncInspector();
+});
+document.getElementById('btn-rotate-rack').addEventListener('click', () => {
+  if (!selectedBody || selectedBody.type !== 'rack') return;
+  selectedBody.theta += Math.PI / 2;
+  selectedBody.rackHomeX = selectedBody.x;
+  selectedBody.rackHomeY = selectedBody.y;
+});
+document.getElementById('btn-set-ref').addEventListener('click', () => {
+  if (!selectedBody) return;
+  refGear = selectedBody;
+  showToast(`${selectedBody.name} set as 1:1 ratio reference`);
+});
+document.getElementById('btn-del-selected').addEventListener('click', () => {
+  if (!selectedBody) return;
+  world.removeBody(selectedBody);
+  selectBody(null);
+});
+
+loadPreset(world, 'planetary');
+selectBody(world.bodies[0] || null);
+
+let lastTime = performance.now();
+let fpsSmooth = 60;
+
+function loop(now) {
+  const realDt = Math.min(0.033, (now - lastTime) / 1000);
+  lastTime = now;
+  if (realDt > 0) fpsSmooth = fpsSmooth * 0.9 + (1 / realDt) * 0.1;
+  document.getElementById('hud-fps').textContent = Math.round(fpsSmooth);
+
+  if (!paused) {
+    world.step((1 / 60) * timeScale);
+  }
+  render();
+  updateLiveTelemetry();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
