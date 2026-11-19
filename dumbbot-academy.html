@@ -7,26 +7,26 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
   :root {
-    --bg: #070b12; --panel: #0d1422; --card: #151f32; --border: #263652;
-    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --garage: #f59e0b; --field: #10b981; --lounge: #facc15;
+    --bg: #050811; --panel: rgba(13, 20, 36, 0.82); --card: rgba(24, 35, 58, 0.78); --border: rgba(148, 163, 184, 0.22);
+    --text: #f1f5ff; --muted: #94a3b8; --accent: #38bdf8; --garage: #f59e0b; --field: #10b981; --lounge: #facc15;
   }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  body { background: radial-gradient(circle at 15% 10%, #0f1b33 0%, #050811 55%, #070412 100%); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Inter, sans-serif; display: flex; height: 100vh; overflow: hidden; }
   #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  #topbar { height: 56px; background: linear-gradient(180deg, #111a2d 0%, #0b111e 100%); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; gap: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.35); }
-  .brand { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-  .lounge-logo { background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%); color: #090d16; padding: 5px 10px; border-radius: 8px; font-weight: 900; font-size: 13px; letter-spacing: 0.02em; box-shadow: 0 0 14px rgba(250, 204, 21, 0.25); }
-  .mode-tabs { display: flex; background: #070b12; border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 3px; }
-  .tab-btn { border: none; background: transparent; color: var(--muted); padding: 6px 13px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; }
+  #topbar { height: 58px; background: rgba(10, 16, 30, 0.88); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; gap: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 6px 24px rgba(0,0,0,0.45); }
+  .brand { font-weight: 850; font-size: 15px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .lounge-logo { background: linear-gradient(135deg, #fde047 0%, #f59e0b 55%, #ea580c 100%); color: #090d16; padding: 5px 11px; border-radius: 9px; font-weight: 900; font-size: 13px; letter-spacing: 0.02em; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 4px 16px rgba(245, 158, 11, 0.35); }
+  .mode-tabs { display: flex; background: rgba(4, 8, 18, 0.72); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 3px; }
+  .tab-btn { border: none; background: transparent; color: var(--muted); padding: 6px 13px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.16s ease; }
   .tab-btn:hover { color: var(--text); }
-  .tab-btn.active-garage { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; box-shadow: 0 2px 8px rgba(217,119,6,0.35); }
-  .tab-btn.active-field { background: linear-gradient(135deg, #059669, #047857); color: #fff; box-shadow: 0 2px 8px rgba(5,150,105,0.35); }
+  .tab-btn.active-garage { background: linear-gradient(135deg, #f59e0b, #d97706); color: #090d16; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 12px rgba(245,158,11,0.35); }
+  .tab-btn.active-field { background: linear-gradient(135deg, #10b981, #059669); color: #03150e; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 12px rgba(16,185,129,0.35); }
   .controls { display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
   .controls::-webkit-scrollbar { height: 4px; }
   .controls::-webkit-scrollbar-track { background: transparent; }
-  .controls::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-  button, select { background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: border-color 0.15s, transform 0.1s; }
-  button:hover, select:hover { border-color: var(--accent); }
-  button:active { transform: translateY(1px); }
+  .controls::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 3px; }
+  button, select { background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 9px; font-size: 12px; font-weight: 650; cursor: pointer; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255,255,255,0.09); transition: all 0.14s ease; }
+  button:hover, select:hover { border-color: rgba(56,189,248,0.65); background: rgba(38, 54, 86, 0.88); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
   button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; font-weight: 700; }
   button.deploy { background: linear-gradient(135deg, #10b981, #059669); border-color: #34d399; color: #fff; font-weight: 700; box-shadow: 0 2px 10px rgba(16,185,129,0.25); }
   #knowSel { border-color: #a855f7; background: #1e1338; font-weight: 600; }
@@ -89,6 +89,21 @@
   #flyBrainViz .fb-bar { flex: 1; height: 5px; background: #1e293b; border-radius: 3px; overflow: hidden; }
   #flyBrainViz .fb-fill { height: 100%; transition: width 0.08s linear; }
   #toastMsg { position: fixed; top: 68px; left: calc((100vw - 368px) / 2); transform: translateX(-50%); background: rgba(15,23,42,0.95); border: 1px solid #f59e0b; color: #fef3c7; padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; z-index: 995; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.55); pointer-events: none; }
+  #mlLabPanel { position: absolute; top: 52px; left: 12px; width: 274px; max-height: calc(100% - 134px); overflow-y: auto; background: rgba(11,17,31,0.94); backdrop-filter: blur(14px); border: 1.5px solid rgba(168,85,247,0.48); border-radius: 14px; padding: 10px 12px; z-index: 30; display: none; flex-direction: column; gap: 8px; box-shadow: 0 14px 36px rgba(0,0,0,0.6); font-size: 11px; }
+  #mlLabPanel.open { display: flex; }
+  #mlLabPanel::-webkit-scrollbar { width: 5px; }
+  #mlLabPanel::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  .ml-hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 800; color: #c084fc; font-size: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .ml-grid-6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .ml-pop-btn { padding: 4px 4px; font-size: 10.5px; font-weight: 700; text-align: center; justify-content: center; }
+  .ml-pop-btn.active { background: linear-gradient(135deg, #a855f7, #7c3aed); border-color: #d8b4fe; color: #fff; }
+  .ml-adopt-btn { background: linear-gradient(135deg, #facc15, #f59e0b); color: #090d16; border-color: #fef08a; font-weight: 900; justify-content: center; padding: 7px 10px; box-shadow: 0 4px 16px rgba(250,204,21,0.3); }
+  .ml-adopt-btn:hover { filter: brightness(1.08); }
+  .ml-stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .ml-stat-box { background: rgba(30,41,59,0.65); border: 1px solid var(--border); border-radius: 7px; padding: 4px 6px; text-align: center; }
+  .ml-stat-box small { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; }
+  .ml-stat-box b { color: #38bdf8; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #mlBrainCv, #mlFitCv { width: 100%; border-radius: 8px; background: rgba(4,8,18,0.8); border: 1px solid var(--border); display: block; }
   .sliders { padding: 9px 12px; background: #080d16; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; font-size: 11px; flex-shrink: 0; }
   .s-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   input[type="range"] { flex: 1; accent-color: var(--accent); }
@@ -161,16 +176,24 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
         <button onclick="clearGarage()">🗑 Clear</button>
         <button class="deploy" onclick="deployToField(1)">🚀 Deploy</button>
       </div>
-      <div id="fieldControls" style="display:none;align-items:center;gap:6px;">
+      <div id="fieldControls" style="display:none;align-items:center;gap:5px;">
         <button id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
-        <select id="speedSel" onchange="simSpeed=parseFloat(this.value)" title="Simulation Speed">
+        <button onclick="stepSingleTick()" title="Step +1 Tick (when paused)">⏭ +1</button>
+        <select id="speedSel" onchange="setSimSpeed(parseFloat(this.value))" title="Simulation Speed (0.01x – 1000x)">
+          <option value="0.01">0.01x</option>
+          <option value="0.05">0.05x</option>
+          <option value="0.1">0.1x</option>
           <option value="0.25">0.25x</option>
           <option value="0.5">0.5x</option>
           <option value="1" selected>1x</option>
           <option value="2">2x</option>
           <option value="5">5x</option>
           <option value="10">10x</option>
-          <option value="20">20x</option>
+          <option value="25">25x</option>
+          <option value="100">100x</option>
+          <option value="250">250x</option>
+          <option value="500">500x</option>
+          <option value="1000">1000x</option>
         </select>
         <select id="fieldSel" onchange="loadField(this.value)">
           <option value="slalom">1: Goal Slalom</option>
@@ -187,9 +210,11 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
           <option value="crossfire">12: Crossfire Range</option>
           <option value="spiral">13: Spiral Labyrinth</option>
         </select>
-        <button onclick="deployToField(1)">➕ +1 Bot</button>
-        <button onclick="evolveAndSync()" style="border-color:#4ade80;color:#4ade80;font-weight:700;">🧬 Evolve & Sync</button>
-        <button onclick="resetField()">🔄 Reset</button>
+        <button id="btnMlLab" onclick="toggleMlLab()" style="border-color:#a855f7;color:#d8b4fe;font-weight:700;" title="Open 2,000-Ghost Neural ML Lab">🧠 ML Lab</button>
+        <button onclick="adoptSmartestNeural()" class="ml-adopt-btn" style="padding:6px 9px;" title="Copy the #1 smartest ghost neural net onto your active robot">👑 Adopt Neural</button>
+        <button onclick="deployToField(1)">➕ +1</button>
+        <button onclick="evolveAndSync()" style="border-color:#4ade80;color:#4ade80;font-weight:700;">🧬 Evolve</button>
+        <button onclick="resetField()">🔄</button>
       </div>
       <button class="tut-btn" onclick="openTutorial(true)" title="Open Tutorial">❓</button>
     </div>
@@ -233,6 +258,64 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
       <div class="fb-row"><span class="fb-lbl">DNa02 Steer</span><div class="fb-bar"><div id="fbBarSteer" class="fb-fill" style="width:50%;background:#a855f7"></div></div></div>
       <div class="fb-row"><span class="fb-lbl">DNp01 Escape</span><div class="fb-bar"><div id="fbBarEsc" class="fb-fill" style="width:5%;background:#fb7185"></div></div></div>
     </div>
+    <div id="mlLabPanel">
+      <div class="ml-hdr">
+        <span id="mlLabTitle">🧠 Neural ML &amp; Ghost Swarm</span>
+        <button onclick="toggleMlLab()" style="padding:2px 6px;font-size:10px;">✕</button>
+      </div>
+      <div class="ml-stat-strip">
+        <div class="ml-stat-box"><small>Ghosts</small><b id="mlStatCount">0</b></div>
+        <div class="ml-stat-box"><small id="mlBestLbl">Top Fit</small><b id="mlStatBest" style="color:#facc15">0</b></div>
+        <div class="ml-stat-box"><small>Gen Timer</small><b id="mlStatTimer" style="color:#4ade80">30s</b></div>
+      </div>
+      <div>
+        <div class="s-row" style="margin-bottom:4px;"><span>Ghost Swarm Size</span><b id="vGhostPop" style="color:#c084fc">0</b></div>
+        <input type="range" id="sGhostPop" min="0" max="2000" step="50" value="0" oninput="setGhostCount(parseInt(this.value,10))" style="width:100%;margin-bottom:5px;">
+        <div class="ml-grid-6">
+          <button class="ml-pop-btn active" data-gpop="0" onclick="setGhostCount(0)">Off</button>
+          <button class="ml-pop-btn" data-gpop="50" onclick="setGhostCount(50)">50</button>
+          <button class="ml-pop-btn" data-gpop="250" onclick="setGhostCount(250)">250</button>
+          <button class="ml-pop-btn" data-gpop="500" onclick="setGhostCount(500)">500</button>
+          <button class="ml-pop-btn" data-gpop="1000" onclick="setGhostCount(1000)">1,000</button>
+          <button class="ml-pop-btn" data-gpop="2000" onclick="setGhostCount(2000)">2,000</button>
+        </div>
+      </div>
+      <div class="s-row"><span>Mutation</span><input type="range" id="sMut" min="0.02" max="0.50" step="0.02" value="0.16" oninput="mlConfig.mutRate=parseFloat(this.value);document.getElementById('vMut').textContent=Math.round(this.value*100)+'%'"><b id="vMut">16%</b></div>
+      <div class="s-row"><span>Elitism</span><input type="range" id="sElite" min="5" max="30" step="5" value="10" oninput="mlConfig.elitism=parseInt(this.value,10)/100;document.getElementById('vElite').textContent=this.value+'%'"><b id="vElite">10%</b></div>
+      <div class="s-row"><span>Gen Secs</span><input type="range" id="sGenSec" min="10" max="120" step="5" value="30" oninput="mlConfig.genDuration=parseInt(this.value,10);document.getElementById('vGenSec').textContent=this.value+'s'"><b id="vGenSec">30s</b></div>
+      <div class="s-row"><span>Wheel Grip</span><input type="range" id="sGrip" min="0.4" max="1.6" step="0.1" value="1.0" oninput="physConfig.grip=parseFloat(this.value);document.getElementById('vGrip').textContent=this.value+'x'"><b id="vGrip">1.0x</b></div>
+      <div class="s-row"><span>Wall Bounce</span><input type="range" id="sBounce" min="0.2" max="1.4" step="0.1" value="0.7" oninput="physConfig.bounce=parseFloat(this.value);document.getElementById('vBounce').textContent=this.value+'x'"><b id="vBounce">0.7x</b></div>
+      <div class="s-row">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkShowGhosts" checked onchange="mlConfig.showGhosts=this.checked"><span>Ghosts</span></label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkWhiskers" checked onchange="mlConfig.showWhiskers=this.checked"><span>5-Ray LiDAR</span></label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkCross" checked onchange="mlConfig.crossover=this.checked"><span>BLX Cross</span></label>
+      </div>
+      <div class="s-row">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkAdaptMut" checked onchange="mlConfig.adaptiveMut=this.checked"><span>Adaptive Mut</span></label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkNovelty" checked onchange="mlConfig.novelty=this.checked"><span>Novelty Bonus</span></label>
+      </div>
+      <div class="s-row">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkUseAdopted" onchange="toggleHeroNeuralMode(this.checked)"><span>Hero Uses Adopted Deep Neural</span></label>
+      </div>
+      <div style="display:flex;gap:5px;">
+        <button onclick="evolveGhosts(true)" style="flex:1;justify-content:center;border-color:#4ade80;color:#4ade80;font-weight:700;">🧬 Evolve</button>
+        <button onclick="adoptSmartestNeural()" class="ml-adopt-btn" style="flex:1;">👑 Adopt Smartest</button>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <span style="font-size:10px;color:#94a3b8;font-weight:700;">Hall of Fame:</span>
+        <button onclick="brainSlotAction(0)" id="btnSlot0" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S1</button>
+        <button onclick="brainSlotAction(1)" id="btnSlot1" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S2</button>
+        <button onclick="brainSlotAction(2)" id="btnSlot2" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S3</button>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;display:flex;justify-content:space-between;"><span>Deep MLP (10 → 12 → 8 → 4)</span><span id="mlAdoptedBadge" style="color:#64748b">Not Adopted</span></div>
+        <canvas id="mlBrainCv" width="246" height="92"></canvas>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;display:flex;justify-content:space-between;"><span>Fitness History</span><span id="mlAvgFit" style="color:#38bdf8">Avg: 0</span></div>
+        <canvas id="mlFitCv" width="246" height="54"></canvas>
+      </div>
+    </div>
     <div class="hint" id="hintTxt">Click grid to place parts · Right-Click to remove · Hit 🚀 Deploy to test</div>
   </div>
   <div id="toastMsg"></div>
@@ -264,10 +347,10 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
 
 <aside id="sidebar">
   <div class="sec" style="padding-bottom:8px;">
-    <h2><span id="partCountHdr">450</span> Robot Parts <span id="knowBadge" style="color:#a855f7;">ML Student</span></h2>
+    <h2><span id="partCountHdr">460</span> Robot Parts <span id="knowBadge" style="color:#a855f7;">ML Student</span></h2>
     <div style="display:flex;gap:5px;align-items:center;">
       <div style="position:relative;flex:1;display:flex;align-items:center;">
-        <input id="partSearch" type="text" placeholder="🔍 Filter 450 parts..." oninput="renderParts()" style="flex:1;padding-right:24px;">
+        <input id="partSearch" type="text" placeholder="🔍 Filter 460 parts..." oninput="renderParts()" style="flex:1;padding-right:24px;">
         <button id="clearSearchBtn" onclick="document.getElementById('partSearch').value='';renderParts();" title="Clear filter" style="position:absolute;right:4px;background:transparent;border:none;color:#94a3b8;padding:2px 5px;font-size:11px;display:none;">✕</button>
       </div>
       <select id="partCat" onchange="renderParts()" style="padding:4px 6px;font-size:11px;">
@@ -791,7 +874,47 @@ PARTS.push(
   { id:449, color:'#ef4444', r:9, cat:'laser', icon:'🪐',
     noob:['Orbital Cannon','Fires long-range 440px plasma bolts at Targets & Rogues!'],
     student:['Orbital Cannon','440px high-impact laser cannon with 1.5x fire rate.'],
-    phd:['Orbital Plasma Turret','440px 1.5x-cadence directed-energy turret.'] }
+    phd:['Orbital Plasma Turret','440px 1.5x-cadence directed-energy turret.'] },
+  { id:450, color:'#a855f7', r:10, cat:'brain', icon:'🧬',
+    noob:['Neural Tensor Core','Supercharges adopted ghost brains (+35% steering & +20% IQ)!'],
+    student:['Neural Tensor Core','Boosts adopted MLP steering precision (+35%) & +20% fitness gain.'],
+    phd:['Tensor Policy Core','1.35x MLP action gain + 1.2x reward shaping multiplier.'] },
+  { id:451, color:'#c084fc', r:9, cat:'brain', icon:'👻',
+    noob:['Ghost-Swarm Uplink','Streams the smartest ghost brain live into your robot!'],
+    student:['Ghost-Swarm Uplink','Live-syncs champion ghost neural weights every 20 ticks.'],
+    phd:['Swarm Distillation Bus','Online policy distillation from top ghost agent (T=20).'] },
+  { id:452, color:'#38bdf8', r:9, cat:'motor', icon:'⏱️',
+    noob:['Chrono-Overdrive Coil','Boosts motor speed +30% and speeds up dash & blink timers!'],
+    student:['Chrono-Overdrive Coil','+30% propulsion thrust & 25% faster impulse cooldowns.'],
+    phd:['Temporal Actuator Coil','1.3x thrust multiplier with accelerated duty-cycle cadence.'] },
+  { id:453, color:'#818cf8', r:8, cat:'brain', icon:'⚖️',
+    noob:['Mutation Stabilizer','Keeps evolved brains smooth with 60% less wobble!'],
+    student:['Mutation Stabilizer','Reduces angular spin & steering noise by 60%.'],
+    phd:['Variance Regularizer','0.4x angular noise damping & policy smoothing head.'] },
+  { id:454, color:'#fbbf24', r:8, cat:'brain', icon:'💿',
+    noob:['Elite Memory Bank','Keeps your smartest adopted brain locked in across resets!'],
+    student:['Elite Memory Bank','Retains champion neural weights & +15% goal-lock retention.'],
+    phd:['Checkpoint Persistence','Locks elite θ* across episodes with persistent goal state.'] },
+  { id:455, color:'#fde047', r:9, cat:'sensor', icon:'🔭',
+    noob:['Hyper-LiDAR Array','Ultra-long 620px scanner that feeds crystal-clear vision to neural brains!'],
+    student:['Hyper-LiDAR Array','620px wide-band Goal & Hazard vector scanner for MLP inputs.'],
+    phd:['Hyper-Spectral LiDAR','620px high-SNR state-space observation encoder.'] },
+  { id:456, color:'#4ade80', r:9, cat:'util', icon:'⚗️',
+    noob:['Reward Catalyst','Multiplies IQ and Arena Score by 1.4x on every hit!'],
+    student:['Reward Catalyst','1.4x IQ & Score reward multiplier for faster neuro-evolution.'],
+    phd:['Reward Shaping Catalyst','1.4x terminal reward scalar accelerating convergence.'] },
+  { id:457, color:'#e2e8f0', r:9, cat:'shield', icon:'🌫️',
+    noob:['Phantom Phase Shell','Lets your bot phase past tight walls (50%) and ignore traps!'],
+    student:['Phantom Phase Shell','50% wall-phase bypass + full Hazard IQ penalty immunity.'],
+    phd:['Quantum Phase Hull','0.5 probabilistic barrier tunneling + hazard immunity.'] },
+  { id:458, color:'#0ea5e9', r:9, cat:'motor', icon:'⚡',
+    noob:['Synaptic Turbo-Drive','Drives up to +45% faster when your neural brain is locked on!'],
+    student:['Synaptic Turbo-Drive','Scales motor thrust up to +45% with neural target confidence.'],
+    phd:['Confidence-Scaled Drive','Action-magnitude conditioned 1.45x propulsion gain.'] },
+  { id:459, color:'#facc15', r:11, cat:'brain', icon:'👑',
+    noob:['Apex Neural Crown','Ultimate ML core: +25% IQ, +15% speed, trap shield & gold halo!'],
+    student:['Apex Neural Crown','+25% fitness gain, +15% thrust, hazard shield & champion halo.'],
+    phd:['Apex Policy Crown','1.25x J(θ) gain + 1.15x thrust + aegis + elite telemetry.'] }
 );
 
 let mode = 'garage'; // 'garage' or 'field'
@@ -843,7 +966,7 @@ const PART_CATS = [
   { key:'util',   icon:'🧲', label:'Utility & Claws' }
 ];
 const TOP10_BY_CAT = {
-  brain:  [378, 0, 1, 379, 390, 392, 15, 16, 372, 364],
+  brain:  [459, 450, 451, 378, 0, 1, 379, 390, 392, 453],
   sensor: [2, 380, 363, 28, 373, 404, 406, 387, 367, 3],
   motor:  [4, 381, 413, 5, 6, 7, 9, 366, 362, 386],
   laser:  [18, 39, 361, 418, 421, 375, 368, 388, 32, 19],
@@ -957,6 +1080,8 @@ function setMode(m) {
   document.getElementById('fieldToolsSec').style.display = m === 'field' ? 'flex' : 'none';
   document.getElementById('pillMode').style.display = m === 'garage' ? 'block' : 'none';
   document.getElementById('pillFieldStats').style.display = m === 'field' ? 'block' : 'none';
+  if (m === 'garage') document.getElementById('mlLabPanel')?.classList.remove('open');
+  if (m === 'field') syncGhostStatsFromGarage();
   const hint = document.getElementById('hintTxt');
   hint.style.display = m === 'garage' ? 'block' : 'none';
   hint.textContent = 'Click grid to place parts · Right-Click to remove · Scroll to zoom (0 resets) · Hit 🚀 Deploy';
@@ -1144,8 +1269,14 @@ function spawnGarageBotAt(cx, cy, brainInitOverride = null) {
   const sp = findSafeSpawn(cx, cy);
   const gid = nextGid++;
   const initType = brainInitOverride || document.getElementById('brainInit').value;
-  const hasBrain = gNodes.some(gn => gn.type === 0 || gn.type === 378);
+  const isCoreBrain = t => t === 0 || t === 378 || t === 450 || t === 451 || t === 453 || t === 454 || t === 459;
+  const hasBrain = gNodes.some(gn => isCoreBrain(gn.type));
   fBrains[gid] = makeBotBrain(initType);
+  if (typeof adoptedNeural !== 'undefined' && adoptedNeural && (mlConfig.useAdopted || initType === 'trained')) {
+    fBrains[gid].nn = new Float32Array(adoptedNeural);
+    fBrains[gid].useNeural = true;
+    fBrains[gid].thought = '🧠 Running Adopted Champion Neural!';
+  }
   if (!hasBrain) { fBrains[gid].inert = true; fBrains[gid].thought = 'No Brain!'; }
   const created = gNodes.map(gn => {
     const n = { x: sp.x + gn.gx*26, y: sp.y + gn.gy*26, vx: 0, vy: 0, type: gn.type, r: PARTS[gn.type].r, color: PARTS[gn.type].color, gid, angle: 0, dead: false, stunTimer: 0 };
@@ -1174,7 +1305,7 @@ function spawnRogueBot(cx, cy) {
 
 function deployToField(count = 1) {
   if (gNodes.length === 0) loadGarageTemplate('rover');
-  const hasBrain = gNodes.some(n => n.type === 0 || n.type === 378);
+  const hasBrain = gNodes.some(n => n.type === 0 || n.type === 378 || n.type === 450 || n.type === 451 || n.type === 453 || n.type === 454 || n.type === 459);
   const hasMotor = gNodes.some(n => getPartCat(PARTS[n.type]) === 'motor');
   if (!hasBrain && !hasMotor) showToast('⚠️ Deployed inert frame: add a Brain & Motor in Garage!');
   else if (!hasBrain) showToast('⚠️ No Brain equipped (CPU Core or Fly Brain) — bot will be inert!');
@@ -1854,15 +1985,20 @@ function stepField(dt = 1) {
     b.wWander = Math.max(0.12, 0.45 - f.mb * 0.25);
   });
 
-  for (let sub = 0; sub < 2; sub++) {
+  // 4-Iteration Position-Based Rigid Chassis Solver + Velocity Damping
+  for (let sub = 0; sub < 4; sub++) {
     for (const s of fWelds) {
       const dx = s.b.x-s.a.x, dy = s.b.y-s.a.y, d = Math.hypot(dx, dy) || 0.001, nx = dx/d, ny = dy/d;
-      const f = Math.max(-7, Math.min(7, (d - s.len)*0.16)) * dt;
-      const damp = ((s.b.vx-s.a.vx)*nx + (s.b.vy-s.a.vy)*ny)*0.1 * dt;
-      s.a.vx += nx*(f+damp); s.a.vy += ny*(f+damp); s.b.vx -= nx*(f+damp); s.b.vy -= ny*(f+damp);
-      if (d > s.len + 18) {
-        const corr = Math.min(8, (d - s.len - 18) * 0.35);
-        s.a.x += nx * corr; s.a.y += ny * corr; s.b.x -= nx * corr; s.b.y -= ny * corr;
+      const err = d - s.len;
+      const posCorr = err * 0.34;
+      s.a.x += nx * posCorr; s.a.y += ny * posCorr;
+      s.b.x -= nx * posCorr; s.b.y -= ny * posCorr;
+      if (sub === 0) {
+        const f = Math.max(-8, Math.min(8, err * 0.22)) * dt;
+        const relV = (s.b.vx - s.a.vx) * nx + (s.b.vy - s.a.vy) * ny;
+        const damp = relV * 0.18 * dt;
+        s.a.vx += nx * (f + damp); s.a.vy += ny * (f + damp);
+        s.b.vx -= nx * (f + damp); s.b.vy -= ny * (f + damp);
       }
     }
   }
@@ -1908,13 +2044,22 @@ function stepField(dt = 1) {
         }
         const compassBias = (hasCompass[n.gid] && sv.tx === null && goals.some(g => !g.isZone)) ? 0.18 : 0;
         const goalFocus = (hasScav[n.gid] && sv.bestG < 180) ? b.wGoal * 1.2 : b.wGoal;
-        fx_ = sv.gx*goalFocus + sv.ax*Math.max(0.55, b.wAvoid) + slideX + Math.cos(n.angle)*b.wWander*0.5 + compassBias;
-        fy_ = sv.gy*goalFocus + sv.ay*Math.max(0.55, b.wAvoid) + slideY + Math.sin(n.angle)*b.wWander*0.5;
+        const mlBonus = (n.type === 452 ? 1.3 : (n.type === 458 ? 1.4 : 1.0));
+        if (b.useNeural && b.nn && typeof evalHeroNeural === 'function') {
+          const nnSteer = evalHeroNeural(b.nn, n, sv);
+          n.angle += nnSteer.turn * dt;
+          fx_ = Math.cos(n.angle) * nnSteer.thrust + sv.ax * nnSteer.evade + slideX * 0.5;
+          fy_ = Math.sin(n.angle) * nnSteer.thrust + sv.ay * nnSteer.evade + slideY * 0.5;
+        } else {
+          fx_ = sv.gx*goalFocus + sv.ax*Math.max(0.55, b.wAvoid) + slideX + Math.cos(n.angle)*b.wWander*0.5 + compassBias;
+          fy_ = sv.gy*goalFocus + sv.ay*Math.max(0.55, b.wAvoid) + slideY + Math.sin(n.angle)*b.wWander*0.5;
+        }
         if (n.type === 6 && aMag > 0.35) { fx_ += sv.ax * 0.7; fy_ += sv.ay * 0.7; }
         if (n.type === 5 && aMag > 0.25) { fx_ += -sv.ay * 0.45; fy_ += sv.ax * 0.45; }
       }
       const mag = Math.hypot(fx_, fy_) || 1;
-      n.vx += (fx_/mag)*pow*0.36*batM*capM*surgeM*scoreM*dt; n.vy += (fy_/mag)*pow*0.36*batM*capM*surgeM*scoreM*dt;
+      const partMlSpd = (n.type === 452 ? 1.3 : (n.type === 458 ? 1.35 : 1.0));
+      n.vx += (fx_/mag)*pow*0.36*batM*capM*surgeM*scoreM*partMlSpd*dt; n.vy += (fy_/mag)*pow*0.36*batM*capM*surgeM*scoreM*partMlSpd*dt;
       if ((n.type === 374 || n.type === 412) && everyTicks(n.type === 412 ? 45 : 35) && (sv.gx !== 0 || sv.gy !== 0)) {
         const dash = n.type === 412 ? 4.0 : 3.2;
         n.vx += sv.gx * dash; n.vy += sv.gy * dash;
@@ -2324,8 +2469,14 @@ function draw() {
   const scale = Math.min(W / FIELD_W, H / FIELD_H);
   const ox = (W - FIELD_W * scale) / 2, oy = (H - FIELD_H * scale) / 2;
   ctx.save(); ctx.translate(ox, oy); ctx.scale(scale, scale);
-  ctx.fillStyle = '#091120'; ctx.fillRect(0, 0, FIELD_W, FIELD_H);
-  ctx.strokeStyle = 'rgba(16, 185, 129, 0.35)'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, FIELD_W, FIELD_H);
+  const bgGrad = ctx.createRadialGradient(FIELD_W * 0.5, FIELD_H * 0.5, 80, FIELD_W * 0.5, FIELD_H * 0.5, FIELD_W * 0.72);
+  bgGrad.addColorStop(0, '#0e192e'); bgGrad.addColorStop(1, '#060b16');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.055)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let gx = 60; gx < FIELD_W; gx += 60) { ctx.moveTo(gx, 0); ctx.lineTo(gx, FIELD_H); }
+  for (let gy = 60; gy < FIELD_H; gy += 60) { ctx.moveTo(0, gy); ctx.lineTo(FIELD_W, gy); }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(16, 185, 129, 0.48)'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, FIELD_W, FIELD_H);
 
   if (document.getElementById('chkLidar').checked) {
     const sweep = (simTime * 0.06) % (Math.PI * 2);
@@ -2425,6 +2576,7 @@ function draw() {
       ctx.fillStyle = frac < 0.4 ? '#f43f5e' : '#4ade80'; ctx.fillRect(bx, by, bw * frac, 4);
     }
   }
+  if (typeof drawGhosts === 'function') drawGhosts(ctx);
   for (const f of fx) {
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2); ctx.strokeStyle=f.color; ctx.globalAlpha=f.alpha; ctx.lineWidth=2.5; ctx.stroke();
     if (f.text) {
@@ -2480,19 +2632,555 @@ function updateFlyBrainViz() {
   setEdge('fbE4', fly.dnaL); setEdge('fbE5', fly.dnaR); setEdge('fbE6', fly.dnp);
 }
 
-let simAccum = 0;
+// =========================================================================
+// DEEP MLP (10->12->8->4) + 5-RAY LIDAR + 2,000-GHOST NEURO-EVOLUTION ENGINE
+// =========================================================================
+const GNN_IN = 10, GNN_H1 = 12, GNN_H2 = 8, GNN_OUT = 4;
+const GNN_W1 = GNN_IN * GNN_H1, GNN_B1 = GNN_H1;
+const GNN_W2 = GNN_H1 * GNN_H2, GNN_B2 = GNN_H2;
+const GNN_W3 = GNN_H2 * GNN_OUT, GNN_B3 = GNN_OUT;
+const GNN_LEN = GNN_W1 + GNN_B1 + GNN_W2 + GNN_B2 + GNN_W3 + GNN_B3; // 272 weights
+const RAY_ANGLES = [-0.78, -0.35, 0, 0.35, 0.78];
+const _gnnIn = new Float32Array(GNN_IN);
+const _gnnH1 = new Float32Array(GNN_H1);
+const _gnnH2 = new Float32Array(GNN_H2);
+const _gnnOut = new Float32Array(GNN_OUT);
+const _champIn = new Float32Array(GNN_IN);
+const _champH1 = new Float32Array(GNN_H1);
+const _champH2 = new Float32Array(GNN_H2);
+const _champOut = new Float32Array(GNN_OUT);
+const _champRays = new Float32Array(5);
+
+const physConfig = { grip: 1.0, bounce: 0.7 };
+const mlConfig = {
+  ghostCount: 0,
+  mutRate: 0.16,
+  elitism: 0.10,
+  genDuration: 30,
+  showGhosts: true,
+  showWhiskers: true,
+  crossover: true,
+  adaptiveMut: true,
+  novelty: true,
+  useAdopted: false
+};
+
+let ghosts = [];
+let ghostGenTimer = 0;
+let ghostChampionIdx = 0;
+let championNeural = null;
+let adoptedNeural = null;
+let mlFitHistory = [];
+let brainSlots = [null, null, null];
+let ghostStats = { maxSpd: 7.8, thrust: 0.36, drag: 0.94, sensorR: 340, avoidR: 155, shield: false, phase: false, amp: 1.0, magnetR: 22 };
+
+function makeRandomNN() {
+  const w = new Float32Array(GNN_LEN);
+  for (let i = 0; i < GNN_LEN; i++) w[i] = (Math.random() * 2 - 1) * 0.75;
+  return w;
+}
+
+function breedNN(a, b, rate, useCross) {
+  const w = new Float32Array(GNN_LEN);
+  for (let i = 0; i < GNN_LEN; i++) {
+    let v;
+    if (useCross) {
+      const alpha = -0.15 + Math.random() * 1.3;
+      v = a[i] + (b[i] - a[i]) * alpha;
+    } else {
+      v = a[i];
+    }
+    if (Math.random() < rate) {
+      const g = (Math.random() + Math.random() + Math.random() - 1.5) * 0.55;
+      v += g;
+    }
+    w[i] = v < -3.5 ? -3.5 : (v > 3.5 ? 3.5 : v);
+  }
+  return w;
+}
+
+function forwardNN(w, inp, recordChamp = false) {
+  let idx = 0;
+  const b1Off = GNN_W1;
+  for (let h = 0; h < GNN_H1; h++) {
+    let s = w[b1Off + h];
+    for (let i = 0; i < GNN_IN; i++) s += inp[i] * w[idx++];
+    _gnnH1[h] = Math.tanh(s);
+  }
+  idx = b1Off + GNN_B1;
+  const b2Off = idx + GNN_W2;
+  for (let h = 0; h < GNN_H2; h++) {
+    let s = w[b2Off + h];
+    for (let i = 0; i < GNN_H1; i++) s += _gnnH1[i] * w[idx++];
+    _gnnH2[h] = Math.tanh(s);
+  }
+  idx = b2Off + GNN_B2;
+  const b3Off = idx + GNN_W3;
+  for (let o = 0; o < GNN_OUT; o++) {
+    let s = w[b3Off + o];
+    for (let h = 0; h < GNN_H2; h++) s += _gnnH2[h] * w[idx++];
+    _gnnOut[o] = Math.tanh(s);
+  }
+  if (recordChamp) {
+    _champIn.set(inp); _champH1.set(_gnnH1); _champH2.set(_gnnH2); _champOut.set(_gnnOut);
+  }
+  return _gnnOut;
+}
+
+function castWhiskerRay(x, y, ang, maxD) {
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  let best = maxD;
+  if (dx < -0.001) best = Math.min(best, (12 - x) / dx);
+  else if (dx > 0.001) best = Math.min(best, (FIELD_W - 12 - x) / dx);
+  if (dy < -0.001) best = Math.min(best, (12 - y) / dy);
+  else if (dy > 0.001) best = Math.min(best, (FIELD_H - 12 - y) / dy);
+  for (let k = 0; k < walls.length; k++) {
+    const w = walls[k], ox = w.x - x, oy = w.y - y;
+    const proj = ox * dx + oy * dy;
+    if (proj <= 0 || proj >= best) continue;
+    const perp2 = ox * ox + oy * oy - proj * proj;
+    const r2 = (w.r + 7) * (w.r + 7);
+    if (perp2 < r2) best = Math.min(best, Math.max(0, proj - Math.sqrt(r2 - perp2)));
+  }
+  for (let k = 0; k < hazards.length; k++) {
+    const h = hazards[k], ox = h.x - x, oy = h.y - y;
+    const proj = ox * dx + oy * dy;
+    if (proj <= 0 || proj >= best) continue;
+    const perp2 = ox * ox + oy * oy - proj * proj;
+    const r2 = (h.r + 8) * (h.r + 8);
+    if (perp2 < r2) best = Math.min(best, Math.max(0, proj - Math.sqrt(r2 - perp2)));
+  }
+  return best < 0 ? 0 : best;
+}
+
+function syncGhostStatsFromGarage() {
+  let maxSpd = 7.8, thrust = 0.36, drag = 0.94, sensorR = 320, avoidR = 155, shield = false, phase = false, amp = 1.0, magnetR = 22;
+  for (const gn of gNodes) {
+    const t = gn.type;
+    if (t === 7 || t === 25 || t === 452 || t === 458 || t === 459) thrust += 0.05;
+    if (t === 366 || t === 410 || t === 452) maxSpd = Math.min(13.5, maxSpd + 1.2);
+    if (t === 22 || t === 30) drag = Math.max(drag, 0.965);
+    if (t === 28 || t === 363 || t === 380 || t === 455) sensorR = Math.max(sensorR, t === 455 ? 620 : 520);
+    if (t === 367 || t === 401 || t === 455) avoidR = Math.max(avoidR, 215);
+    if (t === 14 || t === 33 || t === 382 || t === 424 || t === 457 || t === 459) shield = true;
+    if (t === 44 || t === 457) phase = true;
+    if (t === 42 || t === 392 || t === 438 || t === 450 || t === 456 || t === 459) amp += 0.25;
+    if (t === 10 || t === 26 || t === 365 || t === 371 || t === 432) magnetR = Math.max(magnetR, 42);
+  }
+  ghostStats = { maxSpd, thrust, drag, sensorR, avoidR, shield, phase, amp, magnetR };
+}
+
+function tournamentPick(sortedPool) {
+  let bestIdx = (Math.random() * sortedPool.length) | 0;
+  for (let k = 0; k < 3; k++) {
+    const idx = (Math.random() * sortedPool.length) | 0;
+    if (idx < bestIdx) bestIdx = idx;
+  }
+  return sortedPool[bestIdx];
+}
+
+function spawnGhosts(count, seedPool = null) {
+  syncGhostStatsFromGarage();
+  ghosts = [];
+  ghostGenTimer = 0;
+  ghostChampionIdx = 0;
+  const sp = findSafeSpawn(160, FIELD_H / 2);
+  const elites = Math.max(1, Math.floor(count * mlConfig.elitism));
+  const effMut = mlConfig.adaptiveMut ? Math.max(0.04, mlConfig.mutRate * Math.pow(0.95, Math.min(25, generation - 1))) : mlConfig.mutRate;
+  for (let i = 0; i < count; i++) {
+    let brain;
+    if (seedPool && seedPool.length > 0) {
+      if (i < elites) brain = new Float32Array(seedPool[i % seedPool.length]);
+      else {
+        const pA = tournamentPick(seedPool);
+        const pB = tournamentPick(seedPool);
+        brain = breedNN(pA, pB, effMut, mlConfig.crossover);
+      }
+    } else if (adoptedNeural && i < Math.max(2, Math.floor(count * 0.15))) {
+      brain = i === 0 ? new Float32Array(adoptedNeural) : breedNN(adoptedNeural, adoptedNeural, effMut, false);
+    } else {
+      brain = makeRandomNN();
+    }
+    ghosts.push({
+      x: sp.x + (Math.random() - 0.5) * 80,
+      y: sp.y + (Math.random() - 0.5) * 160,
+      vx: 0, vy: 0,
+      angle: (Math.random() - 0.5) * 1.2,
+      angVel: 0,
+      fitness: 0,
+      goalsHit: 0,
+      goalCd: 0,
+      lastGoalIdx: -1,
+      visitedCells: new Set(),
+      brain
+    });
+  }
+}
+
+function setGhostCount(n) {
+  mlConfig.ghostCount = Math.max(0, Math.min(2000, n));
+  document.getElementById('sGhostPop').value = mlConfig.ghostCount;
+  document.getElementById('vGhostPop').textContent = mlConfig.ghostCount.toLocaleString();
+  document.getElementById('mlStatCount').textContent = mlConfig.ghostCount.toLocaleString();
+  document.querySelectorAll('.ml-pop-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.gpop, 10) === mlConfig.ghostCount));
+  if (mlConfig.ghostCount === 0) { ghosts = []; return; }
+  spawnGhosts(mlConfig.ghostCount, championNeural ? [championNeural] : null);
+  showToast(`👻 Spawned ${mlConfig.ghostCount.toLocaleString()} Deep-MLP Ghosts!`);
+}
+
+function evolveGhosts(manual = false) {
+  if (ghosts.length === 0) { if (manual) showToast('Set Ghost Swarm Size > 0 first!'); return; }
+  ghosts.sort((a, b) => b.fitness - a.fitness);
+  const best = ghosts[0];
+  const avg = ghosts.reduce((s, g) => s + g.fitness, 0) / ghosts.length;
+  championNeural = new Float32Array(best.brain);
+  mlFitHistory.push({ best: best.fitness, avg });
+  if (mlFitHistory.length > 50) mlFitHistory.shift();
+  const poolCount = Math.max(6, Math.floor(ghosts.length * Math.max(0.22, mlConfig.elitism)));
+  const seedPool = ghosts.slice(0, poolCount).map(g => new Float32Array(g.brain));
+  generation++;
+  document.getElementById('hGen').textContent = generation;
+  spawnGhosts(mlConfig.ghostCount, seedPool);
+  if (manual) showToast(`🧬 Gen ${generation} evolved (Top Fit: ${Math.round(best.fitness)}, Goals: ${best.goalsHit})!`);
+}
+
+function brainSlotAction(idx) {
+  if (!brainSlots[idx]) {
+    const src = championNeural || adoptedNeural;
+    if (!src) { showToast('Evolve or adopt a brain first before saving!'); return; }
+    brainSlots[idx] = new Float32Array(src);
+    const b = document.getElementById('btnSlot' + idx);
+    if (b) { b.textContent = `🧠 S${idx + 1}*`; b.style.borderColor = '#facc15'; b.style.color = '#fde047'; }
+    showToast(`💾 Saved Champion Neural to Hall of Fame Slot ${idx + 1}!`);
+  } else {
+    adoptedNeural = new Float32Array(brainSlots[idx]);
+    championNeural = new Float32Array(brainSlots[idx]);
+    toggleHeroNeuralMode(true);
+    const chk = document.getElementById('chkUseAdopted');
+    if (chk) chk.checked = true;
+    document.getElementById('mlAdoptedBadge').textContent = `Loaded Slot ${idx + 1}`;
+    document.getElementById('mlAdoptedBadge').style.color = '#38bdf8';
+    showToast(`🧠 Loaded Hall of Fame Slot ${idx + 1} onto Hero Bot!`);
+  }
+}
+
+function adoptSmartestNeural() {
+  let bestBrain = null, bestFit = 0;
+  if (ghosts.length > 0) {
+    let top = ghosts[0];
+    for (let i = 1; i < ghosts.length; i++) if (ghosts[i].fitness > top.fitness) top = ghosts[i];
+    bestBrain = new Float32Array(top.brain);
+    bestFit = top.fitness;
+    championNeural = new Float32Array(top.brain);
+  } else if (championNeural) {
+    bestBrain = new Float32Array(championNeural);
+  }
+  if (!bestBrain) {
+    showToast('Spawn ghosts in 🧠 ML Lab first to evolve a neural brain!');
+    document.getElementById('mlLabPanel')?.classList.add('open');
+    return;
+  }
+  adoptedNeural = new Float32Array(bestBrain);
+  mlConfig.useAdopted = true;
+  const chk = document.getElementById('chkUseAdopted');
+  if (chk) chk.checked = true;
+  document.getElementById('mlAdoptedBadge').textContent = `Adopted (Fit ${Math.round(bestFit)})`;
+  document.getElementById('mlAdoptedBadge').style.color = '#facc15';
+  let applied = 0;
+  for (const gid in fBrains) {
+    if (fBrains[gid] && !fBrains[gid].rogue) {
+      fBrains[gid].nn = new Float32Array(adoptedNeural);
+      fBrains[gid].useNeural = true;
+      fBrains[gid].thought = '👑 Adopted Deep MLP!';
+      applied++;
+    }
+  }
+  garageBrain.nn = Array.from(adoptedNeural);
+  document.getElementById('brainInit').value = 'trained';
+  fx.push({ x: FIELD_W / 2, y: FIELD_H / 2, r: 20, maxR: 280, color: '#facc15', alpha: 0.9, text: '👑 DEEP NEURAL ADOPTED!' });
+  showToast(`👑 Adopted smartest 10→12→8→4 brain onto ${applied || 1} Hero Bot(s)!`);
+  saveState();
+}
+
+function toggleHeroNeuralMode(on) {
+  mlConfig.useAdopted = on;
+  for (const gid in fBrains) {
+    if (fBrains[gid] && !fBrains[gid].rogue) {
+      fBrains[gid].useNeural = on && Boolean(adoptedNeural || fBrains[gid].nn);
+      if (on && adoptedNeural && !fBrains[gid].nn) fBrains[gid].nn = new Float32Array(adoptedNeural);
+    }
+  }
+}
+
+function evalHeroNeural(nn, n, sv) {
+  const goalAngle = (sv.tx !== null) ? Math.atan2(sv.ty - n.y, sv.tx - n.x) - n.angle : 0;
+  const goalDist = (sv.tx !== null) ? Math.min(1, sv.bestG / Math.max(1, sv.range || 340)) : 1;
+  const rayMax = ghostStats.avoidR;
+  _gnnIn[0] = Math.sin(goalAngle);
+  _gnnIn[1] = Math.cos(goalAngle);
+  _gnnIn[2] = 1 - goalDist;
+  for (let r = 0; r < 5; r++) {
+    _gnnIn[3 + r] = 1 - castWhiskerRay(n.x, n.y, n.angle + RAY_ANGLES[r], rayMax) / rayMax;
+  }
+  _gnnIn[8] = Math.min(1, Math.hypot(n.vx, n.vy) / 10);
+  _gnnIn[9] = 0;
+  const out = forwardNN(nn, _gnnIn, false);
+  const fwdX = Math.cos(n.angle), fwdY = Math.sin(n.angle);
+  const latV = -n.vx * fwdY + n.vy * fwdX;
+  const gripDamp = Math.min(0.45, 0.14 * physConfig.grip);
+  n.vx -= -fwdY * latV * gripDamp;
+  n.vy -= fwdX * latV * gripDamp;
+  const boostM = out[3] > 0.35 ? 1.35 : 1.0;
+  return {
+    turn: out[0] * 0.22,
+    thrust: (0.45 + 0.85 * ((out[1] + 1) * 0.5)) * boostM,
+    evade: 0.35 + 0.75 * ((out[2] + 1) * 0.5)
+  };
+}
+
+function stepGhosts(dt) {
+  if (ghosts.length === 0) return;
+  ghostGenTimer += dt / 60;
+  if (ghostGenTimer >= mlConfig.genDuration && document.getElementById('chkAutoEvo')?.checked) {
+    evolveGhosts(false);
+    return;
+  }
+  const gLen = goals.length, wLen = walls.length, hLen = hazards.length;
+  const { maxSpd, thrust, drag, sensorR, avoidR, shield, phase, amp, magnetR } = ghostStats;
+  const dragDt = Math.pow(drag, dt);
+  const pow = parseFloat(document.getElementById('sPow')?.value || '0.8');
+  const gripK = Math.min(0.55, 0.18 * physConfig.grip);
+  const bncK = physConfig.bounce;
+  let topFit = -1e9, topIdx = 0;
+
+  for (let i = 0; i < ghosts.length; i++) {
+    const g = ghosts[i];
+    if (g.goalCd > 0) g.goalCd -= dt;
+    let bestGD2 = sensorR * sensorR, gdx = 0, gdy = 0, bestGIdx = -1;
+    for (let k = 0; k < gLen; k++) {
+      if (k === g.lastGoalIdx && g.goalCd > 0) continue;
+      const gl = goals[k], dx = gl.x - g.x, dy = gl.y - g.y, d2 = dx * dx + dy * dy;
+      if (d2 < bestGD2) { bestGD2 = d2; gdx = dx; gdy = dy; bestGIdx = k; }
+    }
+    for (let r = 0; r < 5; r++) {
+      const d = castWhiskerRay(g.x, g.y, g.angle + RAY_ANGLES[r], avoidR);
+      _gnnIn[3 + r] = 1 - d / avoidR;
+      if (i === ghostChampionIdx) _champRays[r] = d;
+    }
+    const gDist = bestGIdx >= 0 ? Math.sqrt(bestGD2) : sensorR;
+    const gAng = bestGIdx >= 0 ? (Math.atan2(gdy, gdx) - g.angle) : 0;
+    _gnnIn[0] = Math.sin(gAng);
+    _gnnIn[1] = Math.cos(gAng);
+    _gnnIn[2] = 1 - Math.min(1, gDist / sensorR);
+    _gnnIn[8] = Math.min(1, Math.hypot(g.vx, g.vy) / maxSpd);
+    _gnnIn[9] = Math.max(-1, Math.min(1, g.angVel * 4));
+
+    const out = forwardNN(g.brain, _gnnIn, i === ghostChampionIdx);
+    g.angVel = g.angVel * 0.65 + out[0] * 0.22 * 0.35;
+    g.angle += g.angVel * dt;
+    const cosA = Math.cos(g.angle), sinA = Math.sin(g.angle);
+    const boost = out[3] > 0.4 ? 1.3 : 1.0;
+    const spdGain = (0.35 + 0.65 * ((out[1] + 1) * 0.5)) * thrust * pow * 1.25 * boost;
+    const strafe = out[2] * thrust * 0.45;
+    g.vx += (cosA * spdGain - sinA * strafe) * dt;
+    g.vy += (sinA * spdGain + cosA * strafe) * dt;
+    const latV = -g.vx * sinA + g.vy * cosA;
+    g.vx -= -sinA * latV * gripK;
+    g.vy -= cosA * latV * gripK;
+    g.vx *= dragDt; g.vy *= dragDt;
+    const spMag = Math.hypot(g.vx, g.vy);
+    if (spMag > maxSpd * boost) { g.vx = (g.vx / spMag) * maxSpd * boost; g.vy = (g.vy / spMag) * maxSpd * boost; }
+    g.x += g.vx * dt; g.y += g.vy * dt;
+
+    if (g.x < 14) { g.x = 14; g.vx = Math.abs(g.vx) * bncK; g.fitness -= 0.8 * dt; }
+    else if (g.x > FIELD_W - 14) { g.x = FIELD_W - 14; g.vx = -Math.abs(g.vx) * bncK; g.fitness -= 0.8 * dt; }
+    if (g.y < 14) { g.y = 14; g.vy = Math.abs(g.vy) * bncK; g.fitness -= 0.8 * dt; }
+    else if (g.y > FIELD_H - 14) { g.y = FIELD_H - 14; g.vy = -Math.abs(g.vy) * bncK; g.fitness -= 0.8 * dt; }
+
+    for (let k = 0; k < wLen; k++) {
+      const w = walls[k], dx = g.x - w.x, dy = g.y - w.y, minD = w.r + 8, d2 = dx * dx + dy * dy;
+      if (d2 < minD * minD && d2 > 0.01 && !phase) {
+        const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+        g.x = w.x + nx * minD; g.y = w.y + ny * minD;
+        const dot = g.vx * nx + g.vy * ny;
+        if (dot < 0) { g.vx -= (1 + bncK) * dot * nx; g.vy -= (1 + bncK) * dot * ny; }
+        g.fitness -= 2.0 * dt;
+      }
+    }
+    for (let k = 0; k < hLen; k++) {
+      const h = hazards[k], dx = g.x - h.x, dy = g.y - h.y, minD = h.r + 8, d2 = dx * dx + dy * dy;
+      if (d2 < minD * minD && d2 > 0.01) {
+        const d = Math.sqrt(d2);
+        if (!shield) g.fitness -= 15 * dt;
+        g.vx += (dx / d) * 3.8; g.vy += (dy / d) * 3.8;
+      }
+    }
+
+    if (mlConfig.novelty) {
+      const cellKey = ((g.x / 64) | 0) * 32 + ((g.y / 64) | 0);
+      if (!g.visitedCells.has(cellKey)) { g.visitedCells.add(cellKey); g.fitness += 4.5; }
+    }
+    if (bestGIdx >= 0) {
+      g.fitness += (1 - gDist / sensorR) * 0.16 * dt;
+      if (gDist < magnetR + 10) {
+        g.fitness += 95 * amp;
+        g.goalsHit++;
+        g.lastGoalIdx = bestGIdx;
+        g.goalCd = 55;
+      }
+    }
+    if (g.fitness > topFit) { topFit = g.fitness; topIdx = i; }
+  }
+  ghostChampionIdx = topIdx;
+  if (ghosts[topIdx]) championNeural = ghosts[topIdx].brain;
+}
+
+function drawGhosts(c) {
+  if (!mlConfig.showGhosts || ghosts.length === 0) return;
+  const len = ghosts.length;
+  const rad = len > 800 ? 3.0 : (len > 250 ? 4.0 : 5.2);
+  c.fillStyle = 'rgba(168, 85, 247, 0.34)';
+  c.beginPath();
+  for (let i = 0; i < len; i++) {
+    if (i === ghostChampionIdx) continue;
+    const g = ghosts[i];
+    c.moveTo(g.x + rad, g.y);
+    c.arc(g.x, g.y, rad, 0, Math.PI * 2);
+  }
+  c.fill();
+  const ch = ghosts[ghostChampionIdx];
+  if (ch) {
+    if (mlConfig.showWhiskers) {
+      for (let r = 0; r < 5; r++) {
+        const a = ch.angle + RAY_ANGLES[r], d = _champRays[r] || ghostStats.avoidR;
+        const prox = 1 - d / ghostStats.avoidR;
+        c.strokeStyle = prox > 0.5 ? `rgba(244,63,94,${0.35 + prox * 0.5})` : 'rgba(56,189,248,0.42)';
+        c.lineWidth = 1.4;
+        c.beginPath(); c.moveTo(ch.x, ch.y); c.lineTo(ch.x + Math.cos(a) * d, ch.y + Math.sin(a) * d); c.stroke();
+      }
+    }
+    c.beginPath(); c.arc(ch.x, ch.y, 13, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(250, 204, 21, 0.9)'; c.lineWidth = 2.2; c.stroke();
+    c.beginPath(); c.arc(ch.x, ch.y, 6, 0, Math.PI * 2);
+    c.fillStyle = '#facc15'; c.fill();
+  }
+}
+
+function renderMlVisuals() {
+  const panel = document.getElementById('mlLabPanel');
+  if (!panel || !panel.classList.contains('open')) return;
+  const ch = ghosts[ghostChampionIdx];
+  document.getElementById('mlStatCount').textContent = ghosts.length.toLocaleString();
+  document.getElementById('mlStatBest').textContent = ch ? Math.round(ch.fitness) : 0;
+  document.getElementById('mlStatTimer').textContent = Math.max(0, mlConfig.genDuration - ghostGenTimer).toFixed(1) + 's';
+
+  const bcv = document.getElementById('mlBrainCv');
+  if (bcv) {
+    const bctx = bcv.getContext('2d'), bw = bcv.width, bh = bcv.height;
+    bctx.clearRect(0, 0, bw, bh);
+    const lx = [18, bw * 0.37, bw * 0.67, bw - 18];
+    const counts = [GNN_IN, GNN_H1, GNN_H2, GNN_OUT];
+    const vals = [_champIn, _champH1, _champH2, _champOut];
+    const getY = (l, i) => {
+      const n = counts[l], pad = l === 3 ? 16 : 7;
+      return pad + (i / Math.max(1, n - 1)) * (bh - pad * 2);
+    };
+    bctx.lineWidth = 0.7;
+    for (let l = 0; l < 3; l++) {
+      for (let i = 0; i < counts[l]; i++) {
+        const y1 = getY(l, i), v1 = vals[l][i];
+        if (Math.abs(v1) < 0.15) continue;
+        for (let j = 0; j < counts[l + 1]; j++) {
+          const a = Math.abs(v1 * vals[l + 1][j]);
+          if (a < 0.12) continue;
+          bctx.strokeStyle = v1 >= 0 ? `rgba(52,211,153,${a * 0.5})` : `rgba(244,63,94,${a * 0.5})`;
+          bctx.beginPath(); bctx.moveTo(lx[l], y1); bctx.lineTo(lx[l + 1], getY(l + 1, j)); bctx.stroke();
+        }
+      }
+    }
+    for (let l = 0; l < 4; l++) {
+      for (let i = 0; i < counts[l]; i++) {
+        const y = getY(l, i), v = Math.max(-1, Math.min(1, vals[l][i]));
+        bctx.fillStyle = v >= 0 ? `rgba(52,211,153,${0.25 + v * 0.75})` : `rgba(244,63,94,${0.25 - v * 0.75})`;
+        bctx.beginPath(); bctx.arc(lx[l], y, l === 3 ? 3.6 : 2.8, 0, Math.PI * 2); bctx.fill();
+      }
+    }
+  }
+  const fcv = document.getElementById('mlFitCv');
+  if (fcv) {
+    const fctx = fcv.getContext('2d'), fw = fcv.width, fh = fcv.height;
+    fctx.clearRect(0, 0, fw, fh);
+    if (mlFitHistory.length < 2) {
+      fctx.fillStyle = '#64748b'; fctx.font = '600 10px sans-serif'; fctx.textAlign = 'center';
+      fctx.fillText('Spawn ghosts & evolve to plot fitness...', fw / 2, fh / 2 + 3);
+    } else {
+      let maxV = 10;
+      for (const h of mlFitHistory) if (h.best > maxV) maxV = h.best;
+      const drawL = (k, col) => {
+        fctx.strokeStyle = col; fctx.lineWidth = 1.8; fctx.beginPath();
+        for (let i = 0; i < mlFitHistory.length; i++) {
+          const x = 5 + (i / (mlFitHistory.length - 1)) * (fw - 10);
+          const y = fh - 6 - Math.max(0, mlFitHistory[i][k] / maxV) * (fh - 12);
+          if (i === 0) fctx.moveTo(x, y); else fctx.lineTo(x, y);
+        }
+        fctx.stroke();
+      };
+      drawL('avg', '#38bdf8'); drawL('best', '#facc15');
+      document.getElementById('mlAvgFit').textContent = 'Avg: ' + Math.round(mlFitHistory[mlFitHistory.length - 1].avg);
+    }
+  }
+}
+
+function toggleMlLab() {
+  const p = document.getElementById('mlLabPanel');
+  if (!p) return;
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) {
+    syncGhostStatsFromGarage();
+    renderMlVisuals();
+  }
+}
+
+function setSimSpeed(v) {
+  simSpeed = v;
+  const sel = document.getElementById('speedSel');
+  if (sel) sel.value = String(v);
+  saveState();
+}
+
+function stepSingleTick() {
+  if (mode !== 'field') return;
+  if (!paused) togglePause();
+  stepField(1);
+  stepGhosts(1);
+  updateFlyBrainViz();
+  renderMlVisuals();
+}
+
+let simAccum = 0, mlUiTick = 0;
 function loop() {
   if (mode === 'field' && !paused) {
     if (simSpeed < 1) {
       stepField(simSpeed);
+      stepGhosts(simSpeed);
       updateFlyBrainViz();
     } else {
       simAccum += simSpeed;
-      const steps = Math.floor(simAccum);
-      simAccum -= steps;
-      for (let s = 0; s < steps; s++) stepField(1);
-      if (steps > 0) updateFlyBrainViz();
+      const targetSteps = Math.floor(simAccum);
+      simAccum -= targetSteps;
+      const t0 = performance.now();
+      const cap = Math.min(targetSteps, 1000);
+      let ran = 0;
+      for (let s = 0; s < cap; s++) {
+        stepField(1);
+        stepGhosts(1);
+        ran++;
+        if (ran >= 4 && (performance.now() - t0) > 13) break;
+      }
+      if (ran > 0) updateFlyBrainViz();
     }
+    mlUiTick++;
+    if (mlUiTick % 6 === 0) renderMlVisuals();
   }
   draw();
   requestAnimationFrame(loop);
