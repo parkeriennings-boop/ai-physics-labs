@@ -110,6 +110,10 @@
   .preset-row { display: flex; flex-wrap: wrap; gap: 5px; }
   .preset-chip { font-size: 11px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-weight: 600; transition: all 0.12s; }
   .preset-chip:hover, .preset-chip.active { border-color: var(--accent); background: rgba(56,189,248,0.22); }
+  .bp-cat-row { margin-bottom: 6px; }
+  .bp-cat-row .preset-chip { font-size: 10px; padding: 3px 7px; opacity: 0.88; }
+  .bp-cat-row .preset-chip.active { opacity: 1; }
+  .preset-list-scroll { max-height: 128px; overflow-y: auto; padding-right: 2px; align-content: flex-start; }
 
   .search-wrap { position: relative; margin-bottom: 7px; }
   .search-input { width: 100%; padding: 7px 26px 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.32); color: var(--text); font-size: 12px; outline: none; }
@@ -216,6 +220,7 @@
   body.mobile-mode .toolbar > div { flex-wrap: nowrap !important; flex-shrink: 0; }
   body.mobile-mode .active-tool-pill { flex-shrink: 0; font-size: 11px; padding: 5px 9px; }
   body.mobile-mode .sidebar { order: 2; width: 100%; border-right: none; border-top: 1px solid var(--border); max-height: 48dvh; }
+  body.mobile-mode .preset-list-scroll { max-height: 92px; }
   body.mobile-mode .specs-panel { order: 3; width: 100%; border-left: none; border-top: 1px solid var(--border); }
   body.mobile-mode .arena-main { order: 1; width: 100%; }
   body.mobile-mode .arena-topbar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 7px 10px; gap: 6px; }
@@ -351,8 +356,9 @@
   <section class="view active" id="view-garage">
     <aside class="sidebar">
       <div class="sidebar-section">
-        <div class="sidebar-title"><span>Rocket Blueprints (14)</span><button class="preset-chip" id="btnClear">Clear</button></div>
-        <div class="preset-row" id="presetList"></div>
+        <div class="sidebar-title"><span id="bpCountTitle">Rocket Blueprints (36)</span><button class="preset-chip" id="btnClear">Clear</button></div>
+        <div class="preset-row bp-cat-row" id="bpCatFilters"></div>
+        <div class="preset-row preset-list-scroll" id="presetList"></div>
       </div>
       <div class="sidebar-section" style="padding-bottom:8px;">
         <div class="search-wrap">
@@ -571,20 +577,49 @@
   document.getElementById('partCountBadge').textContent = `${PARTS.length} Parts • Blue & Purple Rocket ML`;
 
   const BLUEPRINTS = [
-    { name: '🚀 Falcon 9 (Learns!)', cells: [[5,2,'nosecone'],[5,3,'nn_core'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'lox_tank'],[5,5,'raptor'],[4,6,'shock_leg'],[6,6,'shock_leg']] },
-    { name: '🛸 SpaceX Einstein (Pre-Trained)', cells: [[5,2,'nosecone'],[5,3,'einstein'],[4,3,'gridfin'],[6,3,'gridfin'],[5,4,'mega_tank'],[5,5,'raptor'],[4,5,'raptor'],[6,5,'raptor'],[3,6,'shock_leg'],[7,6,'shock_leg'],[5,1,'confetti']] },
-    { name: '☢️ Heavy Starship', cells: [[5,2,'heat_cone'],[5,3,'einstein'],[4,3,'sas_gyro'],[6,3,'radar'],[5,4,'mega_tank'],[4,4,'lox_tank'],[6,4,'lox_tank'],[4,5,'nerva'],[5,5,'superheavy'],[6,5,'nerva'],[3,6,'shock_leg'],[7,6,'shock_leg']] },
-    { name: '⚡ Ion Probe', cells: [[5,3,'nn_core'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'h2_sphere'],[5,5,'ion'],[4,5,'carbon_leg'],[6,5,'carbon_leg'],[5,2,'sat']] },
-    { name: '🪂 Chute Capsule', cells: [[5,2,'chute'],[4,2,'chute'],[6,2,'chute'],[5,3,'astro'],[5,4,'einstein'],[5,5,'micro_jet'],[4,5,'airbag'],[6,5,'airbag']] },
-    { name: '🧲 Mag-Lock Hopper', cells: [[5,3,'einstein'],[4,3,'gridfin'],[6,3,'gridfin'],[5,4,'lox_tank'],[5,5,'aerospike'],[4,6,'mag_foot'],[6,6,'mag_foot'],[5,2,'mag_lock']] },
-    { name: '🚗 Space Roadster', cells: [[5,2,'roadster'],[5,3,'einstein'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'mega_tank'],[4,5,'raptor'],[6,5,'raptor'],[3,6,'wheel_gear'],[7,6,'wheel_gear'],[5,1,'disco']] },
-    { name: '🔥 Twin Dragster', cells: [[5,2,'nosecone'],[5,3,'nn_core'],[4,3,'supercap'],[6,3,'sas_gyro'],[5,4,'mega_tank'],[4,5,'dragster'],[6,5,'dragster'],[3,6,'spring_leg'],[7,6,'spring_leg']] },
-    { name: '😇 Anti-Grav UFO', cells: [[5,2,'antigrav'],[4,3,'quantum_gyro'],[5,3,'einstein'],[6,3,'inf_solar'],[4,4,'delta_wing'],[6,4,'delta_wing'],[5,4,'hyper_ion'],[4,5,'spring_leg'],[6,5,'spring_leg']] },
-    { name: '🌌 Quantum Cruiser', cells: [[5,1,'star_crown'],[5,2,'antimatter'],[4,3,'hyper_gimbal'],[5,3,'einstein'],[6,3,'forcefield'],[5,4,'mega_tank'],[4,5,'warp_eng'],[6,5,'warp_eng'],[3,6,'mag_foot'],[7,6,'mag_foot']] },
-    { name: '🛰️ Orbital Shuttle', cells: [[5,2,'plasma_nose'],[5,3,'orbit_cpu'],[4,3,'cobalt_wing'],[6,3,'cobalt_wing'],[5,4,'plasma_silo'],[4,5,'hyper_raptor'],[6,5,'hyper_raptor'],[3,6,'cyber_leg'],[7,6,'cyber_leg'],[5,1,'space_station']] },
-    { name: '🌋 Volcano Hopper', cells: [[5,2,'geyser_shd'],[5,3,'nn_core'],[4,3,'geyser_scan'],[6,3,'tri_rcs'],[5,4,'indigo_cell'],[5,5,'io_volc_jet'],[4,6,'volc_leg'],[6,6,'volc_leg']] },
-    { name: '🎯 Ring Racer', cells: [[5,2,'plasma_nose'],[5,3,'nn_core'],[4,3,'amethyst_fin'],[6,3,'amethyst_fin'],[5,4,'ring_nav'],[4,4,'tri_rcs'],[6,4,'tri_rcs'],[5,5,'micro_warp'],[4,6,'spring_leg'],[6,6,'spring_leg']] },
-    { name: '🏆 KC Star-Liner', cells: [[5,1,'kc_crown'],[4,2,'kc_flag'],[5,2,'astro_cat'],[6,2,'laser_beacon'],[5,3,'nn_core'],[4,3,'star_gyro'],[6,3,'tractor_pro'],[5,4,'plasma_silo'],[4,5,'raptor_v4'],[5,5,'starship_ring'],[6,5,'raptor_v4'],[3,6,'mag_skid'],[7,6,'mag_skid']] }
+    // Classic & Real-World Inspired (9)
+    { name: '🚀 Falcon 9 (Learns!)', cat: 'Classic', desc: 'Balanced starter reusable booster for neural ML', cells: [[5,2,'nosecone'],[5,3,'nn_core'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'lox_tank'],[5,5,'raptor'],[4,6,'shock_leg'],[6,6,'shock_leg']] },
+    { name: '☢️ Heavy Starship', cat: 'Classic', desc: 'Triple-engine heavy reusable Mars & orbital booster', cells: [[5,2,'heat_cone'],[5,3,'einstein'],[4,3,'sas_gyro'],[6,3,'radar'],[5,4,'mega_tank'],[4,4,'lox_tank'],[6,4,'lox_tank'],[4,5,'nerva'],[5,5,'superheavy'],[6,5,'nerva'],[3,6,'shock_leg'],[7,6,'shock_leg']] },
+    { name: '🛰️ Orbital Shuttle', cat: 'Classic', desc: 'Winged cobalt orbital shuttle with twin Raptor-X jets', cells: [[5,2,'plasma_nose'],[5,3,'orbit_cpu'],[4,3,'cobalt_wing'],[6,3,'cobalt_wing'],[5,4,'plasma_silo'],[4,5,'hyper_raptor'],[6,5,'hyper_raptor'],[3,6,'cyber_leg'],[7,6,'cyber_leg'],[5,1,'space_station']] },
+    { name: '🌕 Saturn V Apollo', cat: 'Classic', desc: 'Iconic Apollo heavy moon rocket with triple F-1 cluster', cells: [[5,0,'needle_spike'],[5,1,'astro'],[5,2,'moon_base'],[4,2,'rcs_pod'],[6,2,'rcs_pod'],[5,3,'nn_core'],[4,3,'sas_gyro'],[6,3,'slam_timer'],[5,4,'slush_h2'],[4,4,'kero_drum'],[6,4,'kero_drum'],[4,5,'f1_saturn'],[5,5,'f1_saturn'],[6,5,'f1_saturn'],[3,5,'tail_fin'],[7,5,'tail_fin'],[3,6,'crush_core'],[7,6,'crush_core']] },
+    { name: '🦅 Falcon Heavy', cat: 'Classic', desc: 'Triple-core reusable booster with side cores & grid fins', cells: [[5,1,'fairing'],[5,2,'sat'],[3,2,'nosecone'],[7,2,'nosecone'],[5,3,'nn_core'],[4,3,'gridfin'],[6,3,'gridfin'],[3,3,'subcooled'],[7,3,'subcooled'],[5,4,'mega_tank'],[3,4,'lox_tank'],[7,4,'lox_tank'],[5,5,'raptor'],[3,5,'merlin1d'],[7,5,'merlin1d'],[2,6,'carbon_leg'],[4,6,'shock_leg'],[6,6,'shock_leg'],[8,6,'carbon_leg']] },
+    { name: '🐉 Crew Dragon', cat: 'Classic', desc: 'Crewed capsule with twin SuperDraco propulsive thrusters', cells: [[5,1,'ribbon_chute'],[5,2,'heat_cone'],[4,2,'cold_rcs_pro'],[6,2,'cold_rcs_pro'],[5,3,'astro'],[4,3,'triple_cpu'],[6,3,'doppler_alt'],[5,4,'header_tank'],[4,4,'superdraco'],[6,4,'superdraco'],[5,5,'heat_shield'],[4,5,'pneumatic_leg'],[6,5,'pneumatic_leg']] },
+    { name: '✈️ Space Shuttle', cat: 'Classic', desc: 'Delta-wing orbiter with triple RS-25 HydroLox engines', cells: [[5,1,'heat_cone'],[5,2,'hab_module'],[4,2,'rcs_pod'],[6,2,'rcs_pod'],[5,3,'orbit_cpu'],[4,3,'canard'],[6,3,'canard'],[5,4,'cryo_silo'],[4,4,'shuttle_wing'],[6,4,'shuttle_wing'],[3,4,'elevon'],[7,4,'elevon'],[4,5,'rs25'],[5,5,'rs25'],[6,5,'rs25'],[3,6,'wheel_gear'],[7,6,'wheel_gear']] },
+    { name: '🌙 Lunar Eagle LEM', cat: 'Classic', desc: 'Wide-stance spider-legged Apollo lunar descent lander', cells: [[5,2,'dock_cam'],[4,2,'rcs_pod'],[6,2,'rcs_pod'],[5,3,'astro'],[4,3,'lunar_buggy'],[6,3,'gold_record'],[5,4,'nn_core'],[4,4,'hypergolic'],[6,4,'hypergolic'],[5,5,'j2x'],[3,5,'spider_leg'],[7,5,'spider_leg'],[2,6,'lunar_shoe'],[8,6,'lunar_shoe']] },
+    { name: '🔷 New Glenn Heavy', cat: 'Classic', desc: 'Tall orbital methalox lifter with twin BE-4 engines', cells: [[5,1,'fairing'],[5,2,'telescope'],[4,2,'strake'],[6,2,'strake'],[5,3,'neural_tpu'],[4,3,'gridfin'],[6,3,'gridfin'],[5,4,'meth_tank'],[4,4,'subcooled'],[6,4,'subcooled'],[4,5,'be4'],[5,5,'staged_comb'],[6,5,'be4'],[3,6,'telescop_leg'],[7,6,'telescop_leg']] },
+
+    // World-Specialized Landers (9)
+    { name: '🌋 Volcano Hopper', cat: 'Worlds', desc: 'Built for Io Geysers: thermal blast shield & basalt legs', cells: [[5,2,'geyser_shd'],[5,3,'nn_core'],[4,3,'geyser_scan'],[6,3,'tri_rcs'],[5,4,'indigo_cell'],[5,5,'io_volc_jet'],[4,6,'volc_leg'],[6,6,'volc_leg']] },
+    { name: '🚢 Barge Catcher', cat: 'Worlds', desc: 'Built for Ocean Barge: deck clamps & drone-ship tracker', cells: [[5,1,'nosecone'],[5,2,'barge_tracker'],[4,2,'cyber_fin'],[6,2,'cyber_fin'],[5,3,'nn_core'],[4,3,'wind_comp'],[6,3,'pid_assist'],[5,4,'subcooled'],[4,4,'tri_rcs'],[6,4,'tri_rcs'],[4,5,'raptor'],[5,5,'pintle'],[6,5,'raptor'],[3,6,'barge_clamp'],[7,6,'barge_clamp']] },
+    { name: '🔴 Mars Rover Drop', cat: 'Worlds', desc: 'Built for Mars Canyon: chutes, airbags & rover cargo', cells: [[4,1,'main_chute'],[5,1,'drag_cone'],[6,1,'main_chute'],[5,2,'rover_cargo'],[4,2,'optical_nav'],[6,2,'radar'],[5,3,'nn_core'],[4,3,'wind_comp'],[6,3,'sas_gyro'],[5,4,'meth_tank'],[4,5,'aerospike'],[6,5,'aerospike'],[3,6,'airbag'],[5,5,'airbag'],[7,6,'airbag']] },
+    { name: '🪐 Jupiter Titan', cat: 'Worlds', desc: 'Built for 375g Jupiter Heavy: colossal 33-engine lifter', cells: [[5,1,'heat_cone'],[5,2,'cmg_gyro'],[4,2,'aegis_dome'],[6,2,'aegis_dome'],[5,3,'nn_core'],[4,3,'fusion_core_x'],[6,3,'fusion_core_x'],[5,4,'cryo_silo'],[4,4,'plasma_silo'],[6,4,'plasma_silo'],[3,5,'f1_saturn'],[4,5,'starship_ring'],[5,5,'starship_ring'],[6,5,'starship_ring'],[7,5,'f1_saturn'],[2,6,'piston_leg'],[8,6,'piston_leg']] },
+    { name: '☄️ Asteroid Dodger', cat: 'Worlds', desc: 'Built for Asteroid Belt: 360° radar, lasers & hyper-agility', cells: [[5,2,'lidar_360'],[4,2,'laser_def'],[6,2,'laser_def'],[5,3,'fly_brain'],[4,3,'tri_rcs'],[6,3,'tri_rcs'],[5,4,'carbon_ring'],[4,4,'plasma_cell'],[6,4,'plasma_cell'],[4,5,'micro_warp'],[5,5,'carbon_bell'],[6,5,'micro_warp'],[3,6,'spring_leg'],[7,6,'spring_leg']] },
+    { name: '🌪️ Storm Piercer', cat: 'Worlds', desc: 'Built for Hurricane Pad: anti-wind dome & heavy anchors', cells: [[5,1,'stealth_cone'],[5,2,'anti_wind'],[4,2,'wind_vane'],[6,2,'wind_comp'],[5,3,'nn_core'],[4,3,'spoiler'],[6,3,'spoiler'],[5,4,'titanium_tk'],[4,4,'hot_gas_rcs'],[6,4,'hot_gas_rcs'],[4,5,'turbo_ram'],[5,5,'linear_spike'],[6,5,'turbo_ram'],[3,6,'anchor_foot'],[7,6,'anchor_foot']] },
+    { name: '🌊 Titan Sea-Skimmer', cat: 'Worlds', desc: 'Built for Titan Sea: glide parafoils & floating pontoons', cells: [[4,1,'parafoil'],[5,1,'nosecone'],[6,1,'parafoil'],[5,2,'barge_tracker'],[4,2,'nebula_wing'],[6,2,'nebula_wing'],[5,3,'nn_core'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'titan_tank'],[4,5,'titan_meth'],[6,5,'titan_meth'],[3,6,'float_pontoon'],[7,6,'float_pontoon']] },
+    { name: '🧊 Europa Ice-Drill', cat: 'Worlds', desc: 'Built for Europa Ice: zero-slip ABS & ice-spike legs', cells: [[5,1,'plasma_nose'],[5,2,'deep_radar'],[4,2,'ice_abs'],[6,2,'astro_gyro'],[5,3,'nn_core'],[4,3,'cold_rcs_pro'],[6,3,'cold_rcs_pro'],[5,4,'ice_cell'],[4,4,'gel_pad'],[6,4,'gel_pad'],[4,5,'europa_cryo'],[5,5,'cryo_spike'],[6,5,'europa_cryo'],[3,6,'ice_spike_leg'],[7,6,'ice_spike_leg']] },
+    { name: '🕳️ Horizon Breaker', cat: 'Worlds', desc: 'Built for Black Hole: event-horizon IMU & void thrusters', cells: [[5,1,'horizon_ai'],[4,2,'void_barrier'],[5,2,'grav_lens'],[6,2,'void_barrier'],[5,3,'neural_prism'],[4,3,'fusion_core_x'],[6,3,'fusion_core_x'],[5,4,'antiproton'],[4,4,'tri_rcs'],[6,4,'tri_rcs'],[4,5,'fusion_torch'],[5,5,'void_bell'],[6,5,'fusion_torch'],[3,6,'grav_clamp'],[7,6,'grav_clamp']] },
+
+    // Experimental & Specialist Craft (9)
+    { name: '⚡ Ion Probe', cat: 'Special', desc: 'Featherlight long-endurance ion probe', cells: [[5,3,'nn_core'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'h2_sphere'],[5,5,'ion'],[4,5,'carbon_leg'],[6,5,'carbon_leg'],[5,2,'sat']] },
+    { name: '🪂 Chute Capsule', cat: 'Special', desc: 'Triple-chute soft-landing airbag capsule', cells: [[5,2,'chute'],[4,2,'chute'],[6,2,'chute'],[5,3,'astro'],[5,4,'einstein'],[5,5,'micro_jet'],[4,5,'airbag'],[6,5,'airbag']] },
+    { name: '🧲 Mag-Lock Hopper', cat: 'Special', desc: 'Pad-magnetized precision vertical hopper', cells: [[5,3,'einstein'],[4,3,'gridfin'],[6,3,'gridfin'],[5,4,'lox_tank'],[5,5,'aerospike'],[4,6,'mag_foot'],[6,6,'mag_foot'],[5,2,'mag_lock']] },
+    { name: '🔥 Twin Dragster', cat: 'Special', desc: 'High-acceleration twin burner speed rocket', cells: [[5,2,'nosecone'],[5,3,'nn_core'],[4,3,'supercap'],[6,3,'sas_gyro'],[5,4,'mega_tank'],[4,5,'dragster'],[6,5,'dragster'],[3,6,'spring_leg'],[7,6,'spring_leg']] },
+    { name: '🎯 Ring Racer', cat: 'Special', desc: 'Agile Sky-Ring Course navigator with micro-warp', cells: [[5,2,'plasma_nose'],[5,3,'nn_core'],[4,3,'amethyst_fin'],[6,3,'amethyst_fin'],[5,4,'ring_nav'],[4,4,'tri_rcs'],[6,4,'tri_rcs'],[5,5,'micro_warp'],[4,6,'spring_leg'],[6,6,'spring_leg']] },
+    { name: '🧠 Fast-Learn Trainer', cat: 'Special', desc: 'Max 3.0x neural learning rate rig for rapid AI evolution', cells: [[5,1,'fly_brain'],[5,2,'neural_tpu'],[4,2,'swarmsync'],[6,2,'deep_net'],[5,3,'nn_core'],[4,3,'sas_gyro'],[6,3,'pid_assist'],[5,4,'lox_tank'],[4,4,'rcs_pod'],[6,4,'rcs_pod'],[4,5,'pintle'],[6,5,'pintle'],[3,6,'crush_core'],[7,6,'crush_core']] },
+    { name: '☢️ Orion Nuclear Pulse', cat: 'Special', desc: 'Project Orion nuclear pulse drive with radiation baffle', cells: [[5,1,'rad_shield'],[5,2,'hab_module'],[4,2,'fission_cell'],[6,2,'thorium_cell'],[5,3,'nn_core'],[4,3,'cmg_gyro'],[6,3,'pulse_ring'],[5,4,'fusion_bottle'],[4,4,'rcs_pod'],[6,4,'rcs_pod'],[4,5,'nerva'],[5,5,'orion_pulse'],[6,5,'nerva'],[3,6,'piston_leg'],[7,6,'piston_leg']] },
+    { name: '🛸 SABRE Spaceplane', cat: 'Special', desc: 'Wide SSTO winged spaceplane with air-space SABRE jets', cells: [[5,1,'carbon_cone'],[5,2,'vector_cpu'],[4,2,'canard'],[6,2,'canard'],[5,3,'nn_core'],[4,3,'aero_tank'],[6,3,'aero_tank'],[2,4,'winglet'],[3,4,'swept_wing'],[4,4,'bi_wing'],[5,4,'meth_tank'],[6,4,'bi_wing'],[7,4,'swept_wing'],[8,4,'winglet'],[4,5,'turbo_ram'],[5,5,'scramjet'],[6,5,'turbo_ram'],[3,6,'wheel_gear'],[7,6,'wheel_gear']] },
+    { name: '🦋 Solar Sail Glider', cat: 'Special', desc: 'Ultra-lightweight endless-regen solar glider & ion swarm', cells: [[5,1,'void_sail'],[4,2,'solar_wing'],[5,2,'solar_halo'],[6,2,'solar_wing'],[3,3,'nebula_wing'],[4,3,'aether_wing'],[5,3,'nn_core'],[6,3,'aether_wing'],[7,3,'nebula_wing'],[5,4,'xenon_can'],[4,5,'sapphire_ion'],[5,5,'ion_cluster'],[6,5,'sapphire_ion'],[3,6,'hover_pad'],[7,6,'hover_pad']] },
+
+    // OP & Fun Builds (9)
+    { name: '🛸 SpaceX Einstein (Pre-Trained)', cat: 'OP & Fun', desc: 'Triple-Raptor booster with Einstein AI & confetti', cells: [[5,2,'nosecone'],[5,3,'einstein'],[4,3,'gridfin'],[6,3,'gridfin'],[5,4,'mega_tank'],[5,5,'raptor'],[4,5,'raptor'],[6,5,'raptor'],[3,6,'shock_leg'],[7,6,'shock_leg'],[5,1,'confetti']] },
+    { name: '🚗 Space Roadster', cat: 'OP & Fun', desc: 'Orbital sports car on twin Raptors with disco beacon', cells: [[5,2,'roadster'],[5,3,'einstein'],[4,3,'rcs_pod'],[6,3,'rcs_pod'],[5,4,'mega_tank'],[4,5,'raptor'],[6,5,'raptor'],[3,6,'wheel_gear'],[7,6,'wheel_gear'],[5,1,'disco']] },
+    { name: '😇 Anti-Grav UFO', cat: 'OP & Fun', desc: 'Self-charging anti-gravity saucer with quantum gyro', cells: [[5,2,'antigrav'],[4,3,'quantum_gyro'],[5,3,'einstein'],[6,3,'inf_solar'],[4,4,'delta_wing'],[6,4,'delta_wing'],[5,4,'hyper_ion'],[4,5,'spring_leg'],[6,5,'spring_leg']] },
+    { name: '🌌 Quantum Cruiser', cat: 'OP & Fun', desc: 'Twin Warp Drive cruiser with Aegis shield & Antimatter', cells: [[5,1,'star_crown'],[5,2,'antimatter'],[4,3,'hyper_gimbal'],[5,3,'einstein'],[6,3,'forcefield'],[5,4,'mega_tank'],[4,5,'warp_eng'],[6,5,'warp_eng'],[3,6,'mag_foot'],[7,6,'mag_foot']] },
+    { name: '🏆 KC Star-Liner', cat: 'OP & Fun', desc: 'Kansas City royal flagship with 33-engine ring & Astro-Cat', cells: [[5,1,'kc_crown'],[4,2,'kc_flag'],[5,2,'astro_cat'],[6,2,'laser_beacon'],[5,3,'nn_core'],[4,3,'star_gyro'],[6,3,'tractor_pro'],[5,4,'plasma_silo'],[4,5,'raptor_v4'],[5,5,'starship_ring'],[6,5,'raptor_v4'],[3,6,'mag_skid'],[7,6,'mag_skid']] },
+    { name: '🕳️ Singularity God-Ship', cat: 'OP & Fun', desc: 'Ultimate mythic flagship: 100kN+ warp thrust & max safety', cells: [[5,0,'mythic_trophy'],[4,1,'celestial_ai'],[5,1,'stargate_beacon'],[6,1,'chrono_brain'],[4,2,'nova_core'],[5,2,'antimatter'],[6,2,'nova_core'],[4,3,'tachyon_fin'],[5,3,'einstein'],[6,3,'tachyon_fin'],[4,4,'omega_rcs'],[5,4,'dark_matter_tank'],[6,4,'omega_rcs'],[4,5,'singularity_eng'],[5,5,'titan_afterburn'],[6,5,'singularity_eng'],[3,6,'warp_leg'],[5,6,'hyper_cushion'],[7,6,'warp_leg']] },
+    { name: '🍕 Orbital Pizza Express', cat: 'OP & Fun', desc: 'Hot orbital delivery with twin Nebula Afterburners!', cells: [[5,1,'pizza_box'],[4,2,'taco_crate'],[5,2,'cosmic_donut'],[6,2,'espresso_m'],[4,3,'tachyon_fin'],[5,3,'einstein'],[6,3,'tachyon_fin'],[5,4,'dark_matter_tank'],[4,5,'phoenix_jet'],[6,5,'phoenix_jet'],[3,6,'hover_pad'],[7,6,'hover_pad']] },
+    { name: '🎸 Synthwave Disco', cat: 'OP & Fun', desc: 'Rainbow plumes, confetti & orbital synth party lander', cells: [[5,0,'disco'],[4,1,'confetti'],[5,1,'prism_core'],[6,1,'aurora_trail'],[4,2,'guitar'],[5,2,'dj_deck'],[6,2,'synth_wave'],[4,3,'hyper_gimbal'],[5,3,'einstein'],[6,3,'neon_strip'],[5,4,'violet_core'],[4,5,'pulsar_drive'],[5,5,'photon_thruster'],[6,5,'pulsar_drive'],[3,6,'warp_leg'],[7,6,'warp_leg']] },
+    { name: '🦆 Duck Squadron', cat: 'OP & Fun', desc: 'Zero-G Rubber Duck + pets crew with Gravity Inverter!', cells: [[5,1,'wizard_hat'],[4,2,'astro_cat'],[5,2,'duck'],[6,2,'astro_dog'],[4,3,'nebula_gyro'],[5,3,'gravity_invert'],[6,3,'inf_solar'],[4,4,'omega_rcs'],[5,4,'cool_shades'],[6,4,'omega_rcs'],[5,5,'photon_thruster'],[3,6,'hyper_cushion'],[7,6,'hyper_cushion']] }
   ];
 
   const WORLDS = {
@@ -687,10 +722,20 @@
     document.getElementById('limAng').textContent = '< ' + Math.round(22 * spec.forgive) + '°';
   }
 
+  let activeBPCat = 'All', activeBPName = null;
+  function syncActiveBPChips() {
+    const pListEl = document.getElementById('presetList');
+    if (!pListEl) return;
+    pListEl.querySelectorAll('.preset-chip').forEach(el => {
+      el.classList.toggle('active', el.dataset.bpName === activeBPName);
+    });
+  }
   function loadBP(bp, rec = false) {
     if (rec) pushHist();
     grid = Array.from({ length: GH }, () => Array(GW).fill(null));
     bp.cells.forEach(([x, y, id]) => { if (PART_MAP[id]) grid[y][x] = id; });
+    activeBPName = bp.name;
+    syncActiveBPChips();
     updateSpecsUI(); drawGarage();
   }
 
@@ -1617,10 +1662,36 @@
 
   // Build UI controls
   const pList = document.getElementById('presetList');
-  BLUEPRINTS.forEach(bp => {
-    const b = document.createElement('button'); b.className = 'preset-chip'; b.textContent = bp.name;
-    b.onclick = () => { loadBP(bp, true); showToast(`Loaded ${bp.name}`); }; pList.appendChild(b);
+  const bpCatRow = document.getElementById('bpCatFilters');
+  const bpCountTitle = document.getElementById('bpCountTitle');
+  if (bpCountTitle) bpCountTitle.textContent = `Rocket Blueprints (${BLUEPRINTS.length})`;
+  function renderBlueprints() {
+    pList.innerHTML = '';
+    const filtered = activeBPCat === 'All' ? BLUEPRINTS : BLUEPRINTS.filter(bp => bp.cat === activeBPCat);
+    filtered.forEach(bp => {
+      const b = document.createElement('button');
+      b.className = 'preset-chip' + (bp.name === activeBPName ? ' active' : '');
+      b.dataset.bpName = bp.name;
+      b.textContent = bp.name;
+      if (bp.desc) b.title = bp.desc;
+      b.onclick = () => { loadBP(bp, true); showToast(`Loaded ${bp.name}`); };
+      pList.appendChild(b);
+    });
+  }
+  const bpCats = ['All', ...new Set(BLUEPRINTS.map(bp => bp.cat).filter(Boolean))];
+  bpCats.forEach(cat => {
+    const count = cat === 'All' ? BLUEPRINTS.length : BLUEPRINTS.filter(bp => bp.cat === cat).length;
+    const b = document.createElement('button');
+    b.className = 'preset-chip' + (cat === 'All' ? ' active' : '');
+    b.textContent = `${cat} (${count})`;
+    b.onclick = () => {
+      activeBPCat = cat;
+      bpCatRow.querySelectorAll('.preset-chip').forEach(el => el.classList.toggle('active', el === b));
+      renderBlueprints();
+    };
+    bpCatRow.appendChild(b);
   });
+  renderBlueprints();
   const catRow = document.getElementById('catFilters');
   ['All', ...new Set(PARTS.map(p => p.cat))].forEach(cat => {
     const b = document.createElement('button'); b.className = 'preset-chip' + (cat === 'All' ? ' active' : '');
@@ -1702,8 +1773,8 @@
   document.getElementById('btnGust').onclick = () => { const dir = Math.random() > 0.5 ? 1 : -1; rockets.forEach(r => { if (!r.done) { r.vx += dir * 110; r.angVel += dir * 1.4; } }); playSFX('gust'); showToast('💨 Crosswind gust!'); };
   document.getElementById('btnMeteor').onclick = () => { meteors.push({ x: 80 + Math.random() * (AW - 160), y: -20, vx: (Math.random() - 0.5) * 140, vy: 280 + Math.random() * 120, r: 14 }); showToast('☄️ Incoming meteor!'); };
   document.getElementById('btnSym').onclick = () => { pushHist(); for (let y = 0; y < GH; y++) for (let x = 0; x < CX; x++) { const rx = GW - 1 - x; if (grid[y][x] && !grid[y][rx]) grid[y][rx] = grid[y][x]; else if (grid[y][rx] && !grid[y][x]) grid[y][x] = grid[y][rx]; } updateSpecsUI(); drawGarage(); showToast('⚖️ Symmetrized rocket!'); };
-  document.getElementById('btnRandom').onclick = () => { loadBP(BLUEPRINTS[Math.floor(Math.random() * BLUEPRINTS.length)], true); showToast('🎲 Loaded random rocket!'); };
-  document.getElementById('btnClear').onclick = () => { pushHist(); grid = Array.from({ length: GH }, () => Array(GW).fill(null)); grid[CY][CX] = 'nn_core'; updateSpecsUI(); drawGarage(); };
+  document.getElementById('btnRandom').onclick = () => { const bp = BLUEPRINTS[Math.floor(Math.random() * BLUEPRINTS.length)]; loadBP(bp, true); showToast(`🎲 Loaded ${bp.name}!`); };
+  document.getElementById('btnClear').onclick = () => { pushHist(); grid = Array.from({ length: GH }, () => Array(GW).fill(null)); grid[CY][CX] = 'nn_core'; activeBPName = null; syncActiveBPChips(); updateSpecsUI(); drawGarage(); };
   document.getElementById('btnSound').onclick = () => { soundOn = !soundOn; const b = document.getElementById('btnSound'); b.textContent = `🔊 SFX: ${soundOn ? 'ON' : 'OFF'}`; b.classList.toggle('active', soundOn); };
 
   function setMode(m) {
@@ -1874,12 +1945,12 @@
         <p class="tut-lead">Engineer anything from nimble hoppers to heavy reusable boosters with precision building tools and live flight telemetry.</p>
         <div class="tut-stat-row">
           <div class="tut-stat"><span class="tut-stat-val">400</span><span class="tut-stat-lbl">Rocket Parts</span></div>
-          <div class="tut-stat"><span class="tut-stat-val">14</span><span class="tut-stat-lbl">Blueprints (Falcon 9+)</span></div>
+          <div class="tut-stat"><span class="tut-stat-val">36</span><span class="tut-stat-lbl">Blueprints (Falcon 9+)</span></div>
           <div class="tut-stat"><span class="tut-stat-val">&gt; 1.2x</span><span class="tut-stat-lbl">Target Earth TWR</span></div>
         </div>
         <div class="tut-grid">
           <div class="tut-box"><h3 class="tut-box-title">🪞 Precision Tools</h3><p>Use <strong>Mirror</strong>, <strong>Symmetry</strong>, and <strong>Undo</strong> to keep thrusters, fins, and legs balanced around your center of mass.</p></div>
-          <div class="tut-box"><h3 class="tut-box-title">✨ AI Rocket Builder</h3><p>Load the starter <strong>Falcon 9</strong> (or 13 other blueprints), or prompt the <strong>AI Rocket Builder</strong> to assemble a custom vehicle.</p></div>
+          <div class="tut-box"><h3 class="tut-box-title">✨ AI Rocket Builder</h3><p>Load the starter <strong>Falcon 9</strong> (or 35 other blueprints), or prompt the <strong>AI Rocket Builder</strong> to assemble a custom vehicle.</p></div>
         </div>
         <div class="tut-callout"><span>⚖️</span><div><strong>Pro Tip:</strong> Keep <strong>Earth TWR &gt; 1.2x</strong> so your rocket has enough thrust margin to lift off cleanly and brake before touchdown.</div></div>
       </section>
