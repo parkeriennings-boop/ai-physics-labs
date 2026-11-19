@@ -1,0 +1,2865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DriftLab — AI Touge & Stunt Racing | AI Physics Labs</title>
+<style>
+  :root {
+    --bg: #06090f;
+    --glass: rgba(13, 20, 34, 0.62);
+    --glass-strong: rgba(15, 23, 42, 0.80);
+    --glass-hover: rgba(24, 36, 58, 0.72);
+    --border: rgba(255, 255, 255, 0.10);
+    --border-bright: rgba(255, 255, 255, 0.20);
+    --cyan: #38bdf8;
+    --cyan-dim: rgba(56, 189, 248, 0.18);
+    --rose: #f43f5e;
+    --rose-dim: rgba(244, 63, 94, 0.18);
+    --amber: #facc15;
+    --amber-dim: rgba(250, 204, 21, 0.18);
+    --emerald: #34d399;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Ambient Liquid Glass background mesh */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(680px circle at 12% 10%, rgba(56, 189, 248, 0.13), transparent 62%),
+      radial-gradient(600px circle at 88% 16%, rgba(244, 63, 94, 0.11), transparent 60%),
+      radial-gradient(520px circle at 50% 95%, rgba(250, 204, 21, 0.08), transparent 60%),
+      linear-gradient(180deg, #06090f 0%, #090e18 100%);
+  }
+
+  /* Frosted Glass Panel */
+  .glass {
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(145%);
+    -webkit-backdrop-filter: blur(20px) saturate(145%);
+    border: 1px solid var(--border);
+    border-top-color: rgba(255, 255, 255, 0.16);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    max-width: 1580px;
+    margin: 0 auto;
+    padding: 14px 18px 20px;
+    gap: 14px;
+  }
+
+  /* Header */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 18px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.5px;
+    color: #06090f;
+    background: linear-gradient(135deg, var(--cyan), #818cf8 55%, var(--rose));
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.35);
+  }
+
+  .brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brand-title .tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+  }
+
+  .brand-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* Segmented Tab Switcher */
+  .tab-switch {
+    display: inline-flex;
+    padding: 4px;
+    border-radius: 12px;
+    background: rgba(6, 9, 15, 0.7);
+    border: 1px solid var(--border);
+    gap: 4px;
+  }
+
+  .tab-btn {
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tab-btn:hover {
+    color: var(--text);
+  }
+
+  .tab-btn.active {
+    color: #06090f;
+    background: linear-gradient(135deg, var(--cyan), #67e8f9);
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+  }
+
+  .pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+  }
+
+  /* Views */
+  .view {
+    display: none;
+    flex: 1;
+    gap: 14px;
+  }
+
+  .view.active {
+    display: grid;
+  }
+
+  /* ================= GARAGE VIEW ================= */
+  #view-garage {
+    grid-template-columns: 400px 1fr;
+    align-items: start;
+  }
+
+  @media (max-width: 1120px) {
+    #view-garage {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .garage-left {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .panel-pad {
+    padding: 16px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .preview-wrap {
+    position: relative;
+    width: 100%;
+    height: 230px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.10), rgba(6, 9, 15, 0.92) 72%);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  #garage-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .preview-overlay {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .preview-tag {
+    background: rgba(6, 9, 15, 0.72);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: var(--cyan);
+  }
+
+  /* Modular 6-slot build grid */
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .slot-cell {
+    background: rgba(6, 9, 15, 0.55);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 9px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    text-align: left;
+    color: var(--text);
+    font-family: inherit;
+  }
+
+  .slot-cell:hover {
+    border-color: var(--border-bright);
+    background: var(--glass-hover);
+  }
+
+  .slot-cell.active-slot {
+    border-color: var(--cyan);
+    background: rgba(56, 189, 248, 0.12);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.16);
+  }
+
+  .slot-cat {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 3px;
+  }
+
+  .slot-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Specs */
+  .spec-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .spec-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .spec-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+
+  .spec-label {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .spec-val {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .spec-bar {
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+  }
+
+  .spec-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.25s ease;
+  }
+
+  .fill-cyan { background: linear-gradient(90deg, #0284c7, var(--cyan)); }
+  .fill-rose { background: linear-gradient(90deg, #be123c, var(--rose)); }
+  .fill-amber { background: linear-gradient(90deg, #ca8a04, var(--amber)); }
+  .fill-emerald { background: linear-gradient(90deg, #059669, var(--emerald)); }
+  .fill-violet { background: linear-gradient(90deg, #7c3aed, #c084fc); }
+
+  /* Buttons */
+  .btn {
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 13px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.16s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: var(--border-bright);
+  }
+
+  .btn-cyan {
+    background: linear-gradient(135deg, var(--cyan), #0ea5e9);
+    color: #06090f;
+    border-color: transparent;
+    font-weight: 700;
+    box-shadow: 0 4px 18px rgba(56, 189, 248, 0.30);
+  }
+
+  .btn-cyan:hover {
+    filter: brightness(1.08);
+    background: linear-gradient(135deg, var(--cyan), #0ea5e9);
+  }
+
+  .btn-rose {
+    background: var(--rose-dim);
+    color: #fda4af;
+    border-color: rgba(244, 63, 94, 0.40);
+  }
+
+  .btn-rose:hover {
+    background: rgba(244, 63, 94, 0.30);
+  }
+
+  .btn-amber {
+    background: var(--amber-dim);
+    color: #fde047;
+    border-color: rgba(250, 204, 21, 0.42);
+  }
+
+  .btn-amber:hover {
+    background: rgba(250, 204, 21, 0.30);
+  }
+
+  .btn-active {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    border-color: rgba(56, 189, 248, 0.55);
+  }
+
+  /* Garage Right: Presets + Parts Catalog */
+  .garage-right {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .preset-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .cat-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .cat-pill {
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(6, 9, 15, 0.55);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .cat-pill:hover {
+    color: var(--text);
+    border-color: var(--border-bright);
+  }
+
+  .cat-pill.active {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    border-color: rgba(56, 189, 248, 0.55);
+  }
+
+  .parts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+    gap: 10px;
+  }
+
+  .part-card {
+    background: rgba(6, 9, 15, 0.55);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 13px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    text-align: left;
+    color: var(--text);
+    font-family: inherit;
+    position: relative;
+  }
+
+  .part-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-1px);
+    background: var(--glass-hover);
+  }
+
+  .part-card.equipped {
+    border-color: var(--cyan);
+    background: linear-gradient(150deg, rgba(56, 189, 248, 0.16), rgba(15, 23, 42, 0.72));
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.16);
+  }
+
+  .part-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .part-name {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .equipped-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--cyan);
+    color: #06090f;
+  }
+
+  .part-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .stat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: auto;
+    padding-top: 4px;
+  }
+
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .chip.pos { color: var(--emerald); border-color: rgba(52, 211, 153, 0.28); background: rgba(52, 211, 153, 0.08); }
+  .chip.neg { color: #fda4af; border-color: rgba(244, 63, 94, 0.28); background: rgba(244, 63, 94, 0.08); }
+  .chip.amber { color: var(--amber); border-color: rgba(250, 204, 21, 0.30); background: rgba(250, 204, 21, 0.08); }
+
+  /* ================= ARENA VIEW ================= */
+  #view-arena {
+    grid-template-columns: 1fr 340px;
+    align-items: stretch;
+  }
+
+  @media (max-width: 1180px) {
+    #view-arena {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .arena-stage-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .arena-canvas-card {
+    position: relative;
+    flex: 1;
+    min-height: 540px;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+  }
+
+  #arena-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: var(--radius);
+  }
+
+  /* Live HUD floating over arena */
+  .hud-top {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    pointer-events: none;
+    flex-wrap: wrap;
+  }
+
+  .hud-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .hud-pill {
+    background: rgba(6, 9, 15, 0.76);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 6px 11px;
+    display: flex;
+    flex-direction: column;
+    min-width: 82px;
+  }
+
+  .hud-k {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+  }
+
+  .hud-v {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .hud-v.cyan { color: var(--cyan); }
+  .hud-v.rose { color: var(--rose); }
+  .hud-v.amber { color: var(--amber); }
+
+  .hud-bottom {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .drift-banner {
+    background: rgba(6, 9, 15, 0.80);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .combo-mult {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--amber);
+    text-shadow: 0 0 14px rgba(250, 204, 21, 0.45);
+  }
+
+  .wasd-hint {
+    background: rgba(6, 9, 15, 0.82);
+    border: 1px solid rgba(244, 63, 94, 0.45);
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #fda4af;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .wasd-hint.visible {
+    display: inline-flex;
+  }
+
+  .kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  /* Arena Sidebar */
+  .arena-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .control-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .ctrl-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .ctrl-val {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--cyan);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.10);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--cyan);
+    border: 2px solid #06090f;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.65);
+    cursor: pointer;
+  }
+
+  .mini-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .mini-btn {
+    flex: 1;
+    min-width: 42px;
+    padding: 5px 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+
+  .mini-btn:hover {
+    color: var(--text);
+    border-color: var(--border-bright);
+  }
+
+  .mini-btn.active {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    border-color: rgba(56, 189, 248, 0.55);
+    font-weight: 700;
+  }
+
+  .track-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .track-btn {
+    padding: 8px 9px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: rgba(6, 9, 15, 0.55);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .track-btn small {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .track-btn:hover {
+    border-color: var(--border-bright);
+    color: var(--text);
+  }
+
+  .track-btn.active {
+    border-color: var(--cyan);
+    background: rgba(56, 189, 248, 0.14);
+    color: var(--text);
+  }
+
+  .track-btn.active small {
+    color: var(--cyan);
+  }
+
+  .chart-wrap {
+    width: 100%;
+    height: 175px;
+    border-radius: 10px;
+    background: rgba(6, 9, 15, 0.65);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  #chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-family: var(--font-mono);
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .legend-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  .action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- Top Bar -->
+  <header class="topbar glass">
+    <div class="brand">
+      <div class="brand-badge">DL</div>
+      <div>
+        <div class="brand-title">
+          DriftLab <span class="tag">AI Physics Labs</span>
+        </div>
+        <div class="brand-sub">AI Touge &amp; Stunt Racing — Modular Drift Physics + Neural Swarm</div>
+      </div>
+    </div>
+
+    <nav class="tab-switch" role="tablist">
+      <button class="tab-btn active" id="tab-garage" role="tab" aria-selected="true">Car Garage</button>
+      <button class="tab-btn" id="tab-arena" role="tab" aria-selected="false">Drift Arena</button>
+    </nav>
+
+    <div class="header-meta">
+      <span class="status-pill"><span class="pulse-dot"></span><span id="hdr-build-label">Touge King</span></span>
+      <span class="status-pill" id="hdr-fps">60 FPS</span>
+    </div>
+  </header>
+
+  <!-- TAB 1: CAR GARAGE -->
+  <main id="view-garage" class="view active">
+    <section class="garage-left">
+      <div class="glass panel-pad">
+        <div class="panel-header">
+          <span class="panel-title">Live Build Preview</span>
+          <button class="btn btn-amber" id="btn-randomize">Randomize</button>
+        </div>
+
+        <div class="preview-wrap">
+          <canvas id="garage-canvas"></canvas>
+          <div class="preview-overlay">
+            <span class="preview-tag" id="preview-sensor-tag">7-Ray Wide Sweep</span>
+            <span id="preview-weight-tag">1,040 kg</span>
+          </div>
+        </div>
+
+        <!-- Modular 6-slot build grid -->
+        <div class="slot-grid" id="slot-grid"></div>
+
+        <!-- Live Car Physics Specs -->
+        <div class="panel-header" style="margin-top: 4px; margin-bottom: 8px;">
+          <span class="panel-title">Live Car Physics Specs</span>
+          <span style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);" id="spec-rating">CLASS S</span>
+        </div>
+        <div class="spec-list" id="spec-list"></div>
+
+        <button class="btn btn-cyan" id="btn-launch-arena" style="width:100%; margin-top: 14px; padding: 10px;">
+          Deploy Build to Drift Arena →
+        </button>
+      </div>
+    </section>
+
+    <section class="garage-right">
+      <div class="glass panel-pad">
+        <div class="panel-header">
+          <span class="panel-title">Quick Presets</span>
+          <span style="font-size:11px;color:var(--text-dim);" id="parts-count-label">30 Modular Parts</span>
+        </div>
+        <div class="preset-bar" id="preset-bar"></div>
+      </div>
+
+      <div class="glass panel-pad">
+        <div class="panel-header">
+          <span class="panel-title">Modular Part Catalog</span>
+          <span style="font-size:11px;color:var(--cyan);font-family:var(--font-mono);" id="active-cat-title">CHASSIS</span>
+        </div>
+        <div class="cat-tabs" id="cat-tabs"></div>
+          <div style="margin:6px 0 8px;">
+            <input type="search" id="drift-part-search" placeholder="Search 144 parts (e.g. v12, plasma, einstein, ice)..." style="width:100%;padding:7px 11px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:rgba(4,8,16,0.55);color:#f8fafc;font-size:12px;outline:none;" />
+          </div>
+        <div class="parts-grid" id="parts-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- TAB 2: DRIFT ARENA -->
+  <main id="view-arena" class="view">
+    <section class="arena-stage-col">
+      <div class="glass arena-canvas-card">
+        <canvas id="arena-canvas"></canvas>
+
+        <!-- Live Top HUD -->
+        <div class="hud-top">
+          <div class="hud-group">
+            <div class="hud-pill">
+              <span class="hud-k">Generation</span>
+              <span class="hud-v cyan" id="hud-gen">1</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-k">Alive</span>
+              <span class="hud-v" id="hud-alive">50 / 50</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-k">Episode</span>
+              <span class="hud-v amber" id="hud-timer">25.0s</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-k">Best Fitness</span>
+              <span class="hud-v cyan" id="hud-best-fit">0</span>
+            </div>
+          </div>
+
+          <div class="hud-group">
+            <div class="hud-pill">
+              <span class="hud-k">Speed</span>
+              <span class="hud-v" id="hud-speed">0 km/h</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-k">Drift Angle</span>
+              <span class="hud-v rose" id="hud-angle">0.0°</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-k">Lat Slip</span>
+              <span class="hud-v" id="hud-slip">0.0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Bottom HUD -->
+        <div class="hud-bottom">
+          <div class="drift-banner">
+            <div>
+              <div class="hud-k">Drift Score</div>
+              <div class="hud-v amber" id="hud-drift-score" style="font-size:18px;">0</div>
+            </div>
+            <div class="combo-mult" id="hud-combo">1.0x</div>
+            <div>
+              <div class="hud-k">Laps</div>
+              <div class="hud-v cyan" id="hud-laps">0</div>
+            </div>
+          </div>
+
+          <div class="wasd-hint" id="wasd-hint">
+            <span>MANUAL:</span>
+            <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>
+            <span>/ Arrows</span>
+            <span class="kbd">SPACE</span><span>Boost</span>
+            <span class="kbd">R</span><span>Reset</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Arena Controls + Learning Curve Sidebar -->
+    <aside class="arena-sidebar">
+      <div class="glass panel-pad">
+        <div class="panel-header">
+          <span class="panel-title">Track Select</span>
+          <button class="btn btn-rose" id="btn-manual-toggle">Manual WASD: OFF</button>
+        </div>
+        <div class="track-grid" id="track-grid"></div>
+      </div>
+
+      <div class="glass panel-pad">
+        <div class="panel-header">
+          <span class="panel-title">ML Swarm &amp; Sim Controls</span>
+          <span style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);" id="sim-state-tag">TRAINING</span>
+        </div>
+
+        <div class="control-group">
+          <div class="ctrl-label-row">
+            <span>Swarm Population</span>
+            <span class="ctrl-val" id="val-pop">50 cars</span>
+          </div>
+          <input type="range" id="slider-pop" min="1" max="1000" step="1" value="50" />
+          <div class="mini-btn-row" id="pop-presets">
+            <button class="mini-btn" data-pop="1">1</button>
+            <button class="mini-btn" data-pop="20">20</button>
+            <button class="mini-btn active" data-pop="50">50</button>
+            <button class="mini-btn" data-pop="100">100</button>
+            <button class="mini-btn" data-pop="250">250</button>
+            <button class="mini-btn" data-pop="500">500</button>
+            <button class="mini-btn" data-pop="1000">1000</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="ctrl-label-row">
+            <span>Simulation Speed</span>
+            <span class="ctrl-val" id="val-speed">1.0x</span>
+          </div>
+          <input type="range" id="slider-speed" min="0" max="100" step="1" value="33" />
+          <div class="mini-btn-row" id="speed-presets">
+            <button class="mini-btn" data-spd="0.05">0.05x</button>
+            <button class="mini-btn" data-spd="0.25">0.25x</button>
+            <button class="mini-btn active" data-spd="1">1x</button>
+            <button class="mini-btn" data-spd="5">5x</button>
+            <button class="mini-btn" data-spd="25">25x</button>
+            <button class="mini-btn" data-spd="100">100x</button>
+            <button class="mini-btn" data-spd="500">500x</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="ctrl-label-row">
+            <span>Episode Timer</span>
+            <span class="ctrl-val" id="val-ep">25s</span>
+          </div>
+          <input type="range" id="slider-ep" min="10" max="120" step="5" value="25" />
+        </div>
+
+        <div class="action-row" style="margin-top: 10px;">
+          <button class="btn btn-cyan" id="btn-pause">Pause</button>
+          <button class="btn" id="btn-next-gen">Next Gen ⏭</button>
+          <button class="btn btn-amber" id="btn-clear-skids">Clear Skids</button>
+          <button class="btn btn-rose" id="btn-reset-ml">Reset ML</button>
+        </div>
+      </div>
+
+      <div class="glass panel-pad">
+        <div class="panel-header" style="margin-bottom:8px;">
+          <span class="panel-title">Generation Learning Curve</span>
+          <span style="font-size:11px;color:var(--emerald);font-family:var(--font-mono);" id="chart-peak">Peak: 0</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chart-canvas"></canvas>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--cyan);"></span>Best Fit</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--amber);"></span>Avg Fit</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--rose);"></span>Top Drift</span>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // =========================================================================
+  // 1. MODULAR PARTS CATALOG (30 parts across 6 categories) & 5 PRESETS
+  // =========================================================================
+  const CATEGORIES = [
+    { id: 'chassis', label: 'Chassis' },
+    { id: 'engine',  label: 'Engines' },
+    { id: 'tires',   label: 'Tires' },
+    { id: 'aero',    label: 'Aero / Spoilers' },
+    { id: 'nitro',   label: 'Nitro / Boost' },
+    { id: 'sensors', label: 'AI Sensors' }
+  ];
+
+  const PARTS = {
+    chassis: [
+      { id: 's15', name: 'S15 Featherweight', desc: 'Balanced JDM touge coupe with crisp rear weight transfer.', color: '#38bdf8', shape: 'coupe', mass: 1020, grip: 54, slip: 64, power: 0, aero: 18 },
+      { id: 'ae86', name: 'AE86 Panda Shell', desc: 'Ultra-lightweight hatchback built for effortless mountain hairpins.', color: '#f8fafc', shape: 'hatch', mass: 900, grip: 48, slip: 74, power: 0, aero: 12 },
+      { id: 'gtr', name: 'GT-R Carbon Monocoque', desc: 'Rigid carbon shell with high-speed composure and planted grip.', color: '#f43f5e', shape: 'wide', mass: 1260, grip: 72, slip: 46, power: 0, aero: 30 },
+      { id: 'wedge', name: 'Cyber-Wedge Tubeframe', desc: 'Stunt-tuned spaceframe allowing extreme 65° counter-steer angles.', color: '#facc15', shape: 'wedge', mass: 960, grip: 50, slip: 82, power: 0, aero: 24 },
+      { id: 'kei', name: 'Kei-Drift Micro', desc: 'Featherlight micro chassis with hyper-snappy rotational inertia.', color: '#a855f7', shape: 'micro', mass: 780, grip: 44, slip: 78, power: 0, aero: 8 },
+      {"id": "rx7_fd", "name": "RX-7 FD3S Aero", "desc": "Sleek rotary-era coupe with razor-balanced 50/50 weight distribution.", "color": "#ef4444", "shape": "coupe", "mass": 1060, "grip": 58, "slip": 68, "power": 0, "aero": 22},
+      {"id": "supra_mk4", "name": "MK4 Widebody GT", "desc": "Planted grand-touring coupe built for high-speed 3rd-gear sweepers.", "color": "#f97316", "shape": "wide", "mass": 1290, "grip": 66, "slip": 58, "power": 0, "aero": 26},
+      {"id": "s13_silvia", "name": "S13 Missile Shell", "desc": "Stripped-out drift missile chassis with fearless wall-tap agility.", "color": "#22d3ee", "shape": "coupe", "mass": 940, "grip": 49, "slip": 76, "power": 0, "aero": 14},
+      {"id": "evo_rally", "name": "Evo IX Rally Shell", "desc": "Stiff seam-welded AWD rally chassis built for ice & bumpy chicanes.", "color": "#e2e8f0", "shape": "wide", "mass": 1180, "grip": 74, "slip": 52, "power": 0, "aero": 24},
+      {"id": "mustang_v8", "name": "Muscle Drift Fastback", "desc": "Long-wheelbase V8 smoke machine that holds effortless sweeping arcs.", "color": "#eab308", "shape": "wide", "mass": 1340, "grip": 56, "slip": 72, "power": 0, "aero": 18},
+      {"id": "f1_monocoque", "name": "Formula Carbon Tub", "desc": "Ultra-light open-wheel carbon tub with blistering cornering bite.", "color": "#38bdf8", "shape": "wedge", "mass": 720, "grip": 84, "slip": 36, "power": 0, "aero": 44},
+      {"id": "miata_na", "name": "NA Roadster Feather", "desc": "Tiny playful roadster that flicks into hairpins on a dime.", "color": "#fb7185", "shape": "micro", "mass": 820, "grip": 54, "slip": 70, "power": 0, "aero": 10},
+      {"id": "subaru_sti", "name": "WRX Wide-Fender", "desc": "Boxer-balanced rally body with planted mid-corner stability.", "color": "#2563eb", "shape": "wide", "mass": 1210, "grip": 71, "slip": 54, "power": 0, "aero": 22},
+      {"id": "cyber_gt", "name": "Neon Cyber-GT", "desc": "Futuristic low-slung hyper-coupe with active ground-effect floor.", "color": "#a855f7", "shape": "wedge", "mass": 1040, "grip": 68, "slip": 66, "power": 0, "aero": 36},
+      {"id": "pickup_drift", "name": "Hooni-Truck Frame", "desc": "Slammed tube-frame drift truck built for absurd 60\u00b0 angle slides.", "color": "#10b981", "shape": "wide", "mass": 1320, "grip": 52, "slip": 84, "power": 0, "aero": 16},
+      {"id": "kart_pro", "name": "Shifter Kart Chassis", "desc": "Bare-bones micro racing kart with instantaneous turn-in.", "color": "#f43f5e", "shape": "micro", "mass": 580, "grip": 62, "slip": 64, "power": 0, "aero": 6},
+      {"id": "le_mans", "name": "LMP1 Prototype Shell", "desc": "Extreme aero-tunnel prototype glued to high-speed ovals.", "color": "#f8fafc", "shape": "wedge", "mass": 980, "grip": 82, "slip": 40, "power": 0, "aero": 52},
+      {"id": "datsun_240", "name": "240Z Classic Touge", "desc": "Long-hood vintage Japanese sports coupe with silky tail control.", "color": "#fb923c", "shape": "coupe", "mass": 970, "grip": 52, "slip": 71, "power": 0, "aero": 16},
+      {"id": "chaser_jzx", "name": "JZX100 4-Door Drift", "desc": "Long-wheelbase drift sedan loved for ultra-smooth tandem transitions.", "color": "#34d399", "shape": "wide", "mass": 1240, "grip": 58, "slip": 70, "power": 0, "aero": 20},
+      {"id": "cappuccino", "name": "Kei-Turbo Roadster", "desc": "Ultra-compact touge sleeper with lightning flick transitions.", "color": "#c084fc", "shape": "micro", "mass": 710, "grip": 48, "slip": 80, "power": 0, "aero": 10},
+      {"id": "porsche_gt3", "name": "Rear-Engine GT3 Tub", "desc": "Pendulum-balance rear-engine shell that slingshots out of apexes.", "color": "#facc15", "shape": "coupe", "mass": 1120, "grip": 76, "slip": 56, "power": 0, "aero": 34},
+      {"id": "rally_baja", "name": "Baja Trophy Buggy", "desc": "Long-travel armored stunt chassis built to survive Figure-8 chaos.", "color": "#f59e0b", "shape": "wide", "mass": 1280, "grip": 64, "slip": 68, "power": 0, "aero": 14},
+      {"id": "op_quantum_tub", "name": "\u2728 Quantum Carbon Shell", "desc": "OP: Featherweight mythic monocoque with insane grip + drift control.", "color": "#22d3ee", "shape": "wedge", "mass": 760, "grip": 86, "slip": 86, "power": 40, "aero": 46},
+      {"id": "op_phoenix_gt", "name": "\u2728 Phoenix Hyper-Coupe", "desc": "OP: Blazing neon stunt chassis engineered for 70\u00b0 chained combos.", "color": "#fb7185", "shape": "coupe", "mass": 840, "grip": 82, "slip": 92, "power": 60, "aero": 42}
+    ],
+    engine: [
+      { id: '2jz', name: '2JZ-GTE Twin-Turbo', desc: 'Iconic inline-6 delivering ferocious mid-range drift torque.', mass: 170, grip: 0, slip: 8, power: 620, aero: 0 },
+      { id: '13b', name: '13B-REW Triple Rotor', desc: 'Compact high-revving rotary with lightning throttle modulation.', mass: 95, grip: 4, slip: 6, power: 460, aero: 0 },
+      { id: 'ev_dual', name: 'Dual-Motor EV Torque', desc: 'Instant vectoring torque from 0 RPM; heavy floor battery pack.', mass: 230, grip: 10, slip: 4, power: 760, aero: 0 },
+      { id: 'v10', name: 'V10 Touge Screamer', desc: 'Razor-sharp naturally aspirated powerband for high-speed sweepers.', mass: 145, grip: 2, slip: 5, power: 680, aero: 0 },
+      { id: 'rb26', name: 'RB26 Street Spec', desc: 'Smooth, predictable boost curve tailored for tight technical bends.', mass: 150, grip: 5, slip: 4, power: 410, aero: 0 },
+      {"id": "ls7_v8", "name": "LS7 Supercharged V8", "desc": "Brutal low-end torque that lights up rear tires at any speed.", "mass": 185, "grip": 0, "slip": 12, "power": 720, "aero": 0},
+      {"id": "four_rotor", "name": "26B 4-Rotor Screamer", "desc": "Le Mans-bred quad-rotor wailer with 10,000 RPM drift control.", "mass": 118, "grip": 4, "slip": 10, "power": 740, "aero": 0},
+      {"id": "k20_turbo", "name": "K20 High-Rev Turbo I4", "desc": "Featherlight 4-cylinder turbo with snappy touge response.", "mass": 105, "grip": 6, "slip": 5, "power": 440, "aero": 0},
+      {"id": "v12_hyper", "name": "V12 Twin-Turbo Hyper", "desc": "Colossal 920hp hypercar powerhouse for Highway Oval blitzes.", "mass": 215, "grip": 0, "slip": 14, "power": 920, "aero": 0},
+      {"id": "ev_quad", "name": "Quad-Motor EV Vector", "desc": "Four independent hub motors with razor-sharp torque vectoring.", "mass": 245, "grip": 14, "slip": 8, "power": 880, "aero": 0},
+      {"id": "boxer_sti", "name": "EJ25 Boxer Turbo", "desc": "Low center-of-gravity flat-four boosting cornering stability.", "mass": 135, "grip": 9, "slip": 5, "power": 510, "aero": 0},
+      {"id": "sr20_det", "name": "SR20DET Touge Spec", "desc": "Classic lightweight drift four-banger with crisp boost kick.", "mass": 115, "grip": 5, "slip": 7, "power": 480, "aero": 0},
+      {"id": "vr38_tt", "name": "VR38 Twin-Turbo V6", "desc": "Compact twin-turbo V6 punching out relentless mid-corner surge.", "mass": 165, "grip": 4, "slip": 8, "power": 700, "aero": 0},
+      {"id": "flat6_gt", "name": "4.0L Flat-6 NA", "desc": "Razor-linear naturally aspirated flat-six with zero turbo lag.", "mass": 138, "grip": 8, "slip": 4, "power": 560, "aero": 0},
+      {"id": "v8_f1", "name": "18,000 RPM F1 V8", "desc": "Featherweight race V8 with instant throttle precision.", "mass": 110, "grip": 6, "slip": 6, "power": 790, "aero": 0},
+      {"id": "diesel_smoke", "name": "Twin-Turbo Drift Diesel", "desc": "Massive locomotive torque for endless smoky Figure-8 slides.", "mass": 240, "grip": -2, "slip": 16, "power": 660, "aero": 0},
+      {"id": "w16_quad", "name": "W16 Quad-Turbo", "desc": "1,100hp straight-line monster that turns every corner into a drift.", "mass": 275, "grip": -4, "slip": 18, "power": 1100, "aero": 0},
+      {"id": "hybrid_v6", "name": "F1 Hybrid MGU-K V6", "desc": "Electric torque-fill turbo V6 with instantaneous apex launch.", "mass": 148, "grip": 8, "slip": 6, "power": 820, "aero": 0},
+      {"id": "bike_busa", "name": "Turbo Hayabusa I4", "desc": "Ultra-light motorcycle engine built for micro Kei-car drifts.", "mass": 72, "grip": 8, "slip": 6, "power": 390, "aero": 0},
+      {"id": "hemi_blower", "name": "Blower Hemi V8", "desc": "Towering supercharger delivering violent tire-shredding torque.", "mass": 210, "grip": -2, "slip": 15, "power": 840, "aero": 0},
+      {"id": "jet_turbine", "name": "Micro Jet Turbine", "desc": "Helicopter-grade turbine shaft drive with smooth high-end pull.", "mass": 125, "grip": 2, "slip": 12, "power": 890, "aero": 0},
+      {"id": "inline5_rally", "name": "Group-B Turbo I5", "desc": "Warbling 5-cylinder rally legend tuned for icy switchbacks.", "mass": 130, "grip": 8, "slip": 8, "power": 580, "aero": 0},
+      {"id": "op_fusion_drive", "name": "\u2728 Fusion Plasma Drive", "desc": "OP: Lightweight 1,250hp mythic powertrain with zero lag.", "mass": 120, "grip": 12, "slip": 14, "power": 1250, "aero": 0},
+      {"id": "op_warp_ev", "name": "\u2728 Quantum Flux EV", "desc": "OP: Hyper-vectoring 1,400hp electric core with planted grip.", "mass": 140, "grip": 18, "slip": 12, "power": 1400, "aero": 0}
+    ],
+    tires: [
+      { id: 'drift_hard', name: 'Street Drift Hard', desc: 'Breaks traction cleanly and holds long smoky slide arcs.', rim: '#38bdf8', mass: 36, grip: 8, slip: 22, power: 0, aero: 0 },
+      { id: 'semi_slick', name: 'Semi-Slick Touge', desc: 'Balanced lateral bite with progressive breakaway feel.', rim: '#e2e8f0', mass: 38, grip: 18, slip: 10, power: 0, aero: 0 },
+      { id: 'ice_stud', name: 'Ice-Studded Rally', desc: 'Tungsten-studded tread that carves through Ice Touge.', rim: '#67e8f9', mass: 46, grip: 22, slip: 12, power: 0, aero: 0 },
+      { id: 'burnout', name: 'Burnout Low-Grip', desc: 'Maximum tire smoke and wild tail-happy drift angles.', rim: '#f43f5e', mass: 34, grip: -4, slip: 30, power: 0, aero: 0 },
+      { id: 'f1_soft', name: 'F1 Soft Compound', desc: 'Extreme cornering grip for blistering apex velocity.', rim: '#facc15', mass: 35, grip: 30, slip: -12, power: 0, aero: 0 },
+      {"id": "touge_med", "name": "Touge Medium Compound", "desc": "Predictable canyon rubber with crisp slip recovery.", "rim": "#94a3b8", "mass": 37, "grip": 15, "slip": 15, "power": 0, "aero": 0},
+      {"id": "pro_drift", "name": "Formula-D Pro Drift", "desc": "Wide sticky drift tires holding high-speed 55\u00b0 tandem angles.", "rim": "#f97316", "mass": 40, "grip": 14, "slip": 24, "power": 0, "aero": 0},
+      {"id": "gravel_knobby", "name": "Rally Gravel Knobbies", "desc": "Aggressive tread blocks biting into loose dirt & slush.", "rim": "#eab308", "mass": 45, "grip": 20, "slip": 14, "power": 0, "aero": 0},
+      {"id": "wet_rain", "name": "Full-Wet Rain Grooves", "desc": "Deep water-clearing channels for high grip on slick tracks.", "rim": "#38bdf8", "mass": 39, "grip": 24, "slip": 6, "power": 0, "aero": 0},
+      {"id": "drag_slick", "name": "Wrinkle-Wall Drag Slick", "desc": "Massive forward traction for explosive launches out of hairpins.", "rim": "#f43f5e", "mass": 44, "grip": 28, "slip": -6, "power": 20, "aero": 0},
+      {"id": "plastic_pvc", "name": "PVC Drift Sleeves", "desc": "Zero-grip plastic sleeves for comical 360\u00b0 spin-drifts.", "rim": "#e2e8f0", "mass": 26, "grip": -10, "slip": 40, "power": 0, "aero": 0},
+      {"id": "neon_slick", "name": "Neon-Glow Street", "desc": "Stylized glowing sidewalls tuned for smooth arcade slides.", "rim": "#a855f7", "mass": 35, "grip": 12, "slip": 20, "power": 0, "aero": 0},
+      {"id": "carbon_mag", "name": "Carbon-Rim Ultra-Light", "desc": "Featherweight forged wheels slashing rotational inertia.", "rim": "#22d3ee", "mass": 24, "grip": 20, "slip": 10, "power": 10, "aero": 0},
+      {"id": "ice_claw", "name": "Arctic Ice-Claw Studs", "desc": "Extreme 4mm rally studs that shred Ice Touge like dry asphalt.", "rim": "#bae6fd", "mass": 48, "grip": 28, "slip": 14, "power": 0, "aero": 0},
+      {"id": "f1_hypersoft", "name": "F1 Hypersoft Quali", "desc": "Glue-like cornering traction for pure lap-time destruction.", "rim": "#ec4899", "mass": 33, "grip": 36, "slip": -14, "power": 0, "aero": 0},
+      {"id": "wide_steamroller", "name": "345mm Steamrollers", "desc": "Massive rear meat balancing 900hp drift builds cleanly.", "rim": "#fbbf24", "mass": 46, "grip": 22, "slip": 16, "power": 0, "aero": 0},
+      {"id": "gold_bbs", "name": "24K Gold Mesh Touge", "desc": "Classic JDM gold mesh wheels with balanced drift breakaway.", "rim": "#facc15", "mass": 34, "grip": 14, "slip": 18, "power": 0, "aero": 0},
+      {"id": "monster_crawler", "name": "Monster Tread Tires", "desc": "Oversized chunky rubber with playful bounce and big slides.", "rim": "#22c55e", "mass": 58, "grip": 18, "slip": 20, "power": 0, "aero": 0},
+      {"id": "drift_trike", "name": "Staggered Stunt Set", "desc": "Sticky fronts + slick rears for effortless drift initiation.", "rim": "#fb7185", "mass": 34, "grip": 16, "slip": 28, "power": 0, "aero": 0},
+      {"id": "endurance_hard", "name": "Le Mans Endurance Hard", "desc": "Consistent predictable grip over marathon 500x training runs.", "rim": "#cbd5e1", "mass": 38, "grip": 22, "slip": 6, "power": 0, "aero": 0},
+      {"id": "mag_hover", "name": "Mag-Lev Hover Rings", "desc": "Low-friction magnetic glide rings for futuristic sideways sweeps.", "rim": "#2dd4bf", "mass": 28, "grip": 10, "slip": 32, "power": 15, "aero": 4},
+      {"id": "rally_tarmac", "name": "Tarmac Rally Spec", "desc": "Crisp turn-in and progressive slip for narrow switchbacks.", "rim": "#60a5fa", "mass": 37, "grip": 25, "slip": 10, "power": 0, "aero": 0},
+      {"id": "op_plasma_tires", "name": "\u2728 Plasma Drift Tires", "desc": "OP: Simultaneously delivers insane corner bite AND 65\u00b0 slide control!", "rim": "#22d3ee", "mass": 26, "grip": 34, "slip": 34, "power": 25, "aero": 0},
+      {"id": "op_quantum_slick", "name": "\u2728 Quantum Grip-Shift", "desc": "OP: Adapts friction dynamically for god-tier drift combos.", "rim": "#e879f9", "mass": 24, "grip": 40, "slip": 28, "power": 35, "aero": 0}
+    ],
+    aero: [
+      { id: 'ducktail', name: 'Ducktail Lip', desc: 'Clean touge tail lip with minimal drag and agile rotation.', wingType: 'lip', mass: 12, grip: 4, slip: 4, power: 0, aero: 18 },
+      { id: 'gt_wing', name: 'GT Swan-Neck Wing', desc: 'High-downforce carbon wing keeping the rear stable at 200+ km/h.', wingType: 'gt', mass: 26, grip: 12, slip: -4, power: 0, aero: 44 },
+      { id: 'splitter', name: 'Time-Attack Splitter', desc: 'Full front canards + rear diffuser for maximum aero load.', wingType: 'ta', mass: 34, grip: 16, slip: -8, power: 0, aero: 56 },
+      { id: 'drs', name: 'Active DRS Foil', desc: 'Auto-flattening wing for straight-line speed and corner bite.', wingType: 'drs', mass: 28, grip: 10, slip: 2, power: 25, aero: 38 },
+      { id: 'naked', name: 'Street Naked (No Wing)', desc: 'Zero aero weight; pure mechanical drift purity.', wingType: 'none', mass: 0, grip: 0, slip: 10, power: 0, aero: 0 },
+      {"id": "twin_gt", "name": "Twin-Blade GT Wing", "desc": "Dual-element carbon wing for planted high-speed sweepers.", "wingType": "gt", "mass": 30, "grip": 15, "slip": -2, "power": 0, "aero": 52},
+      {"id": "shark_fin", "name": "LMP Shark-Fin + Foil", "desc": "Stabilizes high-angle yaw transitions at 220+ km/h.", "wingType": "gt", "mass": 24, "grip": 12, "slip": 4, "power": 0, "aero": 46},
+      {"id": "bosozoku", "name": "Bosozoku Mega-Wing", "desc": "Wild towering street spoiler adding absurd rear drift presence.", "wingType": "ta", "mass": 32, "grip": 8, "slip": 14, "power": 0, "aero": 36},
+      {"id": "widebody_kit", "name": "Rocket-Style Widebody", "desc": "Riveted overfenders + side skirts improving balanced aero grip.", "wingType": "lip", "mass": 22, "grip": 10, "slip": 6, "power": 0, "aero": 30},
+      {"id": "f1_rear", "name": "Formula DRS Mega-Wing", "desc": "Massive race downforce that flattens on straights for speed.", "wingType": "drs", "mass": 32, "grip": 22, "slip": -6, "power": 35, "aero": 66},
+      {"id": "roof_scoop", "name": "Rally Roof Scoop + Lip", "desc": "Lightweight top intake + lip spoiler for crisp touge balance.", "wingType": "lip", "mass": 14, "grip": 6, "slip": 6, "power": 15, "aero": 22},
+      {"id": "ground_venturi", "name": "Venturi Ground Tunnels", "desc": "Underbody suction tunnels delivering huge grip without drag.", "wingType": "ta", "mass": 26, "grip": 20, "slip": 0, "power": 10, "aero": 62},
+      {"id": "fan_car", "name": "Brabham Suction Fan", "desc": "Active rear suction fan gluing tires to the road at any speed.", "wingType": "drs", "mass": 34, "grip": 26, "slip": -4, "power": 0, "aero": 72},
+      {"id": "drift_louvers", "name": "Rear Louvers + Ducktail", "desc": "Retro 80s touge style with clean progressive breakaway.", "wingType": "lip", "mass": 16, "grip": 5, "slip": 8, "power": 0, "aero": 20},
+      {"id": "canard_pack", "name": "Quad Front Canards", "desc": "Aggressive dive-planes giving razor front-end turn-in.", "wingType": "ta", "mass": 18, "grip": 12, "slip": 4, "power": 0, "aero": 34},
+      {"id": "whale_tail", "name": "Turbo Whale-Tail", "desc": "Iconic wide tea-tray wing stabilizing tail-happy slides.", "wingType": "gt", "mass": 22, "grip": 11, "slip": 3, "power": 0, "aero": 38},
+      {"id": "time_attack_pro", "name": "Pikes Peak Mega-Aero", "desc": "Colossal hillclimb front splitter + triple rear wing.", "wingType": "ta", "mass": 42, "grip": 26, "slip": -8, "power": 0, "aero": 78},
+      {"id": "carbon_diffuser", "name": "F1 Rear Diffuser", "desc": "Clean underbody aero extraction with minimal mass.", "wingType": "lip", "mass": 12, "grip": 10, "slip": 2, "power": 5, "aero": 32},
+      {"id": "active_airbrake", "name": "Hypercar Active Wing", "desc": "Tilts dynamically into corners to initiate crisp drift angles.", "wingType": "drs", "mass": 28, "grip": 16, "slip": 8, "power": 20, "aero": 54},
+      {"id": "cyber_fins", "name": "Cyber-Neon Aero Fins", "desc": "Glowing dual tail fins stabilizing fast Figure-8 transitions.", "wingType": "gt", "mass": 20, "grip": 12, "slip": 8, "power": 10, "aero": 42},
+      {"id": "drift_bar", "name": "Tubular Bash Bar", "desc": "Lightweight rear bash bar for fearless wall-tap drift lines.", "wingType": "none", "mass": 14, "grip": 4, "slip": 12, "power": 0, "aero": 8},
+      {"id": "low_drag_tail", "name": "Longtail Speed Fairing", "desc": "Streamlined tail cone built for maximum Highway Oval velocity.", "wingType": "lip", "mass": 18, "grip": 8, "slip": 2, "power": 30, "aero": 36},
+      {"id": "op_antigrav_wing", "name": "\u2728 Anti-Spin Aero Halo", "desc": "OP: Massive downforce + effortless drift angle lock.", "wingType": "drs", "mass": 14, "grip": 28, "slip": 18, "power": 40, "aero": 84},
+      {"id": "op_plasma_wing", "name": "\u2728 Plasma Vector Wing", "desc": "OP: Active ionized airflow wing boosting speed, grip & slip.", "wingType": "ta", "mass": 16, "grip": 30, "slip": 22, "power": 55, "aero": 90}
+    ],
+    nitro: [
+      { id: 'n2o', name: 'Twin-Stage N2O', desc: 'Explosive drift-exit thrust burst with quick recharge.', boostPower: 1.45, boostRecharge: 0.24, mass: 22, grip: 0, slip: 3, power: 90, aero: 0 },
+      { id: 'kers', name: 'KERS Drift Regen', desc: 'Harvests kinetic energy during drifts for continuous boost.', boostPower: 1.32, boostRecharge: 0.42, mass: 32, grip: 3, slip: 2, power: 60, aero: 4 },
+      { id: 'plasma', name: 'Plasma Afterburner', desc: 'Extreme rocket-like surge for Highway Oval & Figure-8 stunts.', boostPower: 1.72, boostRecharge: 0.16, mass: 45, grip: -2, slip: 6, power: 160, aero: 0 },
+      { id: 'antilag', name: 'Anti-Lag Turbo Pop', desc: 'Keeps turbo spooled mid-drift for razor throttle snap.', boostPower: 1.25, boostRecharge: 0.36, mass: 14, grip: 2, slip: 5, power: 55, aero: 0 },
+      { id: 'purist', name: 'No Boost (Purist)', desc: 'Stripped weight with zero boost plumbing.', boostPower: 1.08, boostRecharge: 0.20, mass: 0, grip: 4, slip: 2, power: 0, aero: 2 },
+      {"id": "nos_quad", "name": "Quad-Bottle NOS Rack", "desc": "Four massive nitrous bottles for non-stop drift-exit blasts.", "boostPower": 1.62, "boostRecharge": 0.28, "mass": 38, "grip": 0, "slip": 6, "power": 130, "aero": 0},
+      {"id": "super_kers", "name": "Hyper-KERS Capacitor", "desc": "Rapidly charges from every slide for near-constant boost.", "boostPower": 1.42, "boostRecharge": 0.58, "mass": 28, "grip": 4, "slip": 4, "power": 85, "aero": 4},
+      {"id": "flame_exhaust", "name": "Titanium Flame Pipes", "desc": "Spits scorching exhaust flames with snappy mid-drift kick.", "boostPower": 1.36, "boostRecharge": 0.4, "mass": 16, "grip": 2, "slip": 8, "power": 75, "aero": 0},
+      {"id": "jet_pack_car", "name": "Twin Micro-Jet Pods", "desc": "Trunk-mounted jet engines catapulting you down straights.", "boostPower": 1.82, "boostRecharge": 0.22, "mass": 48, "grip": -2, "slip": 10, "power": 190, "aero": 0},
+      {"id": "ebrake_boost", "name": "Hydro E-Brake Kicker", "desc": "Pairs instant drift initiation with an exit surge.", "boostPower": 1.34, "boostRecharge": 0.46, "mass": 18, "grip": 3, "slip": 12, "power": 65, "aero": 0},
+      {"id": "meth_inject", "name": "Water-Meth Injection", "desc": "Cools intake charge for steady, reliable power gains.", "boostPower": 1.3, "boostRecharge": 0.44, "mass": 15, "grip": 2, "slip": 4, "power": 70, "aero": 0},
+      {"id": "twin_scroll", "name": "Twin-Scroll Spool Kit", "desc": "Eliminates turbo lag for buttery smooth corner exits.", "boostPower": 1.28, "boostRecharge": 0.48, "mass": 16, "grip": 4, "slip": 5, "power": 68, "aero": 0},
+      {"id": "rocket_srb", "name": "Solid Rocket Trunk", "desc": "Insane 1.95x acceleration burst for stunt gap-clearing.", "boostPower": 1.95, "boostRecharge": 0.14, "mass": 54, "grip": -4, "slip": 10, "power": 210, "aero": 0},
+      {"id": "ion_afterburn", "name": "Ionic Pulse Booster", "desc": "Featherweight electric surge with super-fast recharge.", "boostPower": 1.46, "boostRecharge": 0.52, "mass": 18, "grip": 4, "slip": 4, "power": 95, "aero": 2},
+      {"id": "drift_regen_pro", "name": "Slip-Angle Harvester", "desc": "Converts tire slip directly into infinite boost pressure.", "boostPower": 1.44, "boostRecharge": 0.62, "mass": 24, "grip": 3, "slip": 8, "power": 80, "aero": 0},
+      {"id": "overboost_ecu", "name": "Stage-3 Overboost ECU", "desc": "Zero-weight remap pushing peak boost across every gear.", "boostPower": 1.32, "boostRecharge": 0.42, "mass": 4, "grip": 2, "slip": 6, "power": 85, "aero": 0},
+      {"id": "cryo_intercool", "name": "Cryo-CO2 Intercooler", "desc": "Freezes intake air for crisp, repeatable corner-exit punches.", "boostPower": 1.4, "boostRecharge": 0.38, "mass": 20, "grip": 2, "slip": 4, "power": 92, "aero": 0},
+      {"id": "side_thruster", "name": "Lateral Drift Thrusters", "desc": "Side-firing gas jets that hold impossible drift angles.", "boostPower": 1.38, "boostRecharge": 0.44, "mass": 22, "grip": 4, "slip": 16, "power": 70, "aero": 4},
+      {"id": "nitro_methane", "name": "Top-Fuel Nitromethane", "desc": "Violent drag-spec fuel blend with ferocious straightaway pull.", "boostPower": 1.78, "boostRecharge": 0.18, "mass": 36, "grip": -3, "slip": 12, "power": 175, "aero": 0},
+      {"id": "vortex_intake", "name": "Ram-Air Vortex Charger", "desc": "Builds stronger boost the faster you fly down the track.", "boostPower": 1.48, "boostRecharge": 0.36, "mass": 18, "grip": 2, "slip": 4, "power": 105, "aero": 6},
+      {"id": "confetti_nitro", "name": "Party Confetti Boost", "desc": "Festive high-morale nitro rig with playful tail flick.", "boostPower": 1.35, "boostRecharge": 0.45, "mass": 14, "grip": 3, "slip": 10, "power": 75, "aero": 0},
+      {"id": "chrono_surge", "name": "Chrono-Capacitor", "desc": "Rapid-cycling time-tech boost unit with crisp throttle.", "boostPower": 1.54, "boostRecharge": 0.55, "mass": 20, "grip": 5, "slip": 6, "power": 115, "aero": 2},
+      {"id": "op_warp_nitro", "name": "\u2728 Warp-Drive Nitrous", "desc": "OP: Blazing 2.15x boost multiplier with ultra-fast recharge!", "boostPower": 2.15, "boostRecharge": 0.72, "mass": 18, "grip": 6, "slip": 12, "power": 240, "aero": 4},
+      {"id": "op_infinite_jet", "name": "\u2728 Singularity Thruster", "desc": "OP: Endless mythic plasma propulsion for non-stop 350+ km/h drifts.", "boostPower": 2.05, "boostRecharge": 0.9, "mass": 20, "grip": 8, "slip": 14, "power": 260, "aero": 6}
+    ],
+    sensors: [
+      { id: 'lidar5', name: '5-Ray Optical Lidar', desc: 'Classic 5-beam track scanner with low latency.', rays: 5, fov: Math.PI * 0.85, range: 220, mass: 8, grip: 0, slip: 0, power: 0, aero: 2 },
+      { id: 'lidar7', name: '7-Ray Wide Sweep', desc: 'Wide peripheral vision ideal for tight hairpin walls.', rays: 7, fov: Math.PI * 1.10, range: 250, mass: 12, grip: 2, slip: 2, power: 0, aero: 4 },
+      { id: 'radar', name: 'Apex Radar Pro', desc: 'Extended lookahead range to anticipate upcoming corners.', rays: 7, fov: Math.PI * 0.95, range: 320, mass: 16, grip: 4, slip: 2, power: 0, aero: 6 },
+      { id: 'imu', name: 'IMU Gyro + Slip Rig', desc: 'Precision yaw-rate & drift-angle stabilization telemetry.', rays: 5, fov: Math.PI * 0.95, range: 240, mass: 10, grip: 6, slip: 6, power: 0, aero: 2 },
+      { id: 'lidar9', name: '9-Ray Full LiDAR Array', desc: '360-degree-class spatial array for chaotic traffic.', rays: 9, fov: Math.PI * 1.30, range: 300, mass: 22, grip: 5, slip: 3, power: 0, aero: 5 },
+      {"id": "lidar11", "name": "11-Ray Hyper-Sweep", "desc": "Dense 11-beam panoramic LiDAR seeing every hairpin wall early.", "rays": 11, "fov": 4.2, "range": 340, "mass": 20, "grip": 6, "slip": 4, "power": 0, "aero": 4},
+      {"id": "touge_cam", "name": "Touge Stereo Vision", "desc": "Dual forward optics locking onto apexes and exit straightaways.", "rays": 7, "fov": 3.1, "range": 360, "mass": 12, "grip": 5, "slip": 5, "power": 0, "aero": 4},
+      {"id": "drift_gyro_pro", "name": "Pro Counter-Steer Gyro", "desc": "Active yaw-rate gyro helping hold silky 50\u00b0 drift arcs.", "rays": 7, "fov": 3.4, "range": 260, "mass": 10, "grip": 9, "slip": 10, "power": 0, "aero": 2},
+      {"id": "apex_laser", "name": "Long-Range Apex Laser", "desc": "420px ultra-long lookahead for blistering Highway Oval speeds.", "rays": 7, "fov": 2.6, "range": 420, "mass": 14, "grip": 6, "slip": 2, "power": 0, "aero": 6},
+      {"id": "fly_optic", "name": "Drosophila Optic Flow", "desc": "Bio-inspired compound eye reacting instantly to wall proximity.", "rays": 9, "fov": 4.0, "range": 280, "mass": 8, "grip": 8, "slip": 8, "power": 0, "aero": 2},
+      {"id": "sonar_ring", "name": "360\u00b0 Proximity Sonar", "desc": "Full-circle short-range wall bumper radar for Figure-8 chaos.", "rays": 11, "fov": 5.4, "range": 240, "mass": 16, "grip": 7, "slip": 6, "power": 0, "aero": 2},
+      {"id": "thermal_tire", "name": "Tire-Temp Slip Sensor", "desc": "Reads real-time tire slip for optimal smoke-to-speed balance.", "rays": 7, "fov": 3.2, "range": 270, "mass": 10, "grip": 8, "slip": 9, "power": 0, "aero": 3},
+      {"id": "gps_telemetry", "name": "RTK Racing Telemetry", "desc": "Centimeter-accurate track line positioning & corner speed guide.", "rays": 7, "fov": 3.1, "range": 350, "mass": 12, "grip": 7, "slip": 4, "power": 0, "aero": 5},
+      {"id": "rally_codriver", "name": "AI Rally Co-Driver", "desc": "Predicts blind hairpins and ice patches well ahead of entry.", "rays": 9, "fov": 3.6, "range": 380, "mass": 14, "grip": 9, "slip": 6, "power": 0, "aero": 4},
+      {"id": "micro_3ray", "name": "3-Ray Featherweight", "desc": "Minimalist ultralight 3-beam scanner for raw speed purists.", "rays": 3, "fov": 2.2, "range": 230, "mass": 4, "grip": 2, "slip": 4, "power": 0, "aero": 2},
+      {"id": "imu_carbon", "name": "Carbon 9-Axis IMU", "desc": "Ultra-light stability rig smoothing twitchy micro-chassis.", "rays": 7, "fov": 3.3, "range": 270, "mass": 6, "grip": 10, "slip": 8, "power": 0, "aero": 3},
+      {"id": "night_vision", "name": "Neon IR Night-Vision", "desc": "High-contrast thermal scanner slicing through midnight tracks.", "rays": 9, "fov": 3.7, "range": 330, "mass": 14, "grip": 6, "slip": 6, "power": 0, "aero": 4},
+      {"id": "hebbian_ecu", "name": "Hebbian Drift ECU", "desc": "Adaptive neural co-processor tuning steering smoothly.", "rays": 7, "fov": 3.4, "range": 300, "mass": 10, "grip": 8, "slip": 8, "power": 15, "aero": 3},
+      {"id": "slip_compass", "name": "Central-Complex Compass", "desc": "Bio-heading compass keeping drift transitions razor-clean.", "rays": 7, "fov": 3.5, "range": 290, "mass": 9, "grip": 7, "slip": 10, "power": 0, "aero": 3},
+      {"id": "stunt_radar", "name": "Gymkhana Stunt Radar", "desc": "Wide-FOV scanner tuned for tight donut & figure-8 loops.", "rays": 9, "fov": 4.6, "range": 260, "mass": 14, "grip": 6, "slip": 12, "power": 0, "aero": 2},
+      {"id": "f1_pitwall", "name": "F1 Pit-Wall Link", "desc": "High-speed race telemetry optimizing cornering velocity.", "rays": 7, "fov": 2.9, "range": 400, "mass": 12, "grip": 11, "slip": 2, "power": 20, "aero": 6},
+      {"id": "ice_scanner", "name": "Black-Ice Laser Probe", "desc": "Detects slick road surfaces and stabilizes icy counter-steer.", "rays": 9, "fov": 3.5, "range": 310, "mass": 12, "grip": 12, "slip": 6, "power": 0, "aero": 3},
+      {"id": "op_einstein_ai", "name": "\u2728 Einstein Touge Brain", "desc": "OP: 11-ray 460px genius AI rig with +16 grip & +16 slip control!", "rays": 11, "fov": 4.4, "range": 460, "mass": 8, "grip": 16, "slip": 16, "power": 40, "aero": 8},
+      {"id": "op_quantum_lidar", "name": "\u2728 Quantum 360\u00b0 Oracle", "desc": "OP: Omniscient 13-ray neural array predicting every apex perfectly.", "rays": 13, "fov": 5.0, "range": 500, "mass": 10, "grip": 18, "slip": 18, "power": 55, "aero": 10}
+    ]
+  };
+
+  const PRESETS = [
+    { name: 'Touge King',        build: { chassis: 'ae86',  engine: '13b',     tires: 'semi_slick', aero: 'ducktail', nitro: 'antilag', sensors: 'lidar7' } },
+    { name: 'Neon Drift Boss',   build: { chassis: 's15',   engine: '2jz',     tires: 'drift_hard', aero: 'gt_wing',  nitro: 'n2o',     sensors: 'imu' } },
+    { name: 'Ice Rally Spec',    build: { chassis: 'gtr',   engine: 'ev_dual', tires: 'ice_stud',   aero: 'drs',      nitro: 'kers',    sensors: 'lidar9' } },
+    { name: 'Figure-8 Chaos',    build: { chassis: 'wedge', engine: 'v10',     tires: 'burnout',    aero: 'naked',    nitro: 'plasma',  sensors: 'radar' } },
+    { name: 'Grip Time-Attack',  build: { chassis: 'gtr',   engine: 'v10',     tires: 'f1_soft',    aero: 'splitter', nitro: 'kers',    sensors: 'lidar9' } }
+,
+    {"name": "V12 Hyper-Drifter", "build": {"chassis": "supra_mk4", "engine": "v12_hyper", "tires": "pro_drift", "aero": "twin_gt", "nitro": "nos_quad", "sensors": "apex_laser"}},
+    {"name": "Cyber-Neon EV", "build": {"chassis": "cyber_gt", "engine": "ev_quad", "tires": "neon_slick", "aero": "cyber_fins", "nitro": "super_kers", "sensors": "night_vision"}},
+    {"name": "Ice Rally Beast", "build": {"chassis": "evo_rally", "engine": "inline5_rally", "tires": "ice_claw", "aero": "roof_scoop", "nitro": "twin_scroll", "sensors": "ice_scanner"}},
+    {"name": "Rotary FD Touge", "build": {"chassis": "rx7_fd", "engine": "four_rotor", "tires": "touge_med", "aero": "whale_tail", "nitro": "flame_exhaust", "sensors": "drift_gyro_pro"}},
+    {"name": "Hooni-Truck Smoke", "build": {"chassis": "pickup_drift", "engine": "hemi_blower", "tires": "drift_trike", "aero": "bosozoku", "nitro": "rocket_srb", "sensors": "stunt_radar"}},
+    {"name": "Kei Pocket Rocket", "build": {"chassis": "cappuccino", "engine": "bike_busa", "tires": "carbon_mag", "aero": "carbon_diffuser", "nitro": "ion_afterburn", "sensors": "fly_optic"}},
+    {"name": "\u2728 Quantum Touge God", "build": {"chassis": "op_quantum_tub", "engine": "op_warp_ev", "tires": "op_plasma_tires", "aero": "op_plasma_wing", "nitro": "op_warp_nitro", "sensors": "op_einstein_ai"}}
+  ];
+
+  // Current equipped build
+  let currentBuild = Object.assign({}, PRESETS[0].build);
+  let activeCategory = 'chassis';
+  let activePresetName = PRESETS[0].name;
+
+  function getPart(cat, id) {
+    const arr = PARTS[cat];
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].id === id) return arr[i];
+    }
+    return arr[0];
+  }
+
+  function computeCarSpecs(build) {
+    const ch = getPart('chassis', build.chassis);
+    const en = getPart('engine', build.engine);
+    const ti = getPart('tires', build.tires);
+    const ae = getPart('aero', build.aero);
+    const ni = getPart('nitro', build.nitro);
+    const se = getPart('sensors', build.sensors);
+
+    const mass = Math.max(700, Math.min(1800, ch.mass + en.mass + ti.mass + ae.mass + ni.mass + se.mass));
+    const grip = Math.max(15, Math.min(100, ch.grip + en.grip + ti.grip + ae.grip + ni.grip + se.grip));
+    const slip = Math.max(10, Math.min(100, ch.slip + en.slip + ti.slip + ae.slip + ni.slip + se.slip));
+    const power = Math.max(250, Math.min(1000, ch.power + en.power + ti.power + ae.power + ni.power + se.power));
+    const aero = Math.max(0, Math.min(100, ch.aero + en.aero + ti.aero + ae.aero + ni.aero + se.aero));
+
+    return {
+      mass,
+      grip,
+      slip,
+      power,
+      aero,
+      chassis: ch,
+      engine: en,
+      tires: ti,
+      aeroPart: ae,
+      nitro: ni,
+      sensors: se
+    };
+  }
+
+  // =========================================================================
+  // 2. TRACK DEFINITIONS (4 Tracks: Neon Hairpins, Ice Touge, Figure-8, Oval)
+  // =========================================================================
+  const TRACKS = [
+    {
+      id: 'neon_hairpins',
+      name: 'Neon Hairpins',
+      sub: 'Technical Touge • Med Grip',
+      width: 112,
+      surfaceGrip: 1.0,
+      asphalt: '#111827',
+      borderColor: '#38bdf8',
+      accentColor: '#f43f5e',
+      controlPoints: [
+        [-420, -230], [-140, -250], [180, -240], [420, -210],
+        [470, -70],  [260, -40],   [120, -100], [-60, -70],
+        [-210, -20], [-20, 70],    [240, 60],   [450, 120],
+        [410, 250],  [120, 240],   [-140, 250], [-420, 210],
+        [-470, 70],  [-320, 10],   [-450, -100]
+      ]
+    },
+    {
+      id: 'ice_touge',
+      name: 'Ice Touge',
+      sub: 'Alpine Drift • Low Grip',
+      width: 122,
+      surfaceGrip: 0.58,
+      asphalt: '#0f1f30',
+      borderColor: '#67e8f9',
+      accentColor: '#38bdf8',
+      controlPoints: [
+        [-440, -190], [-200, -260], [60, -200],  [280, -250],
+        [460, -140],  [410, 30],    [220, 10],   [110, 120],
+        [320, 210],   [150, 270],   [-100, 210], [-290, 260],
+        [-460, 160],  [-360, 20],   [-460, -70]
+      ]
+    },
+    {
+      id: 'figure_8',
+      name: 'Figure-8 Chaos',
+      sub: 'Crossover Stunt Loop',
+      width: 116,
+      surfaceGrip: 0.92,
+      asphalt: '#151320',
+      borderColor: '#facc15',
+      accentColor: '#f43f5e',
+      isFigure8: true,
+      controlPoints: [
+        [0, 0], [170, -135], [370, -220], [490, -100],
+        [490, 100], [370, 220], [170, 135], [0, 0],
+        [-170, -135], [-370, -220], [-490, -100],
+        [-490, 100], [-370, 220], [-170, 135]
+      ]
+    },
+    {
+      id: 'highway_oval',
+      name: 'Highway Oval',
+      sub: 'High-Speed Wangan Sweepers',
+      width: 132,
+      surfaceGrip: 1.06,
+      asphalt: '#101522',
+      borderColor: '#f43f5e',
+      accentColor: '#facc15',
+      controlPoints: [
+        [-320, -225], [0, -235], [320, -225],
+        [485, -130], [510, 0], [485, 130],
+        [320, 225], [0, 235], [-320, 225],
+        [-485, 130], [-510, 0], [-485, -130]
+      ]
+    }
+  ];
+
+  // Smooth closed Catmull-Rom spline sampler
+  function buildTrackGeometry(trackDef) {
+    const pts = trackDef.controlPoints;
+    const n = pts.length;
+    const samplesPerSeg = 6;
+    const waypoints = [];
+
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n];
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      const p3 = pts[(i + 2) % n];
+
+      for (let s = 0; s < samplesPerSeg; s++) {
+        const t = s / samplesPerSeg;
+        const t2 = t * t;
+        const t3 = t2 * t;
+        const x = 0.5 * (
+          (2 * p1[0]) +
+          (-p0[0] + p2[0]) * t +
+          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+        );
+        const y = 0.5 * (
+          (2 * p1[1]) +
+          (-p0[1] + p2[1]) * t +
+          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+        );
+        waypoints.push({ x, y, tx: 0, ty: 0, nx: 0, ny: 0, curv: 0 });
+      }
+    }
+
+    const total = waypoints.length;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const halfW = trackDef.width * 0.5;
+
+    for (let i = 0; i < total; i++) {
+      const prev = waypoints[(i - 1 + total) % total];
+      const curr = waypoints[i];
+      const next = waypoints[(i + 1) % total];
+      let dx = next.x - prev.x;
+      let dy = next.y - prev.y;
+      const len = Math.hypot(dx, dy) || 1;
+      curr.tx = dx / len;
+      curr.ty = dy / len;
+      curr.nx = -curr.ty;
+      curr.ny = curr.tx;
+
+      // Signed curvature estimate
+      const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+      const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+      const a1 = Math.atan2(dy1, dx1);
+      const a2 = Math.atan2(dy2, dx2);
+      let da = a2 - a1;
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      curr.curv = da;
+
+      if (curr.x - halfW < minX) minX = curr.x - halfW;
+      if (curr.x + halfW > maxX) maxX = curr.x + halfW;
+      if (curr.y - halfW < minY) minY = curr.y - halfW;
+      if (curr.y + halfW > maxY) maxY = curr.y + halfW;
+    }
+
+    return {
+      def: trackDef,
+      waypoints,
+      halfW,
+      bounds: { minX: minX - 40, maxX: maxX + 40, minY: minY - 40, maxY: maxY + 40 }
+    };
+  }
+
+  let currentTrackIndex = 0;
+  let trackGeo = buildTrackGeometry(TRACKS[currentTrackIndex]);
+
+  // Point-to-segment distance helper
+  function distToSegmentSq(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const l2 = dx * dx + dy * dy;
+    if (l2 === 0) return (px - x1) * (px - x1) + (py - y1) * (py - y1);
+    let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    const projX = x1 + t * dx;
+    const projY = y1 + t * dy;
+    const ex = px - projX;
+    const ey = py - projY;
+    return ex * ex + ey * ey;
+  }
+
+  // Local track containment check around car's current waypoint (handles Figure-8 cleanly)
+  function getTrackOffset(x, y, hintWp) {
+    const wps = trackGeo.waypoints;
+    const n = wps.length;
+    let bestD2 = Infinity;
+    let bestIdx = hintWp;
+    const windowSize = trackGeo.def.isFigure8 ? 10 : n;
+
+    if (windowSize === n) {
+      for (let i = 0; i < n; i++) {
+        const a = wps[i];
+        const b = wps[(i + 1) % n];
+        const d2 = distToSegmentSq(x, y, a.x, a.y, b.x, b.y);
+        if (d2 < bestD2) {
+          bestD2 = d2;
+          bestIdx = i;
+        }
+      }
+    } else {
+      for (let off = -6; off <= 10; off++) {
+        const i = (hintWp + off + n) % n;
+        const a = wps[i];
+        const b = wps[(i + 1) % n];
+        const d2 = distToSegmentSq(x, y, a.x, a.y, b.x, b.y);
+        if (d2 < bestD2) {
+          bestD2 = d2;
+          bestIdx = i;
+        }
+      }
+    }
+    return { dist: Math.sqrt(bestD2), wpIdx: bestIdx };
+  }
+
+  // Fast raycast against track boundary (marching along ray)
+  function castTrackRay(ox, oy, angle, maxRange, hintWp) {
+    const step = 10;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const halfW = trackGeo.halfW;
+    let curHint = hintWp;
+
+    for (let d = 14; d <= maxRange; d += step) {
+      const rx = ox + cos * d;
+      const ry = oy + sin * d;
+      const res = getTrackOffset(rx, ry, curHint);
+      curHint = res.wpIdx;
+      if (res.dist > halfW) {
+        return d / maxRange;
+      }
+    }
+    return 1.0;
+  }
+
+  // =========================================================================
+  // 3. NEURAL NETWORK (10 -> 12 -> 3) & NEUROEVOLUTION
+  // =========================================================================
+  const NN_IN = 10;
+  const NN_HID = 12;
+  const NN_OUT = 3;
+
+  function createBrain() {
+    const w1 = new Float32Array(NN_IN * NN_HID);
+    const b1 = new Float32Array(NN_HID);
+    const w2 = new Float32Array(NN_HID * NN_OUT);
+    const b2 = new Float32Array(NN_OUT);
+    const s1 = Math.sqrt(2 / NN_IN);
+    const s2 = Math.sqrt(2 / NN_HID);
+    for (let i = 0; i < w1.length; i++) w1[i] = (Math.random() * 2 - 1) * s1;
+    for (let i = 0; i < b1.length; i++) b1[i] = (Math.random() * 2 - 1) * 0.2;
+    for (let i = 0; i < w2.length; i++) w2[i] = (Math.random() * 2 - 1) * s2;
+    for (let i = 0; i < b2.length; i++) b2[i] = (Math.random() * 2 - 1) * 0.2;
+    return { w1, b1, w2, b2 };
+  }
+
+  function cloneBrain(b) {
+    return {
+      w1: new Float32Array(b.w1),
+      b1: new Float32Array(b.b1),
+      w2: new Float32Array(b.w2),
+      b2: new Float32Array(b.b2)
+    };
+  }
+
+  function crossoverAndMutate(p1, p2, mutRate, mutScale) {
+    const child = createBrain();
+    const mix = (dst, a, b) => {
+      for (let i = 0; i < dst.length; i++) {
+        let v = Math.random() < 0.5 ? a[i] : b[i];
+        if (Math.random() < mutRate) {
+          // Box-Muller approx
+          const g = (Math.random() + Math.random() + Math.random() - 1.5) * 1.4;
+          v += g * mutScale;
+        }
+        dst[i] = Math.max(-4, Math.min(4, v));
+      }
+    };
+    mix(child.w1, p1.w1, p2.w1);
+    mix(child.b1, p1.b1, p2.b1);
+    mix(child.w2, p1.w2, p2.w2);
+    mix(child.b2, p1.b2, p2.b2);
+    return child;
+  }
+
+  const _hidBuf = new Float32Array(NN_HID);
+  const _outBuf = new Float32Array(NN_OUT);
+
+  function forwardBrain(brain, inputs) {
+    const w1 = brain.w1, b1 = brain.b1, w2 = brain.w2, b2 = brain.b2;
+    for (let h = 0; h < NN_HID; h++) {
+      let sum = b1[h];
+      const base = h * NN_IN;
+      for (let i = 0; i < NN_IN; i++) {
+        sum += inputs[i] * w1[base + i];
+      }
+      _hidBuf[h] = Math.tanh(sum);
+    }
+    for (let o = 0; o < NN_OUT; o++) {
+      let sum = b2[o];
+      const base = o * NN_HID;
+      for (let h = 0; h < NN_HID; h++) {
+        sum += _hidBuf[h] * w2[base + h];
+      }
+      _outBuf[o] = Math.tanh(sum);
+    }
+    return _outBuf;
+  }
+
+  // =========================================================================
+  // 4. DRIFT PHYSICS ENGINE, SKIDMARKS & SMOKE PARTICLES
+  // =========================================================================
+  const MAX_SKIDS = 2600;
+  const skidMarks = [];
+  const smokeParticles = [];
+  const MAX_SMOKE = 450;
+
+  let swarmSize = 50;
+  let simSpeed = 1.0;
+  let episodeDuration = 25;
+  let episodeTimer = episodeDuration;
+  let generation = 1;
+  let isPaused = false;
+  let manualMode = false;
+  let activeTab = 'garage';
+
+  let cars = [];
+  let genHistory = []; // { gen, bestFit, avgFit, bestDrift }
+  let cachedSpecs = computeCarSpecs(currentBuild);
+
+  const keys = { w: false, a: false, s: false, d: false, boost: false };
+
+  function spawnCar(brain, isPlayer) {
+    const wp0 = trackGeo.waypoints[0];
+    const startAngle = Math.atan2(wp0.ty, wp0.tx);
+    return {
+      x: wp0.x,
+      y: wp0.y,
+      vx: 0,
+      vy: 0,
+      angle: startAngle,
+      omega: 0,
+      speed: 0,
+      vForward: 0,
+      vLateral: 0,
+      driftAngleDeg: 0,
+      alive: true,
+      isPlayer: !!isPlayer,
+      brain: brain || createBrain(),
+      wpIdx: 0,
+      progress: 0,
+      laps: 0,
+      driftScore: 0,
+      currentDriftBank: 0,
+      combo: 1.0,
+      comboTimer: 0,
+      boostFuel: 1.0,
+      boosting: false,
+      fitness: 0,
+      stuckTimer: 0,
+      rays: [],
+      prevRL: null,
+      prevRR: null
+    };
+  }
+
+  function initSwarm(keepBrains) {
+    cachedSpecs = computeCarSpecs(currentBuild);
+    cars = [];
+    if (manualMode) {
+      cars.push(spawnCar(null, true));
+    } else {
+      for (let i = 0; i < swarmSize; i++) {
+        const b = keepBrains && keepBrains[i] ? keepBrains[i] : createBrain();
+        cars.push(spawnCar(b, false));
+      }
+    }
+    episodeTimer = episodeDuration;
+  }
+
+  function evolveGeneration() {
+    if (manualMode || cars.length === 0) return;
+
+    // Sort by fitness descending
+    const ranked = cars.slice().sort((a, b) => b.fitness - a.fitness);
+    let sumFit = 0;
+    let bestDrift = 0;
+    for (let i = 0; i < ranked.length; i++) {
+      sumFit += ranked[i].fitness;
+      if (ranked[i].driftScore > bestDrift) bestDrift = ranked[i].driftScore;
+    }
+
+    const bestFit = ranked[0].fitness;
+    const avgFit = sumFit / ranked.length;
+    genHistory.push({ gen: generation, bestFit, avgFit, bestDrift });
+    if (genHistory.length > 80) genHistory.shift();
+
+    const nextBrains = [];
+    const eliteCount = Math.max(1, Math.min(6, Math.floor(swarmSize * 0.12)));
+    for (let i = 0; i < eliteCount && i < ranked.length; i++) {
+      nextBrains.push(cloneBrain(ranked[i].brain));
+    }
+
+    // Adaptive mutation rate
+    const mutRate = Math.max(0.08, 0.26 - Math.min(0.16, generation * 0.005));
+    const mutScale = Math.max(0.14, 0.42 - Math.min(0.24, generation * 0.008));
+
+    const poolSize = Math.max(1, Math.min(ranked.length, Math.ceil(ranked.length * 0.35)));
+    while (nextBrains.length < swarmSize) {
+      const p1 = ranked[Math.floor(Math.random() * poolSize)].brain;
+      const p2 = ranked[Math.floor(Math.random() * poolSize)].brain;
+      nextBrains.push(crossoverAndMutate(p1, p2, mutRate, mutScale));
+    }
+
+    generation += 1;
+    initSwarm(nextBrains);
+    drawLearningChart();
+  }
+
+  function addSkid(x1, y1, x2, y2, alpha, color) {
+    if (skidMarks.length >= MAX_SKIDS) skidMarks.shift();
+    skidMarks.push({ x1, y1, x2, y2, alpha, color });
+  }
+
+  function addSmoke(x, y, vx, vy, size, color) {
+    if (smokeParticles.length >= MAX_SMOKE) return;
+    smokeParticles.push({
+      x, y,
+      vx: vx + (Math.random() - 0.5) * 18,
+      vy: vy + (Math.random() - 0.5) * 18,
+      size: size || (4 + Math.random() * 4),
+      life: 1.0,
+      color: color || 'rgba(226, 232, 240, 0.38)'
+    });
+  }
+
+  const _nnInputBuf = new Float32Array(NN_IN);
+
+  function stepCar(car, dt, spawnFx) {
+    if (!car.alive) return;
+
+    const specs = cachedSpecs;
+    const wps = trackGeo.waypoints;
+    const nWps = wps.length;
+
+    // 1. Sensor Raycasts (used by AI and drawn for leader/player)
+    const sensorDef = specs.sensors;
+    const rayCount = sensorDef.rays;
+    const fov = sensorDef.fov;
+    const maxRange = sensorDef.range;
+    const rayVals = car.rays;
+    rayVals.length = rayCount;
+
+    for (let r = 0; r < rayCount; r++) {
+      const frac = rayCount === 1 ? 0.5 : r / (rayCount - 1);
+      const rAngle = car.angle + (frac - 0.5) * fov;
+      rayVals[r] = castTrackRay(car.x, car.y, rAngle, maxRange, car.wpIdx);
+    }
+
+    // 2. Controls (Manual WASD or Neural Net)
+    let steerCmd = 0;
+    let throttleCmd = 0;
+    let boostCmd = false;
+
+    if (car.isPlayer) {
+      if (keys.a) steerCmd -= 1;
+      if (keys.d) steerCmd += 1;
+      if (keys.w) throttleCmd += 1;
+      if (keys.s) throttleCmd -= 0.7;
+      boostCmd = keys.boost;
+    } else {
+      // Sample 5 evenly spaced rays into NN inputs 0..4
+      for (let i = 0; i < 5; i++) {
+        const idx = Math.min(rayCount - 1, Math.round((i / 4) * (rayCount - 1)));
+        _nnInputBuf[i] = rayVals[idx] * 2 - 1;
+      }
+      const nextWp = wps[(car.wpIdx + 3) % nWps];
+      const targetAng = Math.atan2(nextWp.y - car.y, nextWp.x - car.x);
+      let angErr = targetAng - car.angle;
+      while (angErr > Math.PI) angErr -= Math.PI * 2;
+      while (angErr < -Math.PI) angErr += Math.PI * 2;
+
+      const lookCurv = wps[(car.wpIdx + 5) % nWps].curv;
+      _nnInputBuf[5] = Math.min(1, car.speed / 360);
+      _nnInputBuf[6] = Math.max(-1, Math.min(1, car.vLateral / 180));
+      _nnInputBuf[7] = Math.max(-1, Math.min(1, car.driftAngleDeg / 65));
+      _nnInputBuf[8] = Math.max(-1, Math.min(1, angErr / Math.PI));
+      _nnInputBuf[9] = Math.max(-1, Math.min(1, lookCurv * 4));
+
+      const out = forwardBrain(car.brain, _nnInputBuf);
+      steerCmd = out[0];
+      throttleCmd = Math.max(-0.5, out[1] * 0.75 + 0.35);
+      boostCmd = out[2] > 0.45;
+    }
+
+    // 3. 2D Drift Physics Model
+    const cos = Math.cos(car.angle);
+    const sin = Math.sin(car.angle);
+
+    // Transform world velocity into car local frame
+    let vFwd = car.vx * cos + car.vy * sin;
+    let vLat = -car.vx * sin + car.vy * cos;
+
+    // Power-to-weight acceleration
+    const accelBase = (specs.power / specs.mass) * 620;
+    const nitroDef = specs.nitro;
+    let boostMult = 1.0;
+
+    if (boostCmd && car.boostFuel > 0.05 && throttleCmd > 0.1) {
+      car.boosting = true;
+      boostMult = nitroDef.boostPower;
+      car.boostFuel = Math.max(0, car.boostFuel - dt * 0.55);
+    } else {
+      car.boosting = false;
+      const driftRegen = Math.abs(car.driftAngleDeg) > 15 ? 1.5 : 0.7;
+      car.boostFuel = Math.min(1, car.boostFuel + dt * nitroDef.boostRecharge * driftRegen);
+    }
+
+    if (throttleCmd >= 0) {
+      vFwd += throttleCmd * accelBase * boostMult * dt;
+    } else {
+      vFwd += throttleCmd * accelBase * 1.15 * dt;
+    }
+
+    // Aerodynamic drag & rolling resistance
+    const dragCoeff = 0.0014 + (specs.aero * 0.000009);
+    vFwd -= vFwd * Math.abs(vFwd) * dragCoeff * dt;
+    vFwd *= (1 - 0.35 * dt);
+
+    // Steering angular velocity
+    const speedFactor = Math.min(1, Math.abs(vFwd) / 75);
+    const steerSensitivity = 3.1 + (specs.slip * 0.015) - (specs.mass - 900) * 0.0005;
+    const dirSign = vFwd >= -5 ? 1 : -1;
+    const targetOmega = steerCmd * steerSensitivity * speedFactor * dirSign;
+    car.omega += (targetOmega - car.omega) * Math.min(1, dt * 11);
+    car.angle += car.omega * dt;
+
+    // Lateral tire grip vs drift slip physics
+    const aeroDownforce = (specs.aero / 100) * Math.min(1, (vFwd * vFwd) / 70000) * 1.8;
+    const surfaceGrip = trackGeo.def.surfaceGrip;
+    // Lower lateral damping => longer, wider drift slides
+    const gripFactor = ((specs.grip * 0.065) - (specs.slip * 0.032) + aeroDownforce + 1.8) * surfaceGrip;
+    const clampedGrip = Math.max(0.85, Math.min(7.5, gripFactor));
+
+    // Kick out tail when steering hard under throttle
+    if (Math.abs(steerCmd) > 0.35 && vFwd > 70) {
+      const kick = steerCmd * (specs.slip / 100) * (vFwd * 0.0085) * (car.boosting ? 1.35 : 1.0);
+      vLat -= kick * 60 * dt;
+    }
+
+    // Apply lateral tire friction damping
+    vLat *= Math.exp(-clampedGrip * dt);
+
+    // Reconstruct world velocity from updated heading
+    const nCos = Math.cos(car.angle);
+    const nSin = Math.sin(car.angle);
+    car.vx = vFwd * nCos - vLat * nSin;
+    car.vy = vFwd * nSin + vLat * nCos;
+
+    car.x += car.vx * dt;
+    car.y += car.vy * dt;
+
+    car.vForward = vFwd;
+    car.vLateral = vLat;
+    car.speed = Math.hypot(car.vx, car.vy);
+    car.driftAngleDeg = car.speed > 25 ? (Math.atan2(vLat, Math.max(15, Math.abs(vFwd))) * 180 / Math.PI) : 0;
+
+    // 4. Drift Combo & Score
+    const absDrift = Math.abs(car.driftAngleDeg);
+    const isDrifting = car.speed > 65 && absDrift > 13 && absDrift < 82;
+    if (isDrifting) {
+      car.comboTimer = 1.35;
+      car.combo = Math.min(8.0, car.combo + dt * 0.45);
+      const pts = (absDrift * 0.9 + Math.abs(vLat) * 0.35) * car.combo * dt * 2.2;
+      car.currentDriftBank += pts;
+      car.driftScore += pts;
+    } else {
+      car.comboTimer -= dt;
+      if (car.comboTimer <= 0) {
+        car.combo = 1.0;
+        car.currentDriftBank = 0;
+      }
+    }
+
+    // 5. Skidmarks & Tire Smoke Particles
+    const rlX = car.x - nCos * 11 - nSin * 6;
+    const rlY = car.y - nSin * 11 + nCos * 6;
+    const rrX = car.x - nCos * 11 + nSin * 6;
+    const rrY = car.y - nSin * 11 - nCos * 6;
+
+    if (spawnFx && (isDrifting || Math.abs(vLat) > 32)) {
+      if (car.prevRL && car.prevRR) {
+        const intensity = Math.min(0.65, Math.abs(vLat) / 140);
+        const skidCol = car.boosting
+          ? 'rgba(56, 189, 248, ' + (intensity * 0.85).toFixed(2) + ')'
+          : 'rgba(15, 23, 42, ' + (intensity + 0.18).toFixed(2) + ')';
+        addSkid(car.prevRL.x, car.prevRL.y, rlX, rlY, intensity, skidCol);
+        addSkid(car.prevRR.x, car.prevRR.y, rrX, rrY, intensity, skidCol);
+      }
+      if (Math.random() < 0.65) {
+        const smokeCol = trackGeo.def.id === 'ice_touge'
+          ? 'rgba(186, 230, 253, 0.36)'
+          : (car.combo > 3 ? 'rgba(250, 204, 21, 0.28)' : 'rgba(226, 232, 240, 0.30)');
+        addSmoke(rlX, rlY, -car.vx * 0.15, -car.vy * 0.15, 4 + Math.min(6, Math.abs(vLat) * 0.04), smokeCol);
+        addSmoke(rrX, rrY, -car.vx * 0.15, -car.vy * 0.15, 4 + Math.min(6, Math.abs(vLat) * 0.04), smokeCol);
+      }
+    }
+    if (spawnFx && car.boosting && Math.random() < 0.85) {
+      const exX = car.x - nCos * 15;
+      const exY = car.y - nSin * 15;
+      addSmoke(exX, exY, -nCos * 90, -nSin * 90, 4.5, 'rgba(56, 189, 248, 0.65)');
+    }
+    car.prevRL = { x: rlX, y: rlY };
+    car.prevRR = { x: rrX, y: rrY };
+
+    // 6. Track Progress & Wall Collision
+    const trackCheck = getTrackOffset(car.x, car.y, car.wpIdx);
+    const prevWp = car.wpIdx;
+    const newWp = trackCheck.wpIdx;
+    let deltaWp = newWp - prevWp;
+    if (deltaWp < -nWps * 0.5) {
+      deltaWp += nWps;
+      car.laps += 1;
+    } else if (deltaWp > nWps * 0.5) {
+      deltaWp -= nWps;
+    }
+
+    if (deltaWp > 0 && deltaWp < 15) {
+      car.progress += deltaWp;
+      car.wpIdx = newWp;
+    } else if (deltaWp < 0 && deltaWp > -10) {
+      car.wpIdx = newWp;
+    }
+
+    // Wall collision check
+    if (trackCheck.dist > trackGeo.halfW - 6) {
+      if (car.isPlayer) {
+        // Bounce player softly & break drift combo
+        const wp = wps[car.wpIdx];
+        const toCenterX = wp.x - car.x;
+        const toCenterY = wp.y - car.y;
+        const len = Math.hypot(toCenterX, toCenterY) || 1;
+        car.x += (toCenterX / len) * 6;
+        car.y += (toCenterY / len) * 6;
+        car.vx *= 0.45;
+        car.vy *= 0.45;
+        car.combo = 1.0;
+        car.currentDriftBank = 0;
+        if (spawnFx) addSmoke(car.x, car.y, 0, 0, 6, 'rgba(244, 63, 94, 0.65)');
+      } else {
+        car.alive = false;
+        car.combo = 1.0;
+        car.fitness = Math.max(0, car.fitness - 15);
+        return;
+      }
+    }
+
+    // Anti-stall check for AI cars
+    if (!car.isPlayer) {
+      if (car.speed < 25) {
+        car.stuckTimer += dt;
+        if (car.stuckTimer > 2.4) {
+          car.alive = false;
+          return;
+        }
+      } else {
+        car.stuckTimer = Math.max(0, car.stuckTimer - dt * 0.5);
+      }
+    }
+
+    // Update composite fitness
+    car.fitness = car.progress * 18 + car.driftScore * 0.35 + car.laps * 400;
+  }
+
+  function stepSimulation(fixedDt) {
+    if (isPaused) return;
+
+    const spawnFx = simSpeed <= 8;
+    let aliveCount = 0;
+
+    for (let i = 0; i < cars.length; i++) {
+      stepCar(cars[i], fixedDt, spawnFx && (cars[i].isPlayer || i < 4));
+      if (cars[i].alive) aliveCount++;
+    }
+
+    // Update smoke particles
+    for (let i = smokeParticles.length - 1; i >= 0; i--) {
+      const p = smokeParticles[i];
+      p.x += p.vx * fixedDt;
+      p.y += p.vy * fixedDt;
+      p.size += fixedDt * 12;
+      p.life -= fixedDt * 1.45;
+      if (p.life <= 0) smokeParticles.splice(i, 1);
+    }
+
+    if (!manualMode) {
+      episodeTimer -= fixedDt;
+      if (episodeTimer <= 0 || aliveCount === 0) {
+        evolveGeneration();
+      }
+    }
+  }
+
+  // =========================================================================
+  // 5. HIDPI CANVAS HELPERS & RENDERERS
+  // =========================================================================
+  function resizeCanvasHiDPI(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return null;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const targetW = Math.round(rect.width * dpr);
+    const targetH = Math.round(rect.height * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: rect.width, h: rect.height };
+  }
+
+  function drawCarSprite(ctx, x, y, angle, specs, opts) {
+    const scale = opts.scale || 1;
+    const alpha = opts.alpha !== undefined ? opts.alpha : 1;
+    const isLeader = !!opts.isLeader;
+    const boosting = !!opts.boosting;
+    const color = opts.overrideColor || specs.chassis.color;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
+
+    // Leader / player underglow
+    if (isLeader) {
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 16;
+    }
+
+    // Wheels
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = specs.tires.rim || '#38bdf8';
+    ctx.lineWidth = 1;
+    const wheels = [
+      [9, -8.5], [9, 5.5], [-10, -8.5], [-10, 5.5]
+    ];
+    for (let i = 0; i < wheels.length; i++) {
+      ctx.fillRect(wheels[i][0] - 3.5, wheels[i][1], 7, 3);
+      ctx.strokeRect(wheels[i][0] - 3.5, wheels[i][1], 7, 3);
+    }
+
+    // Chassis silhouette
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    const shape = specs.chassis.shape;
+    if (shape === 'wedge') {
+      ctx.moveTo(17, 0);
+      ctx.lineTo(10, 7.5);
+      ctx.lineTo(-15, 8);
+      ctx.lineTo(-16, -8);
+      ctx.lineTo(10, -7.5);
+    } else if (shape === 'micro') {
+      ctx.roundRect(-12, -7, 24, 14, 4);
+    } else if (shape === 'wide') {
+      ctx.roundRect(-16, -8.5, 32, 17, 5);
+    } else {
+      ctx.roundRect(-15, -7.5, 30, 15, 4);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Windshield / cockpit glass
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(6, 9, 15, 0.78)';
+    ctx.beginPath();
+    ctx.roundRect(-5, -5.2, 13, 10.4, 2.5);
+    ctx.fill();
+
+    // Headlights
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(13, -5.5, 2.2, 3);
+    ctx.fillRect(13, 2.5, 2.2, 3);
+
+    // Tail lights
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillRect(-15.5, -5.5, 1.8, 3.2);
+    ctx.fillRect(-15.5, 2.3, 1.8, 3.2);
+
+    // Aero Spoiler
+    const wing = specs.aeroPart.wingType;
+    if (wing === 'gt' || wing === 'ta' || wing === 'drs') {
+      ctx.fillStyle = wing === 'drs' ? '#38bdf8' : '#0f172a';
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 0.8;
+      ctx.fillRect(-17.5, -9, 3.2, 18);
+      ctx.strokeRect(-17.5, -9, 3.2, 18);
+    } else if (wing === 'lip') {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-16, -6.8, 2.2, 13.6);
+    }
+
+    // Nitro Flame
+    if (boosting) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(-16, -3);
+      ctx.lineTo(-27 - Math.random() * 8, 0);
+      ctx.lineTo(-16, 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // Garage Turntable Preview Canvas
+  let garageAngle = -0.35;
+  const garageCanvas = document.getElementById('garage-canvas');
+
+  function renderGaragePreview(timeMs) {
+    if (activeTab !== 'garage') return;
+    const res = resizeCanvasHiDPI(garageCanvas);
+    if (!res) return;
+    const { ctx, w, h } = res;
+    const specs = computeCarSpecs(currentBuild);
+
+    ctx.clearRect(0, 0, w, h);
+
+    const cx = w * 0.5;
+    const cy = h * 0.52;
+
+    // Turntable concentric neon rings
+    ctx.save();
+    for (let r = 36; r <= 112; r += 38) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = r === 74 ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Rotating subtle grid lines
+    garageAngle = Math.sin(timeMs * 0.0008) * 0.55 - 0.25;
+
+    // Sensor Rays Preview
+    const rayCount = specs.sensors.rays;
+    const fov = specs.sensors.fov;
+    const rayLen = 88;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < rayCount; i++) {
+      const frac = rayCount === 1 ? 0.5 : i / (rayCount - 1);
+      const a = garageAngle + (frac - 0.5) * fov;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * rayLen, cy + Math.sin(a) * rayLen);
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * rayLen, cy + Math.sin(a) * rayLen, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw scaled car
+    drawCarSprite(ctx, cx, cy, garageAngle, specs, {
+      scale: 2.35,
+      isLeader: true,
+      boosting: specs.nitro.id !== 'purist' && Math.sin(timeMs * 0.004) > 0.35
+    });
+    ctx.restore();
+  }
+
+  // Arena Main Canvas Renderer
+  const arenaCanvas = document.getElementById('arena-canvas');
+
+  function renderArena() {
+    if (activeTab !== 'arena') return;
+    const res = resizeCanvasHiDPI(arenaCanvas);
+    if (!res) return;
+    const { ctx, w, h } = res;
+
+    // Background
+    ctx.fillStyle = '#06090f';
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle tactical grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+    ctx.lineWidth = 1;
+    const gridStep = 40;
+    ctx.beginPath();
+    for (let gx = 0; gx < w; gx += gridStep) {
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, h);
+    }
+    for (let gy = 0; gy < h; gy += gridStep) {
+      ctx.moveTo(0, gy);
+      ctx.lineTo(w, gy);
+    }
+    ctx.stroke();
+
+    // Compute world-to-screen transform fitting track cleanly
+    const b = trackGeo.bounds;
+    const trackW = b.maxX - b.minX;
+    const trackH = b.maxY - b.minY;
+    const padX = 24, padY = 58;
+    const scale = Math.min((w - padX * 2) / trackW, (h - padY * 2) / trackH);
+    const offsetX = w * 0.5 - ((b.minX + b.maxX) * 0.5) * scale;
+    const offsetY = h * 0.52 - ((b.minY + b.maxY) * 0.5) * scale;
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    const wps = trackGeo.waypoints;
+    const nWps = wps.length;
+    const width = trackGeo.def.width;
+
+    // Helper path for track centerline
+    const traceTrackPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(wps[0].x, wps[0].y);
+      for (let i = 1; i < nWps; i++) {
+        ctx.lineTo(wps[i].x, wps[i].y);
+      }
+      ctx.closePath();
+    };
+
+    // Outer neon glow border
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    traceTrackPath();
+    ctx.strokeStyle = trackGeo.def.borderColor;
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = width + 18;
+    ctx.stroke();
+
+    // Crisp wall curb
+    ctx.globalAlpha = 0.9;
+    traceTrackPath();
+    ctx.strokeStyle = trackGeo.def.borderColor;
+    ctx.lineWidth = width + 5;
+    ctx.stroke();
+
+    // Asphalt surface
+    ctx.globalAlpha = 1.0;
+    traceTrackPath();
+    ctx.strokeStyle = trackGeo.def.asphalt;
+    ctx.lineWidth = width;
+    ctx.stroke();
+
+    // Dashed racing centerline
+    ctx.save();
+    traceTrackPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 16]);
+    ctx.stroke();
+    ctx.restore();
+
+    // Start / Finish Gate
+    const s0 = wps[0];
+    ctx.save();
+    ctx.translate(s0.x, s0.y);
+    ctx.rotate(Math.atan2(s0.ty, s0.tx));
+    ctx.fillStyle = '#f8fafc';
+    const halfW = width * 0.48;
+    for (let y = -halfW; y < halfW; y += 12) {
+      const idx = Math.floor((y + halfW) / 12);
+      ctx.fillStyle = idx % 2 === 0 ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.85)';
+      ctx.fillRect(-5, y, 10, Math.min(12, halfW - y));
+    }
+    ctx.restore();
+
+    // Skidmarks
+    ctx.lineWidth = 2.6;
+    for (let i = 0; i < skidMarks.length; i++) {
+      const sk = skidMarks[i];
+      ctx.strokeStyle = sk.color;
+      ctx.beginPath();
+      ctx.moveTo(sk.x1, sk.y1);
+      ctx.lineTo(sk.x2, sk.y2);
+      ctx.stroke();
+    }
+
+    // Tire Smoke Particles
+    for (let i = 0; i < smokeParticles.length; i++) {
+      const p = smokeParticles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+
+    // Identify leader car (highest fitness alive car, or player)
+    let leader = cars[0] || null;
+    if (!manualMode) {
+      for (let i = 0; i < cars.length; i++) {
+        if (cars[i].alive && (!leader || !leader.alive || cars[i].fitness > leader.fitness)) {
+          leader = cars[i];
+        }
+      }
+    }
+
+    // Draw non-leader swarm cars first
+    for (let i = 0; i < cars.length; i++) {
+      const c = cars[i];
+      if (c === leader) continue;
+      if (!c.alive) continue;
+      drawCarSprite(ctx, c.x, c.y, c.angle, cachedSpecs, {
+        scale: 0.92,
+        alpha: cars.length > 60 ? 0.34 : 0.58,
+        boosting: c.boosting
+      });
+    }
+
+    // Draw Leader / Player sensor rays + car on top
+    if (leader && leader.alive) {
+      const sDef = cachedSpecs.sensors;
+      const rc = leader.rays.length;
+      ctx.save();
+      for (let r = 0; r < rc; r++) {
+        const frac = rc === 1 ? 0.5 : r / (rc - 1);
+        const a = leader.angle + (frac - 0.5) * sDef.fov;
+        const dist = leader.rays[r] * sDef.range;
+        ctx.strokeStyle = leader.rays[r] < 0.35 ? 'rgba(244, 63, 94, 0.55)' : 'rgba(56, 189, 248, 0.32)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(leader.x, leader.y);
+        ctx.lineTo(leader.x + Math.cos(a) * dist, leader.y + Math.sin(a) * dist);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      drawCarSprite(ctx, leader.x, leader.y, leader.angle, cachedSpecs, {
+        scale: 1.05,
+        alpha: 1.0,
+        isLeader: true,
+        boosting: leader.boosting
+      });
+    }
+
+    ctx.restore();
+
+    // Update Live HUD
+    updateArenaHUD(leader);
+  }
+
+  // Learning Curve Chart Renderer
+  const chartCanvas = document.getElementById('chart-canvas');
+
+  function drawLearningChart() {
+    if (activeTab !== 'arena') return;
+    const res = resizeCanvasHiDPI(chartCanvas);
+    if (!res) return;
+    const { ctx, w, h } = res;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const padL = 36, padR = 12, padT = 14, padB = 22;
+    const pw = w - padL - padR;
+    const ph = h - padT - padB;
+
+    // Gridlines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (ph * i) / 4;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(w - padR, y);
+      ctx.stroke();
+    }
+
+    if (genHistory.length === 0) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Complete Gen 1 to plot learning curve...', w * 0.5, h * 0.5);
+      return;
+    }
+
+    let maxY = 100;
+    for (let i = 0; i < genHistory.length; i++) {
+      const g = genHistory[i];
+      if (g.bestFit > maxY) maxY = g.bestFit;
+      if (g.bestDrift > maxY) maxY = g.bestDrift;
+    }
+    maxY = Math.ceil(maxY / 50) * 50;
+
+    document.getElementById('chart-peak').textContent = 'Peak: ' + Math.round(maxY);
+
+    // Y-axis labels
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px ui-monospace, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(Math.round(maxY)), padL - 5, padT + 4);
+    ctx.fillText(String(Math.round(maxY * 0.5)), padL - 5, padT + ph * 0.5 + 3);
+    ctx.fillText('0', padL - 5, padT + ph + 3);
+
+    const xFor = (idx) => genHistory.length === 1 ? padL + pw * 0.5 : padL + (idx / (genHistory.length - 1)) * pw;
+    const yFor = (val) => padT + ph - (Math.max(0, val) / maxY) * ph;
+
+    // Area fill under Best Fitness
+    ctx.beginPath();
+    ctx.moveTo(xFor(0), padT + ph);
+    for (let i = 0; i < genHistory.length; i++) {
+      ctx.lineTo(xFor(i), yFor(genHistory[i].bestFit));
+    }
+    ctx.lineTo(xFor(genHistory.length - 1), padT + ph);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + ph);
+    grad.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
+    grad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Helper to stroke series
+    const plotSeries = (key, color, dashed) => {
+      ctx.save();
+      ctx.beginPath();
+      if (dashed) ctx.setLineDash([4, 3]);
+      for (let i = 0; i < genHistory.length; i++) {
+        const x = xFor(i);
+        const y = yFor(genHistory[i][key]);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    plotSeries('bestDrift', '#f43f5e', false);
+    plotSeries('avgFit', '#facc15', true);
+    plotSeries('bestFit', '#38bdf8', false);
+
+    // X-axis generation label
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'left';
+    ctx.fillText('G' + genHistory[0].gen, padL, h - 6);
+    ctx.textAlign = 'right';
+    ctx.fillText('G' + genHistory[genHistory.length - 1].gen, w - padR, h - 6);
+  }
+
+  // =========================================================================
+  // 6. UI RENDERING & EVENT HANDLERS
+  // =========================================================================
+  function renderGarageUI() {
+    const specs = computeCarSpecs(currentBuild);
+    cachedSpecs = specs;
+
+    document.getElementById('hdr-build-label').textContent = activePresetName;
+    document.getElementById('preview-sensor-tag').textContent = specs.sensors.name;
+    document.getElementById('preview-weight-tag').textContent = specs.mass.toLocaleString() + ' kg';
+
+    // Total parts count
+    let totalParts = 0;
+    for (let i = 0; i < CATEGORIES.length; i++) totalParts += PARTS[CATEGORIES[i].id].length;
+    document.getElementById('parts-count-label').textContent = totalParts + ' Modular Parts';
+
+    // 6-slot build grid
+    const slotGrid = document.getElementById('slot-grid');
+    slotGrid.innerHTML = '';
+    CATEGORIES.forEach((cat) => {
+      const p = getPart(cat.id, currentBuild[cat.id]);
+      const btn = document.createElement('button');
+      btn.className = 'slot-cell' + (activeCategory === cat.id ? ' active-slot' : '');
+      btn.innerHTML = '<div class="slot-cat">' + cat.label + '</div><div class="slot-name">' + p.name + '</div>';
+      btn.addEventListener('click', () => {
+        activeCategory = cat.id;
+        renderGarageUI();
+      });
+      slotGrid.appendChild(btn);
+    });
+
+    // Live Specs Bars
+    const specList = document.getElementById('spec-list');
+    const scoreIndex = (specs.power / 10) + specs.grip + specs.slip + specs.aero - (specs.mass / 30);
+    const tier = scoreIndex > 240 ? 'CLASS S+' : (scoreIndex > 205 ? 'CLASS S' : 'CLASS A');
+    document.getElementById('spec-rating').textContent = tier;
+
+    const specItems = [
+      { label: 'Mass',       val: specs.mass + ' kg',    pct: Math.min(100, ((specs.mass - 700) / 1000) * 100), cls: 'fill-violet' },
+      { label: 'Grip',       val: specs.grip + ' / 100', pct: specs.grip,                                        cls: 'fill-emerald' },
+      { label: 'Drift Slip', val: specs.slip + ' / 100', pct: specs.slip,                                        cls: 'fill-rose' },
+      { label: 'Power',      val: specs.power + ' HP',   pct: Math.min(100, (specs.power / 1000) * 100),         cls: 'fill-amber' },
+      { label: 'Aero',       val: specs.aero + ' / 100', pct: specs.aero,                                        cls: 'fill-cyan' }
+    ];
+
+    specList.innerHTML = specItems.map((s) =>
+      '<div class="spec-row">' +
+        '<div class="spec-top"><span class="spec-label">' + s.label + '</span><span class="spec-val">' + s.val + '</span></div>' +
+        '<div class="spec-bar"><div class="spec-fill ' + s.cls + '" style="width:' + Math.max(4, Math.round(s.pct)) + '%"></div></div>' +
+      '</div>'
+    ).join('');
+
+    // Presets bar
+    const presetBar = document.getElementById('preset-bar');
+    presetBar.innerHTML = '';
+    PRESETS.forEach((pr) => {
+      const b = document.createElement('button');
+      b.className = 'btn' + (activePresetName === pr.name ? ' btn-active' : '');
+      b.textContent = pr.name;
+      b.addEventListener('click', () => {
+        currentBuild = Object.assign({}, pr.build);
+        activePresetName = pr.name;
+        renderGarageUI();
+      });
+      presetBar.appendChild(b);
+    });
+
+    // Category Tabs
+    const catTabs = document.getElementById('cat-tabs');
+    catTabs.innerHTML = '';
+    CATEGORIES.forEach((cat) => {
+      const b = document.createElement('button');
+      b.className = 'cat-pill' + (activeCategory === cat.id ? ' active' : '');
+      b.textContent = cat.label + ' (' + PARTS[cat.id].length + ')';
+      b.addEventListener('click', () => {
+        activeCategory = cat.id;
+        renderGarageUI();
+      });
+      catTabs.appendChild(b);
+    });
+
+    const catObj = CATEGORIES.find((c) => c.id === activeCategory);
+    document.getElementById('active-cat-title').textContent = catObj ? catObj.label.toUpperCase() : '';
+
+    // Parts Grid
+    const partsGrid = document.getElementById('parts-grid');
+    partsGrid.innerHTML = '';
+    const _sEl = document.getElementById('drift-part-search');
+    const _q = _sEl ? _sEl.value.trim().toLowerCase() : '';
+    const _list = _q
+      ? Object.entries(PARTS).flatMap(([catKey, arr]) => arr.filter(p => p.name.toLowerCase().includes(_q) || p.desc.toLowerCase().includes(_q)).map(p => ({ ...p, _catKey: catKey })))
+      : PARTS[activeCategory];
+    _list.forEach((part) => {
+      const targetCat = part._catKey || activeCategory;
+      const isEq = currentBuild[targetCat] === part.id;
+      const card = document.createElement('button');
+      card.className = 'part-card' + (isEq ? ' equipped' : '');
+
+      const chips = [];
+      if (part.mass) chips.push('<span class="chip">' + (targetCat === 'chassis' ? part.mass : '+' + part.mass) + 'kg</span>');
+      if (part.power) chips.push('<span class="chip amber">+' + part.power + ' HP</span>');
+      if (part.grip) chips.push('<span class="chip ' + (part.grip > 0 ? 'pos' : 'neg') + '">' + (part.grip > 0 ? '+' : '') + part.grip + ' Grip</span>');
+      if (part.slip) chips.push('<span class="chip ' + (part.slip > 0 ? 'amber' : '') + '">' + (part.slip > 0 ? '+' : '') + part.slip + ' Slip</span>');
+      if (part.aero) chips.push('<span class="chip pos">+' + part.aero + ' Aero</span>');
+      if (part.rays) chips.push('<span class="chip pos">' + part.rays + ' Rays</span>');
+
+      card.innerHTML =
+        '<div class="part-head">' +
+          '<span class="part-name">' + part.name + '</span>' +
+          (isEq ? '<span class="equipped-badge">Equipped</span>' : '') +
+        '</div>' +
+        '<div class="part-desc">' + part.desc + '</div>' +
+        '<div class="stat-chips">' + chips.join('') + '</div>';
+
+      card.addEventListener('click', () => {
+        currentBuild[targetCat] = part.id;
+        activePresetName = 'Custom Build';
+        renderGarageUI();
+      });
+      partsGrid.appendChild(card);
+    });
+  }
+
+  function renderTrackSelector() {
+    const grid = document.getElementById('track-grid');
+    grid.innerHTML = '';
+    TRACKS.forEach((tr, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'track-btn' + (idx === currentTrackIndex ? ' active' : '');
+      btn.innerHTML = '<span>' + tr.name + '</span><small>' + tr.sub + '</small>';
+      btn.addEventListener('click', () => {
+        if (currentTrackIndex === idx) return;
+        currentTrackIndex = idx;
+        trackGeo = buildTrackGeometry(TRACKS[currentTrackIndex]);
+        skidMarks.length = 0;
+        smokeParticles.length = 0;
+        generation = 1;
+        genHistory = [];
+        initSwarm(null);
+        renderTrackSelector();
+        drawLearningChart();
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  function updateArenaHUD(leader) {
+    let alive = 0;
+    for (let i = 0; i < cars.length; i++) if (cars[i].alive) alive++;
+
+    document.getElementById('hud-gen').textContent = manualMode ? 'MANUAL' : String(generation);
+    document.getElementById('hud-alive').textContent = alive + ' / ' + cars.length;
+    document.getElementById('hud-timer').textContent = manualMode ? 'FREE' : Math.max(0, episodeTimer).toFixed(1) + 's';
+
+    if (leader) {
+      document.getElementById('hud-best-fit').textContent = Math.round(leader.fitness).toLocaleString();
+      document.getElementById('hud-speed').textContent = Math.round(leader.speed * 0.62) + ' km/h';
+      document.getElementById('hud-angle').textContent = Math.abs(leader.driftAngleDeg).toFixed(1) + '°';
+      document.getElementById('hud-slip').textContent = Math.abs(leader.vLateral).toFixed(1);
+      document.getElementById('hud-drift-score').textContent = Math.round(leader.driftScore).toLocaleString();
+      document.getElementById('hud-combo').textContent = leader.combo.toFixed(1) + 'x';
+      document.getElementById('hud-laps').textContent = String(leader.laps);
+    }
+  }
+
+  // Logarithmic speed slider mapping (0..100 -> 0.1x..100x)
+  function sliderToSpeed(v) {
+    const val = 0.05 * Math.pow(10000, v / 100);
+    if (val < 1) return Math.round(val * 20) / 20;
+    if (val < 10) return Math.round(val * 2) / 2;
+    return Math.round(val);
+  }
+
+  function speedToSlider(spd) {
+    return Math.round((Math.log(Math.max(0.05, Math.min(500, spd)) / 0.05) / Math.log(10000)) * 100);
+  }
+
+  function setSimSpeed(spd) {
+    simSpeed = Math.max(0.05, Math.min(500, spd));
+    document.getElementById('val-speed').textContent = (simSpeed < 10 ? simSpeed.toFixed(1) : Math.round(simSpeed)) + 'x';
+    document.getElementById('slider-speed').value = String(speedToSlider(simSpeed));
+    document.querySelectorAll('#speed-presets .mini-btn').forEach((b) => {
+      b.classList.toggle('active', Math.abs(parseFloat(b.dataset.spd) - simSpeed) < 0.05);
+    });
+  }
+
+  function setPopulation(pop) {
+    swarmSize = Math.max(1, Math.min(200, pop));
+    document.getElementById('val-pop').textContent = swarmSize + (swarmSize === 1 ? ' car' : ' cars');
+    document.getElementById('slider-pop').value = String(swarmSize);
+    document.querySelectorAll('#pop-presets .mini-btn').forEach((b) => {
+      b.classList.toggle('active', parseInt(b.dataset.pop, 10) === swarmSize);
+    });
+    if (!manualMode) {
+      initSwarm(null);
+    }
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-garage').classList.toggle('active', tab === 'garage');
+    document.getElementById('tab-arena').classList.toggle('active', tab === 'arena');
+    document.getElementById('view-garage').classList.toggle('active', tab === 'garage');
+    document.getElementById('view-arena').classList.toggle('active', tab === 'arena');
+
+    if (tab === 'arena') {
+      cachedSpecs = computeCarSpecs(currentBuild);
+      if (cars.length === 0) initSwarm(null);
+      requestAnimationFrame(() => {
+        renderArena();
+        drawLearningChart();
+      });
+    }
+  }
+
+  // Event wiring
+  document.getElementById('tab-garage').addEventListener('click', () => switchTab('garage'));
+  document.getElementById('tab-arena').addEventListener('click', () => switchTab('arena'));
+  document.getElementById('btn-launch-arena').addEventListener('click', () => {
+    cachedSpecs = computeCarSpecs(currentBuild);
+    skidMarks.length = 0;
+    smokeParticles.length = 0;
+    initSwarm(null);
+    switchTab('arena');
+  });
+
+  document.getElementById('btn-randomize').addEventListener('click', () => {
+    CATEGORIES.forEach((cat) => {
+      const list = PARTS[cat.id];
+      currentBuild[cat.id] = list[Math.floor(Math.random() * list.length)].id;
+    });
+    activePresetName = 'Randomized';
+    renderGarageUI();
+  });
+
+  document.getElementById('slider-pop').addEventListener('input', (e) => {
+    setPopulation(parseInt(e.target.value, 10));
+  });
+
+  document.querySelectorAll('#pop-presets .mini-btn').forEach((b) => {
+    b.addEventListener('click', () => setPopulation(parseInt(b.dataset.pop, 10)));
+  });
+
+  document.getElementById('slider-speed').addEventListener('input', (e) => {
+    setSimSpeed(sliderToSpeed(parseFloat(e.target.value)));
+  });
+
+  document.querySelectorAll('#speed-presets .mini-btn').forEach((b) => {
+    b.addEventListener('click', () => setSimSpeed(parseFloat(b.dataset.spd)));
+  });
+
+  document.getElementById('slider-ep').addEventListener('input', (e) => {
+    episodeDuration = parseInt(e.target.value, 10);
+    document.getElementById('val-ep').textContent = episodeDuration + 's';
+    if (episodeTimer > episodeDuration) episodeTimer = episodeDuration;
+  });
+
+  document.getElementById('btn-pause').addEventListener('click', (e) => {
+    isPaused = !isPaused;
+    e.target.textContent = isPaused ? 'Resume' : 'Pause';
+    document.getElementById('sim-state-tag').textContent = isPaused ? 'PAUSED' : (manualMode ? 'MANUAL' : 'TRAINING');
+  });
+
+  document.getElementById('btn-next-gen').addEventListener('click', () => {
+    if (!manualMode) evolveGeneration();
+  });
+
+  document.getElementById('btn-clear-skids').addEventListener('click', () => {
+    skidMarks.length = 0;
+    smokeParticles.length = 0;
+  });
+
+  document.getElementById('btn-reset-ml').addEventListener('click', () => {
+    generation = 1;
+    genHistory = [];
+    skidMarks.length = 0;
+    smokeParticles.length = 0;
+    initSwarm(null);
+    drawLearningChart();
+  });
+
+  document.getElementById('btn-manual-toggle').addEventListener('click', (e) => {
+    manualMode = !manualMode;
+    e.target.textContent = manualMode ? 'Manual WASD: ON' : 'Manual WASD: OFF';
+    e.target.classList.toggle('btn-cyan', manualMode);
+    e.target.classList.toggle('btn-rose', !manualMode);
+    document.getElementById('wasd-hint').classList.toggle('visible', manualMode);
+    document.getElementById('sim-state-tag').textContent = manualMode ? 'MANUAL' : 'TRAINING';
+    skidMarks.length = 0;
+    smokeParticles.length = 0;
+    if (manualMode) setSimSpeed(1.0);
+    initSwarm(null);
+  });
+
+  // Keyboard listeners for Manual WASD Drive mode
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') { keys.w = true; if (manualMode) e.preventDefault(); }
+    if (k === 's' || k === 'arrowdown') { keys.s = true; if (manualMode) e.preventDefault(); }
+    if (k === 'a' || k === 'arrowleft') { keys.a = true; if (manualMode) e.preventDefault(); }
+    if (k === 'd' || k === 'arrowright') { keys.d = true; if (manualMode) e.preventDefault(); }
+    if (k === ' ' || k === 'shift') { keys.boost = true; if (manualMode) e.preventDefault(); }
+    if (k === 'r' && manualMode && activeTab === 'arena') {
+      skidMarks.length = 0;
+      initSwarm(null);
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') keys.w = false;
+    if (k === 's' || k === 'arrowdown') keys.s = false;
+    if (k === 'a' || k === 'arrowleft') keys.a = false;
+    if (k === 'd' || k === 'arrowright') keys.d = false;
+    if (k === ' ' || k === 'shift') keys.boost = false;
+  });
+
+  window.addEventListener('resize', () => {
+    if (activeTab === 'arena') {
+      renderArena();
+      drawLearningChart();
+    }
+  });
+
+  // =========================================================================
+  // 7. MAIN ANIMATION LOOP
+  // =========================================================================
+  let lastTs = performance.now();
+  let fpsCounter = 0;
+  let fpsTimer = 0;
+  let simAccum = 0;
+
+  function mainLoop(ts) {
+    const realDt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+
+    fpsCounter++;
+    fpsTimer += realDt;
+    if (fpsTimer >= 0.5) {
+      document.getElementById('hdr-fps').textContent = Math.round(fpsCounter / fpsTimer) + ' FPS';
+      fpsCounter = 0;
+      fpsTimer = 0;
+    }
+
+    if (activeTab === 'garage') {
+      renderGaragePreview(ts);
+    } else {
+      const fixedDt = 1 / 60;
+      const effectiveSpeed = manualMode ? Math.min(2, simSpeed) : simSpeed;
+      simAccum += realDt * effectiveSpeed;
+      let steps = 0;
+      const maxSteps = effectiveSpeed >= 50 ? 100 : (effectiveSpeed >= 10 ? 35 : 12);
+      while (simAccum >= fixedDt && steps < maxSteps) {
+        stepSimulation(fixedDt);
+        simAccum -= fixedDt;
+        steps++;
+      }
+      if (steps >= maxSteps) simAccum = 0;
+      renderArena();
+    }
+
+    requestAnimationFrame(mainLoop);
+  }
+
+  // Boot
+  const _dps = document.getElementById('drift-part-search'); if (_dps) _dps.addEventListener('input', renderGarageUI);
+  renderGarageUI();
+  renderTrackSelector();
+  setSimSpeed(1.0);
+  initSwarm(null);
+  requestAnimationFrame(mainLoop);
+})();
+</script>
+</body>
+</html>

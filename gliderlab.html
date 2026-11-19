@@ -1,0 +1,3458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>GliderLab — Thermal &amp; Wind-Tunnel Aerodynamics</title>
+<style>
+  :root {
+    --bg-deep: #06090f;
+    --bg-panel: rgba(11, 17, 30, 0.72);
+    --bg-panel-strong: rgba(14, 22, 38, 0.86);
+    --bg-card: rgba(20, 30, 50, 0.56);
+    --bg-card-hover: rgba(30, 46, 74, 0.72);
+    --border-glass: rgba(148, 163, 184, 0.16);
+    --border-cyan: rgba(56, 189, 248, 0.38);
+    --border-amber: rgba(250, 204, 21, 0.38);
+    --border-emerald: rgba(52, 211, 153, 0.38);
+    --cyan: #38bdf8;
+    --cyan-dim: rgba(56, 189, 248, 0.16);
+    --amber: #facc15;
+    --amber-dim: rgba(250, 204, 21, 0.16);
+    --emerald: #34d399;
+    --emerald-dim: rgba(52, 211, 153, 0.16);
+    --rose: #fb7185;
+    --rose-dim: rgba(251, 113, 133, 0.16);
+    --violet: #a78bfa;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --shadow-glass: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-deep);
+    color: var(--text-main);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 65% 50% at 15% 10%, rgba(56, 189, 248, 0.11), transparent 65%),
+      radial-gradient(ellipse 55% 45% at 85% 15%, rgba(52, 211, 153, 0.08), transparent 60%),
+      radial-gradient(ellipse 50% 45% at 50% 95%, rgba(250, 204, 21, 0.06), transparent 65%);
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 10px 12px 12px;
+    gap: 10px;
+  }
+
+  /* Header Bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 14px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glass);
+    flex-shrink: 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(52, 211, 153, 0.22));
+    border: 1px solid var(--border-cyan);
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
+  }
+
+  .brand-text h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brand-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--cyan-dim);
+    border: 1px solid var(--border-cyan);
+    color: var(--cyan);
+  }
+
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  .nav-tabs {
+    display: flex;
+    gap: 6px;
+    background: rgba(6, 9, 15, 0.55);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border-glass);
+  }
+
+  .nav-tab {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.18s ease;
+  }
+
+  .nav-tab:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .nav-tab.active {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), rgba(52, 211, 153, 0.16));
+    border-color: var(--border-cyan);
+    box-shadow: 0 2px 14px rgba(56, 189, 248, 0.18);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pill-stat {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: rgba(6, 9, 15, 0.5);
+    border: 1px solid var(--border-glass);
+    padding: 5px 10px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pill-stat strong { color: var(--cyan); font-weight: 600; }
+  .pill-stat.emerald strong { color: var(--emerald); }
+  .pill-stat.amber strong { color: var(--amber); }
+
+  /* Workspace Views */
+  .view-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  .tab-view {
+    display: none;
+    width: 100%;
+    height: 100%;
+    gap: 10px;
+  }
+
+  .tab-view.active {
+    display: flex;
+  }
+
+  /* Glass Panels */
+  .glass-panel {
+    background: var(--bg-panel);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glass);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 10px 13px;
+    border-bottom: 1px solid var(--border-glass);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .panel-body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .panel-body::-webkit-scrollbar { width: 5px; }
+  .panel-body::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+  }
+
+  /* Buttons */
+  .btn {
+    appearance: none;
+    border: 1px solid var(--border-glass);
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 11px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(148, 163, 184, 0.34);
+  }
+
+  .btn:active { transform: translateY(1px); }
+
+  .btn-cyan {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.28), rgba(56, 189, 248, 0.14));
+    border-color: var(--border-cyan);
+    color: #e0f2fe;
+  }
+  .btn-cyan:hover { background: rgba(56, 189, 248, 0.34); }
+
+  .btn-emerald {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.28), rgba(52, 211, 153, 0.14));
+    border-color: var(--border-emerald);
+    color: #d1fae5;
+  }
+  .btn-emerald:hover { background: rgba(52, 211, 153, 0.34); }
+
+  .btn-amber {
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.26), rgba(250, 204, 21, 0.12));
+    border-color: var(--border-amber);
+    color: #fef9c3;
+  }
+  .btn-amber:hover { background: rgba(250, 204, 21, 0.32); }
+
+  .btn-rose {
+    background: rgba(251, 113, 133, 0.16);
+    border-color: rgba(251, 113, 133, 0.36);
+    color: #ffe4e6;
+  }
+  .btn-rose:hover { background: rgba(251, 113, 133, 0.28); }
+
+  .btn-sm { padding: 4px 8px; font-size: 11px; }
+  .btn.active-toggle {
+    background: rgba(56, 189, 248, 0.28);
+    border-color: var(--cyan);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.22);
+  }
+
+  /* ==================== WING LAB LAYOUT ==================== */
+  .builder-left { width: 320px; flex-shrink: 0; }
+  .builder-center { flex: 1; min-width: 0; position: relative; }
+  .builder-right { width: 290px; flex-shrink: 0; }
+
+  .cat-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-glass);
+    background: rgba(6, 9, 15, 0.35);
+    flex-shrink: 0;
+  }
+
+  .cat-btn {
+    appearance: none;
+    border: 1px solid var(--border-glass);
+    background: rgba(15, 23, 42, 0.55);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .cat-btn:hover { color: var(--text-main); border-color: rgba(148, 163, 184, 0.3); }
+  .cat-btn.active {
+    color: #fff;
+    background: rgba(56, 189, 248, 0.18);
+    border-color: var(--border-cyan);
+  }
+  .cat-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    opacity: 0.75;
+  }
+
+  .parts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .part-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .part-card:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(56, 189, 248, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .part-card.selected {
+    background: rgba(56, 189, 248, 0.17);
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3), 0 4px 16px rgba(56, 189, 248, 0.15);
+  }
+
+  .part-swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgba(6, 9, 15, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  .part-info { flex: 1; min-width: 0; }
+  .part-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .part-desc {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  .part-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .mini-tag {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    color: var(--text-muted);
+  }
+  .mini-tag.cyan { color: var(--cyan); border-color: rgba(56, 189, 248, 0.3); }
+  .mini-tag.emerald { color: var(--emerald); border-color: rgba(52, 211, 153, 0.3); }
+  .mini-tag.amber { color: var(--amber); border-color: rgba(250, 204, 21, 0.3); }
+  .mini-tag.rose { color: var(--rose); border-color: rgba(251, 113, 133, 0.3); }
+
+  /* Builder Canvas Wrapper */
+  .canvas-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: radial-gradient(circle at 50% 45%, #0c1526 0%, #06090f 100%);
+    overflow: hidden;
+  }
+
+  .canvas-stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .stage-toolbar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .stage-toolbar > * { pointer-events: auto; }
+
+  .tool-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(8, 13, 24, 0.78);
+    backdrop-filter: blur(12px);
+    padding: 5px 7px;
+    border-radius: 10px;
+    border: 1px solid var(--border-glass);
+  }
+
+  .stage-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    background: rgba(8, 13, 24, 0.72);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  /* Specs & Presets */
+  .preset-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .preset-btn {
+    appearance: none;
+    width: 100%;
+    text-align: left;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: 9px;
+    padding: 7px 10px;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .preset-btn:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-cyan);
+  }
+  .preset-btn.active {
+    background: rgba(56, 189, 248, 0.16);
+    border-color: var(--cyan);
+  }
+  .preset-title { font-size: 12px; font-weight: 600; }
+  .preset-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+  .spec-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+
+  .spec-card {
+    background: rgba(6, 9, 15, 0.55);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 8px 9px;
+  }
+  .spec-card.wide { grid-column: span 2; }
+  .spec-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .spec-val {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 3px;
+    color: var(--text-main);
+  }
+  .spec-val.cyan { color: var(--cyan); }
+  .spec-val.emerald { color: var(--emerald); }
+  .spec-val.amber { color: var(--amber); }
+  .spec-val.rose { color: var(--rose); }
+  .spec-bar {
+    height: 4px;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .spec-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.2s ease;
+  }
+
+  /* ==================== ARENA LAYOUT ==================== */
+  .arena-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .arena-stage-panel {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  .arena-sidebar {
+    width: 325px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  /* Telemetry HUD Overlay */
+  .hud-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .hud-cluster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    pointer-events: auto;
+  }
+
+  .hud-chip {
+    background: rgba(6, 9, 15, 0.74);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 5px 9px;
+    min-width: 72px;
+  }
+  .hud-chip-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .hud-chip-val {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-top: 1px;
+  }
+  .hud-chip-val.cyan { color: var(--cyan); }
+  .hud-chip-val.emerald { color: var(--emerald); }
+  .hud-chip-val.amber { color: var(--amber); }
+  .hud-chip-val.rose { color: var(--rose); }
+
+  .stall-badge {
+    display: none;
+    background: rgba(251, 113, 133, 0.25);
+    border: 1px solid var(--rose);
+    color: #ffe4e6;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 8px;
+    letter-spacing: 0.08em;
+    animation: pulseStall 0.7s infinite alternate;
+  }
+  .stall-badge.visible { display: inline-flex; align-items: center; gap: 5px; }
+
+  @keyframes pulseStall {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+  }
+
+  /* Manual Controls Floating Pad */
+  .manual-pad {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: rgba(6, 9, 15, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-amber);
+    border-radius: 12px;
+    padding: 6px 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+  .manual-pad.visible { display: flex; }
+
+  .arena-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(6, 9, 15, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-glass);
+    border-radius: 9px;
+    padding: 5px 10px;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  /* Controls Form */
+  .ctrl-section {
+    margin-bottom: 11px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+  .ctrl-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .ctrl-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .ctrl-value {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--cyan);
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--cyan);
+    cursor: pointer;
+    height: 4px;
+  }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .map-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .map-btn {
+    appearance: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: 9px;
+    padding: 7px 8px;
+    text-align: left;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .map-btn:hover { background: var(--bg-card-hover); border-color: rgba(56, 189, 248, 0.35); }
+  .map-btn.active {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: var(--cyan);
+  }
+  .map-btn-name { font-size: 11.5px; font-weight: 700; }
+  .map-btn-tag { font-size: 9.5px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Learning Curve Card */
+  .chart-panel {
+    height: 185px;
+    flex-shrink: 0;
+  }
+  .chart-wrap {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    padding: 6px 8px 8px;
+  }
+  .chart-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .episode-progress {
+    height: 3px;
+    width: 100%;
+    background: rgba(148, 163, 184, 0.12);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+  }
+  .episode-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--cyan), var(--emerald), var(--amber));
+    transition: width 0.08s linear;
+  }
+
+  @media (max-width: 1060px) {
+    .builder-left { width: 255px; }
+    .builder-right { width: 245px; }
+    .arena-sidebar { width: 280px; }
+    .pill-stat.hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOP NAVIGATION BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">✈</div>
+      <div class="brand-text">
+        <h1>GliderLab <span class="brand-badge">AI Physics Labs</span></h1>
+        <div class="brand-sub">Thermal &amp; Wind-Tunnel Aerodynamics · 28 Modular Parts · Neural Swarm ML</div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" data-tab="winglab" id="tabBtnWingLab">
+        <span>🛠</span> Wing Lab
+      </button>
+      <button class="nav-tab" data-tab="arena" id="tabBtnArena">
+        <span>🌬</span> Wind Tunnel &amp; Sky Arena
+      </button>
+    </nav>
+
+    <div class="topbar-right">
+      <div class="pill-stat hide-sm">Parts <strong id="topPartCount">0</strong></div>
+      <div class="pill-stat emerald hide-sm">L/D <strong id="topGlideRatio">0.0</strong></div>
+      <div class="pill-stat amber">Gen <strong id="topGenCount">1</strong></div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWS -->
+  <main class="view-container">
+    <!-- ==================== TAB 1: WING LAB ==================== -->
+    <section class="tab-view active" id="view-winglab">
+      <!-- Left: Modular Parts Palette -->
+      <aside class="glass-panel builder-left">
+        <div class="panel-header">
+          <div class="panel-title"><span>🧩</span> <span id="partsHeaderTitle">Airframe Parts (120)</span></div>
+          <span class="mini-tag cyan" id="selectedPartBadge">Glider Airfoil</span>
+        </div>
+        <div style="padding:8px 10px 2px;">
+          <input type="search" id="partSearchInput" placeholder="Search 120 parts (e.g. phoenix, delta, jet)..." style="width:100%;padding:6px 10px;border-radius:9px;border:1px solid rgba(148,163,184,0.22);background:rgba(5,10,20,0.55);color:#f1f5f9;font-size:12px;outline:none;" />
+        </div>
+        <div class="cat-tabs" id="catTabs">
+          <button class="cat-btn active" data-cat="wings">Wings <span class="cat-count">28</span></button>
+          <button class="cat-btn" data-cat="tail">Tail &amp; Control <span class="cat-count">22</span></button>
+          <button class="cat-btn" data-cat="propulsion">Propulsion <span class="cat-count">24</span></button>
+          <button class="cat-btn" data-cat="sensors">Ballast &amp; Sensors <span class="cat-count">26</span></button>
+          <button class="cat-btn" data-cat="op">✨ Mythic OP <span class="cat-count">20</span></button>
+        </div>
+        <div class="panel-body">
+          <div class="parts-grid" id="partsGrid"></div>
+        </div>
+      </aside>
+
+      <!-- Center: 2D Glider Builder Canvas -->
+      <section class="glass-panel builder-center">
+        <div class="canvas-stage" id="builderStage">
+          <canvas id="builderCanvas"></canvas>
+          <div class="stage-toolbar">
+            <div class="tool-group">
+              <button class="btn btn-sm active-toggle" id="toolPlaceBtn">＋ Place</button>
+              <button class="btn btn-sm" id="toolEraseBtn">✕ Erase</button>
+              <button class="btn btn-sm" id="btnCenterCraft">⌖ Center</button>
+              <button class="btn btn-sm btn-rose" id="btnClearCraft">Clear</button>
+            </div>
+            <div class="tool-group">
+              <button class="btn btn-sm btn-emerald" id="btnLaunchArena">Launch to Wind Tunnel →</button>
+            </div>
+          </div>
+          <div class="stage-hint">
+            Left-click to place · Right-click to remove · Nose points right (→) · Cyan crosshair = CoM · Emerald diamond = CoL
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Presets & Live Aerodynamics Specs -->
+      <aside class="glass-panel builder-right">
+        <div class="panel-header">
+          <div class="panel-title"><span>📐</span> Aerodynamics &amp; Presets</div>
+        </div>
+        <div class="panel-body">
+          <div class="ctrl-label" style="margin-bottom:6px;">Airframe Presets (5)</div>
+          <div class="preset-list" id="presetList"></div>
+
+          <div class="ctrl-label" style="margin-bottom:6px;">Live Aerodynamics Specs</div>
+          <div class="spec-grid">
+            <div class="spec-card">
+              <div class="spec-label">Mass</div>
+              <div class="spec-val" id="specMass">0.0 kg</div>
+              <div class="spec-bar"><div class="spec-bar-fill" id="barMass" style="background:var(--cyan);width:20%;"></div></div>
+            </div>
+            <div class="spec-card">
+              <div class="spec-label">Lift Coeff (CL)</div>
+              <div class="spec-val emerald" id="specLift">0.00</div>
+              <div class="spec-bar"><div class="spec-bar-fill" id="barLift" style="background:var(--emerald);width:40%;"></div></div>
+            </div>
+            <div class="spec-card">
+              <div class="spec-label">Drag (CD)</div>
+              <div class="spec-val rose" id="specDrag">0.000</div>
+              <div class="spec-bar"><div class="spec-bar-fill" id="barDrag" style="background:var(--rose);width:20%;"></div></div>
+            </div>
+            <div class="spec-card">
+              <div class="spec-label">Glide Ratio (L/D)</div>
+              <div class="spec-val amber" id="specGlide">0.0 : 1</div>
+              <div class="spec-bar"><div class="spec-bar-fill" id="barGlide" style="background:var(--amber);width:50%;"></div></div>
+            </div>
+            <div class="spec-card wide">
+              <div class="spec-label">Center of Mass (CoM) &amp; Balance</div>
+              <div class="spec-val cyan" id="specCom" style="font-size:13px;">(0.00, 0.00) · Balanced</div>
+              <div class="part-tags" id="specBadges" style="margin-top:6px;"></div>
+            </div>
+            <div class="spec-card">
+              <div class="spec-label">Max Thrust</div>
+              <div class="spec-val amber" id="specThrust">0.0 N</div>
+            </div>
+            <div class="spec-card">
+              <div class="spec-label">Stall Angle</div>
+              <div class="spec-val cyan" id="specStall">20°</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ==================== TAB 2: WIND TUNNEL & SKY ARENA ==================== -->
+    <section class="tab-view" id="view-arena">
+      <!-- Left/Center: Live Simulation Stage -->
+      <div class="arena-main">
+        <div class="glass-panel arena-stage-panel" id="arenaStage">
+          <canvas id="arenaCanvas"></canvas>
+
+          <!-- Telemetry HUD -->
+          <div class="hud-overlay">
+            <div class="hud-cluster">
+              <div class="hud-chip">
+                <div class="hud-chip-label">Airspeed</div>
+                <div class="hud-chip-val cyan" id="hudSpeed">0.0 m/s</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Altitude</div>
+                <div class="hud-chip-val emerald" id="hudAlt">0 m</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">AoA</div>
+                <div class="hud-chip-val" id="hudAoA">0.0°</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Live L/D</div>
+                <div class="hud-chip-val amber" id="hudLD">0.0</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Distance</div>
+                <div class="hud-chip-val" id="hudDist">0 m</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Rings</div>
+                <div class="hud-chip-val amber" id="hudRings">0</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Thermal</div>
+                <div class="hud-chip-val emerald" id="hudThermal">+0.0</div>
+              </div>
+            </div>
+
+            <div class="hud-cluster" style="justify-content:flex-end;">
+              <div class="stall-badge" id="hudStallBadge">⚠ STALL</div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Alive</div>
+                <div class="hud-chip-val cyan" id="hudAlive">0 / 0</div>
+              </div>
+              <div class="hud-chip">
+                <div class="hud-chip-label">Timer</div>
+                <div class="hud-chip-val amber" id="hudTimer">30.0s</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="arena-legend">
+            <span><i class="legend-dot" style="background:var(--emerald);"></i>Thermal Updraft</span>
+            <span><i class="legend-dot" style="background:var(--cyan);"></i>Wind Shear</span>
+            <span><i class="legend-dot" style="background:var(--amber);"></i>Target Ring</span>
+            <span><i class="legend-dot" style="background:var(--rose);"></i>Stall / Drag</span>
+          </div>
+
+          <!-- Manual Override Controls -->
+          <div class="manual-pad" id="manualPad">
+            <button class="btn btn-amber btn-sm" id="btnPitchUp">▲ Pitch Up (W / ↑)</button>
+            <button class="btn btn-cyan btn-sm" id="btnPitchDown">▼ Pitch Down (S / ↓)</button>
+            <button class="btn btn-emerald btn-sm" id="btnManualBoost">⚡ Boost (Space)</button>
+            <button class="btn btn-rose btn-sm" id="btnManualBrake">◼ Brake (B)</button>
+          </div>
+
+          <div class="episode-progress">
+            <div class="episode-progress-fill" id="episodeProgressFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Arena Controls & Learning Curve -->
+      <aside class="arena-sidebar">
+        <div class="glass-panel" style="flex:1;">
+          <div class="panel-header">
+            <div class="panel-title"><span>🎛</span> Swarm &amp; Tunnel Controls</div>
+            <button class="btn btn-sm btn-cyan" id="btnPausePlay">⏸ Pause</button>
+          </div>
+          <div class="panel-body">
+            <!-- Map Selector -->
+            <div class="ctrl-section">
+              <div class="ctrl-row">
+                <span class="ctrl-label">Flight Arena Map (4)</span>
+                <span class="ctrl-value" id="activeMapLabel">Calm Meadow</span>
+              </div>
+              <div class="map-grid" id="mapGrid"></div>
+            </div>
+
+            <!-- Manual Override Toggle -->
+            <div class="ctrl-section">
+              <div class="ctrl-row" style="margin-bottom:0;">
+                <span class="ctrl-label">Manual Up/Down Pitch Override</span>
+                <button class="btn btn-sm" id="btnManualToggle">Off (Neural AI)</button>
+              </div>
+            </div>
+
+            <!-- Swarm Size -->
+            <div class="ctrl-section">
+              <div class="ctrl-row">
+                <span class="ctrl-label">Neural Swarm Population</span>
+                <span class="ctrl-value" id="popValLabel">40 gliders</span>
+              </div>
+              <input type="range" id="sliderPop" min="1" max="1000" step="1" value="40" />
+              <div class="pill-row">
+                <button class="btn btn-sm pop-pill" data-pop="1">1</button>
+                <button class="btn btn-sm pop-pill" data-pop="20">20</button>
+                <button class="btn btn-sm pop-pill" data-pop="50">50</button>
+                <button class="btn btn-sm pop-pill" data-pop="100">100</button>
+                <button class="btn btn-sm pop-pill" data-pop="250">250</button>
+                <button class="btn btn-sm pop-pill" data-pop="500">500</button>
+                <button class="btn btn-sm pop-pill" data-pop="1000">1000</button>
+              </div>
+            </div>
+
+            <!-- Speed Controls -->
+            <div class="ctrl-section">
+              <div class="ctrl-row">
+                <span class="ctrl-label">Simulation Speed</span>
+                <span class="ctrl-value" id="speedValLabel">1.0x</span>
+              </div>
+              <input type="range" id="sliderSpeed" min="0" max="100" step="1" value="33" />
+              <div class="pill-row">
+                <button class="btn btn-sm spd-pill" data-spd="0.05">0.05x</button>
+                <button class="btn btn-sm spd-pill" data-spd="0.25">0.25x</button>
+                <button class="btn btn-sm spd-pill active-toggle" data-spd="1">1x</button>
+                <button class="btn btn-sm spd-pill" data-spd="5">5x</button>
+                <button class="btn btn-sm spd-pill" data-spd="25">25x</button>
+                <button class="btn btn-sm spd-pill" data-spd="100">100x</button>
+                <button class="btn btn-sm spd-pill" data-spd="500">500x</button>
+              </div>
+            </div>
+
+            <!-- Episode Timer -->
+            <div class="ctrl-section">
+              <div class="ctrl-row">
+                <span class="ctrl-label">Episode Duration</span>
+                <span class="ctrl-value" id="epTimeValLabel">30s</span>
+              </div>
+              <input type="range" id="sliderEpTime" min="5" max="300" step="5" value="30" />
+              <div class="pill-row">
+                <button class="btn btn-sm ep-pill" data-ep="15">15s</button>
+                <button class="btn btn-sm ep-pill active-toggle" data-ep="30">30s</button>
+                <button class="btn btn-sm ep-pill" data-ep="60">60s</button>
+                <button class="btn btn-sm ep-pill" data-ep="90">90s</button>
+              </div>
+            </div>
+
+            <!-- Generation Actions -->
+            <div class="ctrl-section">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <button class="btn btn-emerald" id="btnNextGen">⏭ Next Gen</button>
+                <button class="btn btn-rose" id="btnResetSwarm">↺ Reset ML</button>
+              </div>
+              <div class="ctrl-row" style="margin-top:8px;margin-bottom:0;">
+                <span class="ctrl-label">Show Aero Vectors</span>
+                <button class="btn btn-sm active-toggle" id="btnVectorsToggle">On</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Learning Curve Panel -->
+        <div class="glass-panel chart-panel">
+          <div class="panel-header" style="padding:7px 12px;">
+            <div class="panel-title"><span>📈</span> Learning Curve</div>
+            <span class="mini-tag emerald" id="chartBestBadge">Best: 0</span>
+          </div>
+          <div class="chart-wrap" id="chartWrap">
+            <canvas id="chartCanvas"></canvas>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* =========================================================================
+   * 1. MODULAR PARTS CATALOG (28 PARTS ACROSS 4 CATEGORIES)
+   * ========================================================================= */
+  const PARTS_CATALOG = [
+    // --- WINGS (7) ---
+    {
+      id: 'glider_airfoil', name: 'Glider Airfoil', cat: 'wings', icon: '🪽', color: '#38bdf8',
+      desc: 'Classic cambered soaring airfoil with balanced lift and low parasitic drag.',
+      mass: 0.75, lift: 1.45, drag: 0.032, pitchTorque: 0, stability: 0.15, stallBonus: 1.0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'airfoil'
+    },
+    {
+      id: 'swept_delta', name: 'Swept Delta', cat: 'wings', icon: '🔺', color: '#818cf8',
+      desc: 'High-speed swept delta wing with delayed stall angle and crisp roll-free tracking.',
+      mass: 0.95, lift: 1.15, drag: 0.024, pitchTorque: 0.1, stability: 0.25, stallBonus: 4.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'delta'
+    },
+    {
+      id: 'biplane_wing', name: 'Biplane Wing', cat: 'wings', icon: '☰', color: '#60a5fa',
+      desc: 'Stacked twin-wing strut assembly delivering huge low-speed lift for heavy payloads.',
+      mass: 1.25, lift: 2.15, drag: 0.068, pitchTorque: 0, stability: 0.2, stallBonus: 2.0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'biplane'
+    },
+    {
+      id: 'carbon_foil', name: 'Carbon Foil', cat: 'wings', icon: '⚡', color: '#22d3ee',
+      desc: 'Ultra-light carbon-fiber laminar foil engineered for peak glide ratio.',
+      mass: 0.45, lift: 1.35, drag: 0.020, pitchTorque: 0, stability: 0.12, stallBonus: 0.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'carbon'
+    },
+    {
+      id: 'albatross_span', name: 'Albatross Span', cat: 'wings', icon: '🕊', color: '#34d399',
+      desc: 'High-aspect soaring span that extracts maximum climb from rising thermals.',
+      mass: 0.85, lift: 1.85, drag: 0.026, pitchTorque: 0, stability: 0.18, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'airfoil'
+    },
+    {
+      id: 'canard_forewing', name: 'Canard Forewing', cat: 'wings', icon: '⮝', color: '#a78bfa',
+      desc: 'Forward lifting canard that adds nose-up pitch authority and stall resistance.',
+      mass: 0.42, lift: 0.65, drag: 0.018, pitchTorque: 0.55, stability: -0.05, stallBonus: 2.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'canard'
+    },
+    {
+      id: 'winglet_tip', name: 'Winglet Tip', cat: 'wings', icon: '⤴', color: '#0ea5e9',
+      desc: 'Upward tip fin that cuts induced vortex drag and steadies thermal banking.',
+      mass: 0.22, lift: 0.35, drag: -0.008, pitchTorque: 0, stability: 0.22, stallBonus: 1.0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'winglet'
+    },
+
+    // --- TAIL & CONTROL (7) ---
+    {
+      id: 'elevator', name: 'Elevator', cat: 'tail', icon: '⇅', color: '#34d399',
+      desc: 'Actuated tail pitch surface providing strong nose-up / nose-down torque.',
+      mass: 0.35, lift: 0.22, drag: 0.015, pitchTorque: 1.15, stability: 0.25, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'elevator'
+    },
+    {
+      id: 'stabilizer', name: 'Stabilizer', cat: 'tail', icon: '━', color: '#2dd4bf',
+      desc: 'Horizontal tailplane that damps oscillations and locks smooth glide trim.',
+      mass: 0.40, lift: 0.28, drag: 0.014, pitchTorque: 0.2, stability: 0.78, stallBonus: 0.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'stabilizer'
+    },
+    {
+      id: 'airbrake', name: 'Airbrake', cat: 'tail', icon: '⏹', color: '#fb7185',
+      desc: 'Deployable drag spoiler for rapid deceleration and tight aerial ring drops.',
+      mass: 0.45, lift: 0, drag: 0.014, pitchTorque: 0.1, stability: 0.15, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0.28, sensor: null, shape: 'airbrake'
+    },
+    {
+      id: 'v_tail_fin', name: 'V-Tail Fin', cat: 'tail', icon: '∨', color: '#10b981',
+      desc: 'Lightweight swept V-tail combining stabilizer damping with agile pitch control.',
+      mass: 0.32, lift: 0.20, drag: 0.012, pitchTorque: 0.75, stability: 0.55, stallBonus: 0.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'vtail'
+    },
+    {
+      id: 'trim_tab', name: 'Trim Tab', cat: 'tail', icon: '▬', color: '#6ee7b7',
+      desc: 'Featherweight micro-tab for ultra-light paper gliders and fine pitch trim.',
+      mass: 0.14, lift: 0.12, drag: 0.007, pitchTorque: 0.48, stability: 0.38, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'stabilizer'
+    },
+    {
+      id: 'flap_array', name: 'Flap Array', cat: 'tail', icon: '⇶', color: '#38bdf8',
+      desc: 'Trailing-edge high-lift flaps that boost slow-flight lift and raise stall margin.',
+      mass: 0.50, lift: 0.85, drag: 0.030, pitchTorque: 0.35, stability: 0.12, stallBonus: 3.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0.08, sensor: null, shape: 'flap'
+    },
+    {
+      id: 'rudder_fin', name: 'Rudder Fin', cat: 'tail', icon: '◿', color: '#06b6d4',
+      desc: 'Tall vertical fin that slices through hurricane wind shear with minimal yaw wobble.',
+      mass: 0.30, lift: 0.05, drag: 0.011, pitchTorque: 0.15, stability: 0.65, stallBonus: 1.0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'fin'
+    },
+
+    // --- PROPULSION (7) ---
+    {
+      id: 'micro_prop', name: 'Micro-Prop', cat: 'propulsion', icon: '🌀', color: '#facc15',
+      desc: 'Quiet electric micro-propeller providing continuous cruise thrust.',
+      mass: 0.55, lift: 0, drag: 0.018, pitchTorque: 0, stability: 0.05, stallBonus: 0,
+      thrust: 7.5, fuelTime: 999, brakeDrag: 0, sensor: null, shape: 'prop'
+    },
+    {
+      id: 'rubber_band', name: 'Rubber Band', cat: 'propulsion', icon: '➰', color: '#fbbf24',
+      desc: 'Wound elastic motor delivering a brisk 8-second climb burst after launch.',
+      mass: 0.28, lift: 0, drag: 0.010, pitchTorque: 0, stability: 0, stallBonus: 0,
+      thrust: 14.0, fuelTime: 8, brakeDrag: 0, sensor: null, shape: 'rubber'
+    },
+    {
+      id: 'rocket_booster', name: 'Rocket Booster', cat: 'propulsion', icon: '🚀', color: '#f97316',
+      desc: 'High-impulse solid rocket motor for blistering 4.5s dash & steep climbs.',
+      mass: 0.90, lift: 0, drag: 0.022, pitchTorque: 0, stability: 0.05, stallBonus: 0,
+      thrust: 32.0, fuelTime: 4.5, brakeDrag: 0, sensor: null, shape: 'rocket'
+    },
+    {
+      id: 'solar_wing', name: 'Solar Wing', cat: 'propulsion', icon: '☀', color: '#fde047',
+      desc: 'Photovoltaic wing panel generating infinite mild thrust plus auxiliary lift.',
+      mass: 0.62, lift: 0.95, drag: 0.024, pitchTorque: 0, stability: 0.14, stallBonus: 0,
+      thrust: 5.2, fuelTime: 999, brakeDrag: 0, sensor: null, shape: 'solar'
+    },
+    {
+      id: 'ducted_fan', name: 'Ducted Fan', cat: 'propulsion', icon: '◎', color: '#f59e0b',
+      desc: 'Shrouded electric EDF delivering smooth mid-high thrust for cargo airframes.',
+      mass: 0.85, lift: 0.05, drag: 0.020, pitchTorque: 0, stability: 0.10, stallBonus: 0,
+      thrust: 13.5, fuelTime: 999, brakeDrag: 0, sensor: null, shape: 'fan'
+    },
+    {
+      id: 'pulse_jet', name: 'Pulse Jet', cat: 'propulsion', icon: '🔥', color: '#ef4444',
+      desc: 'Lightweight valveless pulsejet with 10s high-speed burn and glowing exhaust.',
+      mass: 0.72, lift: 0, drag: 0.024, pitchTorque: 0, stability: 0, stallBonus: 0,
+      thrust: 24.0, fuelTime: 10, brakeDrag: 0, sensor: null, shape: 'rocket'
+    },
+    {
+      id: 'ion_thruster', name: 'Ion Thruster', cat: 'propulsion', icon: '✦', color: '#38bdf8',
+      desc: 'Featherlight electrostatic micro-thruster that gently sustains endless glide.',
+      mass: 0.25, lift: 0, drag: 0.008, pitchTorque: 0, stability: 0.05, stallBonus: 0,
+      thrust: 3.8, fuelTime: 999, brakeDrag: 0, sensor: null, shape: 'ion'
+    },
+
+    // --- BALLAST & SENSORS (7) ---
+    {
+      id: 'nose_weight', name: 'Nose Weight', cat: 'sensors', icon: '◉', color: '#94a3b8',
+      desc: 'Aerodynamic tungsten nose cone shifting CoM forward for headwind penetration.',
+      mass: 1.15, lift: 0, drag: 0.008, pitchTorque: 0, stability: 0.22, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'nose'
+    },
+    {
+      id: 'thermal_sniffer', name: 'Thermal Sniffer', cat: 'sensors', icon: '🌡', color: '#34d399',
+      desc: 'Infrared updraft detector feeding nearest thermal vector & strength to the AI.',
+      mass: 0.20, lift: 0, drag: 0.006, pitchTorque: 0, stability: 0.05, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: 'thermal', shape: 'sensor'
+    },
+    {
+      id: 'wind_vane', name: 'Wind Vane', cat: 'sensors', icon: '⚑', color: '#38bdf8',
+      desc: 'Precision airflow vane measuring Angle of Attack and wind shear gusts for AI.',
+      mass: 0.18, lift: 0, drag: 0.006, pitchTorque: 0, stability: 0.10, stallBonus: 0.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: 'wind', shape: 'sensor'
+    },
+    {
+      id: 'gyro', name: 'Gyro', cat: 'sensors', icon: '◎', color: '#a78bfa',
+      desc: 'MEMS rate gyroscope providing active pitch damping and angular velocity sensing.',
+      mass: 0.30, lift: 0, drag: 0.006, pitchTorque: 0.25, stability: 0.85, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: 'gyro', shape: 'core'
+    },
+    {
+      id: 'neural_core', name: 'Neural Core', cat: 'sensors', icon: '🧠', color: '#c084fc',
+      desc: 'Onboard neuromorphic processor expanding hidden neurons & sharpening ML evolution.',
+      mass: 0.26, lift: 0, drag: 0.006, pitchTorque: 0, stability: 0.10, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: 'neural', shape: 'core'
+    },
+    {
+      id: 'airspeed_pitot', name: 'Airspeed Pitot', cat: 'sensors', icon: '↦', color: '#38bdf8',
+      desc: 'Nose-mounted Pitot tube giving crisp airspeed & stall-margin telemetry.',
+      mass: 0.15, lift: 0, drag: 0.005, pitchTorque: 0, stability: 0.08, stallBonus: 0.5,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: 'pitot', shape: 'nose'
+    },
+    {
+      id: 'lead_trim', name: 'Lead Trim', cat: 'sensors', icon: '◼', color: '#64748b',
+      desc: 'Dense compact ballast block for fine-tuning Center of Mass anywhere on the frame.',
+      mass: 1.65, lift: 0, drag: 0.010, pitchTorque: 0, stability: 0.15, stallBonus: 0,
+      thrust: 0, fuelTime: 0, brakeDrag: 0, sensor: null, shape: 'block'
+    },
+    {"id": "gull_wing", "name": "Gull Soar Wing", "cat": "wings", "icon": "\ud83e\udd85", "color": "#38bdf8", "desc": "Bent gull-wing profile with strong dihedral roll stability in gusts.", "mass": 0.8, "lift": 1.62, "drag": 0.029, "pitchTorque": 0.05, "stability": 0.38, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "forward_swept", "name": "X-29 Forward Sweep", "cat": "wings", "icon": "\u2b9f", "color": "#a855f7", "desc": "Forward-swept transonic wing with razor pitch agility and high stall margin.", "mass": 0.92, "lift": 1.38, "drag": 0.025, "pitchTorque": 0.42, "stability": -0.04, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "paper_fold", "name": "Origami Paper Wing", "cat": "wings", "icon": "\ud83d\udcc4", "color": "#f8fafc", "desc": "Feather-light folded paper plane delta with tiny wing loading.", "mass": 0.18, "lift": 0.72, "drag": 0.015, "pitchTorque": 0.08, "stability": 0.14, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "stealth_wing", "name": "Stealth Flying Wing", "cat": "wings", "icon": "\ud83e\udd87", "color": "#64748b", "desc": "Faceted low-drag stealth airfoil built for blistering canyon sprints.", "mass": 0.95, "lift": 1.32, "drag": 0.017, "pitchTorque": 0.12, "stability": 0.28, "stallBonus": 2.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "box_wing", "name": "Prandtl Box Wing", "cat": "wings", "icon": "\u25ad", "color": "#2dd4bf", "desc": "Closed-loop biplane box wing that slashes induced vortex drag.", "mass": 1.08, "lift": 2.05, "drag": 0.036, "pitchTorque": 0, "stability": 0.45, "stallBonus": 2.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "biplane"},
+    {"id": "triplane_wing", "name": "Triplane Stack", "cat": "wings", "icon": "\u2261", "color": "#f59e0b", "desc": "Triple-stacked barnstormer wings for absurd slow-speed floating lift.", "mass": 1.45, "lift": 2.65, "drag": 0.092, "pitchTorque": 0.1, "stability": 0.25, "stallBonus": 3.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "biplane"},
+    {"id": "morph_carbon", "name": "Morphing Smart Foil", "cat": "wings", "icon": "\ud83e\uddec", "color": "#06b6d4", "desc": "Adaptive camber wing that flexes for both slow thermals and fast dives.", "mass": 0.58, "lift": 1.74, "drag": 0.021, "pitchTorque": 0.18, "stability": 0.24, "stallBonus": 3.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "eagle_feather", "name": "Bio-Feather Pinion", "cat": "wings", "icon": "\ud83e\udeb6", "color": "#fbbf24", "desc": "Slotted raptor wingtip feathers that prevent tip-stall in steep climbs.", "mass": 0.5, "lift": 1.55, "drag": 0.023, "pitchTorque": 0.12, "stability": 0.3, "stallBonus": 4.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "kite_sail", "name": "Parafoil Kite Wing", "cat": "wings", "icon": "\ud83e\ude81", "color": "#f472b6", "desc": "Soft ram-air canopy with ultra-gentle sink rate and soft landings.", "mass": 0.38, "lift": 1.6, "drag": 0.064, "pitchTorque": 0, "stability": 0.48, "stallBonus": 3.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "supercrit_foil", "name": "Supercritical Foil", "cat": "wings", "icon": "\u2708", "color": "#60a5fa", "desc": "Airliner-grade laminar wing built for high-speed cruise efficiency.", "mass": 0.88, "lift": 1.5, "drag": 0.019, "pitchTorque": 0, "stability": 0.26, "stallBonus": 1.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "slotted_flapper", "name": "Fowler High-Lift Wing", "cat": "wings", "icon": "\ud83d\udcd0", "color": "#34d399", "desc": "Multi-slotted flap wing generating huge climb lift at low airspeed.", "mass": 1.02, "lift": 2.25, "drag": 0.052, "pitchTorque": 0.08, "stability": 0.22, "stallBonus": 3.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "needle_blade", "name": "Supersonic Razor Foil", "cat": "wings", "icon": "\ud83d\udde1", "color": "#e2e8f0", "desc": "Paper-thin diamond airfoil for minimum drag during rocket sprints.", "mass": 0.62, "lift": 0.85, "drag": 0.011, "pitchTorque": 0.06, "stability": 0.18, "stallBonus": 2.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "condor_wing", "name": "Andean Condor Span", "cat": "wings", "icon": "\ud83e\udd85", "color": "#10b981", "desc": "Massive thermal-catching wing built to ride canyon updrafts forever.", "mass": 1.05, "lift": 2.12, "drag": 0.03, "pitchTorque": 0, "stability": 0.26, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "bat_membrane", "name": "Bat Membrane Wing", "cat": "wings", "icon": "\ud83e\udd87", "color": "#c084fc", "desc": "Flexible articulated membrane wing with snappy pitch response.", "mass": 0.46, "lift": 1.42, "drag": 0.031, "pitchTorque": 0.3, "stability": 0.14, "stallBonus": 2.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "balsa_rib", "name": "Balsa Ribbed Wing", "cat": "wings", "icon": "\ud83e\udeb5", "color": "#d97706", "desc": "Classic model-plane balsa wood wing\u2014featherweight and nimble.", "mass": 0.28, "lift": 1.08, "drag": 0.022, "pitchTorque": 0.05, "stability": 0.16, "stallBonus": 0.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "twin_canard", "name": "Twin Canard Array", "cat": "wings", "icon": "\u23eb", "color": "#818cf8", "desc": "Dual forward lifting canards for extreme acrobatic pitch authority.", "mass": 0.56, "lift": 0.92, "drag": 0.024, "pitchTorque": 0.82, "stability": -0.02, "stallBonus": 3.4, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "canard"},
+    {"id": "sharklet_tip", "name": "Curved Sharklet Tip", "cat": "wings", "icon": "\ud83e\udd88", "color": "#0284c7", "desc": "Blended sharklet wingtip reducing vortex drag and boosting L/D.", "mass": 0.26, "lift": 0.45, "drag": -0.011, "pitchTorque": 0, "stability": 0.28, "stallBonus": 1.4, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "winglet"},
+    {"id": "titanium_spar", "name": "Titanium Spar Wing", "cat": "wings", "icon": "\ud83d\udd29", "color": "#94a3b8", "desc": "Heavy reinforced aero wing that shrugs off violent hurricane shear.", "mass": 1.35, "lift": 1.78, "drag": 0.034, "pitchTorque": 0, "stability": 0.44, "stallBonus": 2.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "solar_canopy", "name": "Photovoltaic Sail", "cat": "wings", "icon": "\u2600\ufe0f", "color": "#facc15", "desc": "Wide solar-cell glider wing that adds steady micro-thrust + high lift.", "mass": 0.68, "lift": 1.68, "drag": 0.027, "pitchTorque": 0, "stability": 0.22, "stallBonus": 1.0, "thrust": 1.4, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "aerogel_wing", "name": "Aerogel Ultra-Foil", "cat": "wings", "icon": "\ud83e\uddca", "color": "#bae6fd", "desc": "Near-zero-mass silica aerogel wing for Mars-thin atmosphere soaring.", "mass": 0.16, "lift": 1.18, "drag": 0.018, "pitchTorque": 0, "stability": 0.1, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "manta_wing", "name": "Manta Blended Body", "cat": "wings", "icon": "\ud83d\udc0b", "color": "#38bdf8", "desc": "Smooth blended wing-body lifting hull with ultra-clean airflow.", "mass": 0.86, "lift": 1.66, "drag": 0.02, "pitchTorque": 0.16, "stability": 0.34, "stallBonus": 2.4, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "t_tail", "name": "High T-Tail Plane", "cat": "tail", "icon": "\u22a4", "color": "#34d399", "desc": "Elevated T-tail kept clear of wing wake for crisp high-AoA recovery.", "mass": 0.42, "lift": 0.26, "drag": 0.014, "pitchTorque": 0.92, "stability": 0.68, "stallBonus": 1.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "stabilizer"},
+    {"id": "twin_boom_tail", "name": "Twin-Boom Stabilizer", "cat": "tail", "icon": "\u256a", "color": "#2dd4bf", "desc": "Dual-boom tailplane offering rock-solid pitch damping.", "mass": 0.52, "lift": 0.32, "drag": 0.018, "pitchTorque": 0.65, "stability": 0.95, "stallBonus": 1.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "stabilizer"},
+    {"id": "all_moving_stab", "name": "All-Moving Stabilator", "cat": "tail", "icon": "\u2195", "color": "#38bdf8", "desc": "Full-flying fighter-jet tailplane with massive pitch authority.", "mass": 0.48, "lift": 0.3, "drag": 0.017, "pitchTorque": 1.65, "stability": 0.35, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "elevator"},
+    {"id": "split_dive_brake", "name": "Split Dive-Brake", "cat": "tail", "icon": "\u25e7", "color": "#fb7185", "desc": "Heavy-duty split tail speedbrake for precision ring-slalom dives.", "mass": 0.5, "lift": 0.04, "drag": 0.016, "pitchTorque": 0.22, "stability": 0.24, "stallBonus": 0.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.46, "sensor": null, "shape": "airbrake"},
+    {"id": "leading_slat", "name": "Auto Leading Slat", "cat": "tail", "icon": "\u2312", "color": "#60a5fa", "desc": "High-AoA leading-edge slat that adds +5.5\u00b0 stall protection.", "mass": 0.28, "lift": 0.38, "drag": 0.013, "pitchTorque": 0.15, "stability": 0.2, "stallBonus": 5.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "canard"},
+    {"id": "drag_chute", "name": "Drogue Parachute", "cat": "tail", "icon": "\ud83e\ude82", "color": "#f43f5e", "desc": "Pop-out tail chute for instant braking and ultra-slow descents.", "mass": 0.34, "lift": 0.1, "drag": 0.02, "pitchTorque": 0, "stability": 0.4, "stallBonus": 2.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.65, "sensor": null, "shape": "airbrake"},
+    {"id": "vector_paddle", "name": "Thrust-Vector Vane", "cat": "tail", "icon": "\ud83d\udd00", "color": "#f59e0b", "desc": "Exhaust-deflecting control vane for post-stall supermaneuverability.", "mass": 0.4, "lift": 0.12, "drag": 0.014, "pitchTorque": 1.5, "stability": 0.22, "stallBonus": 3.5, "thrust": 0.8, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "elevator"},
+    {"id": "inverted_vtail", "name": "Inverted V-Tail", "cat": "tail", "icon": "\u2227", "color": "#10b981", "desc": "Predator-drone style inverted V-tail with sleek low-drag damping.", "mass": 0.34, "lift": 0.24, "drag": 0.011, "pitchTorque": 0.82, "stability": 0.62, "stallBonus": 0.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "vtail"},
+    {"id": "sparrow_tail", "name": "Feather Fan Tail", "cat": "tail", "icon": "\ud83d\udd4a", "color": "#fbbf24", "desc": "Bio-inspired spreading tail fan for nimble thermal circling.", "mass": 0.22, "lift": 0.34, "drag": 0.013, "pitchTorque": 0.88, "stability": 0.44, "stallBonus": 1.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.12, "sensor": null, "shape": "vtail"},
+    {"id": "pelican_tail", "name": "Twin Fin Rudder", "cat": "tail", "icon": "\u2225", "color": "#818cf8", "desc": "Dual vertical stabilizers for steady tracking in hurricane crosswinds.", "mass": 0.38, "lift": 0.16, "drag": 0.013, "pitchTorque": 0.32, "stability": 0.88, "stallBonus": 0.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "stabilizer"},
+    {"id": "spoileron", "name": "Active Spoileron", "cat": "tail", "icon": "\u26c9", "color": "#f472b6", "desc": "Combined pitch-trim flap and instant drag spoiler.", "mass": 0.36, "lift": 0.18, "drag": 0.014, "pitchTorque": 0.95, "stability": 0.28, "stallBonus": 1.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.32, "sensor": null, "shape": "airbrake"},
+    {"id": "carbon_boom", "name": "Carbon Tail Boom", "cat": "tail", "icon": "\u2796", "color": "#cbd5e1", "desc": "Ultra-light structural tail spar that extends stabilizer leverage.", "mass": 0.18, "lift": 0.06, "drag": 0.006, "pitchTorque": 0.25, "stability": 0.48, "stallBonus": 0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "stabilizer"},
+    {"id": "aerobatic_stab", "name": "3D Aerobatic Flap", "cat": "tail", "icon": "\ud83d\udd04", "color": "#ec4899", "desc": "Oversized stunt control surface for instant loops and flips.", "mass": 0.44, "lift": 0.25, "drag": 0.022, "pitchTorque": 1.95, "stability": 0.1, "stallBonus": 2.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.14, "sensor": null, "shape": "elevator"},
+    {"id": "gurney_flap", "name": "Gurney Micro-Flap", "cat": "tail", "icon": "\u221f", "color": "#22d3ee", "desc": "Tiny trailing-edge tab adding clean lift with almost no mass.", "mass": 0.12, "lift": 0.32, "drag": 0.009, "pitchTorque": 0.35, "stability": 0.24, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "elevator"},
+    {"id": "ventral_fin", "name": "Ventral Keel Fin", "cat": "tail", "icon": "\u25bd", "color": "#0ea5e9", "desc": "Under-belly stabilizer fin that calms porpoising oscillations.", "mass": 0.26, "lift": 0.1, "drag": 0.009, "pitchTorque": 0.18, "stability": 0.72, "stallBonus": 0.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "vtail"},
+    {"id": "edf_duct", "name": "Ducted EDF Fan", "cat": "propulsion", "icon": "\ud83c\udf00", "color": "#38bdf8", "desc": "High-RPM electric ducted fan with crisp continuous cruise thrust.", "mass": 0.62, "lift": 0.06, "drag": 0.018, "pitchTorque": 0, "stability": 0.12, "stallBonus": 0, "thrust": 6.2, "fuelTime": 26, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "turbojet", "name": "Micro Turbojet", "cat": "propulsion", "icon": "\ud83d\udd25", "color": "#f97316", "desc": "Compact kerosene jet turbine delivering roaring sustained thrust.", "mass": 1.05, "lift": 0, "drag": 0.022, "pitchTorque": 0, "stability": 0.1, "stallBonus": 0, "thrust": 11.5, "fuelTime": 18, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "scramjet", "name": "Hypersonic Scramjet", "cat": "propulsion", "icon": "\u26a1", "color": "#ef4444", "desc": "Extreme-velocity ramjet engine built to shatter airspeed records.", "mass": 1.2, "lift": 0.1, "drag": 0.018, "pitchTorque": 0, "stability": 0.14, "stallBonus": 0, "thrust": 18.5, "fuelTime": 12, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "solid_srb", "name": "Solid Rocket Booster", "cat": "propulsion", "icon": "\ud83d\ude80", "color": "#fb7185", "desc": "Short-burn high-impulse booster for explosive launch climbs.", "mass": 0.95, "lift": 0, "drag": 0.026, "pitchTorque": 0, "stability": 0.05, "stallBonus": 0, "thrust": 22.0, "fuelTime": 5.5, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "ion_glider", "name": "Ionic Wind Thruster", "cat": "propulsion", "icon": "\ud83d\udca0", "color": "#22d3ee", "desc": "Silent solid-state electrohydrodynamic drive with unlimited runtime.", "mass": 0.35, "lift": 0.08, "drag": 0.008, "pitchTorque": 0, "stability": 0.16, "stallBonus": 0, "thrust": 2.8, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "twin_prop", "name": "Contra-Rotating Prop", "cat": "propulsion", "icon": "\u2699\ufe0f", "color": "#34d399", "desc": "Balanced dual propeller pulling smoothly with zero torque roll.", "mass": 0.74, "lift": 0.12, "drag": 0.02, "pitchTorque": 0, "stability": 0.26, "stallBonus": 0, "thrust": 7.4, "fuelTime": 34, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "nitro_puff", "name": "Nitrous Burst Pod", "cat": "propulsion", "icon": "\ud83d\udca8", "color": "#38bdf8", "desc": "Lightweight emergency speed-burst pod for clearing dead-air gaps.", "mass": 0.45, "lift": 0, "drag": 0.015, "pitchTorque": 0, "stability": 0.05, "stallBonus": 0, "thrust": 14.0, "fuelTime": 6.0, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "co2_cartridge", "name": "CO2 Model Thruster", "cat": "propulsion", "icon": "\ud83e\udee7", "color": "#bae6fd", "desc": "Tiny pressurized gas motor ideal for ultralight balsa & paper planes.", "mass": 0.22, "lift": 0, "drag": 0.01, "pitchTorque": 0, "stability": 0.06, "stallBonus": 0, "thrust": 4.5, "fuelTime": 10.0, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "afterburner_jet", "name": "Afterburner Turbine", "cat": "propulsion", "icon": "\ud83d\udca5", "color": "#f43f5e", "desc": "Fighter-grade reheat jet blasting 16N of blazing forward push.", "mass": 1.18, "lift": 0, "drag": 0.025, "pitchTorque": 0.1, "stability": 0.1, "stallBonus": 0, "thrust": 16.5, "fuelTime": 14, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "folding_prop", "name": "Folding Motor-Glider", "cat": "propulsion", "icon": "\ud83d\udd04", "color": "#2dd4bf", "desc": "Sleek nose prop that folds flush to eliminate drag after burnout.", "mass": 0.48, "lift": 0.05, "drag": 0.009, "pitchTorque": 0, "stability": 0.15, "stallBonus": 0, "thrust": 5.2, "fuelTime": 22, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "ram_air_jet", "name": "Ramjet Intake Pod", "cat": "propulsion", "icon": "\ud83c\udf2c", "color": "#60a5fa", "desc": "High-speed intake thruster with low parasitic drag.", "mass": 0.84, "lift": 0.04, "drag": 0.015, "pitchTorque": 0, "stability": 0.12, "stallBonus": 0, "thrust": 12.8, "fuelTime": 16, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "hydrogen_cell", "name": "Hydrogen Fuel-Cell Prop", "cat": "propulsion", "icon": "\ud83d\udd0b", "color": "#4ade80", "desc": "Ultra-long endurance clean-energy propeller for marathon flights.", "mass": 0.66, "lift": 0.06, "drag": 0.014, "pitchTorque": 0, "stability": 0.18, "stallBonus": 0, "thrust": 4.8, "fuelTime": 180, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "steam_jet", "name": "Steampunk Boiler Jet", "cat": "propulsion", "icon": "\u2668\ufe0f", "color": "#d97706", "desc": "Heavy pressurized steam thruster with quirky sustained push.", "mass": 1.1, "lift": 0, "drag": 0.026, "pitchTorque": 0, "stability": 0.12, "stallBonus": 0, "thrust": 8.5, "fuelTime": 28, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "vtol_fan", "name": "Tilt-Lift Vector Fan", "cat": "propulsion", "icon": "\ud83d\ude81", "color": "#a78bfa", "desc": "Angled lift-fan adding both forward thrust and steady upward lift.", "mass": 0.82, "lift": 0.85, "drag": 0.024, "pitchTorque": 0.15, "stability": 0.24, "stallBonus": 1.5, "thrust": 5.8, "fuelTime": 40, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "flapping_drive", "name": "Ornithopter Flapper", "cat": "propulsion", "icon": "\ud83e\udd8b", "color": "#f472b6", "desc": "Bio-mechanical flapping drive generating lift + endless gentle thrust.", "mass": 0.52, "lift": 0.72, "drag": 0.022, "pitchTorque": 0.12, "stability": 0.18, "stallBonus": 2.0, "thrust": 3.4, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "methanol_prop", "name": "Nitro-Glow RC Engine", "cat": "propulsion", "icon": "\ud83c\udfce", "color": "#f59e0b", "desc": "Screaming 2-stroke RC airplane engine with punchy acceleration.", "mass": 0.58, "lift": 0, "drag": 0.02, "pitchTorque": 0, "stability": 0.08, "stallBonus": 0, "thrust": 8.8, "fuelTime": 20, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "solar_turbo", "name": "Solar-Capacitor EDF", "cat": "propulsion", "icon": "\ud83c\udf1e", "color": "#fde047", "desc": "Solar-fed electric fan with infinite runtime and crisp climb.", "mass": 0.56, "lift": 0.35, "drag": 0.015, "pitchTorque": 0, "stability": 0.16, "stallBonus": 0, "thrust": 4.2, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "prop"},
+    {"id": "fly_brain", "name": "Drosophila Fly Brain", "cat": "sensors", "icon": "\ud83e\udeb0", "color": "#facc15", "desc": "Bio-inspired optic-flow flight brain with crisp horizon reflexes.", "mass": 0.25, "lift": 0, "drag": 0.006, "pitchTorque": 0.25, "stability": 0.45, "stallBonus": 2.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
+    {"id": "lidar_cone", "name": "Forward Terrain LiDAR", "cat": "sensors", "icon": "\ud83d\udce1", "color": "#2dd4bf", "desc": "Scans canyon floors, ceilings, and rings ahead for neural inputs.", "mass": 0.3, "lift": 0, "drag": 0.008, "pitchTorque": 0, "stability": 0.22, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "thermal", "shape": "sensor"},
+    {"id": "barometer", "name": "Precision Variometer", "cat": "sensors", "icon": "\ud83d\udcdf", "color": "#38bdf8", "desc": "Glider climb-rate beeper that locks onto rising thermal cores.", "mass": 0.16, "lift": 0, "drag": 0.004, "pitchTorque": 0, "stability": 0.18, "stallBonus": 0.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "thermal", "shape": "sensor"},
+    {"id": "bubble_canopy", "name": "Aero Bubble Canopy", "cat": "sensors", "icon": "\ud83e\udee7", "color": "#7dd3fc", "desc": "Streamlined polycarbonate cockpit fairing cutting nose drag.", "mass": 0.32, "lift": 0.14, "drag": -0.007, "pitchTorque": 0, "stability": 0.16, "stallBonus": 0.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"},
+    {"id": "nose_cone", "name": "Supersonic Nose Cone", "cat": "sensors", "icon": "\u27a4", "color": "#e2e8f0", "desc": "Needle-sharp fairing that slices through headwinds with minimal drag.", "mass": 0.42, "lift": 0.06, "drag": -0.01, "pitchTorque": 0, "stability": 0.22, "stallBonus": 0.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"},
+    {"id": "carbon_pod", "name": "Carbon Fuselage Pod", "cat": "sensors", "icon": "\ud83e\uddb4", "color": "#94a3b8", "desc": "Lightweight structural fuselage core with low drag.", "mass": 0.36, "lift": 0.1, "drag": 0.005, "pitchTorque": 0, "stability": 0.2, "stallBonus": 0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "tungsten_ballast", "name": "Tungsten Nose Slug", "cat": "sensors", "icon": "\u2693", "color": "#475569", "desc": "Ultra-dense forward ballast for screaming high-speed penetration.", "mass": 2.2, "lift": 0, "drag": 0.008, "pitchTorque": 0, "stability": 0.28, "stallBonus": 0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"},
+    {"id": "helium_pod", "name": "Helium Buoyancy Pod", "cat": "sensors", "icon": "\ud83c\udf88", "color": "#f472b6", "desc": "Internal lift-gas bladder reducing effective weight for floaty glides.", "mass": 0.12, "lift": 0.62, "drag": 0.018, "pitchTorque": 0, "stability": 0.22, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "aoa_vane", "name": "Stall-Guard AoA Vane", "cat": "sensors", "icon": "\ud83e\udded", "color": "#4ade80", "desc": "Active angle-of-attack probe granting +4.0\u00b0 stall margin.", "mass": 0.18, "lift": 0, "drag": 0.005, "pitchTorque": 0.14, "stability": 0.28, "stallBonus": 4.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "pitot", "shape": "sensor"},
+    {"id": "ocelli_eye", "name": "Horizon Ocelli Sensor", "cat": "sensors", "icon": "\ud83d\udd06", "color": "#fbbf24", "desc": "Insect horizon-lock optics that damp sudden pitch tumbles.", "mass": 0.14, "lift": 0, "drag": 0.004, "pitchTorque": 0.12, "stability": 0.55, "stallBonus": 1.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
+    {"id": "drop_tank", "name": "Aero Belly Tank", "cat": "sensors", "icon": "\ud83d\udee2", "color": "#64748b", "desc": "Streamlined fuel reserve adding +20s burn time to any propulsion.", "mass": 0.75, "lift": 0.04, "drag": 0.01, "pitchTorque": 0, "stability": 0.14, "stallBonus": 0, "thrust": 0.5, "fuelTime": 25, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "ring_beacon", "name": "Ring-Lock GPS Pod", "cat": "sensors", "icon": "\ud83d\udef0", "color": "#22c55e", "desc": "Aerial target tracker feeding crisp ring vector guidance to the NN.", "mass": 0.2, "lift": 0, "drag": 0.006, "pitchTorque": 0.1, "stability": 0.2, "stallBonus": 0.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "thermal", "shape": "sensor"},
+    {"id": "radar_dome", "name": "Storm Weather Radar", "cat": "sensors", "icon": "\ud83c\udf10", "color": "#818cf8", "desc": "Predicts wind shear gusts and stabilizes attitude in turbulence.", "mass": 0.38, "lift": 0, "drag": 0.009, "pitchTorque": 0.15, "stability": 0.62, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "wind", "shape": "sensor"},
+    {"id": "imu_6axis", "name": "6-Axis Racing IMU", "cat": "sensors", "icon": "\ud83d\udcf2", "color": "#38bdf8", "desc": "Ultra-fast gyro & accelerometer suite for buttery smooth control.", "mass": 0.16, "lift": 0, "drag": 0.004, "pitchTorque": 0.22, "stability": 0.58, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
+    {"id": "smoke_pod", "name": "Aerobatic Smoke Pod", "cat": "sensors", "icon": "\ud83d\udca8", "color": "#e879f9", "desc": "Light stunt pod with clean trim and style flair.", "mass": 0.2, "lift": 0.05, "drag": 0.007, "pitchTorque": 0.18, "stability": 0.16, "stallBonus": 0.8, "thrust": 0.4, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "rubber_nose", "name": "Bouncy Nose Bumper", "cat": "sensors", "icon": "\ud83c\udfc0", "color": "#f97316", "desc": "Cushioned shock nose cone with forgiving low-angle touch-and-go.", "mass": 0.45, "lift": 0, "drag": 0.012, "pitchTorque": 0, "stability": 0.26, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"},
+    {"id": "hebbian_chip", "name": "Hebbian Flight Chip", "cat": "sensors", "icon": "\ud83e\udde9", "color": "#22d3ee", "desc": "Adaptive neural co-processor that sharpens pitch trim responses.", "mass": 0.22, "lift": 0, "drag": 0.005, "pitchTorque": 0.3, "stability": 0.34, "stallBonus": 1.6, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "core", "shape": "sensor"},
+    {"id": "paper_clip", "name": "Paperclip Nose Weight", "cat": "sensors", "icon": "\ud83d\udcce", "color": "#cbd5e1", "desc": "Classic 0.15kg paper-airplane nose trim clip.", "mass": 0.15, "lift": 0, "drag": 0.003, "pitchTorque": 0, "stability": 0.22, "stallBonus": 0.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "nose"},
+    {"id": "titanium_core", "name": "Armored Spine Core", "cat": "sensors", "icon": "\ud83e\uddf1", "color": "#64748b", "desc": "Dense central fuselage anchor for heavy jet & cargo designs.", "mass": 1.4, "lift": 0, "drag": 0.009, "pitchTorque": 0, "stability": 0.36, "stallBonus": 0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "op_phoenix_wing", "name": "Phoenix Thermal Wing", "cat": "op", "icon": "\ud83d\udd25", "color": "#fb7185", "desc": "OP: Blazing mythic wing with massive 2.65 lift & ultra-low drag!", "mass": 0.45, "lift": 2.65, "drag": 0.014, "pitchTorque": 0.25, "stability": 0.48, "stallBonus": 6.0, "thrust": 2.5, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "op_antigrav", "name": "Anti-Gravity Halo", "cat": "op", "icon": "\ud83d\ude07", "color": "#7dd3fc", "desc": "OP: Levitation ring giving huge weightless lift and gyro calm.", "mass": 0.15, "lift": 2.35, "drag": 0.008, "pitchTorque": 0.2, "stability": 0.85, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
+    {"id": "op_einstein", "name": "Einstein Flight Brain", "cat": "op", "icon": "\ud83e\udde0", "color": "#fbbf24", "desc": "OP: Genius avionics core with full thermal/gyro/stall mastery.", "mass": 0.3, "lift": 0.25, "drag": 0.004, "pitchTorque": 0.85, "stability": 1.1, "stallBonus": 6.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "core", "shape": "sensor"},
+    {"id": "op_warp_jet", "name": "Warp Plasma Thruster", "cat": "op", "icon": "\ud83d\ude80", "color": "#f43f5e", "desc": "OP: Endless 24N plasma vector engine for cosmic canyon sprints!", "mass": 0.65, "lift": 0.15, "drag": 0.01, "pitchTorque": 0.3, "stability": 0.25, "stallBonus": 2.0, "thrust": 24.0, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "op_quantum_foil", "name": "Quantum Laminar Foil", "cat": "op", "icon": "\u269b\ufe0f", "color": "#c084fc", "desc": "OP: Frictionless quantum wing with absurd glide ratio.", "mass": 0.25, "lift": 2.2, "drag": 0.006, "pitchTorque": 0.15, "stability": 0.42, "stallBonus": 4.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "carbon"},
+    {"id": "op_chrono_core", "name": "Chrono Trim Core", "cat": "op", "icon": "\u23f3", "color": "#2dd4bf", "desc": "OP: Ultra-stable temporal flight computer with +0.95 damping.", "mass": 0.24, "lift": 0.2, "drag": 0.004, "pitchTorque": 0.7, "stability": 0.95, "stallBonus": 4.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "thermal", "shape": "sensor"},
+    {"id": "op_dragon_wing", "name": "Dragon Soar Wing", "cat": "op", "icon": "\ud83d\udc09", "color": "#ef4444", "desc": "OP: Colossal mythic wing with 2.95 lift and fierce pitch authority.", "mass": 0.72, "lift": 2.95, "drag": 0.022, "pitchTorque": 0.45, "stability": 0.38, "stallBonus": 5.5, "thrust": 1.8, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "delta"},
+    {"id": "op_omega_gyro", "name": "Omega Flight Gyro", "cat": "op", "icon": "\ud83c\udf00", "color": "#818cf8", "desc": "OP: Practically un-stallable attitude lock stabilizer.", "mass": 0.35, "lift": 0.1, "drag": 0.005, "pitchTorque": 0.55, "stability": 1.45, "stallBonus": 8.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
+    {"id": "op_solar_star", "name": "Dyson Solar Sail", "cat": "op", "icon": "\u2728", "color": "#fde047", "desc": "OP: Infinite-endurance photonic sail with 2.1 lift & 8N thrust.", "mass": 0.32, "lift": 2.1, "drag": 0.011, "pitchTorque": 0.1, "stability": 0.35, "stallBonus": 3.0, "thrust": 8.0, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "op_hyper_tail", "name": "Hyper-Vector Tail", "cat": "op", "icon": "\u26a1", "color": "#38bdf8", "desc": "OP: Instant-response plasma control tail (+2.4 pitch torque).", "mass": 0.26, "lift": 0.45, "drag": 0.008, "pitchTorque": 2.4, "stability": 0.75, "stallBonus": 4.0, "thrust": 2.0, "fuelTime": 999, "brakeDrag": 0.35, "sensor": null, "shape": "vtail"},
+    {"id": "op_aegis_nose", "name": "Aegis Aero Nose", "cat": "op", "icon": "\ud83d\udee1\ufe0f", "color": "#38bdf8", "desc": "OP: Negative-drag forcefield fairing that slices wind effortlessly.", "mass": 0.28, "lift": 0.35, "drag": -0.022, "pitchTorque": 0.15, "stability": 0.5, "stallBonus": 3.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "wind", "shape": "nose"},
+    {"id": "op_singularity", "name": "Singularity Core", "cat": "op", "icon": "\ud83c\udf0c", "color": "#a855f7", "desc": "OP: Warps local airflow for +1.8 lift, -0.015 drag & 6N pulse.", "mass": 0.35, "lift": 1.8, "drag": -0.015, "pitchTorque": 0.4, "stability": 0.65, "stallBonus": 4.0, "thrust": 6.0, "fuelTime": 999, "brakeDrag": 0, "sensor": "core", "shape": "sensor"},
+    {"id": "op_angel_wing", "name": "Seraphim Wing Pair", "cat": "op", "icon": "\ud83e\udebd", "color": "#f8fafc", "desc": "OP: Featherweight celestial wings with effortless glide.", "mass": 0.2, "lift": 2.45, "drag": 0.012, "pitchTorque": 0.2, "stability": 0.6, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "airfoil"},
+    {"id": "op_fusion_jet", "name": "Fusion Scram-Core", "cat": "op", "icon": "\u2622\ufe0f", "color": "#a3e635", "desc": "OP: Endless 19N fusion drive for non-stop supersonic climbing.", "mass": 0.78, "lift": 0.1, "drag": 0.012, "pitchTorque": 0.15, "stability": 0.2, "stallBonus": 1.5, "thrust": 19.0, "fuelTime": 999, "brakeDrag": 0, "sensor": null, "shape": "rocket"},
+    {"id": "op_tornado_pod", "name": "Vortex Lift Generator", "cat": "op", "icon": "\ud83c\udf2a", "color": "#2dd4bf", "desc": "OP: Artificial mini-thermal generator creating constant updraft lift.", "mass": 0.34, "lift": 2.15, "drag": 0.014, "pitchTorque": 0.22, "stability": 0.42, "stallBonus": 4.2, "thrust": 3.2, "fuelTime": 999, "brakeDrag": 0, "sensor": "thermal", "shape": "prop"},
+    {"id": "op_zero_drag_tip", "name": "Plasma Winglet", "cat": "op", "icon": "\ud83d\udca0", "color": "#22d3ee", "desc": "OP: Cancels induced drag (-0.020) and sharpens high-speed turns.", "mass": 0.14, "lift": 0.75, "drag": -0.02, "pitchTorque": 0.18, "stability": 0.45, "stallBonus": 2.8, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "winglet"},
+    {"id": "op_star_canard", "name": "Starfighter Canard", "cat": "op", "icon": "\ud83c\udf1f", "color": "#facc15", "desc": "OP: Extreme-agility forward foil (+1.35 pitch & +5\u00b0 stall bonus).", "mass": 0.28, "lift": 1.25, "drag": 0.01, "pitchTorque": 1.35, "stability": 0.3, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "canard"},
+    {"id": "op_disco_core", "name": "Cosmic Disco Core", "cat": "op", "icon": "\ud83e\udea9", "color": "#e879f9", "desc": "OP: Groovy anti-drag prism with smooth +0.75 stability & 4N push.", "mass": 0.25, "lift": 0.95, "drag": -0.008, "pitchTorque": 0.4, "stability": 0.75, "stallBonus": 3.0, "thrust": 4.0, "fuelTime": 999, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
+    {"id": "op_crown_fin", "name": "Sky-Emperor Crown", "cat": "op", "icon": "\ud83d\udc51", "color": "#fde047", "desc": "OP: Royal aerodynamic crest with bonus lift and stall immunity.", "mass": 0.16, "lift": 1.1, "drag": -0.01, "pitchTorque": 0.35, "stability": 0.55, "stallBonus": 5.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "winglet"},
+    {"id": "op_hyper_brake", "name": "Grav-Airbrake Field", "cat": "op", "icon": "\u23f9", "color": "#fb7185", "desc": "OP: Instant precision speedbrake with zero passive drag.", "mass": 0.24, "lift": 0.2, "drag": 0.002, "pitchTorque": 0.6, "stability": 0.45, "stallBonus": 2.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0.85, "sensor": null, "shape": "airbrake"}
+  ];
+
+  const PART_BY_ID = Object.create(null);
+  for (let i = 0; i < PARTS_CATALOG.length; i++) {
+    PART_BY_ID[PARTS_CATALOG[i].id] = PARTS_CATALOG[i];
+  }
+
+  /* =========================================================================
+   * 2. FIVE AIRFRAME PRESETS
+   * Grid coordinates: gx in [-7..7], gy in [-4..4]; +gx is Nose (right), -gy is Up
+   * ========================================================================= */
+  const PRESETS = [
+    {
+      id: 'thermal_soarer',
+      name: 'Thermal Soarer',
+      sub: 'Ultra-high L/D · Solar + Thermal Sniffer',
+      parts: [
+        { gx: -4, gy: 0, id: 'stabilizer' },
+        { gx: -4, gy: -1, id: 'elevator' },
+        { gx: -3, gy: 0, id: 'trim_tab' },
+        { gx: -2, gy: 0, id: 'albatross_span' },
+        { gx: -1, gy: 0, id: 'carbon_foil' },
+        { gx: 0, gy: 0, id: 'glider_airfoil' },
+        { gx: 0, gy: -1, id: 'solar_wing' },
+        { gx: 1, gy: 0, id: 'neural_core' },
+        { gx: 1, gy: -1, id: 'winglet_tip' },
+        { gx: 2, gy: 0, id: 'thermal_sniffer' },
+        { gx: 3, gy: 0, id: 'nose_weight' }
+      ]
+    },
+    {
+      id: 'dart_jet',
+      name: 'Dart Jet',
+      sub: 'High-speed swept delta + Rocket & Pulse Jet',
+      parts: [
+        { gx: -3, gy: 0, id: 'rocket_booster' },
+        { gx: -3, gy: -1, id: 'v_tail_fin' },
+        { gx: -2, gy: 0, id: 'pulse_jet' },
+        { gx: -1, gy: 0, id: 'swept_delta' },
+        { gx: 0, gy: 0, id: 'swept_delta' },
+        { gx: 0, gy: -1, id: 'gyro' },
+        { gx: 1, gy: 0, id: 'neural_core' },
+        { gx: 2, gy: 0, id: 'nose_weight' },
+        { gx: 3, gy: 0, id: 'airspeed_pitot' }
+      ]
+    },
+    {
+      id: 'paper_glider',
+      name: 'Paper Glider',
+      sub: 'Featherweight minimalist dart · Pure glide',
+      parts: [
+        { gx: -2, gy: 0, id: 'trim_tab' },
+        { gx: -1, gy: 0, id: 'carbon_foil' },
+        { gx: 0, gy: 0, id: 'glider_airfoil' },
+        { gx: 1, gy: 0, id: 'wind_vane' },
+        { gx: 2, gy: 0, id: 'airspeed_pitot' }
+      ]
+    },
+    {
+      id: 'heavy_cargo',
+      name: 'Heavy Cargo',
+      sub: 'Twin-wing biplane · Ducted Fan + Airbrake',
+      parts: [
+        { gx: -4, gy: 0, id: 'stabilizer' },
+        { gx: -4, gy: -1, id: 'elevator' },
+        { gx: -3, gy: 0, id: 'airbrake' },
+        { gx: -2, gy: 0, id: 'flap_array' },
+        { gx: -1, gy: 0, id: 'biplane_wing' },
+        { gx: 0, gy: 0, id: 'biplane_wing' },
+        { gx: 0, gy: 1, id: 'lead_trim' },
+        { gx: 1, gy: 0, id: 'ducted_fan' },
+        { gx: 1, gy: -1, id: 'gyro' },
+        { gx: 2, gy: 0, id: 'micro_prop' },
+        { gx: 2, gy: 1, id: 'neural_core' },
+        { gx: 3, gy: 0, id: 'nose_weight' }
+      ]
+    },
+    {
+      id: 'flying_wing',
+      name: 'Flying Wing',
+      sub: 'Tailless swept wing · Canard + Gyro + Prop',
+      parts: [
+        { gx: -2, gy: 0, id: 'micro_prop' },
+        { gx: -1, gy: 0, id: 'swept_delta' },
+        { gx: -1, gy: -1, id: 'winglet_tip' },
+        { gx: 0, gy: 0, id: 'carbon_foil' },
+        { gx: 0, gy: -1, id: 'gyro' },
+        { gx: 1, gy: 0, id: 'neural_core' },
+        { gx: 1, gy: -1, id: 'thermal_sniffer' },
+        { gx: 2, gy: 0, id: 'canard_forewing' },
+        { gx: 3, gy: 0, id: 'nose_weight' }
+      ]
+    },
+    {"id": "stealth_interceptor", "name": "Stealth Interceptor", "sub": "Low-drag stealth delta + Micro Turbojet", "parts": [{"gx": -4, "gy": 0, "id": "inverted_vtail"}, {"gx": -3, "gy": 0, "id": "turbojet"}, {"gx": -2, "gy": 0, "id": "stealth_wing"}, {"gx": -1, "gy": 0, "id": "stealth_wing"}, {"gx": 0, "gy": 0, "id": "forward_swept"}, {"gx": 1, "gy": 0, "id": "imu_6axis"}, {"gx": 2, "gy": 0, "id": "nose_cone"}]},
+    {"id": "biplane_barnstormer", "name": "Biplane Barnstormer", "sub": "Twin-stack lift + Contra-Prop + 3D Stunt Tail", "parts": [{"gx": -4, "gy": 0, "id": "aerobatic_stab"}, {"gx": -3, "gy": 0, "id": "carbon_boom"}, {"gx": -1, "gy": 0, "id": "biplane_wing"}, {"gx": 0, "gy": 0, "id": "biplane_wing"}, {"gx": 0, "gy": -1, "id": "winglet_tip"}, {"gx": 1, "gy": 0, "id": "fly_brain"}, {"gx": 2, "gy": 0, "id": "twin_prop"}]},
+    {"id": "solar_albatross", "name": "Solar Albatross Pro", "sub": "Endless Solar Sail + Condor Span + Variometer", "parts": [{"gx": -4, "gy": 0, "id": "t_tail"}, {"gx": -2, "gy": 0, "id": "condor_wing"}, {"gx": -1, "gy": 0, "id": "solar_canopy"}, {"gx": 0, "gy": 0, "id": "morph_carbon"}, {"gx": 0, "gy": -1, "id": "sharklet_tip"}, {"gx": 1, "gy": 0, "id": "barometer"}, {"gx": 2, "gy": 0, "id": "ion_glider"}, {"gx": 3, "gy": 0, "id": "bubble_canopy"}]},
+    {"id": "scramjet_dart", "name": "Hypersonic Scramjet", "sub": "Scramjet + Razor Foil + All-Moving Tail", "parts": [{"gx": -4, "gy": 0, "id": "all_moving_stab"}, {"gx": -3, "gy": 0, "id": "scramjet"}, {"gx": -2, "gy": 0, "id": "drop_tank"}, {"gx": -1, "gy": 0, "id": "needle_blade"}, {"gx": 0, "gy": 0, "id": "swept_delta"}, {"gx": 1, "gy": 0, "id": "aoa_vane"}, {"gx": 2, "gy": 0, "id": "nose_cone"}]},
+    {"id": "aerogel_soarer", "name": "Feather Aerogel Glider", "sub": "Ultra-lightweight Aerogel + Origami + CO2", "parts": [{"gx": -3, "gy": 0, "id": "sparrow_tail"}, {"gx": -1, "gy": 0, "id": "aerogel_wing"}, {"gx": 0, "gy": 0, "id": "paper_fold"}, {"gx": 1, "gy": 0, "id": "ocelli_eye"}, {"gx": 2, "gy": 0, "id": "paper_clip"}]},
+    {"id": "einstein_soarer", "name": "Einstein Auto-Soarer", "sub": "Einstein Brain + Box Wing + Solar EDF", "parts": [{"gx": -4, "gy": 0, "id": "t_tail"}, {"gx": -2, "gy": 0, "id": "box_wing"}, {"gx": -1, "gy": 0, "id": "morph_carbon"}, {"gx": 0, "gy": 0, "id": "op_einstein"}, {"gx": 1, "gy": 0, "id": "lidar_cone"}, {"gx": 2, "gy": 0, "id": "solar_turbo"}, {"gx": 3, "gy": 0, "id": "bubble_canopy"}]},
+    {"id": "op_phoenix", "name": "\ud83d\udd25 OP Phoenix Mythic", "sub": "Phoenix Wings + Warp Jet + Anti-Grav Halo", "parts": [{"gx": -4, "gy": 0, "id": "op_hyper_tail"}, {"gx": -3, "gy": 0, "id": "op_warp_jet"}, {"gx": -1, "gy": 0, "id": "op_phoenix_wing"}, {"gx": 0, "gy": 0, "id": "op_quantum_foil"}, {"gx": 0, "gy": -1, "id": "op_antigrav"}, {"gx": 1, "gy": 0, "id": "op_einstein"}, {"gx": 2, "gy": 0, "id": "op_aegis_nose"}]}
+  ];
+
+  /* =========================================================================
+   * 3. FOUR ARENA MAPS
+   * ========================================================================= */
+  const MAPS = [
+    {
+      id: 'calm_meadow',
+      name: 'Calm Meadow',
+      tag: 'Gentle breeze · Steady thermals',
+      baseWind: -1.5,
+      gustStrength: 2.2,
+      gustFreq: 0.45,
+      thermalCount: 8,
+      thermalStrength: [5.5, 9.5],
+      terrainAmp: 38,
+      terrainFreq: 0.0022,
+      ringCount: 16,
+      ringPattern: 'gentle',
+      skyTop: '#050a14',
+      skyMid: '#0b182e',
+      skyBot: '#10243d',
+      ridgeColor: '#0e2236'
+    },
+    {
+      id: 'thermal_canyon',
+      name: 'Thermal Canyon',
+      tag: 'Giant updrafts · Deep cliffs',
+      baseWind: -2.2,
+      gustStrength: 3.5,
+      gustFreq: 0.65,
+      thermalCount: 12,
+      thermalStrength: [8.5, 14.5],
+      terrainAmp: 82,
+      terrainFreq: 0.0036,
+      ringCount: 18,
+      ringPattern: 'high_soar',
+      skyTop: '#070912',
+      skyMid: '#131830',
+      skyBot: '#1d2236',
+      ridgeColor: '#1b1d30'
+    },
+    {
+      id: 'hurricane_ridge',
+      name: 'Hurricane Ridge',
+      tag: 'Fierce wind shear · Storm gusts',
+      baseWind: -7.5,
+      gustStrength: 10.5,
+      gustFreq: 1.25,
+      thermalCount: 9,
+      thermalStrength: [6.0, 12.0],
+      terrainAmp: 95,
+      terrainFreq: 0.0044,
+      ringCount: 16,
+      ringPattern: 'ridge',
+      skyTop: '#04070d',
+      skyMid: '#0c1624',
+      skyBot: '#132433',
+      ridgeColor: '#0d1a26'
+    },
+    {
+      id: 'ring_slalom',
+      name: 'Ring Slalom',
+      tag: '24 precision gates · Mixed air',
+      baseWind: -3.2,
+      gustStrength: 5.0,
+      gustFreq: 0.85,
+      thermalCount: 10,
+      thermalStrength: [7.0, 11.5],
+      terrainAmp: 52,
+      terrainFreq: 0.0030,
+      ringCount: 24,
+      ringPattern: 'slalom',
+      skyTop: '#050814',
+      skyMid: '#0d142c',
+      skyBot: '#11253c',
+      ridgeColor: '#101d35'
+    }
+  ];
+
+  const MAP_BY_ID = Object.create(null);
+  for (let i = 0; i < MAPS.length; i++) MAP_BY_ID[MAPS[i].id] = MAPS[i];
+
+  /* =========================================================================
+   * 4. APPLICATION STATE
+   * ========================================================================= */
+  const state = {
+    activeTab: 'winglab',
+    activeCat: 'wings',
+    selectedPartId: 'glider_airfoil',
+    builderTool: 'place', // 'place' | 'erase'
+    activePresetId: 'thermal_soarer',
+    blueprint: [], // Array of { gx, gy, id }
+    aero: null,
+
+    // Arena settings
+    mapId: 'calm_meadow',
+    populationSize: 40,
+    simSpeed: 1.0,
+    episodeDuration: 30,
+    paused: false,
+    manualOverride: false,
+    showVectors: true,
+
+    // Manual inputs
+    keys: { up: false, down: false, boost: false, brake: false },
+
+    // ML Evolution
+    generation: 1,
+    episodeTime: 0,
+    history: [], // { gen, bestFit, avgFit, bestDist, bestRings }
+    eliteBrains: [],
+    gliders: [],
+    thermals: [],
+    gustBands: [],
+    rings: [],
+    windParticles: [],
+    burstParticles: [],
+    camera: { x: 0, y: 220 },
+    simClock: 0,
+    bestFitnessAllTime: 0
+  };
+
+  /* =========================================================================
+   * 5. AERODYNAMICS COMPUTATION FROM BLUEPRINT
+   * ========================================================================= */
+  function computeAeroSpecs(blueprint) {
+    if (!blueprint || blueprint.length === 0) {
+      return {
+        partCount: 0, mass: 1.0, liftCoeff: 0.2, dragCoeff: 0.05, glideRatio: 4.0,
+        comX: 0, comY: 0, colX: 0, balanceText: 'Empty',
+        pitchTorque: 0.5, stability: 0.3, stallAngleDeg: 18,
+        maxThrust: 0, fuelTime: 0, brakeDrag: 0.05,
+        hasThermalSensor: false, hasWindSensor: false, hasGyro: false, hasNeuralCore: false, hasPitot: false,
+        hiddenNodes: 8
+      };
+    }
+
+    let mass = 0;
+    let sumMX = 0, sumMY = 0;
+    let totalLift = 0, sumLX = 0;
+    let totalDrag = 0.015; // base fuselage interference
+    let pitchTorque = 0.25;
+    let stability = 0.15;
+    let stallBonus = 0;
+    let maxThrust = 0;
+    let weightedFuel = 0;
+    let brakeDrag = 0.02;
+    let hasThermalSensor = false, hasWindSensor = false, hasGyro = false, hasNeuralCore = false, hasPitot = false;
+
+    for (let i = 0; i < blueprint.length; i++) {
+      const bp = blueprint[i];
+      const p = PART_BY_ID[bp.id];
+      if (!p) continue;
+      mass += p.mass;
+      sumMX += bp.gx * p.mass;
+      sumMY += bp.gy * p.mass;
+      totalLift += p.lift;
+      if (p.lift > 0) sumLX += bp.gx * p.lift;
+      totalDrag += p.drag;
+      // Lever arm bonus for tail/canard control surfaces
+      const arm = 1 + Math.min(2.2, Math.abs(bp.gx) * 0.22);
+      pitchTorque += p.pitchTorque * arm;
+      stability += p.stability * (bp.gx < 0 ? 1.15 : 0.9);
+      stallBonus += p.stallBonus;
+      if (p.thrust > 0) {
+        maxThrust += p.thrust;
+        weightedFuel += p.thrust * p.fuelTime;
+      }
+      brakeDrag += p.brakeDrag;
+      if (p.sensor === 'thermal') hasThermalSensor = true;
+      if (p.sensor === 'wind') hasWindSensor = true;
+      if (p.sensor === 'gyro') hasGyro = true;
+      if (p.sensor === 'neural') hasNeuralCore = true;
+      if (p.sensor === 'pitot') hasPitot = true;
+    }
+
+    mass = Math.max(0.4, mass);
+    const comX = sumMX / mass;
+    const comY = sumMY / mass;
+    const colX = totalLift > 0.05 ? sumLX / totalLift : 0;
+    const staticMargin = comX - colX; // positive = nose-heavy (stable)
+
+    // Normalize coefficients for crisp, believable flight scale
+    const dragCoeff = Math.max(0.018, totalDrag);
+    const liftCoeff = Math.max(0.15, totalLift * 0.45);
+    const glideRatio = Math.min(48, Math.max(1.0, (liftCoeff / dragCoeff) * 1.45));
+    const stallAngleDeg = Math.min(32, Math.max(15, 18.5 + stallBonus * 0.7));
+    const fuelTime = maxThrust > 0 ? weightedFuel / maxThrust : 0;
+
+    let balanceText = 'Balanced';
+    if (staticMargin > 0.85) balanceText = 'Nose-Heavy (Stable)';
+    else if (staticMargin < -0.55) balanceText = 'Tail-Heavy (Agile)';
+
+    return {
+      partCount: blueprint.length,
+      mass,
+      liftCoeff,
+      dragCoeff,
+      glideRatio,
+      comX,
+      comY,
+      colX,
+      staticMargin,
+      balanceText,
+      pitchTorque: Math.min(6.5, pitchTorque),
+      stability: Math.min(5.0, stability + Math.max(0, staticMargin * 0.4)),
+      stallAngleDeg,
+      maxThrust,
+      fuelTime,
+      brakeDrag,
+      hasThermalSensor,
+      hasWindSensor,
+      hasGyro,
+      hasNeuralCore,
+      hasPitot,
+      hiddenNodes: hasNeuralCore ? 12 : 8
+    };
+  }
+
+  /* =========================================================================
+   * 6. NEURAL NETWORK (FEEDFORWARD CONTROLLER FOR SWARM)
+   * Inputs (10): altNorm, vyNorm, speedNorm, pitchNorm, aoaNorm, omegaNorm,
+   *              thermalDx, thermalStrength, ringDx, ringDy
+   * Outputs (3): pitchCmd [-1..1], throttle [0..1], airbrake [0..1]
+   * ========================================================================= */
+  const NN_INPUTS = 10;
+  const NN_OUTPUTS = 3;
+
+  function createBrain(hidden) {
+    const h = hidden || 8;
+    const w1 = new Float32Array(NN_INPUTS * h);
+    const b1 = new Float32Array(h);
+    const w2 = new Float32Array(h * NN_OUTPUTS);
+    const b2 = new Float32Array(NN_OUTPUTS);
+    const s1 = Math.sqrt(2 / NN_INPUTS);
+    const s2 = Math.sqrt(2 / h);
+    for (let i = 0; i < w1.length; i++) w1[i] = (Math.random() * 2 - 1) * s1;
+    for (let i = 0; i < b1.length; i++) b1[i] = (Math.random() * 2 - 1) * 0.25;
+    for (let i = 0; i < w2.length; i++) w2[i] = (Math.random() * 2 - 1) * s2;
+    for (let i = 0; i < b2.length; i++) b2[i] = (Math.random() * 2 - 1) * 0.25;
+    return { h, w1, b1, w2, b2 };
+  }
+
+  function cloneBrain(b) {
+    return {
+      h: b.h,
+      w1: new Float32Array(b.w1),
+      b1: new Float32Array(b.b1),
+      w2: new Float32Array(b.w2),
+      b2: new Float32Array(b.b2)
+    };
+  }
+
+  function mutateBrain(parentA, parentB, rate, sigma) {
+    const h = parentA.h;
+    const child = createBrain(h);
+    const useCross = parentB && parentB.h === h;
+    const copyMut = function(dst, a, b) {
+      for (let i = 0; i < dst.length; i++) {
+        let v = (useCross && Math.random() < 0.45) ? b[i] : a[i];
+        if (Math.random() < rate) {
+          // Box-Muller approximate Gaussian
+          const g = (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
+          v += g * sigma;
+        }
+        dst[i] = Math.max(-4.5, Math.min(4.5, v));
+      }
+    };
+    copyMut(child.w1, parentA.w1, useCross ? parentB.w1 : null);
+    copyMut(child.b1, parentA.b1, useCross ? parentB.b1 : null);
+    copyMut(child.w2, parentA.w2, useCross ? parentB.w2 : null);
+    copyMut(child.b2, parentA.b2, useCross ? parentB.b2 : null);
+    return child;
+  }
+
+  const _nnHiddenBuf = new Float32Array(16);
+  const _nnOutBuf = new Float32Array(3);
+
+  function forwardBrain(brain, inp) {
+    const h = brain.h;
+    const w1 = brain.w1, b1 = brain.b1, w2 = brain.w2, b2 = brain.b2;
+    for (let j = 0; j < h; j++) {
+      let sum = b1[j];
+      const base = j * NN_INPUTS;
+      for (let i = 0; i < NN_INPUTS; i++) {
+        sum += w1[base + i] * inp[i];
+      }
+      _nnHiddenBuf[j] = Math.tanh(sum);
+    }
+    for (let k = 0; k < NN_OUTPUTS; k++) {
+      let sum = b2[k];
+      const base = k * h;
+      for (let j = 0; j < h; j++) {
+        sum += w2[base + j] * _nnHiddenBuf[j];
+      }
+      _nnOutBuf[k] = Math.tanh(sum);
+    }
+    return _nnOutBuf;
+  }
+
+  /* =========================================================================
+   * 7. TERRAIN, THERMALS, WIND SHEAR & AERIAL TARGET RINGS
+   * ========================================================================= */
+  function terrainHeightAt(x, map) {
+    const m = map || MAP_BY_ID[state.mapId];
+    const h1 = Math.sin(x * m.terrainFreq + 0.4) * m.terrainAmp * 0.62;
+    const h2 = Math.cos(x * m.terrainFreq * 2.15 - 1.1) * m.terrainAmp * 0.28;
+    const h3 = Math.sin(x * m.terrainFreq * 4.7) * m.terrainAmp * 0.10;
+    // Keep launch zone (x near 0) gentle
+    const launchFlatten = Math.min(1, Math.max(0, (x - 40) / 180));
+    return 35 + (h1 + h2 + h3 + m.terrainAmp * 0.5) * launchFlatten;
+  }
+
+  function generateArenaEnvironment() {
+    const map = MAP_BY_ID[state.mapId];
+    state.thermals = [];
+    state.gustBands = [];
+    state.rings = [];
+    state.windParticles = [];
+    state.burstParticles = [];
+
+    // Rising Thermal Updraft Columns
+    let tx = 210;
+    for (let i = 0; i < map.thermalCount; i++) {
+      const width = 95 + Math.random() * 85;
+      const strength = map.thermalStrength[0] + Math.random() * (map.thermalStrength[1] - map.thermalStrength[0]);
+      const baseY = terrainHeightAt(tx, map);
+      const topY = baseY + 340 + Math.random() * 240;
+      state.thermals.push({
+        x: tx,
+        width,
+        strength,
+        baseY,
+        topY,
+        phase: Math.random() * Math.PI * 2
+      });
+      tx += 260 + Math.random() * 240;
+    }
+
+    // Wind Shear Gust Bands (altitude layers)
+    for (let i = 0; i < 4; i++) {
+      state.gustBands.push({
+        altY: 130 + i * 115 + Math.random() * 35,
+        thickness: 58 + Math.random() * 32,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.6 + Math.random() * 0.9,
+        dir: i % 2 === 0 ? -1 : 1
+      });
+    }
+
+    // Collectible Aerial Target Rings
+    let rx = 185;
+    for (let i = 0; i < map.ringCount; i++) {
+      const ground = terrainHeightAt(rx, map);
+      let ry = ground + 150;
+      if (map.ringPattern === 'gentle') {
+        ry = ground + 135 + Math.sin(i * 0.7) * 55;
+      } else if (map.ringPattern === 'high_soar') {
+        ry = ground + 170 + (i % 3) * 65;
+      } else if (map.ringPattern === 'ridge') {
+        ry = ground + 145 + Math.cos(i * 0.9) * 75;
+      } else if (map.ringPattern === 'slalom') {
+        ry = ground + 140 + Math.sin(i * 1.15) * 95;
+      }
+      state.rings.push({
+        id: i,
+        x: rx,
+        y: Math.max(ground + 75, ry),
+        radius: map.ringPattern === 'slalom' ? 30 : 34,
+        phase: i * 0.6
+      });
+      rx += (map.ringPattern === 'slalom' ? 155 : 210) + Math.random() * 55;
+    }
+
+    // Ambient wind streamline particles
+    for (let i = 0; i < 65; i++) {
+      state.windParticles.push({
+        x: Math.random() * 1400 - 200,
+        y: 60 + Math.random() * 520,
+        len: 16 + Math.random() * 26,
+        alpha: 0.14 + Math.random() * 0.25
+      });
+    }
+  }
+
+  function sampleAirflow(x, y, t, map) {
+    let wx = map.baseWind;
+    let wy = 0;
+    let thermalVal = 0;
+
+    // Wind shear gusts
+    for (let i = 0; i < state.gustBands.length; i++) {
+      const g = state.gustBands[i];
+      const dy = Math.abs(y - g.altY);
+      if (dy < g.thickness) {
+        const falloff = 1 - dy / g.thickness;
+        const wave = Math.sin(t * g.speed * map.gustFreq + g.phase + x * 0.0025);
+        wx += g.dir * map.gustStrength * falloff * wave;
+      }
+    }
+
+    // Rising thermal updraft columns
+    for (let i = 0; i < state.thermals.length; i++) {
+      const th = state.thermals[i];
+      const dx = Math.abs(x - th.x);
+      if (dx < th.width * 0.55 && y >= th.baseY - 20 && y <= th.topY) {
+        const horiz = Math.cos((dx / (th.width * 0.55)) * (Math.PI * 0.5));
+        const altFade = Math.min(1, (th.topY - y) / 70);
+        const pulse = 0.88 + 0.12 * Math.sin(t * 2.2 + th.phase);
+        const liftUp = th.strength * horiz * altFade * pulse;
+        wy += liftUp;
+        if (liftUp > thermalVal) thermalVal = liftUp;
+      }
+    }
+
+    return { wx, wy, thermalVal };
+  }
+
+  /* =========================================================================
+   * 8. SWARM SPAWNING, PHYSICS STEP & NEUROEVOLUTION
+   * ========================================================================= */
+  function createGlider(brain, idx) {
+    const startX = 40;
+    const startY = terrainHeightAt(startX) + 195;
+    const aero = state.aero;
+    return {
+      idx,
+      brain,
+      x: startX,
+      y: startY,
+      vx: 24 + Math.min(8, aero.maxThrust * 0.25),
+      vy: 0.5,
+      angle: 0.02, // radians (0 = right, + = nose up)
+      omega: 0,
+      alive: true,
+      crashed: false,
+      fuel: aero.fuelTime,
+      aoaDeg: 0,
+      stalling: false,
+      liveLD: aero.glideRatio,
+      thermalLift: 0,
+      maxX: startX,
+      maxAlt: startY,
+      timeAlive: 0,
+      ringsCollected: 0,
+      ringMask: new Uint8Array(32),
+      fitness: 0,
+      thrustActive: 0,
+      brakeActive: 0,
+      pitchCmd: 0,
+      lastLiftVec: { x: 0, y: 0 },
+      lastDragVec: { x: 0, y: 0 },
+      lastThrustVec: { x: 0, y: 0 },
+      trail: []
+    };
+  }
+
+  function spawnGeneration(resetEvolution) {
+    const pop = state.populationSize;
+    const hidden = state.aero.hiddenNodes;
+    if (resetEvolution) {
+      state.generation = 1;
+      state.history = [];
+      state.eliteBrains = [];
+      state.bestFitnessAllTime = 0;
+      generateArenaEnvironment();
+    }
+
+    state.episodeTime = 0;
+    state.gliders = [];
+
+    const elites = state.eliteBrains;
+    const mutRate = state.aero.hasNeuralCore ? 0.14 : 0.20;
+    const mutSigma = state.aero.hasNeuralCore ? 0.26 : 0.36;
+
+    for (let i = 0; i < pop; i++) {
+      let brain;
+      if (elites.length === 0) {
+        brain = createBrain(hidden);
+      } else if (i < Math.min(3, elites.length)) {
+        // Direct elitism preservation
+        brain = cloneBrain(elites[i]);
+      } else {
+        const pA = elites[i % elites.length];
+        const pB = elites[Math.floor(Math.random() * elites.length)];
+        brain = mutateBrain(pA, pB, mutRate, mutSigma);
+      }
+      state.gliders.push(createGlider(brain, i));
+    }
+
+    const lead = state.gliders[0];
+    if (lead) {
+      state.camera.x = lead.x;
+      state.camera.y = lead.y;
+    }
+    updateTopCounters();
+  }
+
+  function evolveNextGeneration() {
+    if (state.gliders.length === 0) {
+      spawnGeneration(false);
+      return;
+    }
+
+    // Score & sort gliders by fitness
+    let sumFit = 0;
+    let bestFit = -Infinity;
+    let bestDist = 0;
+    let bestRings = 0;
+
+    for (let i = 0; i < state.gliders.length; i++) {
+      const g = state.gliders[i];
+      sumFit += g.fitness;
+      if (g.fitness > bestFit) {
+        bestFit = g.fitness;
+        bestDist = Math.max(0, g.maxX - 40);
+        bestRings = g.ringsCollected;
+      }
+    }
+
+    const avgFit = sumFit / state.gliders.length;
+    if (bestFit > state.bestFitnessAllTime) state.bestFitnessAllTime = bestFit;
+
+    state.history.push({
+      gen: state.generation,
+      bestFit: Math.max(0, bestFit),
+      avgFit: Math.max(0, avgFit),
+      bestDist,
+      bestRings
+    });
+    if (state.history.length > 80) state.history.shift();
+
+    // Sort descending and pick top elites
+    const sorted = state.gliders.slice().sort(function(a, b) { return b.fitness - a.fitness; });
+    const eliteCount = Math.max(2, Math.min(10, Math.ceil(sorted.length * 0.18)));
+    state.eliteBrains = [];
+    for (let i = 0; i < eliteCount; i++) {
+      state.eliteBrains.push(cloneBrain(sorted[i].brain));
+    }
+
+    state.generation += 1;
+    spawnGeneration(false);
+    drawLearningCurve();
+  }
+
+  const _sensorInput = new Float32Array(NN_INPUTS);
+
+  function stepGliderPhysics(g, dt, map, aero, isManualControlled) {
+    if (!g.alive) return;
+
+    const air = sampleAirflow(g.x, g.y, state.simClock, map);
+    g.thermalLift = air.thermalVal;
+
+    // Relative velocity of craft through the air mass
+    const vrx = g.vx - air.wx;
+    const vry = g.vy - air.wy;
+    const speedSq = vrx * vrx + vry * vry;
+    const speed = Math.sqrt(speedSq) + 1e-4;
+
+    // Flight path angle & Angle of Attack
+    const flightAngle = Math.atan2(vry, vrx);
+    let aoa = g.angle - flightAngle;
+    while (aoa > Math.PI) aoa -= Math.PI * 2;
+    while (aoa < -Math.PI) aoa += Math.PI * 2;
+    const aoaDeg = aoa * (180 / Math.PI);
+    g.aoaDeg = aoaDeg;
+
+    // Find nearest upcoming thermal & ring for neural inputs
+    let nearThDx = 1.0, nearThStr = 0;
+    let bestThDist = 9999;
+    for (let i = 0; i < state.thermals.length; i++) {
+      const th = state.thermals[i];
+      const dx = th.x - g.x;
+      if (dx > -80 && Math.abs(dx) < bestThDist) {
+        bestThDist = Math.abs(dx);
+        nearThDx = Math.max(-1, Math.min(1, dx / 350));
+        nearThStr = Math.min(1, th.strength / 14);
+      }
+    }
+
+    let nearRingDx = 1.0, nearRingDy = 0;
+    for (let i = 0; i < state.rings.length; i++) {
+      const r = state.rings[i];
+      if (!g.ringMask[i] && r.x > g.x - 30) {
+        nearRingDx = Math.max(-1, Math.min(1, (r.x - g.x) / 300));
+        nearRingDy = Math.max(-1, Math.min(1, (r.y - g.y) / 180));
+        break;
+      }
+    }
+
+    // Control decision: Manual override or Neural Network
+    let pitchCmd = 0;
+    let throttleCmd = 0;
+    let brakeCmd = 0;
+
+    if (isManualControlled) {
+      if (state.keys.up) pitchCmd += 1;
+      if (state.keys.down) pitchCmd -= 1;
+      throttleCmd = state.keys.boost ? 1 : (aero.fuelTime > 50 ? 0.55 : 0);
+      brakeCmd = state.keys.brake ? 1 : 0;
+    } else {
+      const groundY = terrainHeightAt(g.x, map);
+      const agl = g.y - groundY;
+      _sensorInput[0] = Math.max(-1, Math.min(1, (agl - 180) / 220));
+      _sensorInput[1] = Math.max(-1, Math.min(1, g.vy / 25));
+      _sensorInput[2] = aero.hasPitot ? Math.max(-1, Math.min(1, (speed - 24) / 22)) : Math.max(-1, Math.min(1, (speed - 24) / 35));
+      _sensorInput[3] = Math.max(-1, Math.min(1, g.angle / 1.2));
+      _sensorInput[4] = aero.hasWindSensor ? Math.max(-1, Math.min(1, aoaDeg / 25)) : Math.max(-1, Math.min(1, aoaDeg / 45));
+      _sensorInput[5] = aero.hasGyro ? Math.max(-1, Math.min(1, g.omega / 3.0)) : 0;
+      _sensorInput[6] = aero.hasThermalSensor ? nearThDx : nearThDx * 0.25;
+      _sensorInput[7] = aero.hasThermalSensor ? nearThStr : (air.thermalVal > 0.5 ? 0.5 : 0);
+      _sensorInput[8] = nearRingDx;
+      _sensorInput[9] = nearRingDy;
+
+      const out = forwardBrain(g.brain, _sensorInput);
+      pitchCmd = out[0];
+      throttleCmd = (out[1] + 1) * 0.5;
+      brakeCmd = out[2] > 0.35 ? (out[2] - 0.35) / 0.65 : 0;
+    }
+
+    g.pitchCmd = pitchCmd;
+    g.brakeActive = brakeCmd;
+
+    // Aerodynamic Lift & Stall Curve
+    const stallRad = aero.stallAngleDeg * (Math.PI / 180);
+    const absAoA = Math.abs(aoa);
+    let clEff;
+    let stallDrag = 0;
+
+    if (absAoA <= stallRad) {
+      g.stalling = false;
+      // Cambered airfoil gives slight positive lift at 0 deg AoA
+      clEff = aero.liftCoeff * (0.24 + (aoa / stallRad) * 1.18);
+    } else {
+      g.stalling = true;
+      const excess = Math.min(1.2, (absAoA - stallRad) / 0.55);
+      const sign = aoa >= 0 ? 1 : -1;
+      clEff = aero.liftCoeff * sign * Math.max(0.18, 1.38 * (1 - excess * 0.72));
+      stallDrag = 0.14 * excess * excess;
+    }
+
+    // Dynamic pressure q = 0.5 * rho * v^2 (scaled for game units)
+    const rho = 0.026;
+    const q = 0.5 * rho * Math.min(speedSq, 6400);
+
+    const liftMag = q * clEff;
+    const cdTotal = aero.dragCoeff + 0.045 * clEff * clEff + stallDrag + brakeCmd * aero.brakeDrag;
+    const dragMag = q * cdTotal;
+
+    g.liveLD = dragMag > 1e-3 ? Math.max(-15, Math.min(45, liftMag / dragMag)) : aero.glideRatio;
+
+    // Lift is perpendicular to relative airflow (-vry, vrx); Drag opposes relative airflow
+    const invSpd = 1 / speed;
+    const liftFx = (-vry * invSpd) * liftMag;
+    const liftFy = (vrx * invSpd) * liftMag;
+    const dragFx = (-vrx * invSpd) * dragMag;
+    const dragFy = (-vry * invSpd) * dragMag;
+
+    // Propulsion Thrust
+    let thrustMag = 0;
+    if (aero.maxThrust > 0 && g.fuel > 0 && throttleCmd > 0.08) {
+      thrustMag = aero.maxThrust * throttleCmd * 0.9;
+      if (aero.fuelTime < 500) {
+        g.fuel = Math.max(0, g.fuel - dt * throttleCmd);
+      }
+      g.thrustActive = throttleCmd;
+    } else {
+      g.thrustActive = 0;
+    }
+    const thrustFx = Math.cos(g.angle) * thrustMag;
+    const thrustFy = Math.sin(g.angle) * thrustMag;
+
+    // Gravity
+    const gravity = 9.81 * 1.65;
+    const ax = (liftFx + dragFx + thrustFx) / aero.mass;
+    const ay = (liftFy + dragFy + thrustFy) / aero.mass - gravity;
+
+    g.vx += ax * dt;
+    g.vy += ay * dt;
+
+    // Clamp extreme velocities for numerical safety at 100x
+    g.vx = Math.max(-55, Math.min(95, g.vx));
+    g.vy = Math.max(-65, Math.min(65, g.vy));
+
+    g.x += g.vx * dt;
+    g.y += g.vy * dt;
+
+    // Rotational / Pitch Dynamics
+    const aeroAuthority = Math.min(1.6, 0.35 + speed / 26);
+    const controlTorque = pitchCmd * aero.pitchTorque * 2.4 * aeroAuthority;
+    // Natural weathercock alignment toward relative wind
+    const restoreTorque = -aoa * aero.stability * 2.1 * aeroAuthority;
+    const damping = -g.omega * (1.8 + aero.stability * 0.75 + (aero.hasGyro ? 1.6 : 0));
+    // Slight stall nose-drop
+    const stallDrop = g.stalling ? -0.9 * Math.sign(aoa || 1) : 0;
+
+    const inertia = Math.max(0.6, aero.mass * 0.75);
+    g.omega += ((controlTorque + restoreTorque + damping + stallDrop) / inertia) * dt;
+    g.omega = Math.max(-5.0, Math.min(5.0, g.omega));
+    g.angle += g.omega * dt;
+    g.angle = Math.max(-1.35, Math.min(1.35, g.angle));
+
+    // Store force vectors for HUD rendering
+    g.lastLiftVec.x = liftFx; g.lastLiftVec.y = liftFy;
+    g.lastDragVec.x = dragFx; g.lastDragVec.y = dragFy;
+    g.lastThrustVec.x = thrustFx; g.lastThrustVec.y = thrustFy;
+
+    // Collectible Aerial Target Rings
+    for (let i = 0; i < state.rings.length; i++) {
+      if (g.ringMask[i]) continue;
+      const r = state.rings[i];
+      const dx = g.x - r.x;
+      const dy = g.y - r.y;
+      if (dx * dx + dy * dy <= (r.radius + 12) * (r.radius + 12)) {
+        g.ringMask[i] = 1;
+        g.ringsCollected += 1;
+        if (g.idx === 0 || state.simSpeed <= 5) {
+          spawnRingBurst(r.x, r.y);
+        }
+      }
+    }
+
+    // Track metrics & fitness
+    g.timeAlive += dt;
+    if (g.x > g.maxX) g.maxX = g.x;
+    if (g.y > g.maxAlt) g.maxAlt = g.y;
+
+    // Altitude ceiling gentle pushback
+    if (g.y > 760) {
+      g.y = 760;
+      if (g.vy > 0) g.vy *= 0.4;
+    }
+
+    // Terrain collision check
+    const groundY = terrainHeightAt(g.x, map);
+    if (g.y <= groundY + 6 || g.x < -80) {
+      g.y = Math.max(g.y, groundY + 6);
+      g.alive = false;
+      g.crashed = true;
+    }
+
+    // Fitness function: rewards distance, aerial rings, soaring airtime, and thermal altitude
+    const distScore = Math.max(0, g.maxX - 40);
+    const ringScore = g.ringsCollected * 220;
+    const soarScore = g.timeAlive * 6.5 + Math.max(0, g.maxAlt - 220) * 0.45;
+    g.fitness = distScore + ringScore + soarScore;
+
+    // Trail sampling (keep light for 200 gliders)
+    if (state.simSpeed <= 10 || g.idx < 4) {
+      if (g.trail.length === 0 || Math.hypot(g.x - g.trail[g.trail.length - 1].x, g.y - g.trail[g.trail.length - 1].y) > 10) {
+        g.trail.push({ x: g.x, y: g.y, stall: g.stalling });
+        if (g.trail.length > 42) g.trail.shift();
+      }
+    }
+  }
+
+  function spawnRingBurst(x, y) {
+    if (state.burstParticles.length > 90) return;
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + Math.random() * 0.3;
+      const spd = 35 + Math.random() * 65;
+      state.burstParticles.push({
+        x, y,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd,
+        life: 0.65,
+        maxLife: 0.65
+      });
+    }
+  }
+
+  function stepSimulation(realDt) {
+    if (state.paused || state.activeTab !== 'arena') return;
+
+    const map = MAP_BY_ID[state.mapId];
+    const aero = state.aero;
+    const totalSimDt = Math.min(realDt, 0.05) * state.simSpeed;
+
+    // Fixed physics sub-step (max 1/45s) so 0.1x to 100x stays rock-solid
+    const maxStep = 1 / 45;
+    const steps = Math.max(1, Math.min(180, Math.ceil(totalSimDt / maxStep)));
+    const dt = totalSimDt / steps;
+
+    for (let s = 0; s < steps; s++) {
+      state.simClock += dt;
+      state.episodeTime += dt;
+
+      let anyAlive = false;
+      for (let i = 0; i < state.gliders.length; i++) {
+        const g = state.gliders[i];
+        if (!g.alive) continue;
+        anyAlive = true;
+        const isManual = state.manualOverride && i === 0;
+        stepGliderPhysics(g, dt, map, aero, isManual);
+      }
+
+      if (!anyAlive || state.episodeTime >= state.episodeDuration) {
+        if (state.manualOverride && state.populationSize === 1) {
+          spawnGeneration(false);
+        } else {
+          evolveNextGeneration();
+        }
+        break;
+      }
+    }
+
+    // Update ambient visual particles (in real time for smooth visuals)
+    const pDt = Math.min(realDt, 0.04) * Math.min(3.5, Math.max(0.25, state.simSpeed));
+    for (let i = 0; i < state.windParticles.length; i++) {
+      const p = state.windParticles[i];
+      const air = sampleAirflow(p.x, p.y, state.simClock, map);
+      p.x += (air.wx * 9 - 14) * pDt;
+      p.y += (air.wy * 11) * pDt;
+      if (p.x < state.camera.x - 750) p.x = state.camera.x + 750;
+      if (p.x > state.camera.x + 750) p.x = state.camera.x - 750;
+      if (p.y > 700) p.y = 60;
+      if (p.y < 30) p.y = 620;
+    }
+
+    for (let i = state.burstParticles.length - 1; i >= 0; i--) {
+      const bp = state.burstParticles[i];
+      bp.x += bp.vx * realDt;
+      bp.y += bp.vy * realDt;
+      bp.life -= realDt;
+      if (bp.life <= 0) state.burstParticles.splice(i, 1);
+    }
+
+    // Smooth camera follows best alive glider (or glider 0 in manual mode)
+    const focus = getFocusGlider();
+    if (focus) {
+      const lerp = 1 - Math.exp(-realDt * 6.5);
+      state.camera.x += (focus.x + 120 - state.camera.x) * lerp;
+      state.camera.y += (Math.max(170, focus.y) - state.camera.y) * lerp;
+    }
+  }
+
+  function getFocusGlider() {
+    if (state.gliders.length === 0) return null;
+    if (state.manualOverride) return state.gliders[0];
+    let best = null;
+    for (let i = 0; i < state.gliders.length; i++) {
+      const g = state.gliders[i];
+      if (g.alive && (!best || g.fitness > best.fitness)) best = g;
+    }
+    return best || state.gliders[0];
+  }
+
+  /* =========================================================================
+   * 9. CANVAS DPR RESIZE HELPER
+   * ========================================================================= */
+  function resizeCanvasDPR(canvas) {
+    const parent = canvas.parentElement;
+    if (!parent) return { w: 0, h: 0, dpr: 1 };
+    const rect = parent.getBoundingClientRect();
+    const w = Math.max(1, Math.floor(rect.width));
+    const h = Math.max(1, Math.floor(rect.height));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const targetW = Math.floor(w * dpr);
+    const targetH = Math.floor(h * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    return { w, h, dpr };
+  }
+
+  /* =========================================================================
+   * 10. WING LAB BUILDER RENDERER & INTERACTION
+   * ========================================================================= */
+  const builderCanvas = document.getElementById('builderCanvas');
+  const builderCtx = builderCanvas.getContext('2d');
+  const GRID_COLS = 15; // -7 .. +7
+  const GRID_ROWS = 9;  // -4 .. +4
+  let builderGridMetrics = { cx: 0, cy: 0, cell: 42 };
+  let hoverCell = null;
+
+  function drawPartGlyph(ctx, part, x, y, size) {
+    const s = size * 0.44;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = part.color;
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 1.2;
+
+    if (part.shape === 'airfoil' || part.shape === 'carbon' || part.shape === 'solar') {
+      ctx.beginPath();
+      ctx.moveTo(-s, s * 0.25);
+      ctx.quadraticCurveTo(-s * 0.1, -s * 0.65, s, 0);
+      ctx.quadraticCurveTo(0, s * 0.38, -s, s * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (part.shape === 'solar') {
+        ctx.strokeStyle = 'rgba(6,9,15,0.65)';
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.35, -s * 0.2); ctx.lineTo(-s * 0.35, s * 0.22);
+        ctx.moveTo(s * 0.25, -s * 0.2); ctx.lineTo(s * 0.25, s * 0.18);
+        ctx.stroke();
+      }
+    } else if (part.shape === 'delta' || part.shape === 'canard') {
+      ctx.beginPath();
+      ctx.moveTo(-s, -s * 0.55);
+      ctx.lineTo(s, 0);
+      ctx.lineTo(-s, s * 0.55);
+      ctx.lineTo(-s * 0.55, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (part.shape === 'biplane') {
+      ctx.fillRect(-s, -s * 0.62, s * 2, s * 0.36);
+      ctx.fillRect(-s, s * 0.26, s * 2, s * 0.36);
+      ctx.strokeRect(-s, -s * 0.62, s * 2, s * 0.36);
+      ctx.strokeRect(-s, s * 0.26, s * 2, s * 0.36);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.45, -s * 0.26); ctx.lineTo(-s * 0.45, s * 0.26);
+      ctx.moveTo(s * 0.45, -s * 0.26); ctx.lineTo(s * 0.45, s * 0.26);
+      ctx.stroke();
+    } else if (part.shape === 'rocket' || part.shape === 'fan' || part.shape === 'prop' || part.shape === 'rubber' || part.shape === 'ion') {
+      ctx.beginPath();
+      ctx.roundRect(-s * 0.85, -s * 0.42, s * 1.7, s * 0.84, 5);
+      ctx.fill();
+      ctx.stroke();
+      // Exhaust nozzle on left
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.85, -s * 0.26);
+      ctx.lineTo(-s * 1.15, -s * 0.42);
+      ctx.lineTo(-s * 1.15, s * 0.42);
+      ctx.lineTo(-s * 0.85, s * 0.26);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (part.shape === 'nose') {
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.75, -s * 0.48);
+      ctx.quadraticCurveTo(s * 0.4, -s * 0.45, s, 0);
+      ctx.quadraticCurveTo(s * 0.4, s * 0.45, -s * 0.75, s * 0.48);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (part.shape === 'elevator' || part.shape === 'stabilizer' || part.shape === 'vtail' || part.shape === 'flap' || part.shape === 'fin' || part.shape === 'winglet') {
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.85, s * 0.35);
+      ctx.lineTo(-s * 0.25, -s * 0.62);
+      ctx.lineTo(s * 0.85, -s * 0.22);
+      ctx.lineTo(s * 0.65, s * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (part.shape === 'airbrake') {
+      ctx.beginPath();
+      ctx.roundRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.3, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = '#06090f';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.35, -s * 0.4); ctx.lineTo(s * 0.35, s * 0.4);
+      ctx.moveTo(s * 0.35, -s * 0.4); ctx.lineTo(-s * 0.35, s * 0.4);
+      ctx.stroke();
+    } else {
+      // Sensor / Core / Block
+      ctx.beginPath();
+      ctx.roundRect(-s * 0.68, -s * 0.68, s * 1.36, s * 1.36, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(6, 9, 15, 0.7)';
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function renderBuilder() {
+    if (state.activeTab !== 'winglab') return;
+    const { w, h, dpr } = resizeCanvasDPR(builderCanvas);
+    const ctx = builderCtx;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const cell = Math.max(28, Math.min(54, Math.floor(Math.min((w - 80) / GRID_COLS, (h - 100) / GRID_ROWS))));
+    const cx = Math.floor(w * 0.5);
+    const cy = Math.floor(h * 0.5);
+    builderGridMetrics = { cx, cy, cell };
+
+    // Wind tunnel preview airflow lines behind grid
+    const t = performance.now() * 0.001;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 9; i++) {
+      const y = (h / 10) * (i + 1);
+      const offset = (t * 110 + i * 70) % (w + 180);
+      ctx.beginPath();
+      ctx.moveTo(w - offset, y);
+      ctx.lineTo(w - offset + 95, y);
+      ctx.stroke();
+    }
+
+    // Draw build grid
+    const halfCols = Math.floor(GRID_COLS / 2);
+    const halfRows = Math.floor(GRID_ROWS / 2);
+
+    for (let gx = -halfCols; gx <= halfCols; gx++) {
+      for (let gy = -halfRows; gy <= halfRows; gy++) {
+        const px = cx + gx * cell;
+        const py = cy + gy * cell;
+        ctx.fillStyle = (gx === 0 && gy === 0) ? 'rgba(56, 189, 248, 0.09)' : 'rgba(15, 23, 42, 0.35)';
+        ctx.strokeStyle = (gx === 0 || gy === 0) ? 'rgba(56, 189, 248, 0.22)' : 'rgba(148, 163, 184, 0.10)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+
+    // Direction arrow (Nose ->)
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+    ctx.font = '600 11px ui-monospace, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('NOSE / AIRFLOW →', cx + (halfCols + 0.4) * cell, cy - (halfRows + 0.72) * cell);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+    ctx.fillText('← TAIL', cx - (halfCols + 0.4) * cell, cy - (halfRows + 0.72) * cell);
+
+    // Draw fuselage connector backbone between adjacent parts
+    if (state.blueprint.length > 1) {
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+      ctx.lineWidth = 4;
+      for (let i = 0; i < state.blueprint.length; i++) {
+        const a = state.blueprint[i];
+        for (let j = i + 1; j < state.blueprint.length; j++) {
+          const b = state.blueprint[j];
+          if (Math.abs(a.gx - b.gx) + Math.abs(a.gy - b.gy) === 1) {
+            ctx.beginPath();
+            ctx.moveTo(cx + a.gx * cell, cy + a.gy * cell);
+            ctx.lineTo(cx + b.gx * cell, cy + b.gy * cell);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    // Draw placed parts
+    for (let i = 0; i < state.blueprint.length; i++) {
+      const bp = state.blueprint[i];
+      const p = PART_BY_ID[bp.id];
+      if (!p) continue;
+      const px = cx + bp.gx * cell;
+      const py = cy + bp.gy * cell;
+      drawPartGlyph(ctx, p, px, py, cell);
+    }
+
+    // Hover preview
+    if (hoverCell) {
+      const px = cx + hoverCell.gx * cell;
+      const py = cy + hoverCell.gy * cell;
+      ctx.save();
+      if (state.builderTool === 'erase') {
+        ctx.strokeStyle = 'rgba(251, 113, 133, 0.9)';
+        ctx.fillStyle = 'rgba(251, 113, 133, 0.16)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha = 0.65;
+        const sel = PART_BY_ID[state.selectedPartId];
+        if (sel) drawPartGlyph(ctx, sel, px, py, cell);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.roundRect(px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Center of Mass (Cyan Crosshair) & Center of Lift (Emerald Diamond)
+    if (state.blueprint.length > 0 && state.aero) {
+      const comPx = cx + state.aero.comX * cell;
+      const comPy = cy + state.aero.comY * cell;
+      const colPx = cx + state.aero.colX * cell;
+      const colPy = comPy;
+
+      // CoL diamond
+      ctx.save();
+      ctx.translate(colPx, colPy);
+      ctx.fillStyle = 'rgba(52, 211, 153, 0.25)';
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -10); ctx.lineTo(10, 0); ctx.lineTo(0, 10); ctx.lineTo(-10, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // CoM crosshair
+      ctx.save();
+      ctx.translate(comPx, comPy);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.fillStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-13, 0); ctx.lineTo(13, 0);
+      ctx.moveTo(0, -13); ctx.lineTo(0, 13);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function screenToGrid(clientX, clientY) {
+    const rect = builderCanvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const gx = Math.round((x - builderGridMetrics.cx) / builderGridMetrics.cell);
+    const gy = Math.round((y - builderGridMetrics.cy) / builderGridMetrics.cell);
+    const halfCols = Math.floor(GRID_COLS / 2);
+    const halfRows = Math.floor(GRID_ROWS / 2);
+    if (gx < -halfCols || gx > halfCols || gy < -halfRows || gy > halfRows) return null;
+    return { gx, gy };
+  }
+
+  function placeOrRemoveAt(gx, gy, forceRemove) {
+    const idx = state.blueprint.findIndex(function(p) { return p.gx === gx && p.gy === gy; });
+    if (forceRemove || state.builderTool === 'erase') {
+      if (idx !== -1) state.blueprint.splice(idx, 1);
+    } else {
+      if (idx !== -1) {
+        state.blueprint[idx].id = state.selectedPartId;
+      } else {
+        state.blueprint.push({ gx, gy, id: state.selectedPartId });
+      }
+    }
+    state.activePresetId = null;
+    recomputeAndRefreshBuilder();
+  }
+
+  builderCanvas.addEventListener('mousemove', function(e) {
+    hoverCell = screenToGrid(e.clientX, e.clientY);
+  });
+  builderCanvas.addEventListener('mouseleave', function() {
+    hoverCell = null;
+  });
+  builderCanvas.addEventListener('mousedown', function(e) {
+    const cell = screenToGrid(e.clientX, e.clientY);
+    if (!cell) return;
+    if (e.button === 2) {
+      placeOrRemoveAt(cell.gx, cell.gy, true);
+    } else if (e.button === 0) {
+      placeOrRemoveAt(cell.gx, cell.gy, false);
+    }
+  });
+  builderCanvas.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+  /* =========================================================================
+   * 11. WIND TUNNEL & SKY ARENA RENDERER
+   * ========================================================================= */
+  const arenaCanvas = document.getElementById('arenaCanvas');
+  const arenaCtx = arenaCanvas.getContext('2d');
+
+  function worldToScreen(wx, wy, w, h) {
+    const scale = Math.min(w, h) / 480;
+    const sx = w * 0.34 + (wx - state.camera.x) * scale;
+    const sy = h * 0.56 - (wy - state.camera.y) * scale;
+    return { sx, sy, scale };
+  }
+
+  function renderArena() {
+    if (state.activeTab !== 'arena') return;
+    const { w, h, dpr } = resizeCanvasDPR(arenaCanvas);
+    const ctx = arenaCtx;
+    const map = MAP_BY_ID[state.mapId];
+    const scale = Math.min(w, h) / 480;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Sky-night gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    skyGrad.addColorStop(0, map.skyTop);
+    skyGrad.addColorStop(0.55, map.skyMid);
+    skyGrad.addColorStop(1, map.skyBot);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle stars & altitude gridlines
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.06)';
+    ctx.lineWidth = 1;
+    for (let alt = 100; alt <= 700; alt += 100) {
+      const sy = h * 0.56 - (alt - state.camera.y) * scale;
+      if (sy < -10 || sy > h + 10) continue;
+      ctx.beginPath();
+      ctx.moveTo(0, sy); ctx.lineTo(w, sy);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+      ctx.font = '10px ui-monospace, monospace';
+      ctx.fillText(alt + 'm', 10, sy - 4);
+    }
+
+    // Wind Shear Gust Bands (subtle translucent cyan strata)
+    for (let i = 0; i < state.gustBands.length; i++) {
+      const g = state.gustBands[i];
+      const topSy = h * 0.56 - (g.altY + g.thickness - state.camera.y) * scale;
+      const botSy = h * 0.56 - (g.altY - g.thickness - state.camera.y) * scale;
+      const wave = Math.abs(Math.sin(state.simClock * g.speed * map.gustFreq + g.phase));
+      ctx.fillStyle = 'rgba(56, 189, 248, ' + (0.025 + wave * 0.045).toFixed(3) + ')';
+      ctx.fillRect(0, topSy, w, botSy - topSy);
+    }
+
+    // Visible Rising Thermal Updraft Columns
+    for (let i = 0; i < state.thermals.length; i++) {
+      const th = state.thermals[i];
+      const posTop = worldToScreen(th.x, th.topY, w, h);
+      const posBot = worldToScreen(th.x, th.baseY, w, h);
+      const colW = th.width * scale;
+      if (posTop.sx + colW < -40 || posTop.sx - colW > w + 40) continue;
+
+      const grad = ctx.createLinearGradient(posTop.sx, posBot.sy, posTop.sx, posTop.sy);
+      grad.addColorStop(0, 'rgba(52, 211, 153, 0.24)');
+      grad.addColorStop(0.5, 'rgba(52, 211, 153, 0.12)');
+      grad.addColorStop(1, 'rgba(250, 204, 21, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(posTop.sx - colW * 0.5, posTop.sy, colW, posBot.sy - posTop.sy);
+
+      // Animated rising chevron ribbons inside thermal column
+      ctx.strokeStyle = 'rgba(52, 211, 153, 0.45)';
+      ctx.lineWidth = 1.6;
+      const colH = posBot.sy - posTop.sy;
+      const count = 6;
+      for (let k = 0; k < count; k++) {
+        const frac = ((state.simClock * 0.45 + k / count + th.phase) % 1);
+        const cy = posBot.sy - frac * colH;
+        const alpha = Math.sin(frac * Math.PI) * 0.65;
+        ctx.strokeStyle = 'rgba(52, 211, 153, ' + alpha.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.moveTo(posTop.sx - colW * 0.24, cy + 7);
+        ctx.lineTo(posTop.sx, cy - 5);
+        ctx.lineTo(posTop.sx + colW * 0.24, cy + 7);
+        ctx.stroke();
+      }
+    }
+
+    // Wind streamline particles
+    ctx.lineCap = 'round';
+    for (let i = 0; i < state.windParticles.length; i++) {
+      const p = state.windParticles[i];
+      const sp = worldToScreen(p.x, p.y, w, h);
+      if (sp.sx < -40 || sp.sx > w + 40 || sp.sy < -20 || sp.sy > h + 20) continue;
+      ctx.strokeStyle = 'rgba(56, 189, 248, ' + p.alpha.toFixed(2) + ')';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(sp.sx, sp.sy);
+      ctx.lineTo(sp.sx + p.len, sp.sy);
+      ctx.stroke();
+    }
+
+    // Distant Parallax Mountain Ridge
+    ctx.fillStyle = map.ridgeColor;
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let sx = 0; sx <= w + 24; sx += 24) {
+      const wx = state.camera.x * 0.45 + (sx - w * 0.34) / scale;
+      const rh = 110 + Math.sin(wx * 0.0018) * 65 + Math.cos(wx * 0.0042) * 32;
+      const sy = h * 0.56 - (rh - state.camera.y * 0.55) * scale;
+      ctx.lineTo(sx, sy);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fill();
+
+    // Foreground Terrain
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let sx = 0; sx <= w + 12; sx += 12) {
+      const wx = state.camera.x + (sx - w * 0.34) / scale;
+      const gy = terrainHeightAt(wx, map);
+      const sy = h * 0.56 - (gy - state.camera.y) * scale;
+      ctx.lineTo(sx, sy);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    const terrGrad = ctx.createLinearGradient(0, h * 0.55, 0, h);
+    terrGrad.addColorStop(0, '#0f2238');
+    terrGrad.addColorStop(1, '#05090f');
+    ctx.fillStyle = terrGrad;
+    ctx.fill();
+
+    // Glowing terrain ridge outline
+    ctx.beginPath();
+    for (let sx = 0; sx <= w + 12; sx += 12) {
+      const wx = state.camera.x + (sx - w * 0.34) / scale;
+      const gy = terrainHeightAt(wx, map);
+      const sy = h * 0.56 - (gy - state.camera.y) * scale;
+      if (sx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+    }
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Collectible Aerial Target Rings
+    const focus = getFocusGlider();
+    for (let i = 0; i < state.rings.length; i++) {
+      const r = state.rings[i];
+      const sp = worldToScreen(r.x, r.y, w, h);
+      if (sp.sx < -60 || sp.sx > w + 60) continue;
+      const collected = focus && focus.ringMask[i];
+      const radY = r.radius * scale;
+      const radX = radY * 0.34;
+      const pulse = 1 + 0.06 * Math.sin(state.simClock * 3.5 + r.phase);
+
+      ctx.save();
+      ctx.translate(sp.sx, sp.sy);
+      ctx.strokeStyle = collected ? 'rgba(52, 211, 153, 0.35)' : '#facc15';
+      ctx.lineWidth = collected ? 2 : 3.2;
+      if (!collected) {
+        ctx.shadowColor = 'rgba(250, 204, 21, 0.65)';
+        ctx.shadowBlur = 12;
+      }
+      ctx.beginPath();
+      ctx.ellipse(0, 0, radX * pulse, radY * pulse, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Ring collection burst particles
+    for (let i = 0; i < state.burstParticles.length; i++) {
+      const bp = state.burstParticles[i];
+      const sp = worldToScreen(bp.x, bp.y, w, h);
+      const a = Math.max(0, bp.life / bp.maxLife);
+      ctx.fillStyle = 'rgba(250, 204, 21, ' + a.toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(sp.sx, sp.sy, 3.2 * a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw Swarm Gliders (ghosts first, focus leader on top)
+    for (let i = 0; i < state.gliders.length; i++) {
+      const g = state.gliders[i];
+      if (g === focus) continue;
+      drawGliderInArena(ctx, g, w, h, scale, false);
+    }
+    if (focus) {
+      drawGliderInArena(ctx, focus, w, h, scale, true);
+    }
+
+    ctx.restore();
+    updateArenaHUD(focus);
+  }
+
+  function drawGliderInArena(ctx, g, w, h, scale, isFocus) {
+    const sp = worldToScreen(g.x, g.y, w, h);
+    if (sp.sx < -80 || sp.sx > w + 80 || sp.sy < -80 || sp.sy > h + 80) return;
+
+    // Flight trail
+    if (g.trail.length > 1 && (isFocus || state.populationSize <= 60)) {
+      ctx.beginPath();
+      for (let i = 0; i < g.trail.length; i++) {
+        const tp = worldToScreen(g.trail[i].x, g.trail[i].y, w, h);
+        if (i === 0) ctx.moveTo(tp.sx, tp.sy); else ctx.lineTo(tp.sx, tp.sy);
+      }
+      ctx.strokeStyle = isFocus
+        ? (g.stalling ? 'rgba(251, 113, 133, 0.78)' : 'rgba(56, 189, 248, 0.72)')
+        : 'rgba(56, 189, 248, 0.14)';
+      ctx.lineWidth = isFocus ? 2.4 : 1.0;
+      ctx.stroke();
+    }
+
+    // Aerodynamic Force Vectors for Focus Glider
+    if (isFocus && state.showVectors && g.alive) {
+      const vecScale = 1.6;
+      // Lift (emerald)
+      drawForceArrow(ctx, sp.sx, sp.sy, g.lastLiftVec.x * vecScale, -g.lastLiftVec.y * vecScale, '#34d399');
+      // Drag (rose)
+      drawForceArrow(ctx, sp.sx, sp.sy, g.lastDragVec.x * vecScale * 2.5, -g.lastDragVec.y * vecScale * 2.5, '#fb7185');
+      // Thrust (amber)
+      if (g.thrustActive > 0.05) {
+        drawForceArrow(ctx, sp.sx, sp.sy, g.lastThrustVec.x * vecScale, -g.lastThrustVec.y * vecScale, '#facc15');
+      }
+    }
+
+    // Glider Airframe Silhouette (built from actual blueprint parts!)
+    ctx.save();
+    ctx.translate(sp.sx, sp.sy);
+    ctx.rotate(-g.angle);
+    ctx.globalAlpha = isFocus ? 1.0 : (g.alive ? 0.30 : 0.10);
+
+    const partUnit = Math.max(3.2, 5.2 * scale);
+    const aero = state.aero;
+
+    // Thrust flame
+    if (g.alive && g.thrustActive > 0.1) {
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.moveTo(-partUnit * 3.2, -partUnit * 0.45);
+      ctx.lineTo(-partUnit * (4.6 + Math.random() * 2.4 * g.thrustActive), 0);
+      ctx.lineTo(-partUnit * 3.2, partUnit * 0.45);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    if (isFocus && state.blueprint.length > 0) {
+      for (let i = 0; i < state.blueprint.length; i++) {
+        const bp = state.blueprint[i];
+        const p = PART_BY_ID[bp.id];
+        if (!p) continue;
+        const lx = (bp.gx - aero.comX) * partUnit;
+        const ly = (bp.gy - aero.comY) * partUnit;
+        ctx.fillStyle = g.stalling ? '#fb7185' : p.color;
+        ctx.beginPath();
+        ctx.roundRect(lx - partUnit * 0.52, ly - partUnit * 0.42, partUnit * 1.04, partUnit * 0.84, 2);
+        ctx.fill();
+      }
+      // Sleek nose glow
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(-partUnit * 2.5, 0);
+      ctx.lineTo(partUnit * 2.8, 0);
+      ctx.stroke();
+    } else {
+      // Fast lightweight dart polygon for swarm ghosts (60 FPS at 200 gliders)
+      ctx.fillStyle = g.alive ? '#38bdf8' : '#64748b';
+      ctx.beginPath();
+      ctx.moveTo(partUnit * 2.8, 0);
+      ctx.lineTo(-partUnit * 2.4, -partUnit * 1.05);
+      ctx.lineTo(-partUnit * 1.5, 0);
+      ctx.lineTo(-partUnit * 2.4, partUnit * 1.05);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawForceArrow(ctx, x, y, dx, dy, color) {
+    const len = Math.hypot(dx, dy);
+    if (len < 4) return;
+    const clamped = Math.min(75, len);
+    const ex = x + (dx / len) * clamped;
+    const ey = y + (dy / len) * clamped;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    const ang = Math.atan2(ey - y, ex - x);
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - Math.cos(ang - 0.5) * 6, ey - Math.sin(ang - 0.5) * 6);
+    ctx.lineTo(ex - Math.cos(ang + 0.5) * 6, ey - Math.sin(ang + 0.5) * 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* =========================================================================
+   * 12. LEARNING CURVE CHART RENDERER (DPR SCALED)
+   * ========================================================================= */
+  const chartCanvas = document.getElementById('chartCanvas');
+  const chartCtx = chartCanvas.getContext('2d');
+
+  function drawLearningCurve() {
+    const { w, h, dpr } = resizeCanvasDPR(chartCanvas);
+    if (w < 10 || h < 10) return;
+    const ctx = chartCtx;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const padL = 34, padR = 10, padT = 12, padB = 20;
+    const cw = Math.max(10, w - padL - padR);
+    const ch = Math.max(10, h - padT - padB);
+
+    // Background grid
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) {
+      const y = padT + (ch / 3) * i;
+      ctx.beginPath();
+      ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y);
+      ctx.stroke();
+    }
+
+    const hist = state.history;
+    document.getElementById('chartBestBadge').textContent = 'Best: ' + Math.round(state.bestFitnessAllTime);
+
+    if (hist.length === 0) {
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+      ctx.font = '11px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Training Gen 1… chart updates each generation', w * 0.5, h * 0.52);
+      ctx.restore();
+      return;
+    }
+
+    let maxVal = 100;
+    for (let i = 0; i < hist.length; i++) {
+      if (hist[i].bestFit > maxVal) maxVal = hist[i].bestFit;
+    }
+    maxVal = Math.ceil(maxVal * 1.12);
+
+    // Y-axis labels
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+    ctx.font = '9.5px ui-monospace, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal), padL - 5, padT + 4);
+    ctx.fillText(Math.round(maxVal * 0.5), padL - 5, padT + ch * 0.5 + 3);
+    ctx.fillText('0', padL - 5, padT + ch + 3);
+
+    // Plot helper
+    const plotSeries = function(key, color, fillGrad) {
+      ctx.beginPath();
+      for (let i = 0; i < hist.length; i++) {
+        const x = padL + (hist.length === 1 ? cw * 0.5 : (i / (hist.length - 1)) * cw);
+        const y = padT + ch - (hist[i][key] / maxVal) * ch;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (fillGrad && hist.length > 1) {
+        ctx.lineTo(padL + cw, padT + ch);
+        ctx.lineTo(padL, padT + ch);
+        ctx.closePath();
+        const g = ctx.createLinearGradient(0, padT, 0, padT + ch);
+        g.addColorStop(0, 'rgba(56, 189, 248, 0.24)');
+        g.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+    };
+
+    plotSeries('avgFit', '#34d399', false);
+    plotSeries('bestFit', '#38bdf8', true);
+
+    // Legend & X labels
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('● Best', padL + 4, h - 5);
+    ctx.fillStyle = '#34d399';
+    ctx.fillText('● Avg', padL + 54, h - 5);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+    ctx.fillText('Gen ' + hist[hist.length - 1].gen, padL + cw, h - 5);
+
+    ctx.restore();
+  }
+
+  /* =========================================================================
+   * 13. UI POPULATION & LIVE TELEMETRY UPDATES
+   * ========================================================================= */
+  function renderPartsPalette() {
+    const grid = document.getElementById('partsGrid');
+    grid.innerHTML = '';
+    const searchEl = document.getElementById('partSearchInput');
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    const filtered = PARTS_CATALOG.filter(function(p) {
+      if (q) return p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+      return p.cat === state.activeCat;
+    });
+
+    for (let i = 0; i < filtered.length; i++) {
+      const p = filtered[i];
+      const card = document.createElement('div');
+      card.className = 'part-card' + (state.selectedPartId === p.id ? ' selected' : '');
+      const tags = [];
+      tags.push('<span class="mini-tag">' + p.mass.toFixed(2) + 'kg</span>');
+      if (p.lift > 0) tags.push('<span class="mini-tag emerald">L+' + p.lift.toFixed(2) + '</span>');
+      if (p.thrust > 0) tags.push('<span class="mini-tag amber">T+' + p.thrust.toFixed(1) + 'N</span>');
+      if (p.pitchTorque > 0) tags.push('<span class="mini-tag cyan">Pitch+' + p.pitchTorque.toFixed(2) + '</span>');
+      if (p.brakeDrag > 0) tags.push('<span class="mini-tag rose">Brake</span>');
+      if (p.sensor) tags.push('<span class="mini-tag cyan">AI:' + p.sensor + '</span>');
+
+      card.innerHTML =
+        '<div class="part-swatch" style="border-color:' + p.color + '55;color:' + p.color + ';">' + p.icon + '</div>' +
+        '<div class="part-info">' +
+          '<div class="part-name"><span>' + p.name + '</span></div>' +
+          '<div class="part-desc">' + p.desc + '</div>' +
+          '<div class="part-tags">' + tags.join('') + '</div>' +
+        '</div>';
+
+      card.addEventListener('click', function() {
+        state.selectedPartId = p.id;
+        state.builderTool = 'place';
+        document.getElementById('toolPlaceBtn').classList.add('active-toggle');
+        document.getElementById('toolEraseBtn').classList.remove('active-toggle');
+        document.getElementById('selectedPartBadge').textContent = p.name;
+        renderPartsPalette();
+      });
+      grid.appendChild(card);
+    }
+  }
+
+  function renderPresetsList() {
+    const list = document.getElementById('presetList');
+    list.innerHTML = '';
+    for (let i = 0; i < PRESETS.length; i++) {
+      const pr = PRESETS[i];
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn' + (state.activePresetId === pr.id ? ' active' : '');
+      btn.innerHTML =
+        '<div><div class="preset-title">' + pr.name + '</div>' +
+        '<div class="preset-sub">' + pr.sub + '</div></div>' +
+        '<span class="mini-tag cyan">' + pr.parts.length + '</span>';
+      btn.addEventListener('click', function() {
+        loadPreset(pr.id);
+      });
+      list.appendChild(btn);
+    }
+  }
+
+  function loadPreset(presetId) {
+    const pr = PRESETS.find(function(p) { return p.id === presetId; });
+    if (!pr) return;
+    state.activePresetId = pr.id;
+    state.blueprint = pr.parts.map(function(item) {
+      return { gx: item.gx, gy: item.gy, id: item.id };
+    });
+    recomputeAndRefreshBuilder();
+  }
+
+  function recomputeAndRefreshBuilder() {
+    state.aero = computeAeroSpecs(state.blueprint);
+    const a = state.aero;
+
+    document.getElementById('specMass').textContent = a.mass.toFixed(2) + ' kg';
+    document.getElementById('barMass').style.width = Math.min(100, (a.mass / 10) * 100) + '%';
+
+    document.getElementById('specLift').textContent = a.liftCoeff.toFixed(2);
+    document.getElementById('barLift').style.width = Math.min(100, (a.liftCoeff / 3.5) * 100) + '%';
+
+    document.getElementById('specDrag').textContent = a.dragCoeff.toFixed(3);
+    document.getElementById('barDrag').style.width = Math.min(100, (a.dragCoeff / 0.35) * 100) + '%';
+
+    document.getElementById('specGlide').textContent = a.glideRatio.toFixed(1) + ' : 1';
+    document.getElementById('barGlide').style.width = Math.min(100, (a.glideRatio / 32) * 100) + '%';
+
+    document.getElementById('specCom').textContent =
+      '(' + a.comX.toFixed(2) + ', ' + a.comY.toFixed(2) + ') · ' + a.balanceText;
+
+    document.getElementById('specThrust').textContent =
+      a.maxThrust.toFixed(1) + ' N' + (a.maxThrust > 0 && a.fuelTime < 500 ? ' (' + a.fuelTime.toFixed(1) + 's)' : '');
+    document.getElementById('specStall').textContent = a.stallAngleDeg.toFixed(1) + '°';
+
+    const badges = [];
+    if (a.hasThermalSensor) badges.push('<span class="mini-tag emerald">Thermal AI</span>');
+    if (a.hasWindSensor) badges.push('<span class="mini-tag cyan">Wind Vane</span>');
+    if (a.hasGyro) badges.push('<span class="mini-tag cyan">Gyro Stabilized</span>');
+    if (a.hasNeuralCore) badges.push('<span class="mini-tag amber">12-Node Neural Core</span>');
+    if (a.hasPitot) badges.push('<span class="mini-tag cyan">Pitot</span>');
+    if (badges.length === 0) badges.push('<span class="mini-tag">Basic Telemetry</span>');
+    document.getElementById('specBadges').innerHTML = badges.join('');
+
+    renderPresetsList();
+    updateTopCounters();
+  }
+
+  function updateTopCounters() {
+    document.getElementById('topPartCount').textContent = state.aero ? state.aero.partCount : 0;
+    document.getElementById('topGlideRatio').textContent = state.aero ? state.aero.glideRatio.toFixed(1) : '0.0';
+    document.getElementById('topGenCount').textContent = state.generation;
+  }
+
+  function renderMapGrid() {
+    const grid = document.getElementById('mapGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < MAPS.length; i++) {
+      const m = MAPS[i];
+      const btn = document.createElement('button');
+      btn.className = 'map-btn' + (state.mapId === m.id ? ' active' : '');
+      btn.innerHTML = '<div class="map-btn-name">' + m.name + '</div><div class="map-btn-tag">' + m.tag + '</div>';
+      btn.addEventListener('click', function() {
+        state.mapId = m.id;
+        document.getElementById('activeMapLabel').textContent = m.name;
+        renderMapGrid();
+        spawnGeneration(true);
+        drawLearningCurve();
+      });
+      grid.appendChild(btn);
+    }
+  }
+
+  function updateArenaHUD(focus) {
+    let alive = 0;
+    for (let i = 0; i < state.gliders.length; i++) {
+      if (state.gliders[i].alive) alive++;
+    }
+    const rem = Math.max(0, state.episodeDuration - state.episodeTime);
+    document.getElementById('hudAlive').textContent = alive + ' / ' + state.gliders.length;
+    document.getElementById('hudTimer').textContent = rem.toFixed(1) + 's';
+    document.getElementById('episodeProgressFill').style.width =
+      Math.min(100, (state.episodeTime / state.episodeDuration) * 100) + '%';
+
+    if (!focus) return;
+    const speed = Math.hypot(focus.vx, focus.vy);
+    const groundY = terrainHeightAt(focus.x);
+    const alt = Math.max(0, focus.y - groundY);
+    document.getElementById('hudSpeed').textContent = speed.toFixed(1) + ' m/s';
+    document.getElementById('hudAlt').textContent = Math.round(alt) + ' m';
+    document.getElementById('hudAoA').textContent = focus.aoaDeg.toFixed(1) + '°';
+    document.getElementById('hudLD').textContent = focus.liveLD.toFixed(1);
+    document.getElementById('hudDist').textContent = Math.round(Math.max(0, focus.maxX - 40)) + ' m';
+    document.getElementById('hudRings').textContent = focus.ringsCollected + ' / ' + state.rings.length;
+    document.getElementById('hudThermal').textContent = (focus.thermalLift >= 0 ? '+' : '') + focus.thermalLift.toFixed(1);
+
+    const stallBadge = document.getElementById('hudStallBadge');
+    if (focus.stalling && focus.alive) stallBadge.classList.add('visible');
+    else stallBadge.classList.remove('visible');
+  }
+
+  /* =========================================================================
+   * 14. EVENT LISTENERS & CONTROLS WIRING
+   * ========================================================================= */
+  function switchTab(tabName) {
+    state.activeTab = tabName;
+    const tabs = document.querySelectorAll('.nav-tab');
+    for (let i = 0; i < tabs.length; i++) {
+      tabs[i].classList.toggle('active', tabs[i].dataset.tab === tabName);
+    }
+    document.getElementById('view-winglab').classList.toggle('active', tabName === 'winglab');
+    document.getElementById('view-arena').classList.toggle('active', tabName === 'arena');
+
+    if (tabName === 'arena') {
+      // Refresh aero specs & spawn if blueprint changed or empty
+      state.aero = computeAeroSpecs(state.blueprint);
+      if (state.gliders.length === 0) {
+        spawnGeneration(true);
+      }
+      setTimeout(function() {
+        resizeCanvasDPR(arenaCanvas);
+        drawLearningCurve();
+      }, 20);
+    } else {
+      setTimeout(function() { resizeCanvasDPR(builderCanvas); }, 20);
+    }
+  }
+
+  document.getElementById('tabBtnWingLab').addEventListener('click', function() { switchTab('winglab'); });
+  document.getElementById('tabBtnArena').addEventListener('click', function() { switchTab('arena'); });
+  document.getElementById('btnLaunchArena').addEventListener('click', function() {
+    state.aero = computeAeroSpecs(state.blueprint);
+    spawnGeneration(true);
+    switchTab('arena');
+  });
+
+  // Category tabs
+  const _psi = document.getElementById('partSearchInput'); if (_psi) _psi.addEventListener('input', renderPartsPalette);
+  document.getElementById('catTabs').addEventListener('click', function(e) {
+    const btn = e.target.closest('.cat-btn');
+    if (!btn) return;
+    state.activeCat = btn.dataset.cat;
+    const all = document.querySelectorAll('.cat-btn');
+    for (let i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === btn);
+    renderPartsPalette();
+  });
+
+  // Builder tools
+  document.getElementById('toolPlaceBtn').addEventListener('click', function() {
+    state.builderTool = 'place';
+    this.classList.add('active-toggle');
+    document.getElementById('toolEraseBtn').classList.remove('active-toggle');
+  });
+  document.getElementById('toolEraseBtn').addEventListener('click', function() {
+    state.builderTool = 'erase';
+    this.classList.add('active-toggle');
+    document.getElementById('toolPlaceBtn').classList.remove('active-toggle');
+  });
+  document.getElementById('btnClearCraft').addEventListener('click', function() {
+    state.blueprint = [];
+    state.activePresetId = null;
+    recomputeAndRefreshBuilder();
+  });
+  document.getElementById('btnCenterCraft').addEventListener('click', function() {
+    if (state.blueprint.length === 0) return;
+    let minX = 99, maxX = -99, minY = 99, maxY = -99;
+    for (let i = 0; i < state.blueprint.length; i++) {
+      const p = state.blueprint[i];
+      if (p.gx < minX) minX = p.gx;
+      if (p.gx > maxX) maxX = p.gx;
+      if (p.gy < minY) minY = p.gy;
+      if (p.gy > maxY) maxY = p.gy;
+    }
+    const dx = Math.round((minX + maxX) / 2);
+    const dy = Math.round((minY + maxY) / 2);
+    for (let i = 0; i < state.blueprint.length; i++) {
+      state.blueprint[i].gx -= dx;
+      state.blueprint[i].gy -= dy;
+    }
+    recomputeAndRefreshBuilder();
+  });
+
+  // Population slider & quick pills (1 to 200)
+  function setPopulation(val) {
+    const n = Math.max(1, Math.min(1000, Math.round(val)));
+    state.populationSize = n;
+    document.getElementById('sliderPop').value = n;
+    document.getElementById('popValLabel').textContent = n + (n === 1 ? ' glider' : ' gliders');
+    const pills = document.querySelectorAll('.pop-pill');
+    for (let i = 0; i < pills.length; i++) {
+      pills[i].classList.toggle('active-toggle', Number(pills[i].dataset.pop) === n);
+    }
+    spawnGeneration(false);
+  }
+  document.getElementById('sliderPop').addEventListener('input', function() { setPopulation(Number(this.value)); });
+  document.querySelectorAll('.pop-pill').forEach(function(btn) {
+    btn.addEventListener('click', function() { setPopulation(Number(this.dataset.pop)); });
+  });
+
+  // Speed logarithmic slider (0.1x to 100x)
+  function sliderToSpeed(v) {
+    // v in [0..100] -> 10^(-1 + 3*(v/100)) = [0.1 .. 100]
+    const raw = 0.05 * Math.pow(10000, v / 100);
+    if (raw < 1) return Math.round(raw * 20) / 20;
+    if (raw < 10) return Math.round(raw * 2) / 2;
+    return Math.round(raw);
+  }
+  function speedToSlider(spd) {
+    const clamped = Math.max(0.05, Math.min(500, spd));
+    return Math.round((Math.log10(clamped / 0.05) / 4) * 100);
+  }
+  function setSimSpeed(spd) {
+    state.simSpeed = Math.max(0.05, Math.min(500, spd));
+    document.getElementById('sliderSpeed').value = speedToSlider(state.simSpeed);
+    document.getElementById('speedValLabel').textContent = (state.simSpeed < 1 ? state.simSpeed.toFixed(2) : (state.simSpeed < 10 ? state.simSpeed.toFixed(1) : Math.round(state.simSpeed))) + 'x';
+    const pills = document.querySelectorAll('.spd-pill');
+    for (let i = 0; i < pills.length; i++) {
+      pills[i].classList.toggle('active-toggle', Math.abs(Number(pills[i].dataset.spd) - state.simSpeed) < 0.05);
+    }
+  }
+  document.getElementById('sliderSpeed').addEventListener('input', function() {
+    setSimSpeed(sliderToSpeed(Number(this.value)));
+  });
+  document.querySelectorAll('.spd-pill').forEach(function(btn) {
+    btn.addEventListener('click', function() { setSimSpeed(Number(this.dataset.spd)); });
+  });
+
+  // Episode Timer controls
+  function setEpisodeDuration(sec) {
+    state.episodeDuration = Math.max(10, Math.min(120, Math.round(sec)));
+    document.getElementById('sliderEpTime').value = state.episodeDuration;
+    document.getElementById('epTimeValLabel').textContent = state.episodeDuration + 's';
+    const pills = document.querySelectorAll('.ep-pill');
+    for (let i = 0; i < pills.length; i++) {
+      pills[i].classList.toggle('active-toggle', Number(pills[i].dataset.ep) === state.episodeDuration);
+    }
+  }
+  document.getElementById('sliderEpTime').addEventListener('input', function() { setEpisodeDuration(Number(this.value)); });
+  document.querySelectorAll('.ep-pill').forEach(function(btn) {
+    btn.addEventListener('click', function() { setEpisodeDuration(Number(this.dataset.ep)); });
+  });
+
+  // Pause / Play, Next Gen, Reset, Vectors, Manual Override
+  document.getElementById('btnPausePlay').addEventListener('click', function() {
+    state.paused = !state.paused;
+    this.textContent = state.paused ? '▶ Resume' : '⏸ Pause';
+  });
+  document.getElementById('btnNextGen').addEventListener('click', function() {
+    evolveNextGeneration();
+  });
+  document.getElementById('btnResetSwarm').addEventListener('click', function() {
+    spawnGeneration(true);
+    drawLearningCurve();
+  });
+  document.getElementById('btnVectorsToggle').addEventListener('click', function() {
+    state.showVectors = !state.showVectors;
+    this.textContent = state.showVectors ? 'On' : 'Off';
+    this.classList.toggle('active-toggle', state.showVectors);
+  });
+  document.getElementById('btnManualToggle').addEventListener('click', function() {
+    state.manualOverride = !state.manualOverride;
+    this.textContent = state.manualOverride ? 'ON (Manual Pilot)' : 'Off (Neural AI)';
+    this.classList.toggle('active-toggle', state.manualOverride);
+    document.getElementById('manualPad').classList.toggle('visible', state.manualOverride);
+  });
+
+  // On-screen Manual Pitch / Boost / Brake hold buttons
+  function bindHoldButton(id, keyProp) {
+    const el = document.getElementById(id);
+    const down = function(e) { e.preventDefault(); state.keys[keyProp] = true; };
+    const up = function(e) { e.preventDefault(); state.keys[keyProp] = false; };
+    el.addEventListener('mousedown', down);
+    el.addEventListener('mouseup', up);
+    el.addEventListener('mouseleave', up);
+    el.addEventListener('touchstart', down, { passive: false });
+    el.addEventListener('touchend', up, { passive: false });
+  }
+  bindHoldButton('btnPitchUp', 'up');
+  bindHoldButton('btnPitchDown', 'down');
+  bindHoldButton('btnManualBoost', 'boost');
+  bindHoldButton('btnManualBrake', 'brake');
+
+  // Keyboard controls for Manual Pitch Override
+  window.addEventListener('keydown', function(e) {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') { state.keys.up = true; if (state.manualOverride) e.preventDefault(); }
+    if (e.code === 'ArrowDown' || e.code === 'KeyS') { state.keys.down = true; if (state.manualOverride) e.preventDefault(); }
+    if (e.code === 'Space') { state.keys.boost = true; if (state.manualOverride) e.preventDefault(); }
+    if (e.code === 'KeyB') { state.keys.brake = true; }
+  });
+  window.addEventListener('keyup', function(e) {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') state.keys.up = false;
+    if (e.code === 'ArrowDown' || e.code === 'KeyS') state.keys.down = false;
+    if (e.code === 'Space') state.keys.boost = false;
+    if (e.code === 'KeyB') state.keys.brake = false;
+  });
+
+  // Clean ResizeObserver + window resize handling for all canvases
+  function handleResize() {
+    if (state.activeTab === 'winglab') {
+      resizeCanvasDPR(builderCanvas);
+    } else {
+      resizeCanvasDPR(arenaCanvas);
+      drawLearningCurve();
+    }
+  }
+  window.addEventListener('resize', handleResize);
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(document.getElementById('builderStage'));
+    ro.observe(document.getElementById('arenaStage'));
+    ro.observe(document.getElementById('chartWrap'));
+  }
+
+  /* =========================================================================
+   * 15. INITIALIZATION & MAIN ANIMATION LOOP
+   * ========================================================================= */
+  loadPreset('thermal_soarer');
+  renderPartsPalette();
+  renderMapGrid();
+  setSimSpeed(1.0);
+  setEpisodeDuration(30);
+  spawnGeneration(true);
+
+  let lastFrameTime = performance.now();
+  function mainLoop(now) {
+    const realDt = Math.min(0.05, Math.max(0.001, (now - lastFrameTime) / 1000));
+    lastFrameTime = now;
+
+    if (state.activeTab === 'winglab') {
+      renderBuilder();
+    } else {
+      stepSimulation(realDt);
+      renderArena();
+    }
+    requestAnimationFrame(mainLoop);
+  }
+  requestAnimationFrame(mainLoop);
+})();
+</script>
+</body>
+</html>
