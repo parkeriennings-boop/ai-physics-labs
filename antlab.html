@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>AntLab — Pheromone Colony &amp; Neural Swarm Physics | AI Physics Labs</title>
+<style>
+  :root {
+    --bg: #050811;
+    --glass: rgba(13, 20, 34, 0.84);
+    --glass-strong: rgba(10, 15, 28, 0.94);
+    --border: rgba(255, 255, 255, 0.13);
+    --border-bright: rgba(255, 255, 255, 0.25);
+    --text: #f1f5ff;
+    --muted: #94a3b8;
+    --amber: #f59e0b;
+    --emerald: #10b981;
+    --cyan: #38bdf8;
+    --rose: #f43f5e;
+    --purple: #a855f7;
+    --mythic: #facc15;
+    --radius: 14px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: var(--bg); color: var(--text);
+    font-family: var(--font); font-size: 13px;
+  }
+
+  #simCanvas {
+    display: block; width: 100vw; height: 100vh; cursor: crosshair;
+  }
+
+  /* Top Bar */
+  .topbar {
+    position: fixed; top: 10px; left: 10px; right: 10px; height: 50px;
+    background: var(--glass-strong); backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; gap: 10px; z-index: 30;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 28px rgba(0,0,0,0.45);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 8px; font-weight: 850; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap;
+  }
+  .brand-pill {
+    font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+    background: rgba(245,158,11,0.18); color: #fbbf24; border: 1px solid rgba(245,158,11,0.45);
+    letter-spacing: 0.5px;
+  }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .div { width: 1px; height: 24px; background: var(--border); margin: 0 2px; }
+
+  button, select {
+    font-family: var(--font); font-size: 12px; font-weight: 700;
+    color: var(--text); background: rgba(30, 41, 59, 0.85);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 6px 10px; cursor: pointer; transition: all 0.14s ease;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  button:hover, select:hover { background: rgba(51, 65, 85, 0.95); border-color: var(--border-bright); }
+  button.active { background: linear-gradient(135deg, #f59e0b, #ea580c); color: #0b0f19; border-color: #fde68a; }
+  button.emerald.active, button.emerald:hover { background: linear-gradient(135deg, #10b981, #059669); color: #04130d; border-color: #6ee7b7; }
+  button.cyan.active { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #03101c; border-color: #bae6fd; }
+  button.danger { background: rgba(244,63,94,0.2); border-color: rgba(244,63,94,0.48); color: #fecdd3; }
+  button.danger:hover { background: rgba(244,63,94,0.38); }
+  button.sm { padding: 4px 8px; font-size: 11px; border-radius: 7px; }
+
+  .stat-group { display: flex; align-items: center; gap: 7px; }
+  .stat-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(15,23,42,0.75); border: 1px solid var(--border);
+    padding: 4px 9px; border-radius: 8px; font-weight: 750; font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-pill small { color: var(--muted); font-weight: 600; font-size: 10px; }
+
+  /* Floating Side Docks */
+  .dock {
+    position: fixed; top: 70px; bottom: 10px; width: 268px;
+    background: var(--glass); backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    display: flex; flex-direction: column; z-index: 20;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 12px 32px rgba(0,0,0,0.45);
+    overflow: hidden; transition: transform 0.2s ease;
+  }
+  #leftDock { left: 10px; }
+  #leftDock.collapsed { transform: translateX(-282px); }
+  #rightDock { right: 10px; width: 274px; }
+  #rightDock.collapsed { transform: translateX(288px); }
+
+  .dock-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--muted); background: rgba(2,6,23,0.45);
+  }
+  .dock-body {
+    flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .dock-body::-webkit-scrollbar { width: 5px; }
+  .dock-body::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 4px; }
+
+  .sec-label {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px;
+    color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+
+  .slider-box { display: flex; flex-direction: column; gap: 3px; }
+  .slider-top { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 650; }
+  .slider-top span:last-child { color: var(--amber); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--amber); cursor: pointer; height: 5px; }
+
+  .toggle-line {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 9px; border-radius: 8px; background: rgba(30,41,59,0.55);
+    border: 1px solid var(--border); font-size: 11.5px; font-weight: 650;
+  }
+  .toggle-line input { accent-color: var(--emerald); width: 15px; height: 15px; cursor: pointer; }
+
+  /* Live Brain Canvas */
+  #brainCanvas {
+    width: 100%; height: 132px; border-radius: 10px;
+    background: rgba(2, 6, 23, 0.72); border: 1px solid var(--border);
+  }
+  #fitnessCanvas {
+    width: 100%; height: 74px; border-radius: 10px;
+    background: rgba(2, 6, 23, 0.72); border: 1px solid var(--border);
+  }
+
+  /* Bio-Garage Modal Overlay */
+  #garageOverlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(4, 8, 18, 0.86); backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    display: none; align-items: center; justify-content: center; padding: 18px;
+  }
+  #garageOverlay.open { display: flex; }
+  .garage-modal {
+    width: min(1120px, 96vw); height: min(740px, 92vh);
+    background: rgba(11, 17, 31, 0.96); border: 1px solid var(--border-bright);
+    border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.7);
+  }
+  .garage-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    background: rgba(2,6,23,0.6);
+  }
+  .garage-title { font-size: 17px; font-weight: 900; display: flex; align-items: center; gap: 10px; }
+  .garage-body {
+    flex: 1; display: grid; grid-template-columns: 340px 1fr; overflow: hidden;
+  }
+  .garage-left {
+    border-right: 1px solid var(--border); padding: 14px;
+    display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+    background: rgba(7, 11, 22, 0.55);
+  }
+  #antPreviewCanvas {
+    width: 100%; height: 220px; border-radius: 14px;
+    background: radial-gradient(circle at 50% 50%, rgba(245,158,11,0.14), rgba(2,6,23,0.92));
+    border: 1px solid var(--border);
+  }
+  .stat-bars { display: flex; flex-direction: column; gap: 7px; }
+  .sbar-row { display: flex; flex-direction: column; gap: 2px; }
+  .sbar-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; }
+  .sbar-track { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.09); overflow: hidden; }
+  .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.2s ease; }
+
+  .garage-right {
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .slot-tabs {
+    display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border);
+    overflow-x: auto; background: rgba(15,23,42,0.5);
+  }
+  .slot-tab { padding: 7px 11px; font-size: 11.5px; border-radius: 9px; }
+  .parts-grid {
+    flex: 1; overflow-y: auto; padding: 12px 14px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 8px; align-content: start;
+  }
+  .part-card {
+    padding: 9px 10px; border-radius: 11px; text-align: left;
+    background: rgba(30, 41, 59, 0.55); border: 1px solid var(--border);
+    cursor: pointer; transition: all 0.14s ease; display: flex; flex-direction: column; gap: 4px;
+  }
+  .part-card:hover { background: rgba(51, 65, 85, 0.78); transform: translateY(-1px); }
+  .part-card.equipped {
+    background: rgba(245, 158, 11, 0.18); border-color: #f59e0b;
+    box-shadow: 0 0 0 1px rgba(245,158,11,0.5);
+  }
+  .part-name { font-weight: 800; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .rarity-tag { font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; }
+  .r-common { background: rgba(148,163,184,0.2); color: #cbd5e1; }
+  .r-rare { background: rgba(56,189,248,0.2); color: #7dd3fc; }
+  .r-epic { background: rgba(168,85,247,0.24); color: #d8b4fe; }
+  .r-legendary { background: rgba(245,158,11,0.24); color: #fcd34d; }
+  .r-mythic { background: linear-gradient(135deg, rgba(250,204,21,0.35), rgba(244,63,94,0.35)); color: #fef08a; border: 1px solid rgba(250,204,21,0.55); }
+  .part-stats { font-size: 10.5px; color: var(--muted); line-height: 1.3; }
+
+  .presets-strip {
+    display: flex; gap: 6px; padding: 9px 14px; border-top: 1px solid var(--border);
+    overflow-x: auto; background: rgba(2,6,23,0.6); align-items: center;
+  }
+
+  /* Dock Toggle Chips */
+  .dock-toggle {
+    position: fixed; top: 74px; z-index: 22; padding: 5px 7px; font-size: 11px;
+    background: var(--glass-strong); border-radius: 7px;
+  }
+  #tglLeft { left: 284px; transition: left 0.2s; }
+  #tglLeft.collapsed { left: 10px; }
+  #tglRight { right: 290px; transition: right 0.2s; }
+  #tglRight.collapsed { right: 10px; }
+
+  /* Bottom Mode Banner */
+  #bottomPill {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    background: var(--glass-strong); border: 1px solid var(--border-bright);
+    padding: 6px 14px; border-radius: 999px; font-size: 11.5px; font-weight: 650;
+    color: #e2e8f0; z-index: 25; pointer-events: none; white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  }
+
+  @media (max-width: 900px) {
+    .garage-body { grid-template-columns: 1fr; }
+    .garage-left { border-right: none; border-bottom: 1px solid var(--border); max-height: 280px; }
+    .stat-group .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="simCanvas"></canvas>
+
+<!-- Top Command Bar -->
+<div class="topbar">
+  <div class="row">
+    <a href="./index.html" style="text-decoration:none;"><button class="sm" title="Back to AI Physics Labs Hub">← Hub</button></a>
+    <div class="brand">
+      <span>🐜 AntLab</span>
+      <span class="brand-pill">150 BIO-PARTS</span>
+    </div>
+    <div class="div"></div>
+    <button id="btnOpenGarage" class="active">🧬 Bio-Garage</button>
+    <select id="biomeSelect" title="Select Bio-Arena">
+      <option value="forest">🌿 Forest Floor</option>
+      <option value="antfarm">🏜 Underground Ant Farm</option>
+      <option value="picnic">🍉 Picnic Table Siege</option>
+      <option value="canyon">🕷 Predator Canyon</option>
+    </select>
+  </div>
+
+  <div class="stat-group">
+    <div class="stat-pill"><small>GEN</small><span id="stGen" style="color:#fbbf24">1</span></div>
+    <div class="stat-pill"><small>FOOD</small><span id="stFood" style="color:#34d399">0</span></div>
+    <div class="stat-pill"><small>ANTS</small><span id="stAnts" style="color:#38bdf8">250</span></div>
+    <div class="stat-pill hide-sm"><small>BEST</small><span id="stBest" style="color:#c084fc">0</span></div>
+    <div class="stat-pill hide-sm"><small>FPS</small><span id="stFps" style="color:#22c55e">60</span></div>
+  </div>
+
+  <div class="row">
+    <button id="btnPause" class="sm emerald">⏸ Pause</button>
+    <div class="row" style="gap:3px;">
+      <button class="sm spd-btn" data-spd="0.25">0.25x</button>
+      <button class="sm spd-btn active" data-spd="1">1x</button>
+      <button class="sm spd-btn" data-spd="5">5x</button>
+      <button class="sm spd-btn" data-spd="50">50x</button>
+      <button class="sm spd-btn" data-spd="500">500x</button>
+    </div>
+    <div class="div"></div>
+    <button id="btnManual" class="sm cyan" title="Take direct WASD control of the Alpha Scout Ant">🎮 WASD</button>
+    <button id="btnNextGen" class="sm" title="Evolve Next Generation Now">🧬 Evolve</button>
+  </div>
+</div>
+
+<button id="tglLeft" class="dock-toggle">◀</button>
+<button id="tglRight" class="dock-toggle">▶</button>
+
+<!-- Left Dock: Colony & Sandbox Controls -->
+<div class="dock" id="leftDock">
+  <div class="dock-head">
+    <span>🐜 Colony &amp; Sandbox</span>
+    <span id="buildBadge" style="color:#fbbf24">Leafcutter</span>
+  </div>
+  <div class="dock-body">
+    <div>
+      <div class="sec-label"><span>Arena Brush (Click / Drag)</span></div>
+      <div class="grid-2">
+        <button class="sm brush-tool active" data-brush="food">🍓 Drop Food</button>
+        <button class="sm brush-tool" data-brush="wall">🪨 Paint Wall</button>
+        <button class="sm brush-tool" data-brush="pheromone">✨ Trail Scent</button>
+        <button class="sm brush-tool" data-brush="rival">🪲 Spawn Rival</button>
+        <button class="sm brush-tool danger" data-brush="erase" style="grid-column: span 2; justify-content:center;">✕ Erase Obstacles</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-label"><span>Swarm Population</span><span id="popVal" style="color:var(--cyan)">250 Ants</span></div>
+      <div class="grid-4">
+        <button class="sm pop-btn" data-pop="50">50</button>
+        <button class="sm pop-btn active" data-pop="250">250</button>
+        <button class="sm pop-btn" data-pop="500">500</button>
+        <button class="sm pop-btn" data-pop="1000">1000</button>
+      </div>
+    </div>
+
+    <div class="slider-box">
+      <div class="slider-top"><span>Generation Duration</span><span id="valGenTime">45s</span></div>
+      <input type="range" id="slGenTime" min="15" max="120" step="5" value="45" />
+    </div>
+    <div class="slider-box">
+      <div class="slider-top"><span>Mutation Rate</span><span id="valMut">18%</span></div>
+      <input type="range" id="slMut" min="2" max="50" step="2" value="18" />
+    </div>
+    <div class="slider-box">
+      <div class="slider-top"><span>Pheromone Evaporation</span><span id="valEvap">1.0x</span></div>
+      <input type="range" id="slEvap" min="0.2" max="3.0" step="0.2" value="1.0" />
+    </div>
+
+    <div class="toggle-line">
+      <span>Show Pheromone Trails</span>
+      <input type="checkbox" id="chkPhero" checked />
+    </div>
+    <div class="toggle-line">
+      <span>Show Sensor Feelers (Top Ant)</span>
+      <input type="checkbox" id="chkFeelers" checked />
+    </div>
+    <div class="toggle-line">
+      <span>Predators &amp; Rival Raiders</span>
+      <input type="checkbox" id="chkRivals" checked />
+    </div>
+
+    <div style="display:flex; gap:6px; margin-top:auto;">
+      <button id="btnResetWorld" class="sm danger" style="flex:1; justify-content:center;">↻ Reset Arena</button>
+      <button id="btnRandomBuild" class="sm" style="flex:1; justify-content:center;">🎲 Random Ant</button>
+    </div>
+  </div>
+</div>
+
+<!-- Right Dock: Neural Brain & Evolution Telemetry -->
+<div class="dock" id="rightDock">
+  <div class="dock-head">
+    <span>🧠 Live Neural Brain</span>
+    <span id="genTimerTxt" style="color:var(--emerald)">45.0s</span>
+  </div>
+  <div class="dock-body">
+    <div>
+      <div class="sec-label"><span>Champion Ant Network (8 → 10 → 4)</span></div>
+      <canvas id="brainCanvas" width="248" height="132"></canvas>
+    </div>
+    <div>
+      <div class="sec-label"><span>Fitness Evolution Curve</span><span id="avgFitTxt" style="color:var(--cyan)">Avg: 0</span></div>
+      <canvas id="fitnessCanvas" width="248" height="74"></canvas>
+    </div>
+    <div>
+      <div class="sec-label"><span>Equipped Bio-Anatomy</span></div>
+      <div id="equippedSummary" style="display:flex; flex-direction:column; gap:5px; font-size:11px;"></div>
+    </div>
+    <div>
+      <div class="sec-label"><span>Colony Metrics</span></div>
+      <div class="grid-2" style="font-size:11px;">
+        <div class="stat-pill" style="justify-content:space-between;"><small>CARRYING</small><span id="mCarry" style="color:#34d399">0</span></div>
+        <div class="stat-pill" style="justify-content:space-between;"><small>RIVALS</small><span id="mRivals" style="color:#f43f5e">0</span></div>
+        <div class="stat-pill" style="justify-content:space-between;"><small>KILLS</small><span id="mKills" style="color:#fbbf24">0</span></div>
+        <div class="stat-pill" style="justify-content:space-between;"><small>AVG SPD</small><span id="mSpd" style="color:#38bdf8">0</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bio-Garage Modal (150 Modular Bio-Parts + 12 Presets) -->
+<div id="garageOverlay">
+  <div class="garage-modal">
+    <div class="garage-header">
+      <div class="garage-title">🧬 Ant Bio-Garage <span class="brand-pill">150 MODULAR PARTS · 12 PRESETS</span></div>
+      <div class="row">
+        <button id="btnGarageRandom" class="sm">🎲 Randomize Build</button>
+        <button id="btnGarageApply" class="active">✓ Apply to Colony &amp; Play</button>
+      </div>
+    </div>
+    <div class="garage-body">
+      <div class="garage-left">
+        <canvas id="antPreviewCanvas" width="310" height="220"></canvas>
+        <div class="stat-bars" id="garageStats"></div>
+      </div>
+      <div class="garage-right">
+        <div class="slot-tabs" id="slotTabs"></div>
+        <div class="parts-grid" id="partsGrid"></div>
+        <div class="presets-strip" id="presetsStrip">
+          <span style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-right:4px;">Presets:</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="bottomPill">Click/Drag: Drop Food or Paint Walls · Right-Drag: Pan · Scroll: Zoom · WASD: Control Alpha Ant (in WASD mode)</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // =========================================================================
+  // 150 MODULAR BIO-PARTS GENERATOR (6 SLOTS × 25 PARTS = 150 PARTS)
+  // =========================================================================
+  const SLOTS = [
+    { id: 'head',     label: '🦷 Mandibles', icon: '🦷' },
+    { id: 'thorax',   label: '🛡 Thorax',    icon: '🛡' },
+    { id: 'legs',     label: '🦵 Legs',      icon: '🦵' },
+    { id: 'abdomen',  label: '🧪 Gaster',    icon: '🧪' },
+    { id: 'gland',    label: '✨ Pheromone', icon: '✨' },
+    { id: 'antennae', label: '📡 Sensors',   icon: '📡' }
+  ];
+
+  const PART_CATALOG = {};
+  const SLOT_TEMPLATES = {
+    head: [
+      ['Worker Mandibles','common',0,4,4,0,0,0,'#d97706'],['Scout Nippers','common',4,3,5,0,0,4,'#f59e0b'],
+      ['Leafcutter Shears','common',-2,10,6,2,0,0,'#84cc16'],['Carpenter Jaws','common',-3,9,9,3,0,0,'#b45309'],
+      ['Harvester Crunchers','common',-1,12,5,2,0,0,'#eab308'],['Velvet Pinchers','rare',3,8,10,2,2,2,'#f97316'],
+      ['Bulldog Mandibles','rare',-2,11,16,5,0,0,'#ef4444'],['Serrated Saw-Jaws','rare',0,12,18,4,0,0,'#dc2626'],
+      ['Army Ant Hooks','rare',5,9,17,3,2,3,'#e11d48'],['Trap-Jaw Snappers','epic',6,12,24,4,0,5,'#f43f5e'],
+      ['Acid-Tipped Fangs','epic',2,10,26,3,6,2,'#22c55e'],['Stag Beetle Antlers','epic',-4,18,22,12,0,0,'#a16207'],
+      ['Rhino Horn Crest','epic',-5,16,25,18,0,0,'#78716c'],['Venomous Harpoon','epic',4,10,28,4,5,4,'#a855f7'],
+      ['Mantis Scythe Jaws','epic',8,11,27,3,0,6,'#10b981'],['Titan Chitin Crusher','legendary',-3,24,32,16,0,0,'#f59e0b'],
+      ['Bullet Ant Stinger-Jaw','legendary',4,14,36,8,6,4,'#dc2626'],['Obsidian Pincers','legendary',2,18,34,14,0,4,'#6366f1'],
+      ['Cryo-Nectar Beak','legendary',6,16,30,10,10,6,'#38bdf8'],['Solar Chitin Crown','legendary',8,20,30,14,12,8,'#fbbf24'],
+      ['Hercules Mega-Horn','mythic',-2,36,46,24,4,4,'#facc15'],['Plasma-Edge Mandibles','mythic',10,26,52,12,8,8,'#f43f5e'],
+      ['Gravity-Grip Jaws','mythic',8,44,36,14,12,10,'#a855f7'],['Hive-Queen Crown','mythic',12,30,42,20,24,16,'#fde047'],
+      ['Apex Leviathan Maw','mythic',10,38,58,22,10,10,'#38bdf8']
+    ],
+    thorax: [
+      ['Light Chitin','common',6,2,0,6,0,0,'#92400e'],['Amber Carapace','common',3,5,2,10,0,0,'#d97706'],
+      ['Forest Moss Shell','common',2,6,2,12,3,0,'#4d7c0f'],['Tunnel Plate','common',-2,8,3,18,0,0,'#78716c'],
+      ['Streamlined Ridge','common',9,3,2,8,0,2,'#0284c7'],['Spiked Pronotum','rare',1,7,10,18,0,0,'#b91c1c'],
+      ['Honeycomb Frame','rare',4,14,2,14,6,0,'#f59e0b'],['Reinforced Arch','rare',-3,15,5,24,0,0,'#64748b'],
+      ['Emerald Beetle Hull','rare',3,10,6,22,4,2,'#10b981'],['Fire-Ant Plating','epic',6,10,12,24,6,2,'#ef4444'],
+      ['Wasp Aero-Thorax','epic',14,8,10,16,4,6,'#eab308'],['Bioluminescent Core','epic',6,12,8,20,14,8,'#38bdf8'],
+      ['Armadillo Segmented','epic',-4,16,8,34,0,0,'#94a3b8'],['Bio-Carbon Shell','epic',12,14,10,26,4,4,'#475569'],
+      ['Fungal Symbiont Back','epic',4,16,6,24,16,6,'#a855f7'],['Goliath Exoskeleton','legendary',-2,24,14,42,4,0,'#d97706'],
+      ['Titanium-Chitin Weave','legendary',8,20,16,38,6,4,'#38bdf8'],['Valkyrie Wing-Case','legendary',18,14,14,28,8,8,'#f43f5e'],
+      ['Nectar Fusion Core','legendary',10,26,12,30,18,6,'#fbbf24'],['Prism Scarab Armor','legendary',12,18,16,36,12,10,'#c084fc'],
+      ['Quantum Chitin Matrix','mythic',18,28,22,48,18,14,'#38bdf8'],['Solar Phoenix Carapace','mythic',22,24,28,44,22,12,'#f97316'],
+      ['Titan Atlas Thorax','mythic',8,48,26,64,10,8,'#facc15'],['Void-Silk Exo-Core','mythic',24,26,24,42,20,18,'#a855f7'],
+      ['Omega Hive-Chassis','mythic',20,38,32,56,26,18,'#22c55e']
+    ],
+    legs: [
+      ['Standard 6x Legs','common',8,4,0,2,0,0,'#a16207'],['Long Striders','common',14,2,0,0,0,2,'#ca8a04'],
+      ['Burrower Claws','common',6,8,4,4,0,0,'#78716c'],['Grip-Pad Tarsi','common',10,7,2,3,0,0,'#65a30d'],
+      ['Sand-Runner Legs','common',16,3,0,1,0,2,'#eab308'],['Grasshopper Springs','rare',20,5,4,2,0,3,'#22c55e'],
+      ['Spider Climbers','rare',18,7,5,4,0,5,'#64748b'],['Heavy Hauler Legs','rare',8,18,4,10,0,0,'#b45309'],
+      ['Army Ant Marchers','rare',22,9,6,4,2,2,'#dc2626'],['Mantis Dash-Limbs','epic',28,8,12,4,0,4,'#10b981'],
+      ['Centipede 12x Drive','epic',24,18,10,10,0,3,'#ea580c'],['Hydro-Glide Feet','epic',26,10,6,6,4,4,'#0ea5e9'],
+      ['Pneumatic Leapers','epic',30,12,10,6,0,5,'#38bdf8'],['Raptor Talon Legs','epic',26,10,18,8,0,4,'#f43f5e'],
+      ['Silk-Anchor Claws','epic',22,16,8,10,6,6,'#c084fc'],['Cheetah-Ant Tendons','legendary',38,12,10,8,0,6,'#fbbf24'],
+      ['Hydraulic Titan Legs','legendary',20,32,16,18,0,2,'#f59e0b'],['Dragonfly Hover-Pods','legendary',42,14,10,10,6,10,'#38bdf8'],
+      ['Vibro-Blade Limbs','legendary',32,16,24,12,0,6,'#ef4444'],['Magnetic Wall-Walkers','legendary',34,22,14,14,8,8,'#8b5cf6'],
+      ['Warp-Jump Mantis','mythic',52,20,20,14,8,10,'#22c55e'],['Hyper-Sonic Striders','mythic',58,18,18,12,10,12,'#38bdf8'],
+      ['Colossus 8x Pistons','mythic',32,46,28,28,4,6,'#facc15'],['Phase-Step Arachnid','mythic',48,24,26,18,12,14,'#a855f7'],
+      ['Zero-G Bio-Thrusters','mythic',56,30,24,20,16,14,'#f43f5e']
+    ],
+    abdomen: [
+      ['Basic Gaster','common',2,6,2,4,4,0,'#92400e'],['Honey-Pot Crop','common',-2,14,0,6,6,0,'#f59e0b'],
+      ['Forager Pouch','common',0,12,0,4,5,0,'#d97706'],['Formic Acid Sac','common',0,6,10,4,6,0,'#84cc16'],
+      ['Compact Tail','common',8,4,4,4,4,0,'#64748b'],['Fire-Ant Venom Sac','rare',2,8,16,6,8,0,'#ef4444'],
+      ['Expanded Cargo Crop','rare',-2,22,2,8,6,0,'#fbbf24'],['Wasp Stinger Tail','rare',6,6,20,6,4,2,'#eab308'],
+      ['Silk Spinneret','rare',4,12,8,8,12,2,'#e2e8f0'],['Bombardier Chamber','epic',4,10,26,8,10,0,'#f97316'],
+      ['Bio-Turbo Jet','epic',20,10,12,6,8,2,'#38bdf8'],['Royal Jelly Vat','epic',0,28,6,14,14,2,'#facc15'],
+      ['Scorpion Whip Tail','epic',6,10,28,10,4,4,'#dc2626'],['Glowing Firefly Bulb','epic',8,12,10,8,18,8,'#a3e635'],
+      ['Acid Mortar Gaster','epic',2,14,30,10,10,2,'#22c55e'],['Plasma Acid Cannon','legendary',8,16,38,14,14,4,'#10b981'],
+      ['Mega-Freight Crop','legendary',2,40,10,20,12,2,'#f59e0b'],['Rocket-Pod Gaster','legendary',28,16,24,12,10,6,'#f43f5e'],
+      ['Spore-Cloud Sac','legendary',10,20,26,16,24,6,'#a855f7'],['Chrono-Nectar Tank','legendary',16,26,20,18,20,8,'#38bdf8'],
+      ['Supernova Bombardier','mythic',18,26,52,20,20,8,'#f97316'],['Singularity Cargo Sac','mythic',14,56,24,24,22,10,'#a855f7'],
+      ['Ion Bio-Afterburner','mythic',42,22,34,18,16,12,'#38bdf8'],['Genesis Queen Gaster','mythic',16,42,36,30,34,12,'#facc15'],
+      ['Apex Venom Reactor','mythic',20,30,56,24,24,10,'#22c55e']
+    ],
+    gland: [
+      ['Trail Pheromone','common',0,0,0,0,10,2,'#34d399'],['Home Beacon','common',0,0,0,0,10,4,'#fbbf24'],
+      ['Alarm Scent','common',2,0,4,0,10,2,'#f43f5e'],['Food-Boost Gland','common',0,3,0,0,12,2,'#10b981'],
+      ['Sticky Trail Wax','common',0,2,0,2,14,0,'#a3e635'],['Super-Attractant','rare',2,2,0,2,20,6,'#22c55e'],
+      ['Rally Horn Gland','rare',4,4,8,2,18,4,'#f97316'],['Rival-Jammer Mist','rare',2,2,10,4,18,4,'#a855f7'],
+      ['Healing Nectar Mist','rare',0,4,2,12,16,2,'#38bdf8'],['Hyper-Trail Gland','epic',6,4,4,4,28,8,'#10b981'],
+      ['Berserk Pheromone','epic',10,6,18,4,24,4,'#ef4444'],['Swarm-Sync Duct','epic',6,6,8,6,28,10,'#38bdf8'],
+      ['Predator Repellent','epic',4,4,12,14,26,6,'#facc15'],['Bio-Flare Sprayer','epic',8,4,14,6,30,8,'#f43f5e'],
+      ['Mycelium Link Gland','epic',4,10,6,10,32,12,'#c084fc'],['Queen Command Aura','legendary',10,12,14,14,40,12,'#fbbf24'],
+      ['Cryo-Mist Diffuser','legendary',8,10,20,16,38,10,'#38bdf8'],['Nano-Scent Synthesizer','legendary',12,12,14,12,44,16,'#22c55e'],
+      ['Apex War-Scent','legendary',14,10,28,14,38,10,'#ef4444'],['Harmonic Hive Gland','legendary',12,16,14,16,44,16,'#a855f7'],
+      ['Quantum Pheromone Organ','mythic',18,18,22,18,62,22,'#38bdf8'],['Solar Hive-Beacon','mythic',16,22,26,22,60,20,'#facc15'],
+      ['Omega Neuro-Mist','mythic',20,20,32,20,58,24,'#f43f5e'],['Emerald Genesis Gland','mythic',16,26,22,28,64,22,'#10b981'],
+      ['Singularity Swarm Core','mythic',22,24,30,24,68,26,'#c084fc']
+    ],
+    antennae: [
+      ['Chemo-Feelers','common',0,0,0,0,4,10,'#38bdf8'],['Wide Sweepers','common',2,0,0,0,2,14,'#60a5fa'],
+      ['Compound Eyes','common',4,0,2,0,0,14,'#22c55e'],['Seismic Whiskers','common',0,2,2,4,2,14,'#f59e0b'],
+      ['Short Tactile Tips','common',4,2,4,2,2,10,'#94a3b8'],['Infra-Heat Pits','rare',4,2,6,2,4,22,'#ef4444'],
+      ['Dual-Band Feelers','rare',2,2,2,2,10,24,'#34d399'],['Hawk-Eye Ocelli','rare',6,0,8,2,2,26,'#38bdf8'],
+      ['Ultrasonic Plumes','rare',4,2,4,4,8,26,'#a855f7'],['360° Sonar Antennae','epic',6,4,6,6,10,36,'#0ea5e9'],
+      ['Bio-Radar Array','epic',8,4,10,6,12,38,'#22c55e'],['Thermal-Lock Crown','epic',8,4,16,6,8,36,'#f97316'],
+      ['Electro-Field Horns','epic',6,6,14,8,14,38,'#eab308'],['Neuro-Reflex Tendrils','epic',14,4,10,6,10,36,'#c084fc'],
+      ['Deep-Tunnel Lidar','epic',6,8,8,10,14,40,'#38bdf8'],['Moth-King Plumes','legendary',10,8,10,10,22,50,'#fbbf24'],
+      ['Quantum-Scent Array','legendary',12,10,14,12,24,52,'#34d399'],['Apex Predator Optics','legendary',16,8,24,10,12,50,'#f43f5e'],
+      ['Psychic Hive-Crown','legendary',12,12,16,14,28,54,'#a855f7'],['Starlight Compound Eyes','legendary',16,10,18,12,20,54,'#38bdf8'],
+      ['Hive-Mind Neural Crown','mythic',20,16,24,18,36,72,'#facc15'],['Omniscient Bio-Array','mythic',22,18,28,20,34,76,'#38bdf8'],
+      ['Chrono-Predictive Feelers','mythic',26,16,26,18,30,74,'#22c55e'],['Void-Sight Antennae','mythic',22,18,32,20,32,74,'#a855f7'],
+      ['God-Queen Cortex','mythic',24,22,34,24,40,80,'#f43f5e']
+    ]
+  };
+
+  for (const slot of SLOTS) {
+    PART_CATALOG[slot.id] = SLOT_TEMPLATES[slot.id].map((p, idx) => ({
+      id: `${slot.id}_${idx}`,
+      slot: slot.id,
+      name: p[0],
+      rarity: p[1],
+      spd: p[2],
+      carry: p[3],
+      atk: p[4],
+      hp: p[5],
+      phero: p[6],
+      sense: p[7],
+      color: p[8]
+    }));
+  }
+
+  const PRESETS = [
+    { name: 'Leafcutter Forager', icon: '🍃', parts: { head:2, thorax:2, legs:3, abdomen:2, gland:0, antennae:0 } },
+    { name: 'Fire Ant Raider',    icon: '🔥', parts: { head:8, thorax:9, legs:8, abdomen:5, gland:10, antennae:5 } },
+    { name: 'Bullet Ant Tank',    icon: '🛡', parts: { head:16, thorax:15, legs:16, abdomen:16, gland:12, antennae:3 } },
+    { name: 'Army Ant Sprinter',  icon: '⚡', parts: { head:9, thorax:10, legs:15, abdomen:10, gland:10, antennae:13 } },
+    { name: 'Trap-Jaw Hunter',    icon: '🪤', parts: { head:9, thorax:5, legs:9, abdomen:12, gland:2, antennae:17 } },
+    { name: 'Honey-Pot Hauler',   icon: '🍯', parts: { head:4, thorax:6, legs:7, abdomen:16, gland:3, antennae:6 } },
+    { name: 'Bombardier Alchemist',icon:'💥', parts: { head:10, thorax:11, legs:11, abdomen:9, gland:13, antennae:9 } },
+    { name: 'Carpenter Excavator',icon: '🪵', parts: { head:3, thorax:7, legs:2, abdomen:6, gland:4, antennae:14 } },
+    { name: 'Weaver Acrobat',     icon: '🕸', parts: { head:5, thorax:8, legs:14, abdomen:8, gland:11, antennae:10 } },
+    { name: 'Bio-Glow Explorer',  icon: '✨', parts: { head:18, thorax:11, legs:17, abdomen:13, gland:15, antennae:19 } },
+    { name: 'Titan Hercules',     icon: '🪲', parts: { head:20, thorax:22, legs:22, abdomen:21, gland:21, antennae:15 } },
+    { name: 'Apex Mythic Queen',  icon: '👑', parts: { head:23, thorax:24, legs:20, abdomen:23, gland:20, antennae:20 } }
+  ];
+
+  // =========================================================================
+  // WORLD & PHEROMONE GRID CONSTANTS
+  // =========================================================================
+  const WORLD_W = 1600;
+  const WORLD_H = 1000;
+  const P_CELL = 16;
+  const P_COLS = Math.ceil(WORLD_W / P_CELL); // 100
+  const P_ROWS = Math.ceil(WORLD_H / P_CELL); // 63
+  const P_SIZE = P_COLS * P_ROWS;
+
+  // Dual-channel pheromone fields (Food Trail = green/cyan, Home Trail = amber/violet)
+  let pheroFood = new Float32Array(P_SIZE);
+  let pheroHome = new Float32Array(P_SIZE);
+  let pheroTmp = new Float32Array(P_SIZE);
+
+  // Offscreen pheromone canvas for ultra-fast GPU blitting
+  const pheroCanvas = document.createElement('canvas');
+  pheroCanvas.width = P_COLS;
+  pheroCanvas.height = P_ROWS;
+  const pheroCtx = pheroCanvas.getContext('2d');
+  const pheroImg = pheroCtx.createImageData(P_COLS, P_ROWS);
+
+  // =========================================================================
+  // NEURAL NETWORK (8 Inputs -> 10 Hidden tanh -> 4 Outputs)
+  // =========================================================================
+  const NN_IN = 8, NN_HID = 10, NN_OUT = 4;
+  const NN_WEIGHTS = NN_IN * NN_HID + NN_HID + NN_HID * NN_OUT + NN_OUT; // 80+10+40+4 = 134
+
+  function createRandomBrain() {
+    const w = new Float32Array(NN_WEIGHTS);
+    for (let i = 0; i < w.length; i++) w[i] = (Math.random() * 2 - 1) * 0.9;
+    return w;
+  }
+
+  function mutateBrain(parentA, parentB, rate) {
+    const w = new Float32Array(NN_WEIGHTS);
+    for (let i = 0; i < w.length; i++) {
+      let v = Math.random() < 0.5 ? parentA[i] : parentB[i];
+      if (Math.random() < rate) v += (Math.random() * 2 - 1) * 0.45;
+      w[i] = v < -3 ? -3 : v > 3 ? 3 : v;
+    }
+    return w;
+  }
+
+  const _nnHid = new Float32Array(NN_HID);
+  const _nnOut = new Float32Array(NN_OUT);
+  const _champIn = new Float32Array(NN_IN);
+  const _champHid = new Float32Array(NN_HID);
+  const _champOut = new Float32Array(NN_OUT);
+
+  function forwardBrain(w, inp, recordChamp = false) {
+    let idx = 0;
+    for (let h = 0; h < NN_HID; h++) {
+      let s = 0;
+      for (let i = 0; i < NN_IN; i++) s += inp[i] * w[idx++];
+      s += w[NN_IN * NN_HID + h];
+      _nnHid[h] = Math.tanh(s);
+    }
+    idx = NN_IN * NN_HID + NN_HID;
+    const bOff = idx + NN_HID * NN_OUT;
+    for (let o = 0; o < NN_OUT; o++) {
+      let s = 0;
+      for (let h = 0; h < NN_HID; h++) s += _nnHid[h] * w[idx++];
+      s += w[bOff + o];
+      _nnOut[o] = Math.tanh(s);
+    }
+    if (recordChamp) {
+      _champIn.set(inp);
+      _champHid.set(_nnHid);
+      _champOut.set(_nnOut);
+    }
+    return _nnOut;
+  }
+
+  // =========================================================================
+  // GAME STATE
+  // =========================================================================
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const brainCanvas = document.getElementById('brainCanvas');
+  const brainCtx = brainCanvas.getContext('2d');
+  const fitCanvas = document.getElementById('fitnessCanvas');
+  const fitCtx = fitCanvas.getContext('2d');
+  const prevCanvas = document.getElementById('antPreviewCanvas');
+  const prevCtx = prevCanvas.getContext('2d');
+
+  const equipped = { head: 2, thorax: 2, legs: 3, abdomen: 2, gland: 0, antennae: 0 };
+  let antStats = {};
+
+  function recomputeAntStats() {
+    let spd = 65, carry = 10, atk = 8, hp = 40, phero = 20, sense = 70;
+    for (const s of SLOTS) {
+      const p = PART_CATALOG[s.id][equipped[s.id]];
+      spd += p.spd; carry += p.carry; atk += p.atk; hp += p.hp; phero += p.phero; sense += p.sense;
+    }
+    antStats = {
+      spd: Math.max(35, spd),
+      carry: Math.max(5, carry),
+      atk: Math.max(4, atk),
+      hp: Math.max(25, hp),
+      phero: Math.max(10, phero),
+      sense: Math.max(45, sense),
+      headColor: PART_CATALOG.head[equipped.head].color,
+      thoraxColor: PART_CATALOG.thorax[equipped.thorax].color,
+      legsColor: PART_CATALOG.legs[equipped.legs].color,
+      abdomenColor: PART_CATALOG.abdomen[equipped.abdomen].color
+    };
+    updateEquippedSummary();
+  }
+
+  const state = {
+    biome: 'forest',
+    paused: false,
+    simSpeed: 1,
+    popSize: 250,
+    gen: 1,
+    genTime: 0,
+    genDuration: 45,
+    mutRate: 0.18,
+    evapRate: 1.0,
+    showPhero: true,
+    showFeelers: true,
+    rivalsEnabled: true,
+    manualMode: false,
+    brush: 'food',
+    nest: { x: 260, y: WORLD_H / 2, r: 44 },
+    obstacles: [],
+    foods: [],
+    rivals: [],
+    ants: [],
+    particles: [],
+    totalFoodDelivered: 0,
+    genFoodDelivered: 0,
+    kills: 0,
+    bestFitness: 0,
+    fitnessHistory: [],
+    championIdx: 0
+  };
+
+  const cam = { x: WORLD_W / 2, y: WORLD_H / 2, zoom: 0.72, targetZoom: 0.72 };
+  const input = {
+    mx: 0, my: 0, wx: 0, wy: 0,
+    left: false, panning: false,
+    panX: 0, panY: 0, camX: 0, camY: 0,
+    keys: new Set(), lastBrushX: -999, lastBrushY: -999
+  };
+
+  // =========================================================================
+  // BIOME GENERATOR (4 DISTINCT ARENAS)
+  // =========================================================================
+  function loadBiome(name) {
+    state.biome = name;
+    state.obstacles = [];
+    state.foods = [];
+    state.rivals = [];
+    state.particles = [];
+    pheroFood.fill(0);
+    pheroHome.fill(0);
+    state.genFoodDelivered = 0;
+    state.genTime = 0;
+
+    if (name === 'forest') {
+      state.nest = { x: 240, y: WORLD_H / 2, r: 46 };
+      // Mossy boulders & fallen twigs
+      const rocks = [
+        [540, 260, 56], [560, 720, 62], [820, 480, 68],
+        [1050, 240, 52], [1080, 760, 58], [680, 520, 38]
+      ];
+      for (const [x, y, r] of rocks) state.obstacles.push({ x, y, r, kind: 'rock' });
+      // Rich berry & sugar clusters
+      spawnFoodCluster(1280, 240, 28, '#34d399');
+      spawnFoodCluster(1340, 520, 32, '#fbbf24');
+      spawnFoodCluster(1240, 790, 28, '#38bdf8');
+      spawnFoodCluster(860, 170, 22, '#a3e635');
+      spawnFoodCluster(860, 840, 22, '#f472b6');
+      if (state.rivalsEnabled) {
+        spawnRival(940, 380, 'beetle');
+        spawnRival(1120, 610, 'spider');
+      }
+    } else if (name === 'antfarm') {
+      state.nest = { x: 200, y: 200, r: 44 };
+      // Winding underground tunnel walls
+      for (let x = 380; x <= 1180; x += 64) state.obstacles.push({ x, y: 340, r: 38, kind: 'dirt' });
+      for (let x = 440; x <= 1420; x += 64) state.obstacles.push({ x, y: 660, r: 38, kind: 'dirt' });
+      spawnFoodCluster(1360, 170, 34, '#fbbf24');
+      spawnFoodCluster(320, 500, 26, '#34d399');
+      spawnFoodCluster(1360, 840, 42, '#38bdf8');
+      spawnFoodCluster(860, 500, 24, '#a3e635');
+      if (state.rivalsEnabled) {
+        spawnRival(980, 500, 'beetle');
+        spawnRival(720, 820, 'spider');
+      }
+    } else if (name === 'picnic') {
+      state.nest = { x: 220, y: WORLD_H / 2, r: 44 };
+      // Picnic plates / cups as obstacles
+      state.obstacles.push({ x: 640, y: 310, r: 72, kind: 'plate' });
+      state.obstacles.push({ x: 640, y: 690, r: 72, kind: 'plate' });
+      state.obstacles.push({ x: 1020, y: 500, r: 64, kind: 'plate' });
+      // Giant picnic jackpots
+      spawnFoodCluster(1320, 220, 40, '#f43f5e'); // Watermelon
+      spawnFoodCluster(1320, 780, 40, '#fbbf24'); // Donut
+      spawnFoodCluster(1380, 500, 35, '#f8fafc'); // Sugar cubes
+      spawnFoodCluster(840, 500, 22, '#34d399');
+      if (state.rivalsEnabled) {
+        for (let i = 0; i < 4; i++) spawnRival(1180, 350 + i * 95, 'fireant');
+      }
+    } else if (name === 'canyon') {
+      state.nest = { x: 210, y: WORLD_H / 2, r: 44 };
+      for (let y = 80; y <= 380; y += 64) state.obstacles.push({ x: 580, y, r: 40, kind: 'rock' });
+      for (let y = 620; y <= 920; y += 64) state.obstacles.push({ x: 580, y, r: 40, kind: 'rock' });
+      for (let y = 260; y <= 740; y += 64) state.obstacles.push({ x: 980, y, r: 42, kind: 'rock' });
+      spawnFoodCluster(1360, 200, 38, '#facc15');
+      spawnFoodCluster(1360, 800, 38, '#facc15');
+      spawnFoodCluster(1360, 500, 32, '#38bdf8');
+      if (state.rivalsEnabled) {
+        spawnRival(780, 500, 'spider');
+        spawnRival(1180, 300, 'spider');
+        spawnRival(1180, 700, 'beetle');
+      }
+    }
+
+    fitCamera();
+    spawnColony(false);
+  }
+
+  function spawnFoodCluster(cx, cy, count, color = '#34d399') {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * 54;
+      state.foods.push({
+        x: clamp(cx + Math.cos(a) * r, 30, WORLD_W - 30),
+        y: clamp(cy + Math.sin(a) * r, 30, WORLD_H - 30),
+        amount: 3,
+        color
+      });
+    }
+  }
+
+  function spawnRival(x, y, type = 'spider') {
+    const isSpider = type === 'spider';
+    const isBeetle = type === 'beetle';
+    state.rivals.push({
+      x, y,
+      vx: 0, vy: 0,
+      angle: Math.random() * Math.PI * 2,
+      type,
+      r: isSpider ? 18 : isBeetle ? 15 : 10,
+      hp: isSpider ? 240 : isBeetle ? 180 : 65,
+      maxHp: isSpider ? 240 : isBeetle ? 180 : 65,
+      speed: isSpider ? 78 : isBeetle ? 55 : 95,
+      dmg: isSpider ? 22 : isBeetle ? 16 : 12,
+      cd: 0
+    });
+  }
+
+  // =========================================================================
+  // COLONY & NEURO-EVOLUTION
+  // =========================================================================
+  function createAnt(brain, idx) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * 24;
+    return {
+      x: state.nest.x + Math.cos(a) * r,
+      y: state.nest.y + Math.sin(a) * r,
+      angle: a,
+      speed: 0,
+      hp: antStats.hp,
+      maxHp: antStats.hp,
+      carrying: 0,
+      carryColor: '#34d399',
+      brain: brain || createRandomBrain(),
+      fitness: 0,
+      visitedMaxDist: 0,
+      deliveries: 0,
+      alive: true,
+      atkCd: 0,
+      isElite: idx < 8
+    };
+  }
+
+  function spawnColony(evolveFromExisting = false) {
+    if (!evolveFromExisting || state.ants.length === 0) {
+      state.ants = [];
+      for (let i = 0; i < state.popSize; i++) state.ants.push(createAnt(null, i));
+      state.championIdx = 0;
+      return;
+    }
+
+    // Sort by fitness descending
+    const sorted = state.ants.slice().sort((a, b) => b.fitness - a.fitness);
+    const best = sorted[0].fitness;
+    const avg = sorted.reduce((s, a) => s + a.fitness, 0) / sorted.length;
+    state.bestFitness = Math.max(state.bestFitness, best);
+    state.fitnessHistory.push({ best, avg });
+    if (state.fitnessHistory.length > 60) state.fitnessHistory.shift();
+
+    const elitesCount = Math.max(4, Math.floor(state.popSize * 0.08));
+    const poolSize = Math.max(8, Math.floor(state.popSize * 0.25));
+    const nextAnts = [];
+    for (let i = 0; i < state.popSize; i++) {
+      if (i < elitesCount) {
+        nextAnts.push(createAnt(new Float32Array(sorted[i % sorted.length].brain), i));
+      } else {
+        const pA = sorted[(Math.random() * Math.min(poolSize, sorted.length)) | 0].brain;
+        const pB = sorted[(Math.random() * Math.min(poolSize, sorted.length)) | 0].brain;
+        nextAnts.push(createAnt(mutateBrain(pA, pB, state.mutRate), i));
+      }
+    }
+    state.ants = nextAnts;
+    state.gen++;
+    state.genTime = 0;
+    state.genFoodDelivered = 0;
+    state.championIdx = 0;
+
+    // Replenish food if running low
+    if (state.foods.length < 40) {
+      spawnFoodCluster(1280, 260 + Math.random() * 480, 30, '#34d399');
+    }
+    // Soft fade pheromones slightly on new generation
+    for (let i = 0; i < P_SIZE; i++) { pheroFood[i] *= 0.4; pheroHome[i] *= 0.4; }
+  }
+
+  // =========================================================================
+  // PHEROMONE SAMPLING & DIFFUSION
+  // =========================================================================
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+  function samplePhero(arr, x, y) {
+    const cx = clamp((x / P_CELL) | 0, 0, P_COLS - 1);
+    const cy = clamp((y / P_CELL) | 0, 0, P_ROWS - 1);
+    return arr[cy * P_COLS + cx];
+  }
+
+  function depositPhero(arr, x, y, val) {
+    const cx = clamp((x / P_CELL) | 0, 0, P_COLS - 1);
+    const cy = clamp((y / P_CELL) | 0, 0, P_ROWS - 1);
+    const idx = cy * P_COLS + cx;
+    const nv = arr[idx] + val;
+    arr[idx] = nv > 1 ? 1 : nv;
+  }
+
+  function stepPheromones(dt) {
+    const decay = Math.max(0.82, 1 - 0.16 * state.evapRate * dt);
+    const diff = 0.08 * dt * 10;
+    // Fast 4-neighbor diffusion + decay
+    for (let ch = 0; ch < 2; ch++) {
+      const src = ch === 0 ? pheroFood : pheroHome;
+      for (let y = 1; y < P_ROWS - 1; y++) {
+        const row = y * P_COLS;
+        for (let x = 1; x < P_COLS - 1; x++) {
+          const i = row + x;
+          const v = src[i];
+          const avg = (src[i - 1] + src[i + 1] + src[i - P_COLS] + src[i + P_COLS]) * 0.25;
+          const nv = (v + (avg - v) * diff) * decay;
+          pheroTmp[i] = nv < 0.002 ? 0 : nv;
+        }
+      }
+      src.set(pheroTmp);
+    }
+  }
+
+  // =========================================================================
+  // SIMULATION STEP
+  // =========================================================================
+  const _inp = new Float32Array(NN_IN);
+
+  function stepSim(dt) {
+    state.genTime += dt;
+    if (state.genTime >= state.genDuration && !state.manualMode) {
+      spawnColony(true);
+    }
+
+    stepPheromones(dt);
+
+    const nestX = state.nest.x, nestY = state.nest.y, nestR2 = (state.nest.r + 8) ** 2;
+    const feelDist = clamp(antStats.sense * 0.45, 24, 72);
+    const maxSpeed = antStats.spd;
+    const pheroStrength = (antStats.phero / 90) * dt * 1.4;
+    const carryMult = Math.max(1, Math.round(antStats.carry / 18));
+
+    let bestFit = -1, bestIdx = 0;
+
+    // 1. Update Ants
+    for (let i = 0; i < state.ants.length; i++) {
+      const a = state.ants[i];
+      if (!a.alive) continue;
+      if (a.atkCd > 0) a.atkCd -= dt;
+
+      if (state.manualMode && i === 0) {
+        // Direct WASD Control for Alpha Scout Ant
+        let turn = 0, fwd = 0;
+        if (input.keys.has('KeyA') || input.keys.has('ArrowLeft')) turn -= 1;
+        if (input.keys.has('KeyD') || input.keys.has('ArrowRight')) turn += 1;
+        if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) fwd += 1;
+        if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) fwd -= 0.5;
+        const boost = input.keys.has('ShiftLeft') || input.keys.has('ShiftRight') ? 1.55 : 1.0;
+        a.angle += turn * 4.2 * dt;
+        a.speed = fwd * maxSpeed * 1.25 * boost;
+        depositPhero(a.carrying > 0 ? pheroFood : pheroHome, a.x, a.y, pheroStrength * 2.5);
+      } else {
+        // Neural Network Sensor Suite
+        const cosA = Math.cos(a.angle), sinA = Math.sin(a.angle);
+        const la = a.angle - 0.55, ra = a.angle + 0.55;
+        const lx = a.x + Math.cos(la) * feelDist, ly = a.y + Math.sin(la) * feelDist;
+        const cx = a.x + cosA * feelDist,        cy = a.y + sinA * feelDist;
+        const rx = a.x + Math.cos(ra) * feelDist, ry = a.y + Math.sin(ra) * feelDist;
+
+        const targetField = a.carrying > 0 ? pheroHome : pheroFood;
+        const pL = samplePhero(targetField, lx, ly);
+        const pC = samplePhero(targetField, cx, cy);
+        const pR = samplePhero(targetField, rx, ry);
+
+        // Angle toward nest (homing instinct)
+        const toNestA = Math.atan2(nestY - a.y, nestX - a.x) - a.angle;
+        const nestSin = Math.sin(toNestA);
+        const nestCos = Math.cos(toNestA);
+
+        // Obstacle feeler ahead
+        let obsAhead = 0;
+        if (cx < 20 || cx > WORLD_W - 20 || cy < 20 || cy > WORLD_H - 20) obsAhead = 1;
+        else {
+          for (let o = 0; o < state.obstacles.length; o++) {
+            const ob = state.obstacles[o];
+            const dx = cx - ob.x, dy = cy - ob.y;
+            if (dx * dx + dy * dy < (ob.r + 12) * (ob.r + 12)) { obsAhead = 1; break; }
+          }
+        }
+
+        // Nearest visible food or rival hint
+        let foodDir = 0;
+        if (a.carrying === 0) {
+          const senseR2 = antStats.sense * antStats.sense;
+          for (let f = 0; f < state.foods.length; f++) {
+            const fd = state.foods[f];
+            const dx = fd.x - a.x, dy = fd.y - a.y;
+            if (dx * dx + dy * dy < senseR2) {
+              foodDir = Math.sin(Math.atan2(dy, dx) - a.angle);
+              break;
+            }
+          }
+        }
+
+        _inp[0] = pL * 2 - 0.2;
+        _inp[1] = pC * 2 - 0.2;
+        _inp[2] = pR * 2 - 0.2;
+        _inp[3] = nestSin;
+        _inp[4] = nestCos;
+        _inp[5] = a.carrying > 0 ? 1 : -1;
+        _inp[6] = obsAhead;
+        _inp[7] = foodDir;
+
+        const out = forwardBrain(a.brain, _inp, i === state.championIdx);
+        // Bio-hybrid steering: neural torque + slight pheromone chemotaxis assist
+        const chemoBias = (pR - pL) * 1.35 + (a.carrying > 0 ? nestSin * 0.75 : foodDir * 1.15);
+        a.angle += (out[0] * 3.8 + chemoBias) * dt;
+        const throttle = 0.45 + 0.55 * ((out[1] + 1) * 0.5);
+        a.speed = maxSpeed * throttle;
+
+        // Deposit pheromone
+        const depIntensity = (out[2] + 1) * 0.5;
+        if (depIntensity > 0.25) {
+          depositPhero(a.carrying > 0 ? pheroFood : pheroHome, a.x, a.y, pheroStrength * (0.4 + depIntensity));
+        }
+      }
+
+      // Move Ant
+      a.x += Math.cos(a.angle) * a.speed * dt;
+      a.y += Math.sin(a.angle) * a.speed * dt;
+
+      // World boundaries
+      if (a.x < 12) { a.x = 12; a.angle = Math.PI - a.angle; }
+      else if (a.x > WORLD_W - 12) { a.x = WORLD_W - 12; a.angle = Math.PI - a.angle; }
+      if (a.y < 12) { a.y = 12; a.angle = -a.angle; }
+      else if (a.y > WORLD_H - 12) { a.y = WORLD_H - 12; a.angle = -a.angle; }
+
+      // Obstacle collisions
+      for (let o = 0; o < state.obstacles.length; o++) {
+        const ob = state.obstacles[o];
+        const dx = a.x - ob.x, dy = a.y - ob.y;
+        const minD = ob.r + 5;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < minD * minD && d2 > 0.01) {
+          const d = Math.sqrt(d2);
+          a.x = ob.x + (dx / d) * minD;
+          a.y = ob.y + (dy / d) * minD;
+          a.angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.9;
+        }
+      }
+
+      // Exploration fitness
+      const distNest = Math.hypot(a.x - nestX, a.y - nestY);
+      if (distNest > a.visitedMaxDist) {
+        a.fitness += (distNest - a.visitedMaxDist) * 0.04;
+        a.visitedMaxDist = distNest;
+      }
+
+      // Pick up Food
+      if (a.carrying === 0) {
+        for (let f = state.foods.length - 1; f >= 0; f--) {
+          const fd = state.foods[f];
+          const dx = a.x - fd.x, dy = a.y - fd.y;
+          if (dx * dx + dy * dy < 16 * 16) {
+            a.carrying = carryMult;
+            a.carryColor = fd.color;
+            a.fitness += 35;
+            a.angle += Math.PI; // Turn back toward nest
+            fd.amount--;
+            if (fd.amount <= 0) state.foods.splice(f, 1);
+            depositPhero(pheroFood, a.x, a.y, 0.9);
+            break;
+          }
+        }
+      } else {
+        // Deliver to Nest
+        const dx = a.x - nestX, dy = a.y - nestY;
+        if (dx * dx + dy * dy < nestR2) {
+          state.totalFoodDelivered += a.carrying;
+          state.genFoodDelivered += a.carrying;
+          a.deliveries += a.carrying;
+          a.fitness += 120 * a.carrying;
+          a.carrying = 0;
+          a.angle += Math.PI;
+          if (state.simSpeed <= 5) {
+            spawnParticles(nestX, nestY, '#34d399', 4, 70, 0.4, 3);
+          }
+        }
+      }
+
+      if (a.fitness > bestFit) { bestFit = a.fitness; bestIdx = i; }
+    }
+    state.championIdx = bestIdx;
+
+    // 2. Update Rivals & Predators
+    if (state.rivalsEnabled) {
+      for (let r = state.rivals.length - 1; r >= 0; r--) {
+        const rv = state.rivals[r];
+        if (rv.cd > 0) rv.cd -= dt;
+        // Hunt nearest ant within 220px
+        let target = null, bestD2 = 220 * 220;
+        for (let i = 0; i < state.ants.length; i += Math.max(1, (state.ants.length / 180) | 0)) {
+          const a = state.ants[i];
+          if (!a.alive) continue;
+          const d2 = (a.x - rv.x) ** 2 + (a.y - rv.y) ** 2;
+          if (d2 < bestD2) { bestD2 = d2; target = a; }
+        }
+        if (target) {
+          rv.angle = Math.atan2(target.y - rv.y, target.x - rv.x);
+          rv.x += Math.cos(rv.angle) * rv.speed * dt;
+          rv.y += Math.sin(rv.angle) * rv.speed * dt;
+          if (bestD2 < (rv.r + 12) ** 2) {
+            // Ant swarm fights back!
+            if (target.atkCd <= 0) {
+              rv.hp -= antStats.atk;
+              target.atkCd = 0.5;
+              target.fitness += 18;
+            }
+            if (rv.cd <= 0) {
+              target.hp -= rv.dmg;
+              rv.cd = 0.65;
+              if (target.hp <= 0) target.alive = false;
+            }
+          }
+        } else {
+          rv.angle += (Math.random() - 0.5) * 1.8 * dt;
+          rv.x = clamp(rv.x + Math.cos(rv.angle) * rv.speed * 0.4 * dt, 40, WORLD_W - 40);
+          rv.y = clamp(rv.y + Math.sin(rv.angle) * rv.speed * 0.4 * dt, 40, WORLD_H - 40);
+        }
+
+        if (rv.hp <= 0) {
+          state.kills++;
+          // Defeated predator drops rich food crumbs!
+          spawnFoodCluster(rv.x, rv.y, 8, '#f43f5e');
+          spawnParticles(rv.x, rv.y, '#f43f5e', 14, 110, 0.5, 4);
+          state.rivals.splice(r, 1);
+        }
+      }
+    }
+
+    // 3. Particles
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+  }
+
+  function spawnParticles(x, y, color, count, spd = 80, life = 0.4, size = 3) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = spd * (0.3 + Math.random() * 0.8);
+      state.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, color, life, maxLife: life, size });
+    }
+    if (state.particles.length > 400) state.particles.splice(0, state.particles.length - 400);
+  }
+
+  // =========================================================================
+  // RENDERING
+  // =========================================================================
+  function fitCamera() {
+    cam.x = WORLD_W / 2;
+    cam.y = WORLD_H / 2;
+    const zx = (canvas.width - 560) / WORLD_W;
+    const zy = (canvas.height - 90) / WORLD_H;
+    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.08, 0.35, 1.15);
+  }
+
+  function screenToWorld(sx, sy) {
+    return {
+      x: (sx - canvas.width / 2) / cam.zoom + cam.x,
+      y: (sy - canvas.height / 2) / cam.zoom + cam.y
+    };
+  }
+
+  function renderWorld() {
+    ctx.fillStyle = '#070b14';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    cam.zoom += (cam.targetZoom - cam.zoom) * 0.22;
+    if (state.manualMode && state.ants[0] && state.ants[0].alive) {
+      cam.x += (state.ants[0].x - cam.x) * 0.14;
+      cam.y += (state.ants[0].y - cam.y) * 0.14;
+    }
+
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(cam.zoom, cam.zoom);
+    ctx.translate(-cam.x, -cam.y);
+
+    // 1. Biome Ground
+    const bgColors = {
+      forest: '#0c1813',
+      antfarm: '#1a120b',
+      picnic: '#161224',
+      canyon: '#191118'
+    };
+    ctx.fillStyle = bgColors[state.biome] || '#0c1813';
+    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+    // Subtle biome grid / pattern
+    ctx.strokeStyle = state.biome === 'picnic' ? 'rgba(244,63,94,0.1)' : 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= WORLD_W; x += 64) { ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_H); }
+    for (let y = 0; y <= WORLD_H; y += 64) { ctx.moveTo(0, y); ctx.lineTo(WORLD_W, y); }
+    ctx.stroke();
+
+    // 2. Pheromone Trails Overlay (blitted smoothly from offscreen ImageData)
+    if (state.showPhero) {
+      const data = pheroImg.data;
+      for (let i = 0; i < P_SIZE; i++) {
+        const pf = pheroFood[i];
+        const ph = pheroHome[i];
+        const off = i * 4;
+        if (pf > 0.01 || ph > 0.01) {
+          data[off]     = Math.min(255, (ph * 245 + pf * 20) | 0);
+          data[off + 1] = Math.min(255, (pf * 235 + ph * 145) | 0);
+          data[off + 2] = Math.min(255, (pf * 165 + ph * 40) | 0);
+          data[off + 3] = Math.min(210, ((pf + ph) * 200) | 0);
+        } else {
+          data[off + 3] = 0;
+        }
+      }
+      pheroCtx.putImageData(pheroImg, 0, 0);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(pheroCanvas, 0, 0, WORLD_W, WORLD_H);
+      ctx.restore();
+    }
+
+    // 3. Queen's Nest
+    const n = state.nest;
+    const ng = ctx.createRadialGradient(n.x, n.y, 8, n.x, n.y, n.r + 20);
+    ng.addColorStop(0, 'rgba(245,158,11,0.55)');
+    ng.addColorStop(0.65, 'rgba(217,119,6,0.25)');
+    ng.addColorStop(1, 'rgba(245,158,11,0)');
+    ctx.fillStyle = ng;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 20, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#fef3c7';
+    ctx.font = '800 12px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QUEEN NEST', n.x, n.y + 4);
+
+    // 4. Obstacles
+    for (let i = 0; i < state.obstacles.length; i++) {
+      const ob = state.obstacles[i];
+      ctx.fillStyle = ob.kind === 'plate' ? '#334155' : ob.kind === 'dirt' ? '#451a03' : '#1e293b';
+      ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = ob.kind === 'plate' ? '#94a3b8' : ob.kind === 'dirt' ? '#92400e' : '#475569';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+
+    // 5. Food Crumbs
+    for (let i = 0; i < state.foods.length; i++) {
+      const f = state.foods[i];
+      ctx.fillStyle = f.color;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 3.2 + f.amount * 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 6. Rivals / Predators
+    for (let i = 0; i < state.rivals.length; i++) {
+      const rv = state.rivals[i];
+      ctx.save();
+      ctx.translate(rv.x, rv.y);
+      ctx.rotate(rv.angle);
+      // Legs
+      ctx.strokeStyle = '#fda4af';
+      ctx.lineWidth = 2;
+      for (let k = -1; k <= 1; k++) {
+        ctx.beginPath();
+        ctx.moveTo(k * 5, -rv.r); ctx.lineTo(k * 5, rv.r);
+        ctx.stroke();
+      }
+      ctx.fillStyle = rv.type === 'spider' ? '#9f1239' : rv.type === 'beetle' ? '#7e22ce' : '#dc2626';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rv.r, rv.r * 0.78, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fecdd3'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
+      // HP bar
+      if (rv.hp < rv.maxHp) {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(rv.x - 16, rv.y - rv.r - 8, 32, 4);
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillRect(rv.x - 16, rv.y - rv.r - 8, 32 * clamp(rv.hp / rv.maxHp, 0, 1), 4);
+      }
+    }
+
+    // 7. Ants (crisp 3-segment bio-silhouettes, batched for 1,000-ant speed)
+    const detailed = state.ants.length <= 500 || cam.zoom >= 0.85;
+    for (let i = 0; i < state.ants.length; i++) {
+      const a = state.ants[i];
+      if (!a.alive) continue;
+      const isChamp = (i === state.championIdx && !state.manualMode) || (state.manualMode && i === 0);
+
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.rotate(a.angle);
+
+      if (isChamp) {
+        ctx.strokeStyle = state.manualMode ? '#38bdf8' : '#facc15';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
+        if (state.showFeelers) {
+          const fd = clamp(antStats.sense * 0.45, 24, 72);
+          ctx.strokeStyle = 'rgba(56,189,248,0.45)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(4, 0); ctx.lineTo(Math.cos(-0.55) * fd, Math.sin(-0.55) * fd);
+          ctx.moveTo(4, 0); ctx.lineTo(fd, 0);
+          ctx.moveTo(4, 0); ctx.lineTo(Math.cos(0.55) * fd, Math.sin(0.55) * fd);
+          ctx.stroke();
+        }
+      }
+
+      if (detailed) {
+        // Abdomen
+        ctx.fillStyle = antStats.abdomenColor;
+        ctx.beginPath(); ctx.ellipse(-5.5, 0, 4.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+        // Thorax
+        ctx.fillStyle = antStats.thoraxColor;
+        ctx.beginPath(); ctx.ellipse(0, 0, 3.0, 2.1, 0, 0, Math.PI * 2); ctx.fill();
+        // Head
+        ctx.fillStyle = antStats.headColor;
+        ctx.beginPath(); ctx.arc(4.5, 0, 2.4, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = a.carrying > 0 ? '#34d399' : antStats.thoraxColor;
+        ctx.fillRect(-5, -2, 10, 4);
+      }
+
+      // Carried Food Crumb
+      if (a.carrying > 0) {
+        ctx.fillStyle = a.carryColor;
+        ctx.beginPath(); ctx.arc(8, 0, 3.2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 8. Particles
+    for (let i = 0; i < state.particles.length; i++) {
+      const p = state.particles[i];
+      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Arena border
+    ctx.strokeStyle = 'rgba(245,158,11,0.45)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
+
+    ctx.restore();
+  }
+
+  function renderBrain() {
+    const w = brainCanvas.width, h = brainCanvas.height;
+    brainCtx.clearRect(0, 0, w, h);
+    const lx = [26, w / 2, w - 26];
+    const counts = [NN_IN, NN_HID, NN_OUT];
+    const vals = [_champIn, _champHid, _champOut];
+
+    // Draw subtle synaptic connections
+    brainCtx.lineWidth = 0.8;
+    for (let i = 0; i < NN_IN; i++) {
+      const y1 = 14 + (i / (NN_IN - 1)) * (h - 28);
+      for (let j = 0; j < NN_HID; j++) {
+        const y2 = 12 + (j / (NN_HID - 1)) * (h - 24);
+        const act = Math.abs(_champIn[i] * _champHid[j]);
+        if (act < 0.08) continue;
+        brainCtx.strokeStyle = _champIn[i] >= 0 ? `rgba(52,211,153,${act * 0.55})` : `rgba(244,63,94,${act * 0.55})`;
+        brainCtx.beginPath(); brainCtx.moveTo(lx[0], y1); brainCtx.lineTo(lx[1], y2); brainCtx.stroke();
+      }
+    }
+    for (let j = 0; j < NN_HID; j++) {
+      const y1 = 12 + (j / (NN_HID - 1)) * (h - 24);
+      for (let k = 0; k < NN_OUT; k++) {
+        const y2 = 24 + (k / (NN_OUT - 1)) * (h - 48);
+        const act = Math.abs(_champHid[j] * _champOut[k]);
+        if (act < 0.08) continue;
+        brainCtx.strokeStyle = _champOut[k] >= 0 ? `rgba(56,189,248,${act * 0.65})` : `rgba(245,158,11,${act * 0.65})`;
+        brainCtx.beginPath(); brainCtx.moveTo(lx[1], y1); brainCtx.lineTo(lx[2], y2); brainCtx.stroke();
+      }
+    }
+
+    // Draw nodes
+    for (let l = 0; l < 3; l++) {
+      const n = counts[l];
+      const pad = l === 2 ? 24 : 12;
+      for (let i = 0; i < n; i++) {
+        const y = pad + (i / (n - 1)) * (h - pad * 2);
+        const v = clamp(vals[l][i], -1, 1);
+        brainCtx.fillStyle = v >= 0 ? `rgba(52,211,153,${0.25 + v * 0.75})` : `rgba(244,63,94,${0.25 - v * 0.75})`;
+        brainCtx.beginPath(); brainCtx.arc(lx[l], y, 4.2, 0, Math.PI * 2); brainCtx.fill();
+        brainCtx.strokeStyle = 'rgba(255,255,255,0.45)';
+        brainCtx.lineWidth = 1;
+        brainCtx.stroke();
+      }
+    }
+  }
+
+  function renderFitnessChart() {
+    const w = fitCanvas.width, h = fitCanvas.height;
+    fitCtx.clearRect(0, 0, w, h);
+    const hist = state.fitnessHistory;
+    if (hist.length < 2) {
+      fitCtx.fillStyle = '#64748b';
+      fitCtx.font = '600 11px Inter, sans-serif';
+      fitCtx.textAlign = 'center';
+      fitCtx.fillText('Evolving Gen 1...', w / 2, h / 2 + 4);
+      return;
+    }
+    let maxV = 10;
+    for (const p of hist) if (p.best > maxV) maxV = p.best;
+
+    const drawLine = (key, color) => {
+      fitCtx.strokeStyle = color;
+      fitCtx.lineWidth = 2;
+      fitCtx.beginPath();
+      for (let i = 0; i < hist.length; i++) {
+        const x = 6 + (i / (hist.length - 1)) * (w - 12);
+        const y = h - 8 - (hist[i][key] / maxV) * (h - 16);
+        if (i === 0) fitCtx.moveTo(x, y); else fitCtx.lineTo(x, y);
+      }
+      fitCtx.stroke();
+    };
+    drawLine('avg', '#38bdf8');
+    drawLine('best', '#fbbf24');
+  }
+
+  // =========================================================================
+  // BIO-GARAGE UI & LIVE ANT ANATOMY PREVIEW
+  // =========================================================================
+  let activeSlot = 'head';
+
+  function renderAntPreview() {
+    const w = prevCanvas.width, h = prevCanvas.height;
+    prevCtx.clearRect(0, 0, w, h);
+    const t = performance.now() * 0.004;
+
+    prevCtx.save();
+    prevCtx.translate(w / 2, h / 2);
+
+    // Animated 6 Legs
+    prevCtx.strokeStyle = antStats.legsColor;
+    prevCtx.lineWidth = 5;
+    prevCtx.lineCap = 'round';
+    for (let s = -1; s <= 1; s += 2) {
+      for (let k = -1; k <= 1; k++) {
+        const swing = Math.sin(t + k * 1.4 + s) * 8;
+        prevCtx.beginPath();
+        prevCtx.moveTo(k * 16, s * 10);
+        prevCtx.lineTo(k * 26 + swing, s * 44);
+        prevCtx.lineTo(k * 38 + swing * 1.3, s * 66);
+        prevCtx.stroke();
+      }
+    }
+
+    // Antennae
+    prevCtx.strokeStyle = PART_CATALOG.antennae[equipped.antennae].color;
+    prevCtx.lineWidth = 3.5;
+    for (let s = -1; s <= 1; s += 2) {
+      const twitch = Math.sin(t * 1.8 + s) * 6;
+      prevCtx.beginPath();
+      prevCtx.moveTo(56, s * 10);
+      prevCtx.quadraticCurveTo(86, s * 28 + twitch, 108, s * 36 + twitch);
+      prevCtx.stroke();
+    }
+
+    // Mandibles
+    prevCtx.strokeStyle = antStats.headColor;
+    prevCtx.lineWidth = 5;
+    for (let s = -1; s <= 1; s += 2) {
+      prevCtx.beginPath();
+      prevCtx.moveTo(58, s * 12);
+      prevCtx.quadraticCurveTo(82, s * 18, 90, s * 5);
+      prevCtx.stroke();
+    }
+
+    // Abdomen (Gaster)
+    prevCtx.fillStyle = antStats.abdomenColor;
+    prevCtx.beginPath(); prevCtx.ellipse(-56, 0, 42, 28, 0, 0, Math.PI * 2); prevCtx.fill();
+    prevCtx.strokeStyle = 'rgba(255,255,255,0.35)'; prevCtx.lineWidth = 2; prevCtx.stroke();
+
+    // Pheromone Glow Aura
+    const gColor = PART_CATALOG.gland[equipped.gland].color;
+    const gg = prevCtx.createRadialGradient(-78, 0, 2, -78, 0, 32);
+    gg.addColorStop(0, gColor);
+    gg.addColorStop(1, 'rgba(0,0,0,0)');
+    prevCtx.globalAlpha = 0.55;
+    prevCtx.fillStyle = gg;
+    prevCtx.beginPath(); prevCtx.arc(-78, 0, 32, 0, Math.PI * 2); prevCtx.fill();
+    prevCtx.globalAlpha = 1;
+
+    // Thorax
+    prevCtx.fillStyle = antStats.thoraxColor;
+    prevCtx.beginPath(); prevCtx.ellipse(0, 0, 28, 19, 0, 0, Math.PI * 2); prevCtx.fill();
+    prevCtx.strokeStyle = 'rgba(255,255,255,0.35)'; prevCtx.lineWidth = 2; prevCtx.stroke();
+
+    // Head
+    prevCtx.fillStyle = antStats.headColor;
+    prevCtx.beginPath(); prevCtx.ellipse(46, 0, 22, 18, 0, 0, Math.PI * 2); prevCtx.fill();
+    prevCtx.stroke();
+
+    // Compound Eyes
+    prevCtx.fillStyle = '#0f172a';
+    prevCtx.beginPath(); prevCtx.arc(52, -10, 4.5, 0, Math.PI * 2); prevCtx.arc(52, 10, 4.5, 0, Math.PI * 2); prevCtx.fill();
+
+    prevCtx.restore();
+  }
+
+  function renderGarageUI() {
+    recomputeAntStats();
+    renderAntPreview();
+
+    // Stat Bars
+    const statsEl = document.getElementById('garageStats');
+    const rows = [
+      ['Speed', antStats.spd, 240, '#38bdf8'],
+      ['Carry Strength', antStats.carry, 220, '#34d399'],
+      ['Bite / Combat', antStats.atk, 220, '#f43f5e'],
+      ['Carapace HP', antStats.hp, 240, '#f59e0b'],
+      ['Pheromone Power', antStats.phero, 220, '#a855f7'],
+      ['Sensor Range', antStats.sense, 240, '#facc15']
+    ];
+    statsEl.innerHTML = rows.map(([lbl, val, max, col]) => `
+      <div class="sbar-row">
+        <div class="sbar-head"><span>${lbl}</span><span style="color:${col}">${Math.round(val)}</span></div>
+        <div class="sbar-track"><div class="sbar-fill" style="width:${clamp(val / max * 100, 5, 100)}%; background:${col}"></div></div>
+      </div>
+    `).join('');
+
+    // Slot Tabs
+    const tabsEl = document.getElementById('slotTabs');
+    tabsEl.innerHTML = SLOTS.map(s => `
+      <button class="slot-tab ${s.id === activeSlot ? 'active' : ''}" data-slot="${s.id}">${s.label}</button>
+    `).join('');
+    tabsEl.querySelectorAll('.slot-tab').forEach(btn => {
+      btn.addEventListener('click', () => { activeSlot = btn.dataset.slot; renderGarageUI(); });
+    });
+
+    // Parts Grid
+    const gridEl = document.getElementById('partsGrid');
+    const list = PART_CATALOG[activeSlot];
+    gridEl.innerHTML = list.map((p, idx) => {
+      const mods = [];
+      if (p.spd) mods.push(`Spd ${p.spd > 0 ? '+' : ''}${p.spd}`);
+      if (p.carry) mods.push(`Car +${p.carry}`);
+      if (p.atk) mods.push(`Atk +${p.atk}`);
+      if (p.hp) mods.push(`HP +${p.hp}`);
+      if (p.phero) mods.push(`Ph +${p.phero}`);
+      if (p.sense) mods.push(`Sns +${p.sense}`);
+      return `
+        <button class="part-card ${equipped[activeSlot] === idx ? 'equipped' : ''}" data-idx="${idx}">
+          <div class="part-name">
+            <span style="overflow:hidden; text-overflow:ellipsis;">${p.name}</span>
+            <span class="rarity-tag r-${p.rarity}">${p.rarity}</span>
+          </div>
+          <div class="part-stats">${mods.join(' · ')}</div>
+        </button>
+      `;
+    }).join('');
+    gridEl.querySelectorAll('.part-card').forEach(card => {
+      card.addEventListener('click', () => {
+        equipped[activeSlot] = parseInt(card.dataset.idx, 10);
+        document.getElementById('buildBadge').textContent = 'Custom Ant';
+        renderGarageUI();
+      });
+    });
+  }
+
+  function initPresetsStrip() {
+    const strip = document.getElementById('presetsStrip');
+    PRESETS.forEach(pr => {
+      const b = document.createElement('button');
+      b.className = 'sm';
+      b.textContent = `${pr.icon} ${pr.name}`;
+      b.addEventListener('click', () => {
+        Object.assign(equipped, pr.parts);
+        document.getElementById('buildBadge').textContent = pr.name.split(' ')[0];
+        renderGarageUI();
+      });
+      strip.appendChild(b);
+    });
+  }
+
+  function updateEquippedSummary() {
+    const el = document.getElementById('equippedSummary');
+    el.innerHTML = SLOTS.map(s => {
+      const p = PART_CATALOG[s.id][equipped[s.id]];
+      return `<div style="display:flex; justify-content:space-between; gap:6px; padding:4px 7px; background:rgba(30,41,59,0.5); border-radius:6px; border:1px solid var(--border);">
+        <span style="color:var(--muted)">${s.icon}</span>
+        <span style="font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</span>
+        <span class="rarity-tag r-${p.rarity}">${p.rarity[0]}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // =========================================================================
+  // INTERACTIVE BRUSH & INPUT
+  // =========================================================================
+  function applyBrush(wx, wy, isDrag = false) {
+    if (wx < 10 || wx > WORLD_W - 10 || wy < 10 || wy > WORLD_H - 10) return;
+    if (isDrag && Math.hypot(wx - input.lastBrushX, wy - input.lastBrushY) < 22) return;
+    input.lastBrushX = wx; input.lastBrushY = wy;
+
+    if (state.brush === 'food') {
+      spawnFoodCluster(wx, wy, isDrag ? 3 : 10, '#34d399');
+    } else if (state.brush === 'wall') {
+      state.obstacles.push({ x: wx, y: wy, r: 28, kind: state.biome === 'antfarm' ? 'dirt' : 'rock' });
+    } else if (state.brush === 'pheromone') {
+      for (let dx = -24; dx <= 24; dx += 12) {
+        for (let dy = -24; dy <= 24; dy += 12) {
+          depositPhero(pheroFood, wx + dx, wy + dy, 0.9);
+        }
+      }
+    } else if (state.brush === 'rival' && !isDrag) {
+      spawnRival(wx, wy, Math.random() < 0.5 ? 'spider' : 'beetle');
+    } else if (state.brush === 'erase') {
+      for (let i = state.obstacles.length - 1; i >= 0; i--) {
+        if (Math.hypot(wx - state.obstacles[i].x, wy - state.obstacles[i].y) < state.obstacles[i].r + 16) {
+          state.obstacles.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resize);
+  resize();
+
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  canvas.addEventListener('mousedown', e => {
+    const w = screenToWorld(e.clientX, e.clientY);
+    if (e.button === 1 || e.button === 2) {
+      input.panning = true; input.panX = e.clientX; input.panY = e.clientY;
+      input.camX = cam.x; input.camY = cam.y;
+      return;
+    }
+    if (e.button === 0) {
+      input.left = true;
+      input.lastBrushX = -999; input.lastBrushY = -999;
+      applyBrush(w.x, w.y, false);
+    }
+  });
+  window.addEventListener('mousemove', e => {
+    const w = screenToWorld(e.clientX, e.clientY);
+    input.wx = w.x; input.wy = w.y;
+    if (input.panning) {
+      cam.x = input.camX - (e.clientX - input.panX) / cam.zoom;
+      cam.y = input.camY - (e.clientY - input.panY) / cam.zoom;
+      return;
+    }
+    if (input.left) applyBrush(w.x, w.y, true);
+  });
+  window.addEventListener('mouseup', () => { input.left = false; input.panning = false; });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const before = screenToWorld(e.clientX, e.clientY);
+    cam.targetZoom = clamp(cam.targetZoom * (e.deltaY < 0 ? 1.15 : 0.87), 0.3, 2.4);
+    cam.zoom = cam.targetZoom;
+    const after = screenToWorld(e.clientX, e.clientY);
+    cam.x += before.x - after.x; cam.y += before.y - after.y;
+  }, { passive: false });
+
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    input.keys.add(e.code);
+    if (e.code === 'Space' && !state.manualMode) { e.preventDefault(); togglePause(); }
+    if (e.code === 'Escape') document.getElementById('garageOverlay').classList.remove('open');
+  });
+  window.addEventListener('keyup', e => input.keys.delete(e.code));
+
+  // =========================================================================
+  // UI BINDINGS
+  // =========================================================================
+  function togglePause() {
+    state.paused = !state.paused;
+    const b = document.getElementById('btnPause');
+    b.textContent = state.paused ? '▶ Play' : '⏸ Pause';
+    b.classList.toggle('active', state.paused);
+  }
+  document.getElementById('btnPause').addEventListener('click', togglePause);
+
+  document.querySelectorAll('.spd-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      state.simSpeed = parseFloat(b.dataset.spd);
+      document.querySelectorAll('.spd-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      if (state.paused) togglePause();
+    });
+  });
+
+  document.getElementById('biomeSelect').addEventListener('change', e => loadBiome(e.target.value));
+  document.getElementById('btnNextGen').addEventListener('click', () => spawnColony(true));
+  document.getElementById('btnResetWorld').addEventListener('click', () => loadBiome(state.biome));
+
+  document.getElementById('btnManual').addEventListener('click', e => {
+    state.manualMode = !state.manualMode;
+    e.target.classList.toggle('active', state.manualMode);
+    if (state.manualMode) {
+      state.simSpeed = 1;
+      document.querySelectorAll('.spd-btn').forEach(x => x.classList.toggle('active', x.dataset.spd === '1'));
+      document.getElementById('bottomPill').textContent = 'WASD MANUAL MODE: W/S Move · A/D Turn · Shift Sprint · Lay Pheromone Highways for Your Swarm!';
+    } else {
+      document.getElementById('bottomPill').textContent = 'Click/Drag: Drop Food or Paint Walls · Right-Drag: Pan · Scroll: Zoom · WASD: Control Alpha Ant (in WASD mode)';
+    }
+  });
+
+  document.querySelectorAll('.brush-tool').forEach(b => {
+    b.addEventListener('click', () => {
+      state.brush = b.dataset.brush;
+      document.querySelectorAll('.brush-tool').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.pop-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      state.popSize = parseInt(b.dataset.pop, 10);
+      document.querySelectorAll('.pop-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      document.getElementById('popVal').textContent = state.popSize + ' Ants';
+      spawnColony(false);
+    });
+  });
+
+  document.getElementById('slGenTime').addEventListener('input', e => {
+    state.genDuration = parseInt(e.target.value, 10);
+    document.getElementById('valGenTime').textContent = state.genDuration + 's';
+  });
+  document.getElementById('slMut').addEventListener('input', e => {
+    state.mutRate = parseInt(e.target.value, 10) / 100;
+    document.getElementById('valMut').textContent = e.target.value + '%';
+  });
+  document.getElementById('slEvap').addEventListener('input', e => {
+    state.evapRate = parseFloat(e.target.value);
+    document.getElementById('valEvap').textContent = state.evapRate.toFixed(1) + 'x';
+  });
+
+  document.getElementById('chkPhero').addEventListener('change', e => state.showPhero = e.target.checked);
+  document.getElementById('chkFeelers').addEventListener('change', e => state.showFeelers = e.target.checked);
+  document.getElementById('chkRivals').addEventListener('change', e => state.rivalsEnabled = e.target.checked);
+
+  // Garage modal
+  const garageEl = document.getElementById('garageOverlay');
+  document.getElementById('btnOpenGarage').addEventListener('click', () => {
+    garageEl.classList.add('open');
+    renderGarageUI();
+  });
+  document.getElementById('btnGarageApply').addEventListener('click', () => {
+    garageEl.classList.remove('open');
+    recomputeAntStats();
+    for (const a of state.ants) { a.maxHp = antStats.hp; a.hp = Math.min(a.hp, a.maxHp); }
+  });
+  function randomizeBuild() {
+    for (const s of SLOTS) equipped[s.id] = (Math.random() * 25) | 0;
+    document.getElementById('buildBadge').textContent = 'Random Hybrid';
+    recomputeAntStats();
+    if (garageEl.classList.contains('open')) renderGarageUI();
+  }
+  document.getElementById('btnGarageRandom').addEventListener('click', randomizeBuild);
+  document.getElementById('btnRandomBuild').addEventListener('click', randomizeBuild);
+
+  // Dock collapse
+  document.getElementById('tglLeft').addEventListener('click', e => {
+    const c = document.getElementById('leftDock').classList.toggle('collapsed');
+    e.target.classList.toggle('collapsed', c); e.target.textContent = c ? '▶' : '◀';
+  });
+  document.getElementById('tglRight').addEventListener('click', e => {
+    const c = document.getElementById('rightDock').classList.toggle('collapsed');
+    e.target.classList.toggle('collapsed', c); e.target.textContent = c ? '◀' : '▶';
+  });
+
+  // =========================================================================
+  // MAIN LOOP
+  // =========================================================================
+  let lastT = performance.now(), fpsF = 0, fpsT = 0, uiT = 0;
+
+  function loop(now) {
+    const rawDt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+
+    if (!state.paused) {
+      // Smooth lag-free stepping up to 500x (cap substeps for 60 FPS even with 1,000 ants)
+      const maxSteps = state.popSize >= 500 ? 10 : 18;
+      const steps = Math.min(maxSteps, Math.max(1, Math.ceil(state.simSpeed)));
+      const stepDt = Math.min(0.08, (rawDt * state.simSpeed) / steps);
+      for (let s = 0; s < steps; s++) stepSim(stepDt);
+    }
+
+    renderWorld();
+    if (garageEl.classList.contains('open')) renderAntPreview();
+
+    fpsF++; fpsT += rawDt; uiT += rawDt;
+    if (fpsT >= 0.5) {
+      document.getElementById('stFps').textContent = Math.round(fpsF / fpsT);
+      fpsF = 0; fpsT = 0;
+    }
+    if (uiT >= 0.16) {
+      uiT = 0;
+      let alive = 0, carrying = 0;
+      for (let i = 0; i < state.ants.length; i++) {
+        if (state.ants[i].alive) { alive++; if (state.ants[i].carrying > 0) carrying++; }
+      }
+      document.getElementById('stGen').textContent = state.gen;
+      document.getElementById('stFood').textContent = state.totalFoodDelivered;
+      document.getElementById('stAnts').textContent = alive;
+      document.getElementById('stBest').textContent = Math.round(state.bestFitness);
+      document.getElementById('genTimerTxt').textContent = Math.max(0, state.genDuration - state.genTime).toFixed(1) + 's';
+      document.getElementById('mCarry').textContent = carrying;
+      document.getElementById('mRivals').textContent = state.rivals.length;
+      document.getElementById('mKills').textContent = state.kills;
+      document.getElementById('mSpd').textContent = Math.round(antStats.spd);
+      const lastH = state.fitnessHistory[state.fitnessHistory.length - 1];
+      document.getElementById('avgFitTxt').textContent = 'Avg: ' + (lastH ? Math.round(lastH.avg) : 0);
+
+      renderBrain();
+      renderFitnessChart();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // Boot!
+  recomputeAntStats();
+  initPresetsStrip();
+  loadBiome('forest');
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
