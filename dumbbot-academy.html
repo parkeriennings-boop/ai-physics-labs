@@ -114,6 +114,15 @@
   body.mobile-mode .floating-field-tools .tool-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   body.mobile-mode button, body.mobile-mode select { min-height: 34px; font-size: 12px; }
 
+
+/* Mobile responsive override for existing guided tutorial */
+body.mobile-mode #tutOverlay { top: auto !important; bottom: 14px !important; left: 10px !important; right: 10px !important; }
+body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; }
+@media (max-width: 768px) {
+  #tutOverlay { top: auto !important; bottom: 14px !important; left: 10px !important; right: 10px !important; }
+  #tutCard { width: 100% !important; max-width: 100% !important; }
+}
+
 </style>
 </head>
 <body>

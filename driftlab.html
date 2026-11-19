@@ -889,6 +889,75 @@
     grid-template-columns: 1fr 1fr;
     gap: 7px;
   }
+
+/* === DriftLab Interactive Tutorial === */
+.btn-tut-open {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border-bright, rgba(255,255,255,0.20));
+  background: linear-gradient(135deg, rgba(56,189,248,0.16), rgba(244,63,94,0.14));
+  color: #f8fafc; font-family: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: transform 0.16s, border-color 0.2s;
+}
+.btn-tut-open:hover { border-color: var(--cyan, #38bdf8); transform: translateY(-1px); }
+#dlTutModal {
+  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(6,9,15,0.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.24s, visibility 0.24s;
+}
+#dlTutModal.is-open { opacity: 1; visibility: visible; pointer-events: auto; }
+#dlTutModal .tut-dialog {
+  position: relative; width: 100%; max-width: 580px; max-height: calc(100vh - 32px); display: flex; flex-direction: column;
+  overflow: hidden; border-radius: 20px; border: 1px solid rgba(255,255,255,0.20);
+  background: linear-gradient(160deg, rgba(15,23,42,0.92) 0%, rgba(6,9,15,0.95) 100%);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 42px rgba(56,189,248,0.14); color: #e2e8f0;
+  transform: translateY(14px) scale(0.97); transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#dlTutModal.is-open .tut-dialog { transform: translateY(0) scale(1); }
+#dlTutModal .tut-accent-bar { height: 3px; width: 100%; background: linear-gradient(90deg, #38bdf8, #f43f5e); flex-shrink: 0; }
+#dlTutModal .tut-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid rgba(255,255,255,0.10); }
+#dlTutModal .tut-step-pill { padding: 4px 11px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #38bdf8; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.28); }
+#dlTutModal .tut-close { width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.05); color: #cbd5e1; cursor: pointer; }
+#dlTutModal .tut-close:hover { background: rgba(244,63,94,0.20); color: #fff; }
+#dlTutModal .tut-body { padding: 20px 22px 16px; overflow-y: auto; }
+#dlTutModal .tut-slide { display: none; }
+#dlTutModal .tut-slide.is-active { display: block; }
+#dlTutModal .tut-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+#dlTutModal .tut-icon { width: 46px; height: 46px; flex-shrink: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: linear-gradient(135deg, rgba(56,189,248,0.20), rgba(244,63,94,0.20)); border: 1px solid rgba(255,255,255,0.20); }
+#dlTutModal .tut-title { margin: 0; font-size: 1.24rem; font-weight: 800; color: #f8fafc; }
+#dlTutModal .tut-sub { margin: 3px 0 0; font-size: 0.84rem; color: #94a3b8; }
+#dlTutModal .tut-desc { margin: 0 0 16px; font-size: 0.92rem; line-height: 1.56; color: #cbd5e1; }
+#dlTutModal .tut-desc strong { color: #f8fafc; }
+#dlTutModal .tut-visual { padding: 14px; border-radius: 14px; background: rgba(6,9,15,0.58); border: 1px solid rgba(255,255,255,0.10); }
+#dlTutModal .tut-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#dlTutModal .tut-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#dlTutModal .tut-card { padding: 10px 12px; border-radius: 11px; background: rgba(15,23,42,0.72); border: 1px solid rgba(255,255,255,0.10); }
+#dlTutModal .tut-card--cyan { border-color: rgba(56,189,248,0.34); }
+#dlTutModal .tut-card--rose { border-color: rgba(244,63,94,0.34); }
+#dlTutModal .tut-card-label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #38bdf8; margin-bottom: 3px; }
+#dlTutModal .tut-card--rose .tut-card-label { color: #f43f5e; }
+#dlTutModal .tut-card-text { display: block; font-size: 0.82rem; color: #e2e8f0; line-height: 1.4; }
+#dlTutModal .tut-chip-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+#dlTutModal .tut-chip { padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: #e2e8f0; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); }
+#dlTutModal .tut-chip--cyan { color: #38bdf8; border-color: rgba(56,189,248,0.32); }
+#dlTutModal .tut-chip--rose { color: #fda4af; border-color: rgba(244,63,94,0.34); }
+#dlTutModal .tut-keys-wrap { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+#dlTutModal .tut-wasd { display: grid; grid-template-columns: repeat(3, 34px); gap: 5px; justify-items: center; }
+#dlTutModal .tut-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 32px; padding: 0 9px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; color: #f8fafc; background: rgba(15,23,42,0.92); border: 1px solid rgba(56,189,248,0.42); }
+#dlTutModal .tut-kbd--rose { border-color: rgba(244,63,94,0.48); }
+#dlTutModal .tut-key-list { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 190px; }
+#dlTutModal .tut-key-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: #cbd5e1; }
+#dlTutModal .tut-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 18px; border-top: 1px solid rgba(255,255,255,0.10); background: rgba(6,9,15,0.45); }
+#dlTutModal .tut-dots { display: flex; align-items: center; gap: 8px; }
+#dlTutModal .tut-dot { width: 9px; height: 9px; padding: 0; border: none; border-radius: 999px; background: rgba(255,255,255,0.22); cursor: pointer; transition: width 0.22s, background 0.22s; }
+#dlTutModal .tut-dot.is-active { width: 24px; background: linear-gradient(90deg, #38bdf8, #f43f5e); }
+#dlTutModal .tut-actions { display: flex; align-items: center; gap: 8px; }
+#dlTutModal .tut-btn { padding: 8px 16px; border-radius: 10px; font-family: inherit; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+#dlTutModal .tut-btn--ghost { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.20); color: #cbd5e1; }
+#dlTutModal .tut-btn--ghost:disabled { opacity: 0.38; cursor: not-allowed; }
+#dlTutModal .tut-btn--primary { border: 1px solid rgba(56,189,248,0.45); background: linear-gradient(135deg, #38bdf8, #0284c7); color: #04101f; }
+#dlTutModal .tut-btn--finish { border: 1px solid rgba(244,63,94,0.55); background: linear-gradient(135deg, #f43f5e, #e11d48); color: #fff; }
+@media (max-width: 600px) { #dlTutModal .tut-grid-2, #dlTutModal .tut-grid-3 { grid-template-columns: 1fr; } }
+
 </style>
 </head>
 <body>
@@ -911,6 +980,7 @@
     </nav>
 
     <div class="header-meta">
+      <button class="btn-tut-open" id="btnTutorial" title="Open Interactive Tutorial">❓ Tutorial</button>
       <span class="status-pill"><span class="pulse-dot"></span><span id="hdr-build-label">Touge King</span></span>
       <span class="status-pill" id="hdr-fps">60 FPS</span>
     </div>
@@ -2860,6 +2930,124 @@
   initSwarm(null);
   requestAnimationFrame(mainLoop);
 })();
+</script>
+
+<div id="dlTutModal" role="dialog" aria-modal="true" aria-labelledby="dlTutTitle" aria-hidden="true">
+  <div class="tut-dialog">
+    <div class="tut-accent-bar"></div>
+    <div class="tut-header">
+      <span class="tut-step-pill" id="dlTutStepLabel">STEP 1 OF 4</span>
+      <button type="button" class="tut-close" id="dlTutClose" aria-label="Close tutorial">✕</button>
+    </div>
+    <div class="tut-body">
+      <section class="tut-slide is-active" data-tut-step="0">
+        <div class="tut-hero"><div class="tut-icon">🏁</div><div><h2 class="tut-title" id="dlTutTitle">Welcome to DriftLab</h2><p class="tut-sub">Modular Touge Drift Builder &amp; Neural Racing Sandbox</p></div></div>
+        <p class="tut-desc">Design custom drift machines in <strong>Car Garage</strong>, then unleash them across <strong>4 touge &amp; stunt circuits</strong> in <strong>Drift Arena</strong>—either as evolving neural swarms or under your own manual control.</p>
+        <div class="tut-visual"><div class="tut-grid-2">
+          <div class="tut-card tut-card--cyan"><span class="tut-card-label">Tab 1 · Car Garage</span><span class="tut-card-text">Assemble parts, tune balance, and preview your build live from top-down.</span></div>
+          <div class="tut-card tut-card--rose"><span class="tut-card-label">Tab 2 · Drift Arena</span><span class="tut-card-text">Test on 4 distinct circuits with live slip telemetry, AI training, or manual runs.</span></div>
+        </div></div>
+      </section>
+      <section class="tut-slide" data-tut-step="1">
+        <div class="tut-hero"><div class="tut-icon">🔧</div><div><h2 class="tut-title">6-Slot Car Garage</h2><p class="tut-sub">144 Swappable Parts &amp; 12 Ready-to-Drift Presets</p></div></div>
+        <p class="tut-desc">Mix and match across <strong>6 performance slots</strong> from <strong>144 parts</strong>, or load <strong>12 curated presets</strong> like <strong>Touge King</strong> with a live top-down preview.</p>
+        <div class="tut-visual">
+          <div class="tut-grid-3">
+            <div class="tut-card tut-card--cyan"><span class="tut-card-label">Chassis</span><span class="tut-card-text">Mass &amp; wheelbase</span></div>
+            <div class="tut-card tut-card--rose"><span class="tut-card-label">Engines</span><span class="tut-card-text">Torque &amp; top speed</span></div>
+            <div class="tut-card tut-card--cyan"><span class="tut-card-label">Tires</span><span class="tut-card-text">Grip &amp; slip curve</span></div>
+            <div class="tut-card tut-card--rose"><span class="tut-card-label">Aero</span><span class="tut-card-text">Downforce &amp; stability</span></div>
+            <div class="tut-card tut-card--cyan"><span class="tut-card-label">Nitro</span><span class="tut-card-text">Boost thrust &amp; charge</span></div>
+            <div class="tut-card tut-card--rose"><span class="tut-card-label">AI Sensors</span><span class="tut-card-text">Lookahead rays</span></div>
+          </div>
+          <div class="tut-chip-row"><span class="tut-chip tut-chip--cyan">144 Modular Parts</span><span class="tut-chip tut-chip--rose">12 Presets</span><span class="tut-chip">Live Top-Down Preview</span></div>
+        </div>
+      </section>
+      <section class="tut-slide" data-tut-step="2">
+        <div class="tut-hero"><div class="tut-icon">🧠</div><div><h2 class="tut-title">Neural Drift Swarms</h2><p class="tut-sub">Massive Parallel Evolution in Real Time</p></div></div>
+        <p class="tut-desc">Train up to <strong>1,000 neural drifters</strong> simultaneously at <strong>0.05x–500x speed</strong> as agents master throttle control, counter-steering, and slip-angle chains.</p>
+        <div class="tut-visual">
+          <div class="tut-grid-2">
+            <div class="tut-card tut-card--cyan"><span class="tut-card-label">Swarm Scale</span><span class="tut-card-text">Up to <strong>1,000</strong> neural cars evolving together every generation.</span></div>
+            <div class="tut-card tut-card--rose"><span class="tut-card-label">Time Control</span><span class="tut-card-text"><strong>0.05x – 500x</strong> sim speed to inspect slides or fast-forward training.</span></div>
+          </div>
+          <div class="tut-chip-row"><span class="tut-chip tut-chip--cyan">Throttle Control</span><span class="tut-chip tut-chip--rose">Counter-Steering</span><span class="tut-chip">Slip-Angle Chains</span></div>
+        </div>
+      </section>
+      <section class="tut-slide" data-tut-step="3">
+        <div class="tut-hero"><div class="tut-icon">🎮</div><div><h2 class="tut-title">Manual WASD Mode</h2><p class="tut-sub">Take the Wheel Anytime &amp; Chase High Combos</p></div></div>
+        <p class="tut-desc">Switch to <strong>Manual Mode</strong> anytime in Drift Arena to drive yourself, kick the tail out with the handbrake, fire nitro boosts, and rack up <strong>drift combo points</strong>.</p>
+        <div class="tut-visual"><div class="tut-keys-wrap">
+          <div class="tut-wasd" aria-hidden="true"><span></span><span class="tut-kbd">W</span><span></span><span class="tut-kbd">A</span><span class="tut-kbd">S</span><span class="tut-kbd">D</span></div>
+          <div class="tut-key-list">
+            <div class="tut-key-item"><span class="tut-kbd">W/A/S/D</span><span>or <strong>Arrow Keys</strong> — Throttle, brake &amp; steer</span></div>
+            <div class="tut-key-item"><span class="tut-kbd tut-kbd--rose">Space</span><span><strong>Handbrake</strong> — Initiate &amp; hold deep slides</span></div>
+            <div class="tut-key-item"><span class="tut-kbd tut-kbd--rose">Shift</span><span><strong>Nitro Boost</strong> — Chain corners &amp; combos</span></div>
+          </div>
+        </div></div>
+      </section>
+    </div>
+    <div class="tut-footer">
+      <div class="tut-dots" id="dlTutDots">
+        <button type="button" class="tut-dot is-active" data-tut-dot="0" aria-label="Step 1"></button>
+        <button type="button" class="tut-dot" data-tut-dot="1" aria-label="Step 2"></button>
+        <button type="button" class="tut-dot" data-tut-dot="2" aria-label="Step 3"></button>
+        <button type="button" class="tut-dot" data-tut-dot="3" aria-label="Step 4"></button>
+      </div>
+      <div class="tut-actions">
+        <button type="button" class="tut-btn tut-btn--ghost" id="dlTutPrev" disabled>← Back</button>
+        <button type="button" class="tut-btn tut-btn--primary" id="dlTutNext">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'driftlab_tutorial_seen_v1';
+  const modal = document.getElementById('dlTutModal');
+  if (!modal) return;
+  const openBtn = document.getElementById('btnTutorial');
+  const closeBtn = document.getElementById('dlTutClose');
+  const prevBtn = document.getElementById('dlTutPrev');
+  const nextBtn = document.getElementById('dlTutNext');
+  const stepLabel = document.getElementById('dlTutStepLabel');
+  const slides = Array.from(modal.querySelectorAll('[data-tut-step]'));
+  const dots = Array.from(modal.querySelectorAll('[data-tut-dot]'));
+  const total = slides.length;
+  let currentStep = 0;
+  const markSeen = () => { try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_) {} };
+  const hasSeen = () => { try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch (_) { return false; } };
+  const renderStep = (index) => {
+    currentStep = Math.max(0, Math.min(total - 1, index));
+    slides.forEach((s, i) => s.classList.toggle('is-active', i === currentStep));
+    dots.forEach((d, i) => d.classList.toggle('is-active', i === currentStep));
+    if (stepLabel) stepLabel.textContent = `STEP ${currentStep + 1} OF ${total}`;
+    if (prevBtn) prevBtn.disabled = currentStep === 0;
+    if (nextBtn) {
+      const isLast = currentStep === total - 1;
+      nextBtn.textContent = isLast ? 'Start Drifting 🏁' : 'Next →';
+      nextBtn.classList.toggle('tut-btn--finish', isLast);
+      nextBtn.classList.toggle('tut-btn--primary', !isLast);
+    }
+  };
+  const openModal = (i = 0) => { renderStep(i); modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false'); if (closeBtn) closeBtn.focus(); };
+  const closeModal = () => { if (!modal.classList.contains('is-open')) return; modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); markSeen(); };
+  if (openBtn) openBtn.addEventListener('click', () => openModal(0));
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (prevBtn) prevBtn.addEventListener('click', () => renderStep(currentStep - 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => { if (currentStep < total - 1) renderStep(currentStep + 1); else closeModal(); });
+  dots.forEach((d, i) => d.addEventListener('click', () => renderStep(i)));
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (!modal.classList.contains('is-open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+    else if (e.key === 'ArrowRight' && currentStep < total - 1) { e.preventDefault(); renderStep(currentStep + 1); }
+    else if (e.key === 'ArrowLeft' && currentStep > 0) { e.preventDefault(); renderStep(currentStep - 1); }
+  });
+  if (!hasSeen()) openModal(0);
+})();
+
 </script>
 </body>
 </html>

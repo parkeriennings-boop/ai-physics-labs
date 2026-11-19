@@ -811,6 +811,59 @@
     .arena-sidebar { width: 280px; }
     .pill-stat.hide-sm { display: none; }
   }
+
+/* === GliderLab Interactive Tutorial Modal === */
+.btn-tut-open {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--border-cyan, rgba(56,189,248,0.38));
+  background: linear-gradient(135deg, rgba(56,189,248,0.16), rgba(52,211,153,0.12));
+  color: #e0f2fe; font: 600 12.5px/1.2 system-ui, -apple-system, sans-serif; cursor: pointer;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); white-space: nowrap; transition: transform 0.16s, border-color 0.16s;
+}
+.btn-tut-open:hover { border-color: rgba(56,189,248,0.72); transform: translateY(-1px); }
+#glTutModal {
+  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(6,9,15,0.76); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
+}
+#glTutModal.tut-open { opacity: 1; pointer-events: auto; }
+#glTutModal .tut-card {
+  position: relative; width: 100%; max-width: 540px; border-radius: 20px;
+  background: var(--bg-panel-strong, rgba(14,22,38,0.92)); border: 1px solid var(--border-cyan, rgba(56,189,248,0.38));
+  box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 36px rgba(56,189,248,0.14); color: #e2e8f0; overflow: hidden;
+  transform: translateY(12px) scale(0.97); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#glTutModal.tut-open .tut-card { transform: translateY(0) scale(1); }
+#glTutModal .tut-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, #38bdf8, #34d399, #facc15); }
+#glTutModal .tut-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 12px; border-bottom: 1px solid rgba(148,163,184,0.16); }
+#glTutModal .tut-badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #38bdf8; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3); }
+#glTutModal .tut-close { width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.16); background: rgba(15,23,42,0.65); color: #94a3b8; cursor: pointer; }
+#glTutModal .tut-close:hover { color: #f8fafc; border-color: rgba(56,189,248,0.5); }
+#glTutModal .tut-body { padding: 22px 24px 18px; min-height: 220px; }
+#glTutModal .tut-step { display: none; }
+#glTutModal .tut-step.tut-active { display: block; }
+#glTutModal .tut-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+#glTutModal .tut-icon { flex: 0 0 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(52,211,153,0.14)); border: 1px solid rgba(56,189,248,0.34); }
+#glTutModal .tut-title { margin: 0; font-size: 19px; font-weight: 700; color: #f8fafc; }
+#glTutModal .tut-subtitle { margin: 3px 0 0; font-size: 12.5px; color: #94a3b8; }
+#glTutModal .tut-desc { margin: 0 0 14px; font-size: 14px; line-height: 1.56; color: #cbd5e1; }
+#glTutModal .tut-desc strong { color: #f8fafc; }
+#glTutModal .tut-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+#glTutModal .tut-chip { padding: 10px 12px; border-radius: 12px; background: rgba(6,9,15,0.55); border: 1px solid rgba(148,163,184,0.16); font-size: 12.5px; line-height: 1.4; color: #cbd5e1; }
+#glTutModal .tut-chip b { display: block; margin-bottom: 2px; color: #38bdf8; }
+#glTutModal .tut-chip.tut-emerald b { color: #34d399; }
+#glTutModal .tut-chip.tut-amber b { color: #facc15; }
+#glTutModal .tut-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px 18px; border-top: 1px solid rgba(148,163,184,0.16); background: rgba(6,9,15,0.34); }
+#glTutModal .tut-dots { display: inline-flex; align-items: center; gap: 8px; }
+#glTutModal .tut-dot { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 999px; background: rgba(148,163,184,0.3); cursor: pointer; transition: width 0.2s, background 0.2s; }
+#glTutModal .tut-dot.tut-active { width: 24px; background: linear-gradient(90deg, #38bdf8, #34d399); }
+#glTutModal .tut-actions { display: inline-flex; align-items: center; gap: 8px; }
+#glTutModal .tut-btn { padding: 8px 15px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid rgba(148,163,184,0.16); background: rgba(30,41,59,0.72); color: #e2e8f0; }
+#glTutModal .tut-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+#glTutModal .tut-btn-primary { border-color: rgba(56,189,248,0.55); background: linear-gradient(135deg, #0284c7, #38bdf8); color: #06131f; }
+#glTutModal .tut-btn-fly { border-color: rgba(52,211,153,0.65); background: linear-gradient(135deg, #10b981, #34d399); color: #041b13; }
+@media (max-width: 560px) { #glTutModal .tut-chips { grid-template-columns: 1fr; } }
+
 </style>
 </head>
 <body>
@@ -835,6 +888,7 @@
     </nav>
 
     <div class="topbar-right">
+      <button class="btn-tut-open" id="btnTutorial" title="Open Interactive Tutorial">❓ Tutorial</button>
       <div class="pill-stat hide-sm">Parts <strong id="topPartCount">0</strong></div>
       <div class="pill-stat emerald hide-sm">L/D <strong id="topGlideRatio">0.0</strong></div>
       <div class="pill-stat amber">Gen <strong id="topGenCount">1</strong></div>
@@ -3453,6 +3507,108 @@
   }
   requestAnimationFrame(mainLoop);
 })();
+</script>
+
+<div id="glTutModal" role="dialog" aria-modal="true" aria-labelledby="glTutTitle" aria-hidden="true">
+  <div class="tut-card">
+    <div class="tut-header">
+      <span class="tut-badge" id="glTutCounter">Step 1 of 4</span>
+      <button type="button" class="tut-close" id="glTutClose" aria-label="Close tutorial">✕</button>
+    </div>
+    <div class="tut-body">
+      <section class="tut-step tut-active" data-step="0">
+        <div class="tut-hero"><div class="tut-icon">🪂</div><div><h2 class="tut-title" id="glTutTitle">Welcome to GliderLab</h2><p class="tut-subtitle">Thermal &amp; Wind-Tunnel Aerodynamics Sandbox</p></div></div>
+        <p class="tut-desc">Design custom aerodynamic airframes in <strong>🛠 Wing Lab</strong>, then launch, test, and evolve them in <strong>🌬 Wind Tunnel &amp; Sky Arena</strong>.</p>
+        <div class="tut-chips">
+          <div class="tut-chip"><b>🛠 Wing Lab</b>Build modular gliders and inspect live lift, drag, and balance before takeoff.</div>
+          <div class="tut-chip tut-emerald"><b>🌬 Wind Tunnel &amp; Sky Arena</b>Soar through thermals, survive gusts, and train neural flight controllers.</div>
+        </div>
+      </section>
+      <section class="tut-step" data-step="1">
+        <div class="tut-hero"><div class="tut-icon">🛠</div><div><h2 class="tut-title">Wing Lab &amp; Aerodynamics</h2><p class="tut-subtitle">120 Modular Parts · 12 Ready-to-Fly Presets</p></div></div>
+        <p class="tut-desc">Snap together <strong>120 modular parts</strong>—wings, control tails, propulsion, sensors, and <strong>Mythic OP parts</strong>—or jump right in with <strong>12 presets</strong>.</p>
+        <div class="tut-chips">
+          <div class="tut-chip tut-emerald"><b>Live L/D Glide Ratio</b>Higher Lift-to-Drag means longer, cleaner glides with less altitude loss.</div>
+          <div class="tut-chip tut-amber"><b>Center of Gravity (CG)</b>Keep CG balanced near your wings' lift center for stable, responsive pitch.</div>
+        </div>
+      </section>
+      <section class="tut-step" data-step="2">
+        <div class="tut-hero"><div class="tut-icon">🌬</div><div><h2 class="tut-title">Thermals, Wind Shear &amp; Rings</h2><p class="tut-subtitle">Master the Sky's Invisible Forces</p></div></div>
+        <p class="tut-desc">Ride rising <strong>thermal updrafts</strong> to climb without engines, counter sudden <strong>crosswind &amp; wind shear</strong> gusts, and thread through <strong>aerial target rings</strong>.</p>
+        <div class="tut-chips">
+          <div class="tut-chip tut-amber"><b>Avoid Aerodynamic Stall</b>Pitching too steep bleeds airspeed and collapses lift—nose down to recover.</div>
+          <div class="tut-chip"><b>Ring Chains &amp; Updrafts</b>Link thermals to gain altitude and line up high-speed passes through rings.</div>
+        </div>
+      </section>
+      <section class="tut-step" data-step="3">
+        <div class="tut-hero"><div class="tut-icon">🧠</div><div><h2 class="tut-title">Neural Swarm Training</h2><p class="tut-subtitle">Up to 1,000 Evolving AI Gliders</p></div></div>
+        <p class="tut-desc">Unleash a swarm of up to <strong>1,000 neural gliders</strong> and scrub simulation speed from <strong>0.05x slow-mo</strong> to <strong>500x hyper-evolution</strong>.</p>
+        <div class="tut-chips">
+          <div class="tut-chip tut-emerald"><b>Self-Taught Soaring</b>Watch the AI discover pitch trim, stall recovery, and thermal hunting from scratch.</div>
+          <div class="tut-chip"><b>Iterate Airframes Fast</b>Tweak wings in Wing Lab, then re-train your swarm to beat your distance record.</div>
+        </div>
+      </section>
+    </div>
+    <div class="tut-footer">
+      <div class="tut-dots" id="glTutDots">
+        <button type="button" class="tut-dot tut-active" data-goto="0" aria-label="Step 1"></button>
+        <button type="button" class="tut-dot" data-goto="1" aria-label="Step 2"></button>
+        <button type="button" class="tut-dot" data-goto="2" aria-label="Step 3"></button>
+        <button type="button" class="tut-dot" data-goto="3" aria-label="Step 4"></button>
+      </div>
+      <div class="tut-actions">
+        <button type="button" class="tut-btn" id="glTutBack" disabled>← Back</button>
+        <button type="button" class="tut-btn tut-btn-primary" id="glTutNext">Next →</button>
+        <button type="button" class="tut-btn tut-btn-fly" id="glTutFly" hidden>✈️ Fly Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'gliderlab_tutorial_seen_v1';
+  const modal = document.getElementById('glTutModal');
+  if (!modal) return;
+  const openBtn = document.getElementById('btnTutorial');
+  const steps = Array.from(modal.querySelectorAll('.tut-step'));
+  const dots = Array.from(modal.querySelectorAll('.tut-dot'));
+  const counterEl = document.getElementById('glTutCounter');
+  const closeBtn = document.getElementById('glTutClose');
+  const backBtn = document.getElementById('glTutBack');
+  const nextBtn = document.getElementById('glTutNext');
+  const flyBtn = document.getElementById('glTutFly');
+  let currentStep = 0;
+  const markSeen = () => { try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_) {} };
+  const hasSeen = () => { try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch (_) { return false; } };
+  const renderStep = (index) => {
+    currentStep = Math.max(0, Math.min(steps.length - 1, index));
+    steps.forEach((el, i) => el.classList.toggle('tut-active', i === currentStep));
+    dots.forEach((d, i) => d.classList.toggle('tut-active', i === currentStep));
+    if (counterEl) counterEl.textContent = `Step ${currentStep + 1} of ${steps.length}`;
+    if (backBtn) backBtn.disabled = currentStep === 0;
+    const isLast = currentStep === steps.length - 1;
+    if (nextBtn) nextBtn.hidden = isLast;
+    if (flyBtn) flyBtn.hidden = !isLast;
+  };
+  const openModal = (i = 0) => { renderStep(i); modal.classList.add('tut-open'); modal.setAttribute('aria-hidden', 'false'); };
+  const closeModal = () => { modal.classList.remove('tut-open'); modal.setAttribute('aria-hidden', 'true'); markSeen(); };
+  if (openBtn) openBtn.addEventListener('click', () => openModal(0));
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (flyBtn) flyBtn.addEventListener('click', closeModal);
+  if (backBtn) backBtn.addEventListener('click', () => renderStep(currentStep - 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => renderStep(currentStep + 1));
+  dots.forEach((d) => d.addEventListener('click', () => renderStep(Number(d.dataset.goto) || 0)));
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (!modal.classList.contains('tut-open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+    else if (e.key === 'ArrowRight' && currentStep < steps.length - 1) { e.preventDefault(); renderStep(currentStep + 1); }
+    else if (e.key === 'ArrowLeft' && currentStep > 0) { e.preventDefault(); renderStep(currentStep - 1); }
+  });
+  if (!hasSeen()) setTimeout(() => openModal(0), 220);
+})();
+
 </script>
 </body>
 </html>

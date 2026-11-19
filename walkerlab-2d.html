@@ -503,6 +503,90 @@
   body.mobile-mode .ml-panel { order: 2; width: 100%; border-left: none; border-top: 1px solid var(--border); }
   body.mobile-mode .btn, body.mobile-mode select { min-height: 36px; font-size: 12px; }
 
+
+/* === WalkerLab 2D Interactive Tutorial Modal === */
+#wlTutModal {
+  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(3, 6, 14, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  opacity: 0; pointer-events: none; transition: opacity 0.22s ease; font-family: inherit; color: var(--text, #eff5ff);
+}
+#wlTutModal.tut-open { opacity: 1; pointer-events: auto; }
+#wlTutModal * { box-sizing: border-box; }
+#wlTutModal .tut-card {
+  position: relative; width: 100%; max-width: 560px; max-height: 90dvh; display: flex; flex-direction: column;
+  background: var(--glass-strong, rgba(12, 17, 29, 0.88)); border: 1px solid var(--border-bright, rgba(56, 189, 248, 0.6));
+  border-radius: 18px; box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.06) inset, 0 0 36px rgba(56,189,248,0.14);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); overflow: hidden;
+  transform: translateY(12px) scale(0.97); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#wlTutModal.tut-open .tut-card { transform: translateY(0) scale(1); }
+#wlTutModal .tut-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.13)); background: linear-gradient(180deg, rgba(56,189,248,0.09), transparent);
+}
+#wlTutModal .tut-meta { display: flex; align-items: center; gap: 10px; }
+#wlTutModal .tut-step-counter {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #38bdf8;
+  background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.35); padding: 3px 9px; border-radius: 999px;
+}
+#wlTutModal .tut-kicker { font-size: 12px; color: rgba(239,245,255,0.62); }
+#wlTutModal .tut-close {
+  width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--border, rgba(255,255,255,0.13));
+  background: rgba(255,255,255,0.05); color: var(--text, #eff5ff); font-size: 15px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s;
+}
+#wlTutModal .tut-close:hover { background: rgba(56,189,248,0.18); border-color: var(--border-bright, rgba(56,189,248,0.6)); }
+#wlTutModal .tut-body { padding: 20px 22px 18px; overflow-y: auto; flex: 1 1 auto; }
+#wlTutModal .tut-step { display: none; animation: wlTutFade 0.2s ease; }
+#wlTutModal .tut-step.tut-active { display: block; }
+@keyframes wlTutFade { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+#wlTutModal .tut-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+#wlTutModal .tut-icon {
+  width: 48px; height: 48px; flex: 0 0 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; background: linear-gradient(135deg, rgba(56,189,248,0.22), rgba(56,189,248,0.05)); border: 1px solid rgba(56,189,248,0.4);
+}
+#wlTutModal .tut-title { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: #eff5ff; line-height: 1.2; }
+#wlTutModal .tut-badge { display: inline-block; font-size: 12px; font-weight: 600; color: #7dd3fc; }
+#wlTutModal .tut-desc { margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: rgba(239,245,255,0.84); }
+#wlTutModal .tut-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+#wlTutModal .tut-item {
+  display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border, rgba(255,255,255,0.13));
+}
+#wlTutModal .tut-item-icon { font-size: 17px; line-height: 1.3; flex: 0 0 auto; }
+#wlTutModal .tut-item-text { font-size: 13.5px; line-height: 1.45; color: rgba(239,245,255,0.82); }
+#wlTutModal .tut-item-text strong { color: #eff5ff; }
+#wlTutModal .tut-footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 20px 16px; border-top: 1px solid var(--border, rgba(255,255,255,0.13)); background: rgba(6,9,15,0.45);
+}
+#wlTutModal .tut-footer-left { display: flex; align-items: center; gap: 14px; }
+#wlTutModal .tut-dots { display: flex; align-items: center; gap: 7px; }
+#wlTutModal .tut-dot {
+  width: 9px; height: 9px; padding: 0; border: none; border-radius: 999px; background: rgba(255,255,255,0.22);
+  cursor: pointer; transition: width 0.2s, background 0.2s;
+}
+#wlTutModal .tut-dot.tut-active { width: 24px; background: #38bdf8; box-shadow: 0 0 10px rgba(56,189,248,0.65); }
+#wlTutModal .tut-startup-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(239,245,255,0.68); cursor: pointer; }
+#wlTutModal .tut-startup-label input { accent-color: #38bdf8; cursor: pointer; margin: 0; }
+#wlTutModal .tut-nav { display: flex; align-items: center; gap: 8px; }
+#wlTutModal .tut-btn {
+  padding: 8px 15px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border, rgba(255,255,255,0.13)); background: rgba(255,255,255,0.06); color: #eff5ff;
+}
+#wlTutModal .tut-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: rgba(56,189,248,0.6); }
+#wlTutModal .tut-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+#wlTutModal .tut-btn-primary {
+  background: linear-gradient(135deg, #38bdf8, #0284c7); border-color: rgba(125,211,252,0.7); color: #06090f; font-weight: 700;
+}
+@media (max-width: 600px) {
+  #wlTutModal { padding: 10px; align-items: flex-end; }
+  #wlTutModal .tut-footer { flex-direction: column; align-items: stretch; }
+  #wlTutModal .tut-footer-left { justify-content: space-between; }
+  #wlTutModal .tut-nav { width: 100%; }
+  #wlTutModal .tut-btn { flex: 1 1 50%; text-align: center; }
+}
+
 </style>
 </head>
 <body>
@@ -522,6 +606,7 @@
     <button class="simp-btn active" data-simp="pro">🟣 Pro</button>
   </div>
   <div class="header-actions">
+    <button class="btn" id="btnTutorial" title="Open Interactive Tutorial">❓ Tutorial</button>
     <button class="btn" id="btnMobileToggle" title="Toggle Phone/Desktop Layout">📱 Phone</button>
     <button class="btn active" id="btnToggleSound" title="Toggle Procedural WebAudio SFX">🔊 Sound: ON</button>
     <button class="btn pro-only" id="btnExportBrain" title="Export Creature & Trained Brain JSON">💾 Export</button>
@@ -4680,6 +4765,125 @@
     }
     applyMobileMode();
   })();
+
+</script>
+
+<div id="wlTutModal" role="dialog" aria-modal="true" aria-labelledby="wlTutTitle" aria-hidden="true">
+  <div class="tut-card" tabindex="-1">
+    <div class="tut-header">
+      <div class="tut-meta">
+        <span class="tut-step-counter" id="wlTutCounter">Step 1 of 4</span>
+        <span class="tut-kicker">WalkerLab 2D Guide</span>
+      </div>
+      <button type="button" class="tut-close" id="wlTutClose" aria-label="Close tutorial">✕</button>
+    </div>
+    <div class="tut-body">
+      <section class="tut-step tut-active" data-tut-step="0">
+        <div class="tut-hero"><div class="tut-icon">🦿</div><div><h2 class="tut-title" id="wlTutTitle">Welcome to WalkerLab 2D</h2><span class="tut-badge">Build · Evolve · Master</span></div></div>
+        <p class="tut-desc">Design custom 2D physics walkers and vehicles in <strong>🔧 Creature Lab</strong>, then drop them into the <strong>🧠 ML Training Arena</strong> where neural networks learn to walk, roll, and climb through live evolution.</p>
+        <ul class="tut-list">
+          <li class="tut-item"><span class="tut-item-icon">🔧</span><span class="tut-item-text"><strong>Creature Lab:</strong> Assemble limbs, wheels, joints, muscles, and sensors into any silhouette.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">🧠</span><span class="tut-item-text"><strong>ML Training Arena:</strong> Watch a neural swarm test, fail, mutate, and master your machine in real time.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">♻️</span><span class="tut-item-text"><strong>Rapid Iteration:</strong> Switch between Lab and Arena anytime to refine geometry and push distance records further.</span></li>
+        </ul>
+      </section>
+      <section class="tut-step" data-tut-step="1">
+        <div class="tut-hero"><div class="tut-icon">🔧</div><div><h2 class="tut-title">Build Anything in Creature Lab</h2><span class="tut-badge">200 Unique Parts &amp; Smart Tools</span></div></div>
+        <p class="tut-desc">Mix and match <strong>200 unique parts</strong>—from <strong>12 true rolling wheels</strong> and muscles/joints to terrain sensors and OP gear like the <strong>Vibranium Shield</strong>.</p>
+        <ul class="tut-list">
+          <li class="tut-item"><span class="tut-item-icon">⚖️</span><span class="tut-item-text"><strong>Mirror &amp; Symmetry Tools:</strong> Toggle symmetry to build balanced legs, suspensions, and frames effortlessly.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">📦</span><span class="tut-item-text"><strong>Built-in Presets:</strong> Load ready-to-run walkers and vehicles to study, remix, or upgrade immediately.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">🤖</span><span class="tut-item-text"><strong>AI Robot Builder:</strong> Prompt the built-in AI Robot Builder to generate a complete bot for you.</span></li>
+        </ul>
+      </section>
+      <section class="tut-step" data-tut-step="2">
+        <div class="tut-hero"><div class="tut-icon">🧠</div><div><h2 class="tut-title">Train Neural Swarms at Warp Speed</h2><span class="tut-badge">Up to 1,000 Walkers · 12 Maps</span></div></div>
+        <p class="tut-desc">Evolve up to <strong>1,000 simultaneous walkers</strong> across <strong>12 interactive physics maps</strong>, dialing simulation speed from <strong>0.01x slow-mo</strong> up to <strong>1000x turbo</strong> training.</p>
+        <ul class="tut-list">
+          <li class="tut-item"><span class="tut-item-icon">👥</span><span class="tut-item-text"><strong>Population &amp; Episode Timer:</strong> Scale swarm size for wider exploration and tune episode length for each terrain.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">🎛️</span><span class="tut-item-text"><strong>Learning Rate &amp; Exploration Noise:</strong> Boost noise when walkers get stuck, then lower it to polish smooth gaits.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">🗺️</span><span class="tut-item-text"><strong>12 Interactive Physics Maps:</strong> Test your neural brains on flats, hills, gaps, and obstacle courses.</span></li>
+        </ul>
+      </section>
+      <section class="tut-step" data-tut-step="3">
+        <div class="tut-hero"><div class="tut-icon">🚀</div><div><h2 class="tut-title">Pro Tips, Saves &amp; Modes</h2><span class="tut-badge">Customize Your Workflow</span></div></div>
+        <p class="tut-desc">Adapt the workspace to your experience level, archive your champion bots, and train comfortably on desktop or mobile.</p>
+        <ul class="tut-list">
+          <li class="tut-item"><span class="tut-item-icon">🎚️</span><span class="tut-item-text"><strong>Simple / Standard / Pro UI:</strong> Stay streamlined in Simple mode or unlock full hyperparameters in Pro mode.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">💾</span><span class="tut-item-text"><strong>Export &amp; Import:</strong> Save your best creatures and trained neural weights to reload or share anytime.</span></li>
+          <li class="tut-item"><span class="tut-item-icon">📱</span><span class="tut-item-text"><strong>Phone Mode:</strong> Enable Phone Mode on mobile for touch-friendly controls and a compact layout.</span></li>
+        </ul>
+      </section>
+    </div>
+    <div class="tut-footer">
+      <div class="tut-footer-left">
+        <div class="tut-dots" id="wlTutDots">
+          <button type="button" class="tut-dot tut-active" data-tut-dot="0" aria-label="Step 1"></button>
+          <button type="button" class="tut-dot" data-tut-dot="1" aria-label="Step 2"></button>
+          <button type="button" class="tut-dot" data-tut-dot="2" aria-label="Step 3"></button>
+          <button type="button" class="tut-dot" data-tut-dot="3" aria-label="Step 4"></button>
+        </div>
+        <label class="tut-startup-label"><input type="checkbox" id="wlTutShowStartup" /> Show on startup</label>
+      </div>
+      <div class="tut-nav">
+        <button type="button" class="tut-btn" id="wlTutPrev" disabled>← Back</button>
+        <button type="button" class="tut-btn tut-btn-primary" id="wlTutNext">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'walkerlab2d_tutorial_seen_v1';
+  const modal = document.getElementById('wlTutModal');
+  if (!modal) return;
+  const card = modal.querySelector('.tut-card');
+  const openBtn = document.getElementById('btnTutorial');
+  const closeBtn = document.getElementById('wlTutClose');
+  const prevBtn = document.getElementById('wlTutPrev');
+  const nextBtn = document.getElementById('wlTutNext');
+  const counterEl = document.getElementById('wlTutCounter');
+  const startupCheckbox = document.getElementById('wlTutShowStartup');
+  const steps = Array.from(modal.querySelectorAll('.tut-step'));
+  const dots = Array.from(modal.querySelectorAll('.tut-dot'));
+  let currentStep = 0;
+  const getS = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+  const setS = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+  const remS = (k) => { try { localStorage.removeItem(k); } catch (_) {} };
+  const syncPref = () => { if (!startupCheckbox) return; if (startupCheckbox.checked) remS(STORAGE_KEY); else setS(STORAGE_KEY, '1'); };
+  const render = (idx) => {
+    currentStep = Math.max(0, Math.min(idx, steps.length - 1));
+    steps.forEach((s, i) => s.classList.toggle('tut-active', i === currentStep));
+    dots.forEach((d, i) => d.classList.toggle('tut-active', i === currentStep));
+    if (counterEl) counterEl.textContent = `Step ${currentStep + 1} of ${steps.length}`;
+    if (prevBtn) prevBtn.disabled = currentStep === 0;
+    if (nextBtn) nextBtn.textContent = currentStep === steps.length - 1 ? 'Finish ✓' : 'Next →';
+  };
+  const openModal = (i = 0) => {
+    if (startupCheckbox) startupCheckbox.checked = false;
+    render(i); modal.classList.add('tut-open'); modal.setAttribute('aria-hidden', 'false');
+    if (card) card.focus();
+  };
+  const closeModal = () => {
+    if (!modal.classList.contains('tut-open')) return;
+    syncPref(); modal.classList.remove('tut-open'); modal.setAttribute('aria-hidden', 'true');
+  };
+  if (openBtn) openBtn.addEventListener('click', () => openModal(0));
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (prevBtn) prevBtn.addEventListener('click', () => { if (currentStep > 0) render(currentStep - 1); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { if (currentStep < steps.length - 1) render(currentStep + 1); else closeModal(); });
+  dots.forEach((d) => d.addEventListener('click', () => render(Number(d.dataset.tutDot) || 0)));
+  if (startupCheckbox) startupCheckbox.addEventListener('change', syncPref);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (!modal.classList.contains('tut-open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+    else if (e.key === 'ArrowRight' && currentStep < steps.length - 1) { e.preventDefault(); render(currentStep + 1); }
+    else if (e.key === 'ArrowLeft' && currentStep > 0) { e.preventDefault(); render(currentStep - 1); }
+  });
+  if (getS(STORAGE_KEY) !== '1') setTimeout(() => openModal(0), 300);
+})();
 
 </script>
 </body>
