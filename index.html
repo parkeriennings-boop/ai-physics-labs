@@ -379,6 +379,37 @@
     background: #22c55e;
     box-shadow: 0 0 8px #22c55e;
   }
+  .game-card.maintenance {
+    opacity: 0.72;
+    filter: saturate(0.55);
+  }
+  .game-card.maintenance:hover {
+    transform: none;
+    border-color: rgba(250, 204, 21, 0.45);
+    box-shadow: inset 0 1px 0 var(--border-spec), 0 18px 42px rgba(0, 0, 0, 0.42);
+  }
+  .status-pill.maintenance {
+    background: rgba(250, 204, 21, 0.14);
+    border-color: rgba(250, 204, 21, 0.45);
+    color: #fde047;
+  }
+  .status-pill.maintenance .status-dot {
+    background: #facc15;
+    box-shadow: 0 0 8px #facc15;
+  }
+  .card-footer .launch-btn.maintenance {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+    border-color: rgba(250, 204, 21, 0.32);
+    box-shadow: none;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .copy-btn.maintenance {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 
   .card-body {
     position: relative;
@@ -758,6 +789,7 @@
       name: 'OrbitLab',
       subtitle: 'Blue & Purple Rocket Physics & Neural ML',
       icon: '🚀',
+      maintenance: true,
       url: './orbitlab.html',
       displayUrl: '/orbitlab.html',
       accent: '#8b5cf6',
@@ -845,8 +877,9 @@
     emptyState.style.display = list.length === 0 ? 'block' : 'none';
 
     list.forEach(g => {
+      const isMaint = !!g.maintenance;
       const card = document.createElement('article');
-      card.className = 'game-card';
+      card.className = isMaint ? 'game-card maintenance' : 'game-card';
       card.style.setProperty('--card-accent', g.accent);
       card.style.setProperty('--card-glow', g.glow);
       card.style.setProperty('--btn-from', g.btnFrom);
@@ -855,12 +888,12 @@
       card.innerHTML = `
         <div class="card-header">
           <div class="game-icon">${g.icon}</div>
-          <span class="status-pill"><span class="status-dot"></span>LIVE</span>
+          <span class="status-pill${isMaint ? ' maintenance' : ''}"><span class="status-dot"></span>${isMaint ? 'UNDER MAINTENANCE' : 'LIVE'}</span>
         </div>
         <div class="card-body">
           <h2 class="game-title">${g.name}</h2>
           <div class="game-subtitle">${g.subtitle}</div>
-          <div class="url-preview">${g.displayUrl}</div>
+          <div class="url-preview">${isMaint ? 'Temporarily offline for maintenance' : g.displayUrl}</div>
           <div class="card-stats-row">
             <span class="card-stat-pill">🧩 ${g.parts.toLocaleString()} Parts</span>
             <span class="card-stat-pill">👁️ <span class="card-visit-count" data-slug="${g.slug}">${(appVisits[g.slug] || 0).toLocaleString()}</span> Visits</span>
@@ -871,25 +904,27 @@
           </div>
         </div>
         <div class="card-footer">
-          <a class="btn launch-btn" href="${g.url}" target="_blank" rel="noopener noreferrer">
-            ▶ Play ${g.name} ↗
-          </a>
-          <button class="btn copy-btn" data-url="${g.url}" title="Copy game link">🔗</button>
+          ${isMaint
+            ? `<button class="btn launch-btn maintenance" disabled aria-disabled="true">🚧 Under Maintenance</button>`
+            : `<a class="btn launch-btn" href="${g.url}" target="_blank" rel="noopener noreferrer">▶ Play ${g.name} ↗</a>`}
+          <button class="btn copy-btn${isMaint ? ' maintenance' : ''}" ${isMaint ? 'disabled aria-disabled="true" title="Unavailable during maintenance"' : `data-url="${g.url}" title="Copy game link"`}>🔗</button>
         </div>
       `;
 
-      card.querySelector('.launch-btn').addEventListener('click', () => {
-        recordAppVisit(g.slug);
-      });
-
-      card.querySelector('.copy-btn').addEventListener('click', () => {
-        const fullUrl = new URL(g.url, window.location.href).href;
-        navigator.clipboard?.writeText(fullUrl).then(() => {
-          showToast(`Copied ${g.name} link!`);
-        }).catch(() => {
-          showToast(fullUrl);
+      if (!isMaint) {
+        card.querySelector('.launch-btn').addEventListener('click', () => {
+          recordAppVisit(g.slug);
         });
-      });
+
+        card.querySelector('.copy-btn').addEventListener('click', () => {
+          const fullUrl = new URL(g.url, window.location.href).href;
+          navigator.clipboard?.writeText(fullUrl).then(() => {
+            showToast(`Copied ${g.name} link!`);
+          }).catch(() => {
+            showToast(fullUrl);
+          });
+        });
+      }
 
       grid.appendChild(card);
     });
@@ -898,7 +933,9 @@
   searchInput.addEventListener('input', e => renderGames(e.target.value));
 
   document.getElementById('btnRandom').addEventListener('click', () => {
-    const pick = GAMES[Math.floor(Math.random() * GAMES.length)];
+    const playable = GAMES.filter(g => !g.maintenance);
+    if (!playable.length) return;
+    const pick = playable[Math.floor(Math.random() * playable.length)];
     recordAppVisit(pick.slug);
     showToast(`Launching ${pick.icon} ${pick.name}...`);
     window.open(pick.url, '_blank', 'noopener,noreferrer');
@@ -908,6 +945,10 @@
     if (document.activeElement === searchInput) return;
     const match = GAMES.find(g => g.key === e.key);
     if (match) {
+      if (match.maintenance) {
+        showToast(`🚧 ${match.name} is currently under maintenance.`);
+        return;
+      }
       recordAppVisit(match.slug);
       showToast(`Opening ${match.icon} ${match.name}...`);
       window.open(match.url, '_blank', 'noopener,noreferrer');
