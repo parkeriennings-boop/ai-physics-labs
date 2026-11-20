@@ -1,0 +1,3281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OpticLab v2 — Multi-Source Ray-Tracing, Dispersion &amp; Wave Optics</title>
+<style>
+  :root {
+    --bg: #06090f;
+    --panel: rgba(12, 18, 30, 0.78);
+    --panel-solid: #0c121e;
+    --panel-border: rgba(56, 189, 248, 0.16);
+    --panel-border-strong: rgba(56, 189, 248, 0.36);
+    --text: #e2e8f0;
+    --muted: #8b9bb4;
+    --cyan: #38bdf8;
+    --amber: #f59e0b;
+    --emerald: #22c55e;
+    --red: #ef4444;
+    --violet: #a78bfa;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 18% 15%, rgba(56, 189, 248, 0.08), transparent 42%),
+      radial-gradient(circle at 84% 85%, rgba(245, 158, 11, 0.06), transparent 45%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-rows: 54px 1fr;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 14px;
+    background: rgba(8, 13, 23, 0.88);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--panel-border);
+    z-index: 10;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 195px;
+  }
+
+  .brand-logo {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(245, 158, 11, 0.18));
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.22);
+  }
+
+  .brand-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #f8fafc;
+    line-height: 1.1;
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .hud-strip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hud-strip::-webkit-scrollbar { display: none; }
+
+  .hud-pill {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    min-width: 78px;
+  }
+
+  .hud-label {
+    font-size: 9px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .hud-val {
+    font-size: 12px;
+    font-family: var(--mono);
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .hud-val.cyan { color: var(--cyan); }
+  .hud-val.amber { color: var(--amber); }
+  .hud-val.emerald { color: var(--emerald); }
+  .hud-val.red { color: var(--red); }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  /* WORKSPACE 3-COLUMN */
+  .workspace {
+    display: grid;
+    grid-template-columns: 280px 1fr 312px;
+    gap: 10px;
+    padding: 10px;
+    height: calc(100vh - 54px);
+    overflow: hidden;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    padding-right: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(56, 189, 248, 0.25) transparent;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.25); border-radius: 4px; }
+
+  .panel {
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px;
+    font-family: var(--mono);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.12);
+    padding-bottom: 5px;
+  }
+
+  .panel-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: var(--cyan);
+  }
+
+  /* BUTTONS & CONTROLS */
+  .btn {
+    appearance: none;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.85);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.14s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .btn:hover {
+    border-color: var(--panel-border-strong);
+    background: rgba(30, 41, 59, 0.9);
+  }
+  .btn.active, .btn.primary {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.55);
+    color: #f8fafc;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.16);
+  }
+  .btn.amber {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fde68a;
+  }
+  .btn.emerald {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #bbf7d0;
+  }
+  .btn.danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #fecaca;
+  }
+  .btn.sm { padding: 4px 8px; font-size: 10.5px; border-radius: 6px; }
+  .btn.xs { padding: 3px 6px; font-size: 10px; border-radius: 5px; }
+  .btn.full { width: 100%; }
+
+  /* ELEMENT PALETTE GRID */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+
+  .palette-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 3px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.14s ease;
+    text-align: center;
+  }
+  .palette-item:hover {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.12);
+    transform: translateY(-1px);
+  }
+  .palette-item svg { width: 20px; height: 20px; stroke: var(--cyan); fill: none; stroke-width: 1.7; }
+  .palette-item span { font-size: 9px; font-weight: 600; line-height: 1.15; color: #cbd5e1; }
+
+  /* ADD LIGHT BUTTONS */
+  .add-light-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .light-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .light-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    font-size: 10px;
+    font-family: var(--mono);
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .light-pill:hover { border-color: rgba(245, 158, 11, 0.55); }
+  .light-pill.active {
+    border-color: var(--amber);
+    background: rgba(245, 158, 11, 0.16);
+    color: #fef3c7;
+  }
+  .light-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* MATERIAL CHIPS */
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .chip {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 4px 7px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+  .chip:hover { color: var(--text); border-color: rgba(56, 189, 248, 0.4); }
+  .chip.active {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: var(--cyan);
+    color: #f8fafc;
+  }
+
+  /* PRESETS & CHALLENGES */
+  .list-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .preset-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.14s ease;
+  }
+  .preset-btn:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: rgba(30, 41, 59, 0.85);
+  }
+  .preset-btn.active {
+    border-color: var(--cyan);
+    background: rgba(56, 189, 248, 0.14);
+  }
+  .preset-name { font-size: 11px; font-weight: 600; color: #f1f5f9; }
+  .preset-desc { font-size: 9.5px; color: var(--muted); }
+  .preset-tag {
+    font-size: 8.5px;
+    font-family: var(--mono);
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.14);
+    color: var(--cyan);
+    flex-shrink: 0;
+  }
+
+  .challenge-card {
+    padding: 7px 8px;
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+  .challenge-card:hover { border-color: rgba(245, 158, 11, 0.5); }
+  .challenge-card.active { border-color: var(--amber); background: rgba(245, 158, 11, 0.1); }
+  .challenge-card.solved { border-color: var(--emerald); background: rgba(34, 197, 94, 0.1); }
+  .challenge-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+  .challenge-title { font-size: 11px; font-weight: 700; color: #f8fafc; }
+  .challenge-status { font-size: 9px; font-family: var(--mono); font-weight: 700; text-transform: uppercase; }
+  .challenge-status.pending { color: var(--amber); }
+  .challenge-status.pass { color: var(--emerald); }
+  .challenge-goal { font-size: 9.5px; color: var(--muted); line-height: 1.3; }
+
+  /* CENTER BENCH */
+  .bench-wrap {
+    position: relative;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: radial-gradient(circle at 50% 50%, #0a101d 0%, #05080e 100%);
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.75);
+  }
+
+  #benchCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  .bench-overlay-tl {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    display: flex;
+    gap: 6px;
+    pointer-events: none;
+    flex-wrap: wrap;
+  }
+
+  .bench-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(6, 9, 15, 0.78);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+  .bench-badge strong { color: var(--text); }
+
+  .bench-overlay-bl {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+
+  .hint-bar {
+    padding: 4px 9px;
+    border-radius: 6px;
+    background: rgba(6, 9, 15, 0.78);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .hint-bar span { color: var(--cyan); font-weight: 600; }
+
+  /* SLIDERS & FORM ROWS */
+  .ctrl-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+  .ctrl-label strong {
+    font-family: var(--mono);
+    color: #f1f5f9;
+    font-size: 10.5px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.22);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--cyan);
+    border: 2px solid #06090f;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    cursor: pointer;
+  }
+
+  select.ctrl-select {
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-family: var(--sans);
+  }
+
+  .spectrum-bar {
+    height: 6px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #610061 0%, #4400ff 12%, #0088ff 27%, #00ff55 46%, #ccff00 60%, #ff7700 74%, #ff0000 88%, #660000 100%);
+    margin-top: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .seg-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text);
+    padding: 2px 0;
+  }
+
+  .switch {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.16s ease;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+  .switch.on {
+    background: rgba(56, 189, 248, 0.45);
+    border-color: var(--cyan);
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #f8fafc;
+    transition: transform 0.16s ease;
+  }
+  .switch.on::after { transform: translateX(16px); }
+
+  /* SPECTROSCOPE CANVAS */
+  .scope-box {
+    background: rgba(4, 7, 13, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-radius: 8px;
+    padding: 6px;
+  }
+  #scopeCanvas {
+    width: 100%;
+    height: 98px;
+    display: block;
+  }
+
+  .tele-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .tele-cell {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 6px;
+    padding: 5px 7px;
+  }
+  .tele-k { font-size: 9px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; }
+  .tele-v { font-size: 11.5px; font-family: var(--mono); font-weight: 700; color: #f8fafc; margin-top: 1px; }
+
+  .swarm-progress {
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.18);
+    overflow: hidden;
+  }
+  .swarm-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--cyan), var(--emerald));
+    transition: width 0.12s ease;
+  }
+
+  .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.4);
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+          <polygon points="12 3 3 19 21 19"></polygon>
+          <line x1="1" y1="13" x2="7.5" y2="11" stroke="#f8fafc"></line>
+          <line x1="16.5" y1="11" x2="23" y2="8" stroke="#ef4444"></line>
+          <line x1="16.5" y1="11" x2="23" y2="12" stroke="#22c55e"></line>
+          <line x1="16.5" y1="11" x2="23" y2="16" stroke="#38bdf8"></line>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">OpticLab <span style="color:var(--cyan);font-size:11px;">v2</span></div>
+        <div class="brand-sub">Multi-Source Ray &amp; Wave Optics</div>
+      </div>
+    </div>
+
+    <div class="hud-strip">
+      <div class="hud-pill">
+        <span class="hud-label">Lights</span>
+        <span class="hud-val amber" id="hudLights">1</span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">Segments</span>
+        <span class="hud-val cyan" id="hudSegments">0</span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">TIR Bounces</span>
+        <span class="hud-val amber" id="hudTir">0</span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">Detector Hit</span>
+        <span class="hud-val emerald" id="hudDetector">0.0%</span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">Dispersion Δy</span>
+        <span class="hud-val" id="hudSpread">0.0 px</span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">Swarm Gen</span>
+        <span class="hud-val" id="hudSwarm">Idle</span>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn sm" id="btnToggleWave" title="Toggle Multi-Source Huygens Wavefront Field">Wavefront: OFF</button>
+      <button class="btn sm active" id="btnToggleFresnel" title="Toggle Partial Fresnel Reflections">Fresnel: ON</button>
+      <button class="btn sm" id="btnToggleNormals" title="Toggle Surface Normal & Incidence Vectors">Normals: OFF</button>
+      <button class="btn sm" id="btnResetPreset">Reset Preset</button>
+      <button class="btn sm danger" id="btnClearBench">Clear</button>
+    </div>
+  </header>
+
+  <!-- 3-COLUMN WORKSPACE -->
+  <div class="workspace">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="panel">
+        <div class="panel-header">
+          <span>Optical Elements</span>
+          <span class="panel-badge" id="paletteCountBadge">16 Shapes</span>
+        </div>
+        <div class="palette-grid" id="paletteGrid"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>Glass Material (Cauchy)</span>
+          <span class="panel-badge" id="matIndexBadge">n = 1.781</span>
+        </div>
+        <div class="chip-row" id="materialChips"></div>
+        <div style="font-size: 9.5px; font-family: var(--mono); color: var(--muted);" id="cauchyFormula">
+          n(λ) = 1.7376 + 0.01318 / λ²
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>8 Optical Presets</span>
+          <span class="panel-badge">Instant</span>
+        </div>
+        <div class="list-stack" id="presetList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>Bench Challenges</span>
+          <span class="panel-badge" id="challengeScore">0/4</span>
+        </div>
+        <div class="list-stack" id="challengeList"></div>
+      </div>
+    </aside>
+
+    <!-- CENTER INTERACTIVE BENCH -->
+    <main class="bench-wrap" id="benchWrap">
+      <canvas id="benchCanvas"></canvas>
+      <div class="bench-overlay-tl">
+        <div class="bench-badge">Preset: <strong id="activePresetName">Newton's Flint Prism</strong></div>
+        <div class="bench-badge" id="selectedBadge">Selected: <strong>None</strong></div>
+      </div>
+      <div class="bench-overlay-bl">
+        <div class="hint-bar">
+          <span>Drag</span> body to move &bull; <span>Drag Ring</span> to aim/rotate (<span>Shift</span> snap 15°) &bull; <span>Del</span> remove
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside class="sidebar">
+      <!-- MULTI-LIGHT SOURCES PANEL -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Light Sources</span>
+          <span class="panel-badge" id="lightCountBadge">1 Active</span>
+        </div>
+        <div style="font-size: 9.5px; color: var(--muted);">+ Add Light:</div>
+        <div class="add-light-grid">
+          <button class="btn xs amber" data-add-light="laser">+ Laser</button>
+          <button class="btn xs" data-add-light="white">+ White Beam</button>
+          <button class="btn xs" data-add-light="point">+ 360° Point</button>
+          <button class="btn xs" data-add-light="cone">+ Cone Spot</button>
+          <button class="btn xs" data-add-light="rgb">+ RGB Tri-Laser</button>
+        </div>
+        <div class="light-list" id="lightList"></div>
+
+        <!-- SELECTED LIGHT INSPECTOR -->
+        <div id="lightInspector" class="list-stack" style="border-top:1px solid rgba(56,189,248,0.12);padding-top:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10px;font-family:var(--mono);color:var(--amber);" id="selLightLabel">Light #1 Inspector</span>
+            <button class="btn xs danger" id="btnDeleteLight">Delete Light</button>
+          </div>
+          <div class="ctrl-row">
+            <div class="ctrl-label"><span>Light Type</span><strong id="valLightType">White Beam</strong></div>
+            <select class="ctrl-select" id="selLightType">
+              <option value="laser">Laser (Collimated Mono)</option>
+              <option value="white">White Beam (Full-Spectrum)</option>
+              <option value="point">360° Point Source</option>
+              <option value="cone">Cone Spotlight</option>
+              <option value="rgb">RGB Tri-Laser (635/532/450nm)</option>
+            </select>
+          </div>
+          <div class="seg-group" id="lightSpectrumModeRow">
+            <button class="btn xs" id="btnLightMono">Mono λ</button>
+            <button class="btn xs" id="btnLightWhite">Full-Spectrum</button>
+          </div>
+          <div class="ctrl-row" id="wavelengthRow">
+            <div class="ctrl-label">
+              <span><span class="swatch" id="wlSwatch"></span>Wavelength λ</span>
+              <strong id="valWavelength">532 nm</strong>
+            </div>
+            <input type="range" id="slWavelength" min="380" max="750" step="1" value="532" />
+            <div class="spectrum-bar"></div>
+          </div>
+          <div class="ctrl-row" id="beamWidthRow">
+            <div class="ctrl-label"><span id="lblBeamOrCone">Beam Width</span><strong id="valBeamWidth">14 px</strong></div>
+            <input type="range" id="slBeamWidth" min="0" max="120" step="1" value="14" />
+          </div>
+          <div class="ctrl-row">
+            <div class="ctrl-label"><span>Ray Count</span><strong id="valRayCount">15 rays</strong></div>
+            <input type="range" id="slRayCount" min="1" max="60" step="1" value="15" />
+          </div>
+          <div class="ctrl-row">
+            <div class="ctrl-label"><span>Intensity</span><strong id="valIntensity">1.00×</strong></div>
+            <input type="range" id="slIntensity" min="0.2" max="2.5" step="0.05" value="1.0" />
+          </div>
+          <div class="toggle-row">
+            <span>Coherent (Wavefront)</span>
+            <div class="switch on" id="swCoherent"></div>
+          </div>
+        </div>
+        <div id="lightInspEmpty" style="font-size:10px;color:var(--muted);display:none;">
+          Select a light on the bench or add a new light source above.
+        </div>
+      </div>
+
+      <!-- SELECTED ELEMENT INSPECTOR -->
+      <div class="panel" id="inspectorPanel">
+        <div class="panel-header">
+          <span>Element Inspector</span>
+          <span class="panel-badge" id="inspTypeBadge">None</span>
+        </div>
+        <div id="inspEmpty" style="font-size: 10.5px; color: var(--muted); display: none;">
+          Click any optical element on the bench to inspect or adjust its parameters.
+        </div>
+        <div id="inspControls" class="list-stack">
+          <div class="ctrl-row" id="inspSizeRow">
+            <div class="ctrl-label"><span id="lblSize">Element Size</span><strong id="valSize">120 px</strong></div>
+            <input type="range" id="slSize" min="44" max="260" step="2" value="120" />
+          </div>
+          <div class="ctrl-row" id="inspParamRow">
+            <div class="ctrl-label"><span id="lblParam">Curvature / Focal</span><strong id="valParam">160 px</strong></div>
+            <input type="range" id="slParam" min="10" max="420" step="2" value="160" />
+          </div>
+          <div class="ctrl-row" id="inspParam2Row" style="display:none;">
+            <div class="ctrl-label"><span id="lblParam2">Back Radius R2</span><strong id="valParam2">240 px</strong></div>
+            <input type="range" id="slParam2" min="80" max="500" step="5" value="240" />
+          </div>
+          <div id="dichroicControls" class="list-stack" style="display:none;">
+            <div class="ctrl-row">
+              <div class="ctrl-label">
+                <span><span class="swatch" id="dicSwatch"></span>Center λ</span>
+                <strong id="valDicWl">532 nm</strong>
+              </div>
+              <input type="range" id="slDicWl" min="380" max="750" step="1" value="532" />
+              <div class="spectrum-bar"></div>
+            </div>
+            <div class="ctrl-row">
+              <div class="ctrl-label"><span>Passband Δλ</span><strong id="valDicBw">55 nm</strong></div>
+              <input type="range" id="slDicBw" min="15" max="160" step="5" value="55" />
+            </div>
+          </div>
+          <div id="gratingControls" class="list-stack">
+            <div class="ctrl-row">
+              <div class="ctrl-label"><span>Slit Width a</span><strong id="valSlitA">1.6 μm</strong></div>
+              <input type="range" id="slSlitA" min="0.4" max="8.0" step="0.1" value="1.6" />
+            </div>
+            <div class="ctrl-row">
+              <div class="ctrl-label"><span>Slit Spacing d</span><strong id="valSlitD">3.2 μm</strong></div>
+              <input type="range" id="slSlitD" min="1.2" max="20.0" step="0.2" value="3.2" />
+            </div>
+            <div class="ctrl-row">
+              <div class="ctrl-label"><span>Slit Count N</span><strong id="valSlitN">2</strong></div>
+              <input type="range" id="slSlitN" min="1" max="30" step="1" value="2" />
+            </div>
+            <div class="toggle-row">
+              <span>Huygens Wavefront Field</span>
+              <div class="switch" id="swWavefront"></div>
+            </div>
+          </div>
+          <div class="seg-group" style="margin-top: 2px;">
+            <button class="btn sm" id="btnDuplicateEl">Duplicate</button>
+            <button class="btn sm danger" id="btnDeleteEl">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI AUTO-ALIGN SWARM -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>AI Auto-Align Swarm</span>
+          <span class="panel-badge" id="swarmBadge">120 Genomes</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label"><span>Objective</span><strong id="swarmGoalLabel">Max Intensity</strong></div>
+          <select id="selSwarmGoal" class="ctrl-select">
+            <option value="intensity">Maximize Detector Intensity</option>
+            <option value="focus">Tightest Focal Spot on Detector</option>
+            <option value="dispersion">Max Spectral Separation (RGB)</option>
+          </select>
+        </div>
+        <div class="seg-group">
+          <button class="btn sm emerald" id="btnSwarmRun">Run Swarm (120)</button>
+          <button class="btn sm" id="btnSwarmStop">Stop</button>
+        </div>
+        <div class="swarm-progress"><div class="swarm-bar" id="swarmBar"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:9.5px;font-family:var(--mono);color:var(--muted);">
+          <span id="swarmGenText">Gen 0 / 60</span>
+          <span id="swarmFitText">Fitness: --</span>
+        </div>
+      </div>
+
+      <!-- DETECTOR SPECTROSCOPE -->
+      <div class="panel">
+        <div class="panel-header">
+          <span>Detector Spectrum &amp; Fringes</span>
+          <span class="panel-badge" id="scopePeakBadge">Peak: --</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scopeCanvas" width="276" height="98"></canvas>
+        </div>
+        <div class="tele-grid">
+          <div class="tele-cell">
+            <div class="tele-k">Hit Power</div>
+            <div class="tele-v" id="telePower">0.0%</div>
+          </div>
+          <div class="tele-cell">
+            <div class="tele-k">Fresnel Loss</div>
+            <div class="tele-v" id="teleFresnel">0.0%</div>
+          </div>
+          <div class="tele-cell">
+            <div class="tele-k">Max Order m</div>
+            <div class="tele-v" id="teleOrder">--</div>
+          </div>
+          <div class="tele-cell">
+            <div class="tele-k">Critical θc</div>
+            <div class="tele-v" id="teleCrit">34.1°</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // =========================================================================
+  // 1. OPTICAL MATERIALS, CAUCHY DISPERSION & BEER-LAMBERT ABSORPTION
+  // =========================================================================
+  const MATERIALS = {
+    bk7:          { id: 'bk7',          name: 'BK7',          A: 1.5046, B: 0.00420, abs: 0.0005, tint: 'rgba(125, 211, 252, 0.14)', tintDeep: 'rgba(56, 189, 248, 0.26)',  stroke: 'rgba(125, 211, 252, 0.78)' },
+    sf11:         { id: 'sf11',         name: 'SF11',         A: 1.7376, B: 0.01318, abs: 0.0011, tint: 'rgba(167, 139, 250, 0.16)', tintDeep: 'rgba(139, 92, 246, 0.30)',  stroke: 'rgba(167, 139, 250, 0.82)' },
+    diamond:      { id: 'diamond',      name: 'Diamond',      A: 2.3780, B: 0.01240, abs: 0.0003, tint: 'rgba(224, 242, 254, 0.18)', tintDeep: 'rgba(186, 230, 253, 0.34)', stroke: 'rgba(248, 250, 252, 0.88)' },
+    fused_silica: { id: 'fused_silica', name: 'Fused Silica', A: 1.4480, B: 0.00354, abs: 0.0002, tint: 'rgba(186, 230, 253, 0.11)', tintDeep: 'rgba(125, 211, 252, 0.22)', stroke: 'rgba(186, 230, 253, 0.72)' },
+    acrylic:      { id: 'acrylic',      name: 'Acrylic',      A: 1.4810, B: 0.00430, abs: 0.0017, tint: 'rgba(56, 189, 248, 0.11)',  tintDeep: 'rgba(14, 165, 233, 0.25)',  stroke: 'rgba(56, 189, 248, 0.66)' }
+  };
+
+  function cauchyIndex(materialId, wavelengthNm) {
+    const mat = MATERIALS[materialId] || MATERIALS.sf11;
+    const um = wavelengthNm * 0.001;
+    return mat.A + mat.B / (um * um);
+  }
+
+  function wavelengthToRGB(wl) {
+    let r = 0, g = 0, b = 0;
+    if (wl >= 380 && wl < 440) {
+      r = -(wl - 440) / (440 - 380); g = 0; b = 1;
+    } else if (wl >= 440 && wl < 490) {
+      r = 0; g = (wl - 440) / (490 - 440); b = 1;
+    } else if (wl >= 490 && wl < 510) {
+      r = 0; g = 1; b = -(wl - 510) / (510 - 490);
+    } else if (wl >= 510 && wl < 580) {
+      r = (wl - 510) / (580 - 510); g = 1; b = 0;
+    } else if (wl >= 580 && wl < 645) {
+      r = 1; g = -(wl - 645) / (645 - 580); b = 0;
+    } else if (wl >= 645 && wl <= 750) {
+      r = 1; g = 0; b = 0;
+    }
+    let factor = 1.0;
+    if (wl >= 380 && wl < 420) factor = 0.35 + 0.65 * (wl - 380) / (420 - 380);
+    else if (wl >= 700 && wl <= 750) factor = 0.35 + 0.65 * (750 - wl) / (750 - 700);
+    const gamma = 0.82;
+    const R = r > 0 ? Math.round(255 * Math.pow(r * factor, gamma)) : 0;
+    const G = g > 0 ? Math.round(255 * Math.pow(g * factor, gamma)) : 0;
+    const B = b > 0 ? Math.round(255 * Math.pow(b * factor, gamma)) : 0;
+    return { r: R, g: G, b: B, css: `rgb(${R},${G},${B})` };
+  }
+
+  const WHITE_SPECTRUM = [415, 445, 475, 505, 535, 565, 595, 625, 660, 695];
+  const RGB_SPECTRUM   = [635, 532, 450];
+
+  // =========================================================================
+  // 2. BENCH STATE, LIGHT SOURCES & ELEMENT DEFINITIONS
+  // =========================================================================
+  const PALETTE_DEFS = [
+    { type: 'convex_lens',      label: 'Biconvex Lens',    icon: '<path d="M9 3 Q16 12 9 21 Q2 12 9 3 Z" transform="translate(3,0)"/>' },
+    { type: 'concave_lens',     label: 'Biconcave Lens',   icon: '<path d="M5 3 L19 3 Q13 12 19 21 L5 21 Q11 12 5 3 Z"/>' },
+    { type: 'plano_convex',     label: 'Plano-Convex',     icon: '<path d="M8 3 L8 21 Q18 12 8 3 Z"/>' },
+    { type: 'meniscus',         label: 'Meniscus Lens',    icon: '<path d="M9 3 Q4 12 9 21 L14 21 Q9 12 14 3 Z"/>' },
+    { type: 'prism_eq',         label: 'Equilateral Prism',icon: '<polygon points="12,3 21,20 3,20"/>' },
+    { type: 'prism_right',      label: 'Right-Angle Prism',icon: '<polygon points="5,4 5,20 20,20"/>' },
+    { type: 'ball_lens',        label: 'Ball Lens',        icon: '<circle cx="12" cy="12" r="8"/>' },
+    { type: 'half_cylinder',    label: 'Half-Cyl D-Lens',  icon: '<path d="M9 4 L9 20 A8 8 0 0 0 9 4 Z"/>' },
+    { type: 'parabolic_mirror', label: 'Parabolic Mirror', icon: '<path d="M15 3 Q6 12 15 21"/><circle cx="8" cy="12" r="1.4" fill="#38bdf8"/>' },
+    { type: 'mirror',           label: 'Flat Mirror',      icon: '<line x1="11" y1="3" x2="11" y2="21"/><line x1="11" y1="6" x2="15" y2="4"/><line x1="11" y1="12" x2="15" y2="10"/><line x1="11" y1="18" x2="15" y2="16"/>' },
+    { type: 'beamsplitter',     label: '50/50 Splitter',   icon: '<line x1="5" y1="19" x2="19" y2="5" stroke-dasharray="3 2"/>' },
+    { type: 'dichroic',         label: 'Dichroic Filter',  icon: '<line x1="12" y1="3" x2="12" y2="21" stroke="#f59e0b"/><line x1="5" y1="12" x2="19" y2="12" stroke-dasharray="2 2"/>' },
+    { type: 'aperture',         label: 'Iris / Aperture',  icon: '<line x1="12" y1="2" x2="12" y2="8" stroke-width="2.5"/><line x1="12" y1="16" x2="12" y2="22" stroke-width="2.5"/>' },
+    { type: 'grating',          label: 'Grating / Slits',  icon: '<line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12" y2="21"/>' },
+    { type: 'waveguide',        label: 'Waveguide Block',  icon: '<rect x="3" y="8" width="18" height="8" rx="1"/>' },
+    { type: 'detector',         label: 'Detector Screen',  icon: '<rect x="10" y="3" width="5" height="18" rx="1"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="6" y1="17" x2="10" y2="17"/>' }
+  ];
+
+  const GLASS_TYPES = new Set([
+    'convex_lens', 'concave_lens', 'plano_convex', 'meniscus',
+    'prism_eq', 'prism_right', 'ball_lens', 'half_cylinder', 'waveguide'
+  ]);
+
+  const state = {
+    benchW: 900,
+    benchH: 600,
+    lights: [],
+    elements: [],
+    selectedId: null,
+    activeMaterial: 'sf11',
+    activePreset: 'newton_prism',
+    fresnelEnabled: true,
+    wavefrontEnabled: false,
+    normalsEnabled: false,
+    telemetry: {
+      segments: 0,
+      tirCount: 0,
+      detectorPowerPct: 0,
+      fresnelLossPct: 0,
+      dispersionSpreadPx: 0,
+      peakWavelength: null,
+      maxOrder: '--',
+      detectorBins: new Array(120).fill(null).map(() => ({ r: 0, g: 0, b: 0, total: 0, wlSum: 0, hits: 0 })),
+      solvedChallenges: new Set()
+    },
+    swarm: {
+      running: false,
+      goal: 'intensity',
+      popSize: 120,
+      gen: 0,
+      maxGen: 60,
+      bestFitness: 0,
+      genomes: []
+    },
+    time: 0
+  };
+
+  let nextLightId = 1;
+  function createLight(type = 'laser', x = 110, y = 300, angleDeg = 0, opts = {}) {
+    const id = 'light_' + (nextLightId++);
+    const isWhite = type === 'white';
+    const isRgb = type === 'rgb';
+    const mode = opts.mode || (isWhite ? 'white' : isRgb ? 'rgb' : 'mono');
+    return {
+      id,
+      type, // 'laser' | 'white' | 'point' | 'cone' | 'rgb'
+      x,
+      y,
+      angle: angleDeg * Math.PI / 180,
+      mode, // 'mono' | 'white' | 'rgb'
+      wavelength: opts.wavelength !== undefined ? opts.wavelength : 532,
+      beamWidth: opts.beamWidth !== undefined ? opts.beamWidth : (type === 'point' || type === 'cone' ? 0 : 14),
+      coneAngle: opts.coneAngle !== undefined ? opts.coneAngle : (type === 'point' ? 360 : type === 'cone' ? 36 : 0),
+      rayCount: opts.rayCount !== undefined ? opts.rayCount : (type === 'point' ? 28 : type === 'rgb' ? 9 : 15),
+      intensity: opts.intensity !== undefined ? opts.intensity : 1.0,
+      coherent: opts.coherent !== undefined ? opts.coherent : true
+    };
+  }
+
+  let nextElId = 1;
+  function createElement(type, x, y, angleDeg = 0, opts = {}) {
+    const id = 'el_' + (nextElId++);
+    const defaultParam =
+      type === 'mirror' ? 0 :
+      type === 'parabolic_mirror' ? 140 :
+      type === 'waveguide' ? 54 :
+      type === 'aperture' ? 28 :
+      type === 'meniscus' ? 135 : 155;
+    return {
+      id,
+      type,
+      x,
+      y,
+      angle: angleDeg * Math.PI / 180,
+      material: opts.material || state.activeMaterial,
+      size: opts.size || (type === 'waveguide' ? 210 : type === 'detector' ? 190 : type === 'ball_lens' ? 110 : 120),
+      param: opts.param !== undefined ? opts.param : defaultParam,
+      param2: opts.param2 !== undefined ? opts.param2 : 225,
+      slitA: opts.slitA || 1.6,
+      slitD: opts.slitD || 3.2,
+      slitN: opts.slitN !== undefined ? opts.slitN : 2,
+      maxOrder: opts.maxOrder || 2,
+      centerWl: opts.centerWl !== undefined ? opts.centerWl : 532,
+      bandwidth: opts.bandwidth !== undefined ? opts.bandwidth : 55,
+      hits: 0
+    };
+  }
+
+  // =========================================================================
+  // 3. 8 INSTANT LOADABLE PRESETS
+  // =========================================================================
+  const PRESETS = [
+    {
+      id: 'newton_prism',
+      name: "Newton's Flint Prism",
+      desc: 'Full-spectrum Cauchy rainbow dispersion',
+      tag: 'Dispersion',
+      load: (w, h) => {
+        state.activeMaterial = 'sf11';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = true;
+        state.lights = [
+          createLight('white', 95, h * 0.46, -3.5, { beamWidth: 10, rayCount: 9 })
+        ];
+        state.elements = [
+          createElement('prism_eq', w * 0.42, h * 0.44, 0, { material: 'sf11', size: 130 }),
+          createElement('detector', w * 0.84, h * 0.56, 12, { size: 220 })
+        ];
+      }
+    },
+    {
+      id: 'young_slits',
+      name: "Young's Double-Slit",
+      desc: 'Coherent laser interference & wavefronts',
+      tag: 'Wave Optics',
+      load: (w, h) => {
+        state.activeMaterial = 'bk7';
+        state.wavefrontEnabled = true;
+        state.fresnelEnabled = false;
+        state.lights = [
+          createLight('laser', 95, h * 0.5, 0, { wavelength: 532, beamWidth: 28, rayCount: 11, coherent: true })
+        ];
+        state.elements = [
+          createElement('grating', w * 0.34, h * 0.5, 0, { size: 160, slitA: 1.4, slitD: 4.4, slitN: 2, maxOrder: 2 }),
+          createElement('detector', w * 0.84, h * 0.5, 0, { size: 250 })
+        ];
+      }
+    },
+    {
+      id: 'compound_caustics',
+      name: 'Compound Lens Caustics',
+      desc: 'Wide beam chromatic aberration & focal caustic',
+      tag: 'Caustics',
+      load: (w, h) => {
+        state.activeMaterial = 'sf11';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = true;
+        state.lights = [
+          createLight('white', 85, h * 0.5, 0, { beamWidth: 74, rayCount: 25 })
+        ];
+        state.elements = [
+          createElement('convex_lens', w * 0.34, h * 0.5, 0, { material: 'sf11', size: 140, param: 145 }),
+          createElement('convex_lens', w * 0.54, h * 0.5, 0, { material: 'bk7', size: 120, param: 175 }),
+          createElement('detector', w * 0.81, h * 0.5, 0, { size: 190 })
+        ];
+      }
+    },
+    {
+      id: 'tir_waveguide',
+      name: 'TIR Fiber Waveguide',
+      desc: 'Total internal reflection bounce cascade',
+      tag: 'TIR Bounce',
+      load: (w, h) => {
+        state.activeMaterial = 'diamond';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = true;
+        state.lights = [
+          createLight('laser', 95, h * 0.52, -19.5, { wavelength: 488, beamWidth: 8, rayCount: 7 })
+        ];
+        state.elements = [
+          createElement('waveguide', w * 0.38, h * 0.48, 0, { material: 'diamond', size: 220, param: 64 }),
+          createElement('waveguide', w * 0.65, h * 0.51, 8, { material: 'sf11', size: 200, param: 64 }),
+          createElement('detector', w * 0.88, h * 0.56, 8, { size: 140 })
+        ];
+      }
+    },
+    {
+      id: 'spectrometer',
+      name: 'Diffraction Spectrometer',
+      desc: 'Collimator -> Grating -> 1st/2nd order spectra',
+      tag: 'Spectroscopy',
+      load: (w, h) => {
+        state.activeMaterial = 'bk7';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = false;
+        state.lights = [
+          createLight('cone', 85, h * 0.5, 0, { mode: 'white', coneAngle: 18, rayCount: 9 })
+        ];
+        state.elements = [
+          createElement('plano_convex', w * 0.27, h * 0.5, 0, { material: 'bk7', size: 120, param: 135 }),
+          createElement('grating', w * 0.48, h * 0.5, 0, { size: 130, slitA: 1.0, slitD: 2.2, slitN: 20, maxOrder: 2 }),
+          createElement('detector', w * 0.84, h * 0.5, 0, { size: 260 })
+        ];
+      }
+    },
+    {
+      id: 'rgb_mixing',
+      name: 'RGB Tri-Laser Mixing',
+      desc: 'Multi-laser beamsplitter & parabolic combiner',
+      tag: 'Multi-Light',
+      load: (w, h) => {
+        state.activeMaterial = 'bk7';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = true;
+        state.lights = [
+          createLight('laser', 95, h * 0.34, 6, { wavelength: 635, beamWidth: 10, rayCount: 7, intensity: 1.15 }),
+          createLight('laser', 95, h * 0.50, 0, { wavelength: 532, beamWidth: 10, rayCount: 7, intensity: 1.15 }),
+          createLight('laser', 95, h * 0.66, -6, { wavelength: 450, beamWidth: 10, rayCount: 7, intensity: 1.15 })
+        ];
+        state.elements = [
+          createElement('convex_lens', w * 0.38, h * 0.50, 0, { material: 'bk7', size: 180, param: 180 }),
+          createElement('beamsplitter', w * 0.62, h * 0.50, -45, { size: 140 }),
+          createElement('parabolic_mirror', w * 0.84, h * 0.50, 0, { size: 160, param: 140 }),
+          createElement('detector', w * 0.62, h * 0.82, 90, { size: 160 })
+        ];
+      }
+    },
+    {
+      id: 'ball_caustic',
+      name: 'Ball Lens Caustic',
+      desc: 'Diamond sphere caustic & rainbow retro-arc',
+      tag: 'Caustic',
+      load: (w, h) => {
+        state.activeMaterial = 'diamond';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = true;
+        state.lights = [
+          createLight('white', 95, h * 0.5, 0, { beamWidth: 96, rayCount: 27, intensity: 1.1 })
+        ];
+        state.elements = [
+          createElement('ball_lens', w * 0.44, h * 0.5, 0, { material: 'diamond', size: 136 }),
+          createElement('half_cylinder', w * 0.68, h * 0.5, 0, { material: 'sf11', size: 130 }),
+          createElement('detector', w * 0.87, h * 0.5, 0, { size: 220 })
+        ];
+      }
+    },
+    {
+      id: 'dichroic_sorter',
+      name: 'Dichroic Wavelength Sorter',
+      desc: 'Bandpass filters separate R/G/B laser channels',
+      tag: 'Dichroic',
+      load: (w, h) => {
+        state.activeMaterial = 'fused_silica';
+        state.wavefrontEnabled = false;
+        state.fresnelEnabled = false;
+        state.lights = [
+          createLight('rgb', 90, h * 0.45, 0, { beamWidth: 10, rayCount: 9, intensity: 1.2 })
+        ];
+        state.elements = [
+          createElement('dichroic', w * 0.34, h * 0.45, 45, { size: 120, centerWl: 635, bandwidth: 50 }),
+          createElement('dichroic', w * 0.55, h * 0.45, 45, { size: 120, centerWl: 532, bandwidth: 50 }),
+          createElement('detector', w * 0.34, h * 0.78, 90, { size: 130 }),
+          createElement('detector', w * 0.55, h * 0.78, 90, { size: 130 }),
+          createElement('detector', w * 0.82, h * 0.45, 0, { size: 150 })
+        ];
+      }
+    }
+  ];
+
+  // =========================================================================
+  // 4. BENCH CHALLENGES
+  // =========================================================================
+  const CHALLENGES = [
+    {
+      id: 'ch_focus',
+      title: '1. Laser Focus > 70%',
+      goal: 'Deliver ≥70% of emitted power onto a Detector Screen.',
+      check: (t) => t.detectorPowerPct >= 70
+    },
+    {
+      id: 'ch_rainbow',
+      title: '2. Spectral Separation',
+      goal: 'Split White or RGB light by ≥35 px across Detector.',
+      check: (t) => state.lights.some(l => l.mode === 'white' || l.mode === 'rgb') && t.dispersionSpreadPx >= 35 && t.detectorPowerPct >= 15
+    },
+    {
+      id: 'ch_tir',
+      title: '3. Fiber TIR Cascade',
+      goal: 'Achieve ≥12 Total Internal Reflections & hit Detector.',
+      check: (t) => t.tirCount >= 12 && t.detectorPowerPct >= 20
+    },
+    {
+      id: 'ch_fringe',
+      title: '4. Coherent Diffraction',
+      goal: 'Use a Grating/Slit with Mono Laser to excite ≥1st order.',
+      check: (t) => state.lights.some(l => l.mode === 'mono') && state.elements.some(e => e.type === 'grating') && t.detectorPowerPct >= 15
+    }
+  ];
+
+  // =========================================================================
+  // 5. EXACT 2D GEOMETRY & RAY-SURFACE INTERSECTIONS
+  // =========================================================================
+  const EPS = 1e-4;
+
+  function toLocal(el, wx, wy) {
+    const dx = wx - el.x;
+    const dy = wy - el.y;
+    const c = Math.cos(-el.angle);
+    const s = Math.sin(-el.angle);
+    return { x: dx * c - dy * s, y: dx * s + dy * c };
+  }
+
+  function dirToLocal(el, dx, dy) {
+    const c = Math.cos(-el.angle);
+    const s = Math.sin(-el.angle);
+    return { x: dx * c - dy * s, y: dx * s + dy * c };
+  }
+
+  function dirToWorld(el, lx, ly) {
+    const c = Math.cos(el.angle);
+    const s = Math.sin(el.angle);
+    return { x: lx * c - ly * s, y: lx * s + ly * c };
+  }
+
+  function pointToWorld(el, lx, ly) {
+    const c = Math.cos(el.angle);
+    const s = Math.sin(el.angle);
+    return { x: el.x + lx * c - ly * s, y: el.y + lx * s + ly * c };
+  }
+
+  function intersectSegment(ox, oy, dx, dy, x1, y1, x2, y2, nx, ny) {
+    const sx = x2 - x1;
+    const sy = y2 - y1;
+    const denom = dx * sy - dy * sx;
+    if (Math.abs(denom) < 1e-9) return null;
+    const qx = x1 - ox;
+    const qy = y1 - oy;
+    const t = (qx * sy - qy * sx) / denom;
+    if (t <= EPS) return null;
+    const u = (qx * dy - qy * dx) / denom;
+    if (u < 0 || u > 1) return null;
+    return { t, x: ox + t * dx, y: oy + t * dy, nx, ny, u };
+  }
+
+  function intersectCircleArc(ox, oy, dx, dy, cx, cy, R, halfH, sideSign, forceFlip = false) {
+    const fx = ox - cx;
+    const fy = oy - cy;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - R * R;
+    const disc = b * b - 4 * c;
+    if (disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    let best = null;
+    const ts = [(-b - sq) * 0.5, (-b + sq) * 0.5];
+    for (let i = 0; i < 2; i++) {
+      const t = ts[i];
+      if (t <= EPS) continue;
+      const hx = ox + t * dx;
+      const hy = oy + t * dy;
+      if (Math.abs(hy) > halfH + 0.01) continue;
+      if (sideSign < 0 && hx > cx + 0.001 && Math.abs(cx) > 0.1 && cx > 0) continue;
+      if (sideSign > 0 && hx < cx - 0.001 && Math.abs(cx) > 0.1 && cx < 0) continue;
+      let nx = (hx - cx) / R;
+      let ny = (hy - cy) / R;
+      if (forceFlip) {
+        nx = -nx; ny = -ny;
+      } else {
+        if (sideSign < 0 && cx < 0) { nx = -nx; ny = -ny; }
+        if (sideSign > 0 && cx > 0) { nx = -nx; ny = -ny; }
+      }
+      if (!best || t < best.t) best = { t, x: hx, y: hy, nx, ny };
+    }
+    return best;
+  }
+
+  function intersectFullCircle(ox, oy, dx, dy, R) {
+    const b = 2 * (ox * dx + oy * dy);
+    const c = ox * ox + oy * oy - R * R;
+    const disc = b * b - 4 * c;
+    if (disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    const ts = [(-b - sq) * 0.5, (-b + sq) * 0.5];
+    let best = null;
+    for (let i = 0; i < 2; i++) {
+      const t = ts[i];
+      if (t <= EPS) continue;
+      const hx = ox + t * dx;
+      const hy = oy + t * dy;
+      if (!best || t < best.t) {
+        best = { t, x: hx, y: hy, nx: hx / R, ny: hy / R };
+      }
+    }
+    return best;
+  }
+
+  function intersectParabola(ox, oy, dx, dy, k, halfH) {
+    if (Math.abs(k) < 1e-6) {
+      return intersectSegment(ox, oy, dx, dy, 0, -halfH, 0, halfH, -1, 0);
+    }
+    const A = k * dy * dy;
+    const B = 2 * k * oy * dy - dx;
+    const C = k * oy * oy - ox;
+    const hits = [];
+    if (Math.abs(A) < 1e-9) {
+      if (Math.abs(B) > 1e-9) hits.push(-C / B);
+    } else {
+      const disc = B * B - 4 * A * C;
+      if (disc >= 0) {
+        const sq = Math.sqrt(disc);
+        hits.push((-B - sq) / (2 * A), (-B + sq) / (2 * A));
+      }
+    }
+    let best = null;
+    for (const t of hits) {
+      if (t <= EPS) continue;
+      const hx = ox + t * dx;
+      const hy = oy + t * dy;
+      if (Math.abs(hy) > halfH) continue;
+      let nx = -1;
+      let ny = 2 * k * hy;
+      const len = Math.hypot(nx, ny);
+      nx /= len; ny /= len;
+      if (!best || t < best.t) best = { t, x: hx, y: hy, nx, ny };
+    }
+    return best;
+  }
+
+  function getPolygonVertices(el) {
+    if (el.type === 'prism_eq') {
+      const R = el.size * 0.56;
+      const pts = [];
+      for (let i = 0; i < 3; i++) {
+        const a = -Math.PI / 2 + i * (2 * Math.PI / 3);
+        pts.push({ x: Math.cos(a) * R, y: Math.sin(a) * R });
+      }
+      return pts;
+    }
+    if (el.type === 'prism_right') {
+      const s = el.size * 0.48;
+      return [{ x: -s, y: -s }, { x: s, y: s }, { x: -s, y: s }];
+    }
+    if (el.type === 'waveguide') {
+      const hw = el.size * 0.5;
+      const hh = (el.param || 54) * 0.5;
+      return [{ x: -hw, y: -hh }, { x: hw, y: -hh }, { x: hw, y: hh }, { x: -hw, y: hh }];
+    }
+    return null;
+  }
+
+  function intersectElementLocal(el, ox, oy, dx, dy) {
+    const halfH = el.size * 0.5;
+
+    if (el.type === 'mirror') {
+      const f = el.param;
+      const k = f > 10 ? 1 / (4 * f) : 0;
+      const hit = intersectParabola(ox, oy, dx, dy, k, halfH);
+      if (hit) hit.surface = 'mirror';
+      return hit;
+    }
+
+    if (el.type === 'parabolic_mirror') {
+      const f = Math.max(30, el.param || 140);
+      const k = 1 / (4 * f);
+      const hit = intersectParabola(ox, oy, dx, dy, k, halfH);
+      if (hit) hit.surface = 'mirror';
+      return hit;
+    }
+
+    if (el.type === 'beamsplitter') {
+      const hit = intersectSegment(ox, oy, dx, dy, 0, -halfH, 0, halfH, -1, 0);
+      if (hit) hit.surface = 'beamsplitter';
+      return hit;
+    }
+
+    if (el.type === 'dichroic') {
+      const hit = intersectSegment(ox, oy, dx, dy, 0, -halfH, 0, halfH, -1, 0);
+      if (hit) hit.surface = 'dichroic';
+      return hit;
+    }
+
+    if (el.type === 'aperture') {
+      const gap = Math.min(el.size - 10, Math.max(4, el.param || 28));
+      const hg = gap * 0.5;
+      const hTop = intersectSegment(ox, oy, dx, dy, 0, -halfH, 0, -hg, -1, 0);
+      const hBot = intersectSegment(ox, oy, dx, dy, 0, hg, 0, halfH, -1, 0);
+      let best = null;
+      if (hTop && (!best || hTop.t < best.t)) best = hTop;
+      if (hBot && (!best || hBot.t < best.t)) best = hBot;
+      if (best) best.surface = 'aperture';
+      return best;
+    }
+
+    if (el.type === 'detector') {
+      const hit = intersectSegment(ox, oy, dx, dy, 0, -halfH, 0, halfH, -1, 0);
+      if (hit) { hit.surface = 'detector'; hit.localY = hit.y; }
+      return hit;
+    }
+
+    if (el.type === 'grating') {
+      const hit = intersectSegment(ox, oy, dx, dy, 0, -halfH, 0, halfH, -1, 0);
+      if (hit) { hit.surface = 'grating'; hit.localY = hit.y; }
+      return hit;
+    }
+
+    if (el.type === 'prism_eq' || el.type === 'prism_right' || el.type === 'waveguide') {
+      const pts = getPolygonVertices(el);
+      let best = null;
+      for (let i = 0; i < pts.length; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % pts.length];
+        const ex = p2.x - p1.x;
+        const ey = p2.y - p1.y;
+        const len = Math.hypot(ex, ey);
+        const nx = ey / len;
+        const ny = -ex / len;
+        const hit = intersectSegment(ox, oy, dx, dy, p1.x, p1.y, p2.x, p2.y, nx, ny);
+        if (hit && (!best || hit.t < best.t)) {
+          best = hit;
+          best.surface = 'glass';
+        }
+      }
+      return best;
+    }
+
+    if (el.type === 'ball_lens') {
+      const hit = intersectFullCircle(ox, oy, dx, dy, halfH);
+      if (hit) hit.surface = 'glass';
+      return hit;
+    }
+
+    if (el.type === 'half_cylinder') {
+      const R = halfH;
+      let best = intersectSegment(ox, oy, dx, dy, 0, -R, 0, R, -1, 0);
+      // Semicircle x >= 0
+      const b = 2 * (ox * dx + oy * dy);
+      const c = ox * ox + oy * oy - R * R;
+      const disc = b * b - 4 * c;
+      if (disc >= 0) {
+        const sq = Math.sqrt(disc);
+        const ts = [(-b - sq) * 0.5, (-b + sq) * 0.5];
+        for (let i = 0; i < 2; i++) {
+          const t = ts[i];
+          if (t <= EPS) continue;
+          const hx = ox + t * dx;
+          const hy = oy + t * dy;
+          if (hx < -0.001) continue;
+          if (!best || t < best.t) {
+            best = { t, x: hx, y: hy, nx: hx / R, ny: hy / R };
+          }
+        }
+      }
+      if (best) best.surface = 'glass';
+      return best;
+    }
+
+    if (el.type === 'plano_convex') {
+      const R = Math.max(halfH + 8, el.param || 155);
+      const sag = R - Math.sqrt(R * R - halfH * halfH);
+      const xLeft = -sag * 0.5;
+      const cxRight = sag * 0.5 - R;
+      const h1 = intersectSegment(ox, oy, dx, dy, xLeft, -halfH, xLeft, halfH, -1, 0);
+      const h2 = intersectCircleArc(ox, oy, dx, dy, cxRight, 0, R, halfH, 1);
+      let best = null;
+      if (h1 && (!best || h1.t < best.t)) best = h1;
+      if (h2 && (!best || h2.t < best.t)) best = h2;
+      if (best) best.surface = 'glass';
+      return best;
+    }
+
+    if (el.type === 'meniscus') {
+      const R1 = Math.max(halfH + 10, el.param || 135);
+      const R2 = Math.max(halfH + 16, el.param2 || 225);
+      const sag1 = R1 - Math.sqrt(R1 * R1 - halfH * halfH);
+      const sag2 = R2 - Math.sqrt(R2 * R2 - halfH * halfH);
+      const halfThick = Math.max(8, Math.abs(sag1 - sag2) * 0.5 + 7);
+      const x1Apex = -halfThick;
+      const x2Apex = +halfThick;
+      const cxLeft = x1Apex + R1;
+      const cxRight = x2Apex + R2;
+      const x1Edge = x1Apex + sag1;
+      const x2Edge = x2Apex + sag2;
+      const h1 = intersectCircleArc(ox, oy, dx, dy, cxLeft, 0, R1, halfH, -1, false);
+      const h2 = intersectCircleArc(ox, oy, dx, dy, cxRight, 0, R2, halfH, 1, true);
+      const hTop = intersectSegment(ox, oy, dx, dy, x1Edge, -halfH, x2Edge, -halfH, 0, -1);
+      const hBot = intersectSegment(ox, oy, dx, dy, x2Edge, halfH, x1Edge, halfH, 0, 1);
+      let best = null;
+      for (const h of [h1, h2, hTop, hBot]) {
+        if (h && (!best || h.t < best.t)) best = h;
+      }
+      if (best) best.surface = 'glass';
+      return best;
+    }
+
+    if (el.type === 'convex_lens') {
+      const R = Math.max(halfH + 8, el.param || 155);
+      const sag = R - Math.sqrt(R * R - halfH * halfH);
+      const cxLeft = R - sag;
+      const cxRight = -R + sag;
+      const h1 = intersectCircleArc(ox, oy, dx, dy, cxLeft, 0, R, halfH, -1);
+      const h2 = intersectCircleArc(ox, oy, dx, dy, cxRight, 0, R, halfH, 1);
+      let best = null;
+      if (h1 && (!best || h1.t < best.t)) best = h1;
+      if (h2 && (!best || h2.t < best.t)) best = h2;
+      if (best) best.surface = 'glass';
+      return best;
+    }
+
+    if (el.type === 'concave_lens') {
+      const R = Math.max(halfH + 12, el.param || 160);
+      const sag = R - Math.sqrt(R * R - halfH * halfH);
+      const minThick = 10;
+      const cxLeft = -(minThick * 0.5 + R);
+      const cxRight = +(minThick * 0.5 + R);
+      const edgeX = minThick * 0.5 + sag;
+      let best = null;
+      const h1 = intersectCircleArc(ox, oy, dx, dy, cxLeft, 0, R, halfH, -1);
+      const h2 = intersectCircleArc(ox, oy, dx, dy, cxRight, 0, R, halfH, 1);
+      const hTop = intersectSegment(ox, oy, dx, dy, -edgeX, -halfH, edgeX, -halfH, 0, -1);
+      const hBot = intersectSegment(ox, oy, dx, dy, edgeX, halfH, -edgeX, halfH, 0, 1);
+      for (const h of [h1, h2, hTop, hBot]) {
+        if (h && (!best || h.t < best.t)) best = h;
+      }
+      if (best) best.surface = 'glass';
+      return best;
+    }
+
+    return null;
+  }
+
+  // =========================================================================
+  // 6. FULL-SPECTRUM MULTI-SOURCE RAY TRACER
+  // =========================================================================
+  function getLightWavelengths(src, fast) {
+    if (src.mode === 'white') return fast ? [450, 535, 635] : WHITE_SPECTRUM;
+    if (src.mode === 'rgb') return RGB_SPECTRUM;
+    return [src.wavelength];
+  }
+
+  function traceOpticalBench(elements, lights, options = {}) {
+    const lightArr = Array.isArray(lights) ? lights : [lights];
+    const maxBounces = options.maxBounces || 20;
+    const collectSegments = options.collectSegments !== false;
+    const fresnelOn = options.fresnelOn !== undefined ? options.fresnelOn : state.fresnelEnabled;
+    const collectNormals = collectSegments && state.normalsEnabled;
+
+    const segments = [];
+    const normals = [];
+    let tirCount = 0;
+    let totalEmittedPower = 0;
+    let totalDetectorPower = 0;
+    let fresnelLossPower = 0;
+    let maxOrderSeen = 0;
+
+    const bins = options.collectBins
+      ? new Array(120).fill(null).map(() => ({ r: 0, g: 0, b: 0, total: 0, wlSum: 0, hits: 0 }))
+      : null;
+
+    const detYMinMax = { rSum: 0, rPow: 0, bSum: 0, bPow: 0, ySum: 0, ySqSum: 0, detPow: 0 };
+
+    // Build initial ray queue across all active light sources
+    const queue = [];
+    for (let li = 0; li < lightArr.length; li++) {
+      const src = lightArr[li];
+      const wavelengths = getLightWavelengths(src, options.fast);
+      const rayCount = options.fast ? Math.min(8, src.rayCount) : src.rayCount;
+      const baseDirX = Math.cos(src.angle);
+      const baseDirY = Math.sin(src.angle);
+      const perpX = -baseDirY;
+      const perpY = baseDirX;
+      const intensity = src.intensity !== undefined ? src.intensity : 1.0;
+
+      for (let wi = 0; wi < wavelengths.length; wi++) {
+        const wl = wavelengths[wi];
+        const rgb = wavelengthToRGB(wl);
+        const wlWeight = intensity / wavelengths.length;
+
+        for (let ri = 0; ri < rayCount; ri++) {
+          let ox = src.x;
+          let oy = src.y;
+          let ang = src.angle;
+
+          if (src.type === 'point') {
+            ang = src.angle + (ri / rayCount) * Math.PI * 2;
+          } else if (src.type === 'cone') {
+            const coneRad = (src.coneAngle || 36) * Math.PI / 180;
+            const frac = rayCount === 1 ? 0 : (ri / (rayCount - 1) - 0.5);
+            ang = src.angle + frac * coneRad;
+          } else {
+            const frac = rayCount === 1 ? 0 : (ri / (rayCount - 1) - 0.5);
+            const offset = frac * (src.beamWidth || 0);
+            ox = src.x + perpX * offset;
+            oy = src.y + perpY * offset;
+          }
+
+          const dx = Math.cos(ang);
+          const dy = Math.sin(ang);
+          const power = wlWeight / rayCount;
+          totalEmittedPower += power;
+          queue.push({ ox, oy, dx, dy, wl, rgb, power, depth: 0, insideMat: null });
+        }
+      }
+    }
+
+    const MAX_SEGMENTS = options.fast ? 520 : 3400;
+    let qIdx = 0;
+
+    while (qIdx < queue.length && segments.length < MAX_SEGMENTS) {
+      const ray = queue[qIdx++];
+      if (ray.power < 0.0022 || ray.depth > maxBounces) continue;
+
+      let closest = null;
+      let hitEl = null;
+
+      for (let ei = 0; ei < elements.length; ei++) {
+        const el = elements[ei];
+        const lo = toLocal(el, ray.ox, ray.oy);
+        const ld = dirToLocal(el, ray.dx, ray.dy);
+        const hit = intersectElementLocal(el, lo.x, lo.y, ld.x, ld.y);
+        if (hit && hit.t > 0.05 && (!closest || hit.t < closest.t)) {
+          closest = hit;
+          hitEl = el;
+        }
+      }
+
+      if (!closest) {
+        if (collectSegments) {
+          const far = 1600;
+          segments.push({
+            x1: ray.ox, y1: ray.oy,
+            x2: ray.ox + ray.dx * far, y2: ray.oy + ray.dy * far,
+            rgb: ray.rgb, power: ray.power, wl: ray.wl
+          });
+        }
+        continue;
+      }
+
+      const wx = ray.ox + closest.t * ray.dx;
+      const wy = ray.oy + closest.t * ray.dy;
+
+      // Beer-Lambert attenuation inside glass
+      let rayPower = ray.power;
+      if (ray.insideMat && MATERIALS[ray.insideMat]) {
+        const alpha = MATERIALS[ray.insideMat].abs || 0.0005;
+        rayPower *= Math.exp(-alpha * closest.t);
+      }
+
+      if (collectSegments) {
+        segments.push({
+          x1: ray.ox, y1: ray.oy, x2: wx, y2: wy,
+          rgb: ray.rgb, power: rayPower, wl: ray.wl
+        });
+      }
+
+      const wn = dirToWorld(hitEl, closest.nx, closest.ny);
+      const pushEps = 0.08;
+
+      if (collectNormals && normals.length < 140 && closest.surface !== 'detector' && closest.surface !== 'aperture') {
+        normals.push({
+          x: wx, y: wy,
+          nx: wn.x, ny: wn.y,
+          dx: ray.dx, dy: ray.dy
+        });
+      }
+
+      if (closest.surface === 'aperture') {
+        // Blocked by iris/aperture blade
+        continue;
+      }
+
+      if (closest.surface === 'detector') {
+        totalDetectorPower += rayPower;
+        const halfH = hitEl.size * 0.5;
+        const normY = (closest.localY + halfH) / hitEl.size;
+        detYMinMax.ySum += closest.localY * rayPower;
+        detYMinMax.ySqSum += closest.localY * closest.localY * rayPower;
+        detYMinMax.detPow += rayPower;
+        if (ray.wl >= 600) { detYMinMax.rSum += closest.localY * rayPower; detYMinMax.rPow += rayPower; }
+        if (ray.wl <= 490) { detYMinMax.bSum += closest.localY * rayPower; detYMinMax.bPow += rayPower; }
+
+        if (bins) {
+          const idx = Math.max(0, Math.min(119, Math.floor(normY * 120)));
+          const b = bins[idx];
+          b.r += ray.rgb.r * rayPower;
+          b.g += ray.rgb.g * rayPower;
+          b.b += ray.rgb.b * rayPower;
+          b.total += rayPower;
+          b.wlSum += ray.wl * rayPower;
+          b.hits += 1;
+        }
+        continue;
+      }
+
+      if (closest.surface === 'mirror') {
+        const dot = ray.dx * wn.x + ray.dy * wn.y;
+        const rx = ray.dx - 2 * dot * wn.x;
+        const ry = ray.dy - 2 * dot * wn.y;
+        queue.push({
+          ox: wx + rx * pushEps, oy: wy + ry * pushEps,
+          dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
+          power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
+        });
+        continue;
+      }
+
+      if (closest.surface === 'dichroic') {
+        const center = hitEl.centerWl || 532;
+        const halfBw = (hitEl.bandwidth || 55) * 0.5;
+        if (Math.abs(ray.wl - center) <= halfBw) {
+          // Transmit
+          queue.push({
+            ox: wx + ray.dx * pushEps, oy: wy + ray.dy * pushEps,
+            dx: ray.dx, dy: ray.dy, wl: ray.wl, rgb: ray.rgb,
+            power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
+          });
+        } else {
+          // Reflect
+          const dot = ray.dx * wn.x + ray.dy * wn.y;
+          const rx = ray.dx - 2 * dot * wn.x;
+          const ry = ray.dy - 2 * dot * wn.y;
+          queue.push({
+            ox: wx + rx * pushEps, oy: wy + ry * pushEps,
+            dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
+            power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
+          });
+        }
+        continue;
+      }
+
+      if (closest.surface === 'beamsplitter') {
+        const dot = ray.dx * wn.x + ray.dy * wn.y;
+        const rx = ray.dx - 2 * dot * wn.x;
+        const ry = ray.dy - 2 * dot * wn.y;
+        queue.push({
+          ox: wx + ray.dx * pushEps, oy: wy + ray.dy * pushEps,
+          dx: ray.dx, dy: ray.dy, wl: ray.wl, rgb: ray.rgb,
+          power: rayPower * 0.5, depth: ray.depth + 1, insideMat: ray.insideMat
+        });
+        queue.push({
+          ox: wx + rx * pushEps, oy: wy + ry * pushEps,
+          dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
+          power: rayPower * 0.5, depth: ray.depth + 1, insideMat: ray.insideMat
+        });
+        continue;
+      }
+
+      if (closest.surface === 'grating') {
+        const halfAp = hitEl.size * 0.39;
+        if (Math.abs(closest.localY) > halfAp) continue;
+
+        const ld = dirToLocal(hitEl, ray.dx, ray.dy);
+        const forwardSign = ld.x >= 0 ? 1 : -1;
+        const sinI = Math.max(-0.99, Math.min(0.99, ld.y));
+        const wlUm = ray.wl * 0.001;
+        const aUm = hitEl.slitA || 1.6;
+        const dUm = hitEl.slitD || 3.2;
+        const N = hitEl.slitN || 2;
+
+        if (N === 1 || N === 2) {
+          const fanCount = options.fast ? 9 : 19;
+          const maxAng = 0.85;
+          const weights = [];
+          let wSum = 0;
+          for (let fi = 0; fi < fanCount; fi++) {
+            const theta = (fi / (fanCount - 1) - 0.5) * 2 * maxAng;
+            const sinT = Math.sin(theta);
+            const deltaSin = sinT - sinI;
+            const beta = Math.PI * aUm * deltaSin / wlUm;
+            const sinc = Math.abs(beta) < 1e-4 ? 1 : Math.sin(beta) / beta;
+            let I = sinc * sinc;
+            if (N === 2) {
+              const gamma = Math.PI * dUm * deltaSin / wlUm;
+              const c = Math.cos(gamma);
+              I *= c * c;
+            }
+            weights.push({ theta, I });
+            wSum += I;
+          }
+          if (wSum > 1e-6) {
+            for (const item of weights) {
+              if (item.I / wSum < 0.015) continue;
+              const wd = dirToWorld(hitEl, forwardSign * Math.cos(item.theta), Math.sin(item.theta));
+              queue.push({
+                ox: wx + wd.x * pushEps, oy: wy + wd.y * pushEps,
+                dx: wd.x, dy: wd.y, wl: ray.wl, rgb: ray.rgb,
+                power: rayPower * (item.I / wSum), depth: ray.depth + 1, insideMat: null
+              });
+            }
+          }
+          maxOrderSeen = Math.max(maxOrderSeen, N === 2 ? 2 : 1);
+        } else {
+          const mMax = hitEl.maxOrder || 2;
+          const orders = [];
+          let wSum = 0;
+          for (let m = -mMax; m <= mMax; m++) {
+            const sinM = sinI + (m * wlUm) / dUm;
+            if (Math.abs(sinM) >= 0.97) continue;
+            const cosM = Math.sqrt(1 - sinM * sinM);
+            const beta = Math.PI * aUm * (sinM - sinI) / wlUm;
+            const sinc = Math.abs(beta) < 1e-4 ? 1 : Math.sin(beta) / beta;
+            const I = sinc * sinc * (m === 0 ? 0.85 : 1.0);
+            if (I < 0.01) continue;
+            orders.push({ m, sinM, cosM, I });
+            wSum += I;
+            maxOrderSeen = Math.max(maxOrderSeen, Math.abs(m));
+          }
+          if (wSum > 1e-6) {
+            for (const ord of orders) {
+              const wd = dirToWorld(hitEl, forwardSign * ord.cosM, ord.sinM);
+              queue.push({
+                ox: wx + wd.x * pushEps, oy: wy + wd.y * pushEps,
+                dx: wd.x, dy: wd.y, wl: ray.wl, rgb: ray.rgb,
+                power: rayPower * (ord.I / wSum), depth: ray.depth + 1, insideMat: null
+              });
+            }
+          }
+        }
+        continue;
+      }
+
+      if (closest.surface === 'glass') {
+        const nGlass = cauchyIndex(hitEl.material, ray.wl);
+        const dotOut = ray.dx * wn.x + ray.dy * wn.y;
+        const entering = dotOut < 0;
+        const n1 = entering ? 1.0 : nGlass;
+        const n2 = entering ? nGlass : 1.0;
+        const nx = entering ? wn.x : -wn.x;
+        const ny = entering ? wn.y : -wn.y;
+        const cosI = Math.min(1.0, Math.max(0.0, -(ray.dx * nx + ray.dy * ny)));
+        const eta = n1 / n2;
+        const sin2T = eta * eta * (1.0 - cosI * cosI);
+
+        if (sin2T >= 1.0) {
+          tirCount++;
+          const rx = ray.dx + 2 * cosI * nx;
+          const ry = ray.dy + 2 * cosI * ny;
+          queue.push({
+            ox: wx + rx * pushEps, oy: wy + ry * pushEps,
+            dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
+            power: rayPower * 0.995, depth: ray.depth + 1,
+            insideMat: entering ? null : hitEl.material
+          });
+        } else {
+          const cosT = Math.sqrt(1.0 - sin2T);
+          let R = 0;
+          if (fresnelOn) {
+            const rs = (n1 * cosI - n2 * cosT) / (n1 * cosI + n2 * cosT);
+            const rp = (n1 * cosT - n2 * cosI) / (n1 * cosT + n2 * cosI);
+            R = 0.5 * (rs * rs + rp * rp);
+          }
+          const T = 1.0 - R;
+          fresnelLossPower += rayPower * R;
+
+          const tx = eta * ray.dx + (eta * cosI - cosT) * nx;
+          const ty = eta * ray.dy + (eta * cosI - cosT) * ny;
+          const tLen = Math.hypot(tx, ty);
+          queue.push({
+            ox: wx + (tx / tLen) * pushEps, oy: wy + (ty / tLen) * pushEps,
+            dx: tx / tLen, dy: ty / tLen, wl: ray.wl, rgb: ray.rgb,
+            power: rayPower * T, depth: ray.depth + 1,
+            insideMat: entering ? hitEl.material : null
+          });
+
+          if (fresnelOn && rayPower * R > 0.012) {
+            const rx = ray.dx + 2 * cosI * nx;
+            const ry = ray.dy + 2 * cosI * ny;
+            queue.push({
+              ox: wx + rx * pushEps, oy: wy + ry * pushEps,
+              dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
+              power: rayPower * R, depth: ray.depth + 1,
+              insideMat: entering ? null : hitEl.material
+            });
+          }
+        }
+      }
+    }
+
+    const detPct = totalEmittedPower > 0 ? (totalDetectorPower / totalEmittedPower) * 100 : 0;
+    const fresnelPct = totalEmittedPower > 0 ? (fresnelLossPower / totalEmittedPower) * 100 : 0;
+    let spreadPx = 0;
+    if (detYMinMax.rPow > 0.01 && detYMinMax.bPow > 0.01) {
+      const rMean = detYMinMax.rSum / detYMinMax.rPow;
+      const bMean = detYMinMax.bSum / detYMinMax.bPow;
+      spreadPx = Math.abs(rMean - bMean);
+    }
+    let variance = 9999;
+    if (detYMinMax.detPow > 0.01) {
+      const meanY = detYMinMax.ySum / detYMinMax.detPow;
+      variance = Math.max(0, detYMinMax.ySqSum / detYMinMax.detPow - meanY * meanY);
+    }
+
+    return {
+      segments,
+      normals,
+      tirCount,
+      detPct,
+      fresnelPct,
+      spreadPx,
+      variance,
+      bins,
+      maxOrderSeen
+    };
+  }
+
+  // =========================================================================
+  // 7. MULTI-SOURCE HUYGENS WAVEFRONT & INTERFERENCE FIELD
+  // =========================================================================
+  const waveCanvas = document.createElement('canvas');
+  waveCanvas.width = 220;
+  waveCanvas.height = 148;
+  const waveCtx = waveCanvas.getContext('2d');
+  const waveImg = waveCtx.createImageData(waveCanvas.width, waveCanvas.height);
+
+  function renderWavefrontField(ctx, w, h) {
+    if (!state.wavefrontEnabled) return;
+
+    const coherentLights = state.lights.filter(l => l.coherent !== false);
+    if (coherentLights.length === 0) return;
+
+    const ww = waveCanvas.width;
+    const wh = waveCanvas.height;
+    const sx = ww / w;
+    const sy = wh / h;
+    const omegaT = state.time * 5.2;
+
+    // Collect wave emitters: grating slits (driven by primary coherent light) + coherent point/cone/laser lights
+    const emitters = [];
+    const gratings = state.elements.filter(e => e.type === 'grating');
+    const primaryLight = coherentLights[0];
+
+    if (gratings.length > 0 && primaryLight) {
+      const g = gratings[0];
+      const N = Math.min(7, Math.max(1, g.slitN || 2));
+      const apH = g.size * 0.72;
+      const pitchPx = Math.min(28, Math.max(10, (g.slitD || 3.2) * 4.5));
+      const wl = primaryLight.mode === 'white' ? 532 : primaryLight.wavelength;
+      const rgb = primaryLight.mode === 'white' ? { r: 56, g: 189, b: 248 } : wavelengthToRGB(wl);
+      const wlPx = Math.max(8, (wl / 532) * 15);
+      const k = (2 * Math.PI) / wlPx;
+      const fwd = dirToWorld(g, 1, 0);
+      for (let i = 0; i < N; i++) {
+        const ly = N === 1 ? 0 : (i - (N - 1) * 0.5) * pitchPx;
+        if (Math.abs(ly) <= apH * 0.5) {
+          const wp = pointToWorld(g, 0, ly);
+          emitters.push({
+            x: wp.x * sx, y: wp.y * sy,
+            k, rgb, ampScale: (primaryLight.intensity || 1) / Math.sqrt(N),
+            fwdX: fwd.x, fwdY: fwd.y, gx: g.x * sx, gy: g.y * sy, halfSpace: true
+          });
+        }
+      }
+    }
+
+    // Add coherent lights directly if no grating, or additional coherent point/cone lights
+    if (emitters.length === 0 || coherentLights.length > 1) {
+      for (let li = 0; li < coherentLights.length; li++) {
+        const l = coherentLights[li];
+        if (gratings.length > 0 && li === 0) continue;
+        const wl = l.mode === 'white' ? 532 : (l.mode === 'rgb' ? 532 : l.wavelength);
+        const rgb = l.mode === 'white' ? { r: 180, g: 225, b: 255 } : wavelengthToRGB(wl);
+        const wlPx = Math.max(8, (wl / 532) * 15);
+        const k = (2 * Math.PI) / wlPx;
+        emitters.push({
+          x: l.x * sx, y: l.y * sy,
+          k, rgb, ampScale: l.intensity || 1,
+          halfSpace: false
+        });
+      }
+    }
+
+    if (emitters.length === 0) return;
+
+    const data = waveImg.data;
+    const invCount = 3.6 / Math.sqrt(emitters.length);
+
+    for (let py = 0; py < wh; py++) {
+      for (let px = 0; px < ww; px++) {
+        const idx = (py * ww + px) * 4;
+        let ampR = 0, ampG = 0, ampB = 0;
+
+        for (let ei = 0; ei < emitters.length; ei++) {
+          const em = emitters[ei];
+          if (em.halfSpace) {
+            const dotFwd = (px - em.gx) * em.fwdX + (py - em.gy) * em.fwdY;
+            if (dotFwd < 0) continue;
+          }
+          const dx = (px - em.x) / sx;
+          const dy = (py - em.y) / sy;
+          const r = Math.hypot(dx, dy);
+          const wave = (Math.cos(em.k * r - omegaT) / Math.sqrt(r + 18)) * em.ampScale;
+          ampR += wave * (em.rgb.r / 255);
+          ampG += wave * (em.rgb.g / 255);
+          ampB += wave * (em.rgb.b / 255);
+        }
+
+        const iR = Math.min(1, Math.pow(Math.max(0, ampR * invCount), 2) * 1.4);
+        const iG = Math.min(1, Math.pow(Math.max(0, ampG * invCount), 2) * 1.4);
+        const iB = Math.min(1, Math.pow(Math.max(0, ampB * invCount), 2) * 1.4);
+        const iMax = Math.max(iR, iG, iB);
+
+        data[idx]     = Math.round(iR * 255);
+        data[idx + 1] = Math.round(iG * 255);
+        data[idx + 2] = Math.round(iB * 255);
+        data[idx + 3] = Math.round(iMax * 160);
+      }
+    }
+
+    waveCtx.putImageData(waveImg, 0, 0);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(waveCanvas, 0, 0, w, h);
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // 8. CANVAS RENDERER (MULTI-PASS BLOOM, REALISTIC GLASS, NORMALS)
+  // =========================================================================
+  const benchCanvas = document.getElementById('benchCanvas');
+  const ctx = benchCanvas.getContext('2d');
+  const scopeCanvas = document.getElementById('scopeCanvas');
+  const sctx = scopeCanvas.getContext('2d');
+
+  function resizeCanvas() {
+    const wrap = document.getElementById('benchWrap');
+    const rect = wrap.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    benchCanvas.width = Math.floor(rect.width * dpr);
+    benchCanvas.height = Math.floor(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    state.benchW = rect.width;
+    state.benchH = rect.height;
+  }
+
+  function drawOpticalBenchGrid(w, h) {
+    ctx.fillStyle = '#06090f';
+    ctx.fillRect(0, 0, w, h);
+
+    const step = 40;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.045)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = step; x < w; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = step; y < h; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.14)';
+    for (let x = step; x < w; x += step) {
+      for (let y = step; y < h; y += step) {
+        ctx.fillRect(x - 1, y - 1, 2, 2);
+      }
+    }
+  }
+
+  function drawRays(segments) {
+    if (segments.length === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+
+    // Pass 1: Wide soft outer bloom
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i];
+      const alpha = Math.min(0.85, Math.max(0.04, Math.pow(s.power * 7.2, 0.72)));
+      ctx.strokeStyle = `rgba(${s.rgb.r}, ${s.rgb.g}, ${s.rgb.b}, ${(alpha * 0.16).toFixed(3)})`;
+      ctx.lineWidth = 7.2;
+      ctx.beginPath();
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+    }
+
+    // Pass 2: Medium colored aura
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i];
+      const alpha = Math.min(0.95, Math.max(0.06, Math.pow(s.power * 7.5, 0.72)));
+      ctx.strokeStyle = `rgba(${s.rgb.r}, ${s.rgb.g}, ${s.rgb.b}, ${(alpha * 0.42).toFixed(3)})`;
+      ctx.lineWidth = 3.0;
+      ctx.beginPath();
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+    }
+
+    // Pass 3: Crisp bright inner core
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i];
+      const alpha = Math.min(1.0, Math.max(0.08, Math.pow(s.power * 8.5, 0.75)));
+      const cr = Math.min(255, Math.round(s.rgb.r * 0.72 + 72));
+      const cg = Math.min(255, Math.round(s.rgb.g * 0.72 + 72));
+      const cb = Math.min(255, Math.round(s.rgb.b * 0.72 + 72));
+      ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${(alpha * 0.92).toFixed(3)})`;
+      ctx.lineWidth = 1.15;
+      ctx.beginPath();
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawNormals(normals) {
+    if (!state.normalsEnabled || normals.length === 0) return;
+    ctx.save();
+    for (let i = 0; i < normals.length; i++) {
+      const n = normals[i];
+      const len = 22;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+      ctx.lineWidth = 1.1;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath();
+      ctx.moveTo(n.x - n.nx * len * 0.5, n.y - n.ny * len * 0.5);
+      ctx.lineTo(n.x + n.nx * len, n.y + n.ny * len);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Normal tip dot
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(n.x + n.nx * len, n.y + n.ny * len, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function fillGlassPath(mat, halfH, isSelected) {
+    const grad = ctx.createLinearGradient(-halfH * 0.4, -halfH, halfH * 0.4, halfH);
+    grad.addColorStop(0, mat.tintDeep);
+    grad.addColorStop(0.5, mat.tint);
+    grad.addColorStop(1, mat.tintDeep);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Crisp Fresnel outer rim
+    ctx.strokeStyle = isSelected ? '#38bdf8' : mat.stroke;
+    ctx.lineWidth = isSelected ? 2.4 : 1.7;
+    ctx.stroke();
+
+    // Inner specular edge highlight
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawElement(el, isSelected) {
+    ctx.save();
+    ctx.translate(el.x, el.y);
+    ctx.rotate(el.angle);
+    const halfH = el.size * 0.5;
+    const mat = MATERIALS[el.material] || MATERIALS.sf11;
+
+    if (el.type === 'prism_eq' || el.type === 'prism_right' || el.type === 'waveguide') {
+      const pts = getPolygonVertices(el);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'ball_lens') {
+      ctx.beginPath();
+      ctx.arc(0, 0, halfH, 0, Math.PI * 2);
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'half_cylinder') {
+      ctx.beginPath();
+      ctx.moveTo(0, -halfH);
+      ctx.arc(0, 0, halfH, -Math.PI * 0.5, Math.PI * 0.5, false);
+      ctx.closePath();
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'plano_convex') {
+      const R = Math.max(halfH + 8, el.param || 155);
+      const sag = R - Math.sqrt(R * R - halfH * halfH);
+      const xLeft = -sag * 0.5;
+      const cxRight = sag * 0.5 - R;
+      const angSpan = Math.asin(halfH / R);
+      ctx.beginPath();
+      ctx.moveTo(xLeft, -halfH);
+      ctx.arc(cxRight, 0, R, -angSpan, angSpan, false);
+      ctx.lineTo(xLeft, halfH);
+      ctx.closePath();
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'meniscus') {
+      const R1 = Math.max(halfH + 10, el.param || 135);
+      const R2 = Math.max(halfH + 16, el.param2 || 225);
+      const sag1 = R1 - Math.sqrt(R1 * R1 - halfH * halfH);
+      const sag2 = R2 - Math.sqrt(R2 * R2 - halfH * halfH);
+      const halfThick = Math.max(8, Math.abs(sag1 - sag2) * 0.5 + 7);
+      const cxLeft = -halfThick + R1;
+      const cxRight = +halfThick + R2;
+      const a1 = Math.asin(halfH / R1);
+      const a2 = Math.asin(halfH / R2);
+      ctx.beginPath();
+      ctx.arc(cxLeft, 0, R1, Math.PI - a1, Math.PI + a1, false);
+      ctx.lineTo(halfThick + sag2, -halfH);
+      ctx.arc(cxRight, 0, R2, Math.PI + a2, Math.PI - a2, true);
+      ctx.closePath();
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'convex_lens') {
+      const R = Math.max(halfH + 8, el.param || 155);
+      const sag = R - Math.sqrt(R * R - halfH * halfH);
+      const cxLeft = R - sag;
+      const cxRight = -R + sag;
+      const angSpan = Math.asin(halfH / R);
+      ctx.beginPath();
+      ctx.arc(cxLeft, 0, R, Math.PI - angSpan, Math.PI + angSpan, false);
+      ctx.arc(cxRight, 0, R, -angSpan, angSpan, false);
+      ctx.closePath();
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'concave_lens') {
+      const R = Math.max(halfH + 12, el.param || 160);
+      const sag = R - Math.sqrt(R * R - halfH * halfH);
+      const minThick = 10;
+      const cxLeft = -(minThick * 0.5 + R);
+      const cxRight = +(minThick * 0.5 + R);
+      const angSpan = Math.asin(halfH / R);
+      ctx.beginPath();
+      ctx.arc(cxLeft, 0, R, -angSpan, angSpan, false);
+      ctx.lineTo(minThick * 0.5 + sag, halfH);
+      ctx.arc(cxRight, 0, R, Math.PI - angSpan, Math.PI + angSpan, false);
+      ctx.closePath();
+      fillGlassPath(mat, halfH, isSelected);
+    } else if (el.type === 'mirror' || el.type === 'parabolic_mirror') {
+      const f = el.type === 'parabolic_mirror' ? Math.max(30, el.param || 140) : el.param;
+      const k = f > 10 ? 1 / (4 * f) : 0;
+      ctx.beginPath();
+      for (let i = 0; i <= 28; i++) {
+        const y = -halfH + (i / 28) * el.size;
+        const x = k * y * y;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#e2e8f0';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let y = -halfH + 6; y < halfH; y += 12) {
+        const x = k * y * y;
+        ctx.moveTo(x + 2, y);
+        ctx.lineTo(x + 7, y - 4);
+      }
+      ctx.stroke();
+
+      if (f > 10) {
+        // Draw focal point indicator F
+        ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(56, 189, 248, 0.55)';
+        ctx.beginPath();
+        ctx.arc(f, 0, isSelected ? 3.5 : 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        if (isSelected) {
+          ctx.font = 'bold 9px ui-monospace, monospace';
+          ctx.fillText('F', f + 6, 3);
+        }
+      }
+    } else if (el.type === 'beamsplitter') {
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+      ctx.fillRect(-3, -halfH, 6, el.size);
+      ctx.strokeStyle = isSelected ? '#38bdf8' : 'rgba(148, 163, 184, 0.85)';
+      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -halfH);
+      ctx.lineTo(0, halfH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (el.type === 'dichroic') {
+      const col = wavelengthToRGB(el.centerWl || 532).css;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+      ctx.fillRect(-3, -halfH, 6, el.size);
+      ctx.strokeStyle = isSelected ? '#38bdf8' : col;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(0, -halfH);
+      ctx.lineTo(0, halfH);
+      ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.font = 'bold 8.5px ui-monospace, monospace';
+      ctx.fillText((el.centerWl || 532) + 'nm', 6, -halfH + 10);
+    } else if (el.type === 'aperture') {
+      const gap = Math.min(el.size - 10, Math.max(4, el.param || 28));
+      const hg = gap * 0.5;
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#94a3b8';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.moveTo(0, -halfH); ctx.lineTo(0, -hg);
+      ctx.moveTo(0, hg); ctx.lineTo(0, halfH);
+      ctx.stroke();
+      // Blade tips
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(-3, -hg - 2, 6, 2);
+      ctx.fillRect(-3, hg, 6, 2);
+    } else if (el.type === 'grating') {
+      const apH = el.size * 0.78;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, -halfH); ctx.lineTo(0, -apH * 0.5);
+      ctx.moveTo(0, apH * 0.5); ctx.lineTo(0, halfH);
+      ctx.stroke();
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#a78bfa';
+      ctx.lineWidth = 2;
+      const rulings = Math.min(18, Math.max(2, el.slitN || 2));
+      for (let i = 0; i < rulings; i++) {
+        const y = -apH * 0.5 + (i + 0.5) * (apH / rulings);
+        ctx.beginPath();
+        ctx.moveTo(-4, y);
+        ctx.lineTo(4, y);
+        ctx.stroke();
+      }
+    } else if (el.type === 'detector') {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#22c55e';
+      ctx.lineWidth = isSelected ? 2.2 : 1.6;
+      ctx.fillRect(0, -halfH, 12, el.size);
+      ctx.strokeRect(0, -halfH, 12, el.size);
+
+      const bins = state.telemetry.detectorBins;
+      const binH = el.size / bins.length;
+      for (let i = 0; i < bins.length; i++) {
+        const b = bins[i];
+        if (b.total <= 0.0001) continue;
+        const norm = Math.min(1, b.total * 14);
+        const r = Math.min(255, Math.round(b.r / b.total));
+        const g = Math.min(255, Math.round(b.g / b.total));
+        const bl = Math.min(255, Math.round(b.b / b.total));
+        ctx.fillStyle = `rgba(${r},${g},${bl},${(0.35 + norm * 0.65).toFixed(2)})`;
+        ctx.fillRect(-3, -halfH + i * binH, 8, Math.max(1.5, binH + 0.5));
+      }
+    }
+
+    if (isSelected) {
+      const ringR = Math.max(36, Math.min(64, el.size * 0.44));
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(ringR, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#06090f';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawLightSource(src, isSelected, idx) {
+    ctx.save();
+    ctx.translate(src.x, src.y);
+    ctx.rotate(src.angle);
+
+    const col = src.mode === 'white' ? '#f8fafc' :
+                src.mode === 'rgb' ? '#38bdf8' :
+                wavelengthToRGB(src.wavelength).css;
+
+    if (src.type === 'point') {
+      // 360 Point emitter
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#f59e0b';
+      ctx.lineWidth = isSelected ? 2.2 : 1.6;
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (src.type === 'cone') {
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#f59e0b';
+      ctx.lineWidth = isSelected ? 2.2 : 1.6;
+      ctx.beginPath();
+      ctx.moveTo(-18, -11);
+      ctx.lineTo(14, -15);
+      ctx.lineTo(14, 15);
+      ctx.lineTo(-18, 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = col;
+      ctx.fillRect(12, -10, 4, 20);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 8.5px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('CONE', -2, 3);
+    } else {
+      // Collimated housing
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#f59e0b';
+      ctx.lineWidth = isSelected ? 2.2 : 1.6;
+      ctx.beginPath();
+      ctx.roundRect(-24, -15, 40, 30, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      if (src.mode === 'rgb') {
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(14, -9, 5, 5);
+        ctx.fillStyle = '#22c55e'; ctx.fillRect(14, -2.5, 5, 5);
+        ctx.fillStyle = '#38bdf8'; ctx.fillRect(14, 4, 5, 5);
+      } else {
+        ctx.fillStyle = col;
+        const ap = Math.max(4, Math.min(12, (src.beamWidth || 14) * 0.25));
+        ctx.fillRect(14, -ap, 5, ap * 2);
+      }
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 8.5px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      const lbl = src.mode === 'white' ? 'WHITE' : (src.mode === 'rgb' ? 'RGB' : src.wavelength + 'nm');
+      ctx.fillText(lbl, -4, 3);
+    }
+
+    if (isSelected) {
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, 38, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(38, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function renderScope() {
+    const w = scopeCanvas.width;
+    const h = scopeCanvas.height;
+    sctx.clearRect(0, 0, w, h);
+    sctx.fillStyle = '#05080f';
+    sctx.fillRect(0, 0, w, h);
+
+    sctx.strokeStyle = 'rgba(56, 189, 248, 0.09)';
+    sctx.lineWidth = 1;
+    for (let y = 24; y < h; y += 24) {
+      sctx.beginPath(); sctx.moveTo(0, y); sctx.lineTo(w, y); sctx.stroke();
+    }
+
+    const bins = state.telemetry.detectorBins;
+    let maxVal = 0.001;
+    let peakIdx = -1;
+    for (let i = 0; i < bins.length; i++) {
+      if (bins[i].total > maxVal) {
+        maxVal = bins[i].total;
+        peakIdx = i;
+      }
+    }
+
+    const barW = w / bins.length;
+    for (let i = 0; i < bins.length; i++) {
+      const b = bins[i];
+      if (b.total <= 0) continue;
+      const barH = (b.total / maxVal) * (h - 14);
+      const r = Math.min(255, Math.round(b.r / b.total));
+      const g = Math.min(255, Math.round(b.g / b.total));
+      const bl = Math.min(255, Math.round(b.b / b.total));
+      sctx.fillStyle = `rgba(${r},${g},${bl},0.85)`;
+      sctx.fillRect(i * barW, h - barH, Math.max(1.5, barW), barH);
+    }
+
+    if (peakIdx >= 0 && bins[peakIdx].total > 0) {
+      const peakWl = Math.round(bins[peakIdx].wlSum / bins[peakIdx].total);
+      document.getElementById('scopePeakBadge').textContent = `Peak: ${peakWl} nm`;
+    } else {
+      document.getElementById('scopePeakBadge').textContent = 'Peak: --';
+    }
+  }
+
+  // =========================================================================
+  // 9. AI AUTO-ALIGN SWARM (120 CANDIDATE GENOMES)
+  // =========================================================================
+  function evaluateGenome(angles) {
+    const saved = state.elements.map(e => e.angle);
+    for (let i = 0; i < state.elements.length; i++) {
+      if (state.elements[i].type !== 'detector') {
+        state.elements[i].angle = angles[i];
+      }
+    }
+    const res = traceOpticalBench(state.elements, state.lights, { fast: true, collectSegments: false, collectBins: false });
+    for (let i = 0; i < state.elements.length; i++) {
+      state.elements[i].angle = saved[i];
+    }
+
+    if (state.swarm.goal === 'intensity') {
+      return res.detPct;
+    } else if (state.swarm.goal === 'focus') {
+      return res.detPct * (1 + 25 / (1 + Math.sqrt(res.variance)));
+    } else {
+      return (res.detPct > 5 ? res.spreadPx * (0.4 + Math.min(1, res.detPct / 40)) : res.detPct * 0.1);
+    }
+  }
+
+  function startSwarm() {
+    if (state.elements.length === 0) return;
+    state.swarm.running = true;
+    state.swarm.gen = 0;
+    state.swarm.bestFitness = 0;
+    state.swarm.genomes = [];
+    const baseAngles = state.elements.map(e => e.angle);
+    for (let i = 0; i < state.swarm.popSize; i++) {
+      const angles = baseAngles.map((a, idx) =>
+        i === 0 ? a : a + (Math.random() - 0.5) * (state.elements[idx].type === 'detector' ? 0 : 1.1)
+      );
+      state.swarm.genomes.push({ angles, fitness: 0 });
+    }
+    document.getElementById('btnSwarmRun').textContent = 'Evolving...';
+  }
+
+  function stepSwarm() {
+    if (!state.swarm.running) return;
+    const pop = state.swarm.genomes;
+    for (let i = 0; i < pop.length; i++) {
+      pop[i].fitness = evaluateGenome(pop[i].angles);
+    }
+    pop.sort((a, b) => b.fitness - a.fitness);
+
+    const best = pop[0];
+    state.swarm.bestFitness = best.fitness;
+    for (let i = 0; i < state.elements.length; i++) {
+      if (state.elements[i].type !== 'detector') {
+        state.elements[i].angle = best.angles[i];
+      }
+    }
+
+    state.swarm.gen++;
+    const pct = Math.round((state.swarm.gen / state.swarm.maxGen) * 100);
+    document.getElementById('swarmBar').style.width = pct + '%';
+    document.getElementById('swarmGenText').textContent = `Gen ${state.swarm.gen} / ${state.swarm.maxGen}`;
+    document.getElementById('swarmFitText').textContent = `Fitness: ${best.fitness.toFixed(1)}`;
+    document.getElementById('hudSwarm').textContent = `G${state.swarm.gen} (${best.fitness.toFixed(0)})`;
+
+    if (state.swarm.gen >= state.swarm.maxGen) {
+      state.swarm.running = false;
+      document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
+      return;
+    }
+
+    const eliteCount = Math.max(8, Math.floor(pop.length * 0.12));
+    const nextPop = [];
+    for (let i = 0; i < eliteCount; i++) {
+      nextPop.push({ angles: pop[i].angles.slice(), fitness: pop[i].fitness });
+    }
+    const sigma = 0.28 * (1 - state.swarm.gen / (state.swarm.maxGen + 5)) + 0.015;
+    while (nextPop.length < pop.length) {
+      const parent = pop[Math.floor(Math.random() * eliteCount)];
+      const childAngles = parent.angles.map((a, idx) =>
+        state.elements[idx].type === 'detector' ? a : a + (Math.random() - 0.5) * 2 * sigma
+      );
+      nextPop.push({ angles: childAngles, fitness: 0 });
+    }
+    state.swarm.genomes = nextPop;
+  }
+
+  // =========================================================================
+  // 10. INTERACTION: DRAG TO MOVE, DRAG RING TO AIM/ROTATE, DELETE
+  // =========================================================================
+  let dragMode = null; // 'move_el' | 'rot_el' | 'move_light' | 'rot_light'
+  let dragTarget = null;
+  let dragOffset = { x: 0, y: 0 };
+
+  function getCanvasPos(ev) {
+    const rect = benchCanvas.getBoundingClientRect();
+    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+  }
+
+  function getSelectedLight() {
+    if (state.selectedId && state.selectedId.startsWith('light_')) {
+      return state.lights.find(l => l.id === state.selectedId) || null;
+    }
+    return state.lights[0] || null;
+  }
+
+  benchCanvas.addEventListener('pointerdown', (ev) => {
+    const p = getCanvasPos(ev);
+
+    // Check selected rotation handle first
+    if (state.selectedId && state.selectedId.startsWith('light_')) {
+      const l = state.lights.find(x => x.id === state.selectedId);
+      if (l) {
+        const hx = l.x + Math.cos(l.angle) * 38;
+        const hy = l.y + Math.sin(l.angle) * 38;
+        if (Math.hypot(p.x - hx, p.y - hy) <= 13) {
+          dragMode = 'rot_light';
+          dragTarget = l;
+          benchCanvas.setPointerCapture(ev.pointerId);
+          return;
+        }
+      }
+    } else if (state.selectedId && state.selectedId.startsWith('el_')) {
+      const el = state.elements.find(e => e.id === state.selectedId);
+      if (el) {
+        const ringR = Math.max(36, Math.min(64, el.size * 0.44));
+        const hx = el.x + Math.cos(el.angle) * ringR;
+        const hy = el.y + Math.sin(el.angle) * ringR;
+        if (Math.hypot(p.x - hx, p.y - hy) <= 13) {
+          dragMode = 'rot_el';
+          dragTarget = el;
+          benchCanvas.setPointerCapture(ev.pointerId);
+          return;
+        }
+      }
+    }
+
+    // Check Light Sources (top-most first)
+    for (let i = state.lights.length - 1; i >= 0; i--) {
+      const l = state.lights[i];
+      if (Math.hypot(p.x - l.x, p.y - l.y) <= 26) {
+        state.selectedId = l.id;
+        dragMode = 'move_light';
+        dragTarget = l;
+        dragOffset = { x: p.x - l.x, y: p.y - l.y };
+        syncAllUI();
+        benchCanvas.setPointerCapture(ev.pointerId);
+        return;
+      }
+    }
+
+    // Check optical elements (reverse order)
+    for (let i = state.elements.length - 1; i >= 0; i--) {
+      const el = state.elements[i];
+      const lp = toLocal(el, p.x, p.y);
+      const hitW = el.type === 'waveguide' || el.type === 'ball_lens' || el.type === 'half_cylinder'
+        ? el.size * 0.52 : 28;
+      const hitH = el.type === 'waveguide' ? (el.param || 54) * 0.58 : el.size * 0.54;
+      if (Math.abs(lp.x) <= hitW && Math.abs(lp.y) <= hitH) {
+        state.selectedId = el.id;
+        dragMode = 'move_el';
+        dragTarget = el;
+        dragOffset = { x: p.x - el.x, y: p.y - el.y };
+        syncAllUI();
+        benchCanvas.setPointerCapture(ev.pointerId);
+        return;
+      }
+    }
+
+    state.selectedId = null;
+    syncAllUI();
+  });
+
+  benchCanvas.addEventListener('pointermove', (ev) => {
+    if (!dragMode || !dragTarget) return;
+    const p = getCanvasPos(ev);
+    if (dragMode === 'move_light') {
+      dragTarget.x = Math.max(24, Math.min(state.benchW - 24, p.x - dragOffset.x));
+      dragTarget.y = Math.max(24, Math.min(state.benchH - 24, p.y - dragOffset.y));
+    } else if (dragMode === 'rot_light') {
+      let a = Math.atan2(p.y - dragTarget.y, p.x - dragTarget.x);
+      if (ev.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12);
+      dragTarget.angle = a;
+    } else if (dragMode === 'move_el') {
+      dragTarget.x = Math.max(24, Math.min(state.benchW - 24, p.x - dragOffset.x));
+      dragTarget.y = Math.max(24, Math.min(state.benchH - 24, p.y - dragOffset.y));
+    } else if (dragMode === 'rot_el') {
+      let a = Math.atan2(p.y - dragTarget.y, p.x - dragTarget.x);
+      if (ev.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12);
+      dragTarget.angle = a;
+    }
+  });
+
+  benchCanvas.addEventListener('pointerup', () => {
+    dragMode = null;
+    dragTarget = null;
+  });
+
+  function deleteSelectedObject() {
+    if (!state.selectedId) return;
+    if (state.selectedId.startsWith('light_')) {
+      state.lights = state.lights.filter(l => l.id !== state.selectedId);
+      state.selectedId = state.lights[0] ? state.lights[0].id : null;
+      syncAllUI();
+    } else if (state.selectedId.startsWith('el_')) {
+      state.elements = state.elements.filter(e => e.id !== state.selectedId);
+      state.selectedId = null;
+      syncAllUI();
+    }
+  }
+
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Delete' || ev.key === 'Backspace') {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
+      deleteSelectedObject();
+    }
+  });
+
+  // =========================================================================
+  // 11. UI BINDINGS & SYNC
+  // =========================================================================
+  function buildUI() {
+    // Palette
+    const pal = document.getElementById('paletteGrid');
+    PALETTE_DEFS.forEach(def => {
+      const btn = document.createElement('button');
+      btn.className = 'palette-item';
+      btn.innerHTML = `<svg viewBox="0 0 24 24">${def.icon}</svg><span>${def.label}</span>`;
+      btn.addEventListener('click', () => {
+        const el = createElement(
+          def.type,
+          state.benchW * (0.45 + (Math.random() - 0.5) * 0.14),
+          state.benchH * (0.5 + (Math.random() - 0.5) * 0.14),
+          0
+        );
+        state.elements.push(el);
+        state.selectedId = el.id;
+        syncAllUI();
+      });
+      pal.appendChild(btn);
+    });
+    document.getElementById('paletteCountBadge').textContent = PALETTE_DEFS.length + ' Shapes';
+
+    // Materials
+    const matRow = document.getElementById('materialChips');
+    Object.values(MATERIALS).forEach(mat => {
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (mat.id === state.activeMaterial ? ' active' : '');
+      chip.dataset.mat = mat.id;
+      chip.textContent = mat.name;
+      chip.addEventListener('click', () => {
+        state.activeMaterial = mat.id;
+        const sel = state.elements.find(e => e.id === state.selectedId);
+        if (sel && GLASS_TYPES.has(sel.type)) sel.material = mat.id;
+        syncMaterialUI();
+      });
+      matRow.appendChild(chip);
+    });
+
+    // Presets
+    const pList = document.getElementById('presetList');
+    PRESETS.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn' + (p.id === state.activePreset ? ' active' : '');
+      btn.dataset.preset = p.id;
+      btn.innerHTML = `<div><div class="preset-name">${p.name}</div><div class="preset-desc">${p.desc}</div></div><span class="preset-tag">${p.tag}</span>`;
+      btn.addEventListener('click', () => loadPreset(p.id));
+      pList.appendChild(btn);
+    });
+
+    // Challenges
+    const cList = document.getElementById('challengeList');
+    CHALLENGES.forEach(ch => {
+      const div = document.createElement('div');
+      div.className = 'challenge-card';
+      div.id = 'card_' + ch.id;
+      div.innerHTML = `<div class="challenge-top"><span class="challenge-title">${ch.title}</span><span class="challenge-status pending" id="st_${ch.id}">Open</span></div><div class="challenge-goal">${ch.goal}</div>`;
+      cList.appendChild(div);
+    });
+
+    // Add Light buttons
+    document.querySelectorAll('[data-add-light]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.addLight;
+        const nl = createLight(
+          type,
+          95 + (state.lights.length % 3) * 18,
+          state.benchH * (0.35 + ((state.lights.length * 0.14) % 0.4)),
+          0
+        );
+        state.lights.push(nl);
+        state.selectedId = nl.id;
+        syncAllUI();
+      });
+    });
+
+    document.getElementById('btnDeleteLight').addEventListener('click', () => {
+      const l = getSelectedLight();
+      if (!l) return;
+      state.lights = state.lights.filter(x => x.id !== l.id);
+      state.selectedId = state.lights[0] ? state.lights[0].id : null;
+      syncAllUI();
+    });
+
+    document.getElementById('selLightType').addEventListener('change', (e) => {
+      const l = getSelectedLight();
+      if (!l) return;
+      l.type = e.target.value;
+      if (l.type === 'white') l.mode = 'white';
+      else if (l.type === 'rgb') l.mode = 'rgb';
+      else if (l.type === 'laser') l.mode = 'mono';
+      if (l.type === 'point') { l.coneAngle = 360; l.rayCount = Math.max(l.rayCount, 24); }
+      if (l.type === 'cone' && l.coneAngle === 0) l.coneAngle = 36;
+      syncSourceUI();
+    });
+
+    document.getElementById('btnLightMono').addEventListener('click', () => {
+      const l = getSelectedLight();
+      if (l) { l.mode = 'mono'; syncSourceUI(); }
+    });
+    document.getElementById('btnLightWhite').addEventListener('click', () => {
+      const l = getSelectedLight();
+      if (l) { l.mode = 'white'; syncSourceUI(); }
+    });
+
+    document.getElementById('swCoherent').addEventListener('click', () => {
+      const l = getSelectedLight();
+      if (l) { l.coherent = !l.coherent; syncSourceUI(); }
+    });
+
+    const bindSlider = (id, fn) => {
+      document.getElementById(id).addEventListener('input', (e) => fn(parseFloat(e.target.value)));
+    };
+
+    bindSlider('slWavelength', v => {
+      const l = getSelectedLight();
+      if (l) { l.wavelength = v; l.mode = 'mono'; syncSourceUI(); }
+    });
+    bindSlider('slBeamWidth', v => {
+      const l = getSelectedLight();
+      if (!l) return;
+      if (l.type === 'cone') l.coneAngle = v;
+      else l.beamWidth = v;
+      syncSourceUI();
+    });
+    bindSlider('slRayCount', v => {
+      const l = getSelectedLight();
+      if (l) { l.rayCount = Math.round(v); syncSourceUI(); }
+    });
+    bindSlider('slIntensity', v => {
+      const l = getSelectedLight();
+      if (l) { l.intensity = v; syncSourceUI(); }
+    });
+
+    // Element Inspector sliders
+    bindSlider('slSize', v => {
+      const el = state.elements.find(e => e.id === state.selectedId);
+      if (el) { el.size = v; syncInspectorUI(); }
+    });
+    bindSlider('slParam', v => {
+      const el = state.elements.find(e => e.id === state.selectedId);
+      if (el) { el.param = v; syncInspectorUI(); }
+    });
+    bindSlider('slParam2', v => {
+      const el = state.elements.find(e => e.id === state.selectedId);
+      if (el) { el.param2 = v; syncInspectorUI(); }
+    });
+    bindSlider('slDicWl', v => {
+      const el = state.elements.find(e => e.id === state.selectedId && e.type === 'dichroic');
+      if (el) { el.centerWl = v; syncInspectorUI(); }
+    });
+    bindSlider('slDicBw', v => {
+      const el = state.elements.find(e => e.id === state.selectedId && e.type === 'dichroic');
+      if (el) { el.bandwidth = v; syncInspectorUI(); }
+    });
+    bindSlider('slSlitA', v => {
+      const el = getActiveGrating();
+      if (el) { el.slitA = v; syncInspectorUI(); }
+    });
+    bindSlider('slSlitD', v => {
+      const el = getActiveGrating();
+      if (el) { el.slitD = v; syncInspectorUI(); }
+    });
+    bindSlider('slSlitN', v => {
+      const el = getActiveGrating();
+      if (el) { el.slitN = Math.round(v); syncInspectorUI(); }
+    });
+
+    document.getElementById('btnDuplicateEl').addEventListener('click', () => {
+      const el = state.elements.find(e => e.id === state.selectedId);
+      if (!el) return;
+      const copy = createElement(el.type, el.x + 28, el.y + 28, el.angle * 180 / Math.PI, el);
+      state.elements.push(copy);
+      state.selectedId = copy.id;
+      syncAllUI();
+    });
+    document.getElementById('btnDeleteEl').addEventListener('click', deleteSelectedObject);
+
+    // Topbar toggles & Swarm
+    const toggleWave = () => {
+      state.wavefrontEnabled = !state.wavefrontEnabled;
+      syncGlobalToggles();
+    };
+    document.getElementById('btnToggleWave').addEventListener('click', toggleWave);
+    document.getElementById('swWavefront').addEventListener('click', toggleWave);
+
+    document.getElementById('btnToggleFresnel').addEventListener('click', () => {
+      state.fresnelEnabled = !state.fresnelEnabled;
+      syncGlobalToggles();
+    });
+    document.getElementById('btnToggleNormals').addEventListener('click', () => {
+      state.normalsEnabled = !state.normalsEnabled;
+      syncGlobalToggles();
+    });
+
+    document.getElementById('btnResetPreset').addEventListener('click', () => loadPreset(state.activePreset));
+    document.getElementById('btnClearBench').addEventListener('click', () => {
+      state.elements = [];
+      state.selectedId = state.lights[0] ? state.lights[0].id : null;
+      state.swarm.running = false;
+      syncAllUI();
+    });
+
+    document.getElementById('selSwarmGoal').addEventListener('change', (e) => {
+      state.swarm.goal = e.target.value;
+      const labels = { intensity: 'Max Intensity', focus: 'Focal Spot', dispersion: 'RGB Spread' };
+      document.getElementById('swarmGoalLabel').textContent = labels[state.swarm.goal] || 'Max Intensity';
+    });
+    document.getElementById('btnSwarmRun').addEventListener('click', startSwarm);
+    document.getElementById('btnSwarmStop').addEventListener('click', () => {
+      state.swarm.running = false;
+      document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
+    });
+  }
+
+  function getActiveGrating() {
+    const sel = state.elements.find(e => e.id === state.selectedId && e.type === 'grating');
+    return sel || state.elements.find(e => e.type === 'grating') || null;
+  }
+
+  function syncAllUI() {
+    syncMaterialUI();
+    syncSourceUI();
+    syncInspectorUI();
+  }
+
+  function syncMaterialUI() {
+    const mat = MATERIALS[state.activeMaterial] || MATERIALS.sf11;
+    const n550 = cauchyIndex(mat.id, 550);
+    const critDeg = (Math.asin(1 / n550) * 180 / Math.PI).toFixed(1);
+    document.getElementById('matIndexBadge').textContent = `n = ${n550.toFixed(3)}`;
+    document.getElementById('cauchyFormula').textContent = `n(λ) = ${mat.A.toFixed(4)} + ${mat.B.toFixed(5)} / λ²`;
+    document.getElementById('teleCrit').textContent = critDeg + '°';
+    document.querySelectorAll('#materialChips .chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.mat === mat.id);
+    });
+  }
+
+  function syncSourceUI() {
+    document.getElementById('lightCountBadge').textContent = state.lights.length + ' Active';
+    document.getElementById('hudLights').textContent = state.lights.length;
+
+    const list = document.getElementById('lightList');
+    list.innerHTML = '';
+    const activeLight = getSelectedLight();
+
+    state.lights.forEach((l, i) => {
+      const pill = document.createElement('button');
+      pill.className = 'light-pill' + (activeLight && activeLight.id === l.id ? ' active' : '');
+      const dotCol = l.mode === 'white' ? '#f8fafc' : (l.mode === 'rgb' ? '#38bdf8' : wavelengthToRGB(l.wavelength).css);
+      const tag = l.type === 'point' ? '360°' : (l.type === 'cone' ? 'Cone' : (l.mode === 'white' ? 'White' : l.mode === 'rgb' ? 'RGB' : l.wavelength + 'nm'));
+      pill.innerHTML = `<span class="light-dot" style="background:${dotCol}"></span>L${i + 1}: ${tag}`;
+      pill.addEventListener('click', () => {
+        state.selectedId = l.id;
+        syncAllUI();
+      });
+      list.appendChild(pill);
+    });
+
+    const insp = document.getElementById('lightInspector');
+    const empty = document.getElementById('lightInspEmpty');
+    if (!activeLight) {
+      insp.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    insp.style.display = 'flex';
+    empty.style.display = 'none';
+
+    const idx = state.lights.indexOf(activeLight) + 1;
+    const typeNames = { laser: 'Laser', white: 'White Beam', point: '360° Point', cone: 'Cone Spot', rgb: 'RGB Tri-Laser' };
+    document.getElementById('selLightLabel').textContent = `Light #${idx} Inspector`;
+    document.getElementById('selLightType').value = activeLight.type;
+    document.getElementById('valLightType').textContent = typeNames[activeLight.type] || activeLight.type;
+
+    const isRgb = activeLight.type === 'rgb';
+    document.getElementById('lightSpectrumModeRow').style.display = isRgb ? 'none' : 'grid';
+    document.getElementById('btnLightMono').classList.toggle('active', activeLight.mode === 'mono');
+    document.getElementById('btnLightWhite').classList.toggle('active', activeLight.mode === 'white');
+
+    const wlRow = document.getElementById('wavelengthRow');
+    wlRow.style.display = isRgb ? 'none' : 'flex';
+    document.getElementById('wlSwatch').style.background = activeLight.mode === 'white' ? '#f8fafc' : wavelengthToRGB(activeLight.wavelength).css;
+    document.getElementById('valWavelength').textContent = activeLight.wavelength + ' nm';
+    document.getElementById('slWavelength').value = activeLight.wavelength;
+
+    const bwRow = document.getElementById('beamWidthRow');
+    const slBw = document.getElementById('slBeamWidth');
+    if (activeLight.type === 'point') {
+      bwRow.style.display = 'none';
+    } else if (activeLight.type === 'cone') {
+      bwRow.style.display = 'flex';
+      slBw.min = 4; slBw.max = 120; slBw.step = 2;
+      document.getElementById('lblBeamOrCone').textContent = 'Cone Angle';
+      document.getElementById('valBeamWidth').textContent = Math.round(activeLight.coneAngle) + '°';
+      slBw.value = activeLight.coneAngle;
+    } else {
+      bwRow.style.display = 'flex';
+      slBw.min = 0; slBw.max = 110; slBw.step = 1;
+      document.getElementById('lblBeamOrCone').textContent = 'Beam Width';
+      document.getElementById('valBeamWidth').textContent = Math.round(activeLight.beamWidth) + ' px';
+      slBw.value = activeLight.beamWidth;
+    }
+
+    document.getElementById('valRayCount').textContent = activeLight.rayCount + ' rays';
+    document.getElementById('slRayCount').value = activeLight.rayCount;
+    document.getElementById('valIntensity').textContent = activeLight.intensity.toFixed(2) + '×';
+    document.getElementById('slIntensity').value = activeLight.intensity;
+    document.getElementById('swCoherent').classList.toggle('on', activeLight.coherent !== false);
+  }
+
+  function syncGlobalToggles() {
+    const bw = document.getElementById('btnToggleWave');
+    bw.textContent = 'Wavefront: ' + (state.wavefrontEnabled ? 'ON' : 'OFF');
+    bw.classList.toggle('active', state.wavefrontEnabled);
+    document.getElementById('swWavefront').classList.toggle('on', state.wavefrontEnabled);
+
+    const bf = document.getElementById('btnToggleFresnel');
+    bf.textContent = 'Fresnel: ' + (state.fresnelEnabled ? 'ON' : 'OFF');
+    bf.classList.toggle('active', state.fresnelEnabled);
+
+    const bn = document.getElementById('btnToggleNormals');
+    bn.textContent = 'Normals: ' + (state.normalsEnabled ? 'ON' : 'OFF');
+    bn.classList.toggle('active', state.normalsEnabled);
+  }
+
+  function syncInspectorUI() {
+    const el = state.elements.find(e => e.id === state.selectedId);
+    const grating = getActiveGrating();
+    const selLight = state.selectedId && state.selectedId.startsWith('light_') ? state.lights.find(l => l.id === state.selectedId) : null;
+
+    document.getElementById('selectedBadge').innerHTML = el
+      ? `Selected: <strong>${el.type.replace(/_/g, ' ')} (${Math.round(el.angle * 180 / Math.PI)}°)</strong>`
+      : (selLight ? `Selected: <strong>Light (${Math.round(selLight.angle * 180 / Math.PI)}°)</strong>` : 'Selected: <strong>None</strong>');
+
+    const inspControls = document.getElementById('inspControls');
+    const inspEmpty = document.getElementById('inspEmpty');
+
+    if (!el && !grating) {
+      inspControls.style.display = 'none';
+      inspEmpty.style.display = 'block';
+      document.getElementById('inspTypeBadge').textContent = 'None';
+      return;
+    }
+
+    inspControls.style.display = 'flex';
+    inspEmpty.style.display = 'none';
+    const target = el || grating;
+    document.getElementById('inspTypeBadge').textContent = target.type.replace(/_/g, ' ');
+
+    if (el) {
+      document.getElementById('inspSizeRow').style.display = 'flex';
+      document.getElementById('slSize').value = el.size;
+      document.getElementById('valSize').textContent = Math.round(el.size) + ' px';
+      if (el.material && MATERIALS[el.material] && GLASS_TYPES.has(el.type)) {
+        state.activeMaterial = el.material;
+        syncMaterialUI();
+      }
+      const hasParam = ['convex_lens', 'concave_lens', 'plano_convex', 'meniscus', 'mirror', 'parabolic_mirror', 'waveguide', 'aperture'].includes(el.type);
+      document.getElementById('inspParamRow').style.display = hasParam ? 'flex' : 'none';
+      if (hasParam) {
+        const slP = document.getElementById('slParam');
+        if (el.type === 'mirror') {
+          slP.min = 0; slP.max = 400; slP.step = 10;
+          document.getElementById('lblParam').textContent = 'Mirror Focal f (0=Flat)';
+          document.getElementById('valParam').textContent = el.param === 0 ? 'Flat' : el.param + ' px';
+        } else if (el.type === 'parabolic_mirror') {
+          slP.min = 40; slP.max = 380; slP.step = 5;
+          document.getElementById('lblParam').textContent = 'Parabolic Focal f';
+          document.getElementById('valParam').textContent = el.param + ' px';
+        } else if (el.type === 'waveguide') {
+          slP.min = 24; slP.max = 120; slP.step = 2;
+          document.getElementById('lblParam').textContent = 'Waveguide Thickness';
+          document.getElementById('valParam').textContent = el.param + ' px';
+        } else if (el.type === 'aperture') {
+          slP.min = 4; slP.max = Math.max(20, el.size - 12); slP.step = 2;
+          document.getElementById('lblParam').textContent = 'Slit / Pinhole Opening';
+          document.getElementById('valParam').textContent = el.param + ' px';
+        } else {
+          slP.min = 75; slP.max = 400; slP.step = 5;
+          document.getElementById('lblParam').textContent = el.type === 'meniscus' ? 'Front Radius R1' : 'Radius of Curvature';
+          document.getElementById('valParam').textContent = el.param + ' px';
+        }
+        slP.value = el.param;
+      }
+
+      const p2Row = document.getElementById('inspParam2Row');
+      if (el.type === 'meniscus') {
+        p2Row.style.display = 'flex';
+        document.getElementById('slParam2').value = el.param2 || 225;
+        document.getElementById('valParam2').textContent = (el.param2 || 225) + ' px';
+      } else {
+        p2Row.style.display = 'none';
+      }
+
+      const dicCtrl = document.getElementById('dichroicControls');
+      if (el.type === 'dichroic') {
+        dicCtrl.style.display = 'flex';
+        document.getElementById('slDicWl').value = el.centerWl || 532;
+        document.getElementById('valDicWl').textContent = (el.centerWl || 532) + ' nm';
+        document.getElementById('dicSwatch').style.background = wavelengthToRGB(el.centerWl || 532).css;
+        document.getElementById('slDicBw').value = el.bandwidth || 55;
+        document.getElementById('valDicBw').textContent = (el.bandwidth || 55) + ' nm';
+      } else {
+        dicCtrl.style.display = 'none';
+      }
+    } else {
+      document.getElementById('inspSizeRow').style.display = 'none';
+      document.getElementById('inspParamRow').style.display = 'none';
+      document.getElementById('inspParam2Row').style.display = 'none';
+      document.getElementById('dichroicControls').style.display = 'none';
+    }
+
+    const gc = document.getElementById('gratingControls');
+    if (grating) {
+      gc.style.display = 'flex';
+      document.getElementById('slSlitA').value = grating.slitA;
+      document.getElementById('valSlitA').textContent = grating.slitA.toFixed(1) + ' μm';
+      document.getElementById('slSlitD').value = grating.slitD;
+      document.getElementById('valSlitD').textContent = grating.slitD.toFixed(1) + ' μm';
+      document.getElementById('slSlitN').value = grating.slitN;
+      document.getElementById('valSlitN').textContent = grating.slitN;
+    } else {
+      gc.style.display = 'none';
+    }
+  }
+
+  function loadPreset(presetId) {
+    const p = PRESETS.find(pr => pr.id === presetId) || PRESETS[0];
+    state.activePreset = p.id;
+    state.swarm.running = false;
+    document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
+    p.load(state.benchW, state.benchH);
+    state.selectedId = state.elements[0] ? state.elements[0].id : (state.lights[0] ? state.lights[0].id : null);
+    document.getElementById('activePresetName').textContent = p.name;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === p.id));
+    syncGlobalToggles();
+    syncAllUI();
+  }
+
+  // =========================================================================
+  // 12. MAIN ANIMATION & SIMULATION LOOP
+  // =========================================================================
+  let lastTs = performance.now();
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastTs) * 0.001);
+    lastTs = now;
+    state.time += dt;
+
+    if (state.swarm.running) {
+      stepSwarm();
+    }
+
+    const res = traceOpticalBench(state.elements, state.lights, {
+      collectSegments: true,
+      collectBins: true
+    });
+
+    state.telemetry.segments = res.segments.length;
+    state.telemetry.tirCount = res.tirCount;
+    state.telemetry.detectorPowerPct = res.detPct;
+    state.telemetry.fresnelLossPct = res.fresnelPct;
+    state.telemetry.dispersionSpreadPx = res.spreadPx;
+    state.telemetry.detectorBins = res.bins;
+    state.telemetry.maxOrder = res.maxOrderSeen > 0 ? '±' + res.maxOrderSeen : '--';
+
+    document.getElementById('hudSegments').textContent = res.segments.length;
+    document.getElementById('hudTir').textContent = res.tirCount;
+    document.getElementById('hudDetector').textContent = res.detPct.toFixed(1) + '%';
+    document.getElementById('hudSpread').textContent = res.spreadPx.toFixed(1) + ' px';
+    document.getElementById('telePower').textContent = res.detPct.toFixed(1) + '%';
+    document.getElementById('teleFresnel').textContent = res.fresnelPct.toFixed(1) + '%';
+    document.getElementById('teleOrder').textContent = state.telemetry.maxOrder;
+
+    let solvedCount = 0;
+    CHALLENGES.forEach(ch => {
+      if (ch.check(state.telemetry)) state.telemetry.solvedChallenges.add(ch.id);
+      const isSolved = state.telemetry.solvedChallenges.has(ch.id);
+      if (isSolved) solvedCount++;
+      const card = document.getElementById('card_' + ch.id);
+      const st = document.getElementById('st_' + ch.id);
+      if (card && st) {
+        card.classList.toggle('solved', isSolved);
+        st.className = 'challenge-status ' + (isSolved ? 'pass' : 'pending');
+        st.textContent = isSolved ? 'Solved' : 'Open';
+      }
+    });
+    document.getElementById('challengeScore').textContent = `${solvedCount}/${CHALLENGES.length}`;
+
+    drawOpticalBenchGrid(state.benchW, state.benchH);
+    renderWavefrontField(ctx, state.benchW, state.benchH);
+    drawRays(res.segments);
+    drawNormals(res.normals);
+
+    for (let i = 0; i < state.elements.length; i++) {
+      const el = state.elements[i];
+      drawElement(el, state.selectedId === el.id);
+    }
+    for (let i = 0; i < state.lights.length; i++) {
+      const l = state.lights[i];
+      drawLightSource(l, state.selectedId === l.id, i);
+    }
+    renderScope();
+
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  buildUI();
+  loadPreset('newton_prism');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
