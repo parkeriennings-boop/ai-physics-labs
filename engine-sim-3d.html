@@ -65,6 +65,7 @@
   .btn:hover { background: #202c42; border-color: #36496b; }
   .btn.active { background: rgba(56,189,248,0.18); border-color: var(--accent); color: var(--accent); }
   .btn.danger { background: rgba(248,113,113,0.15); border-color: var(--danger); color: var(--danger); }
+  .btn.unrealistic { background: rgba(244,114,182,0.18); border-color: var(--rotary); color: var(--rotary); box-shadow: 0 0 12px rgba(244,114,182,0.32); }
 
   .stage {
     position: relative; display: grid; grid-template-rows: 1fr 180px;
@@ -214,6 +215,8 @@
         <button class="seg-btn" data-scale="0.2">0.2x</button>
         <button class="seg-btn active" data-scale="1">1x</button>
       </div>
+      <button class="btn" id="unrealisticBtn">Unrealistic: OFF</button>
+      <select class="btn unrealistic hidden" id="unrealisticSizeSel" style="padding: 4px 6px;"><option value="big">Big (×1,000)</option><option value="small">Small (÷1,000)</option></select>
       <button class="btn" id="unitBtn">Metric</button>
       <button class="btn" id="pauseBtn">Pause</button>
       <button class="btn" id="audioBtn">Audio: OFF</button>
@@ -716,11 +719,14 @@
     fanDia: 1.80,
     maxTit: 1650.0,
     afterburner: false,
-    // Audio & Units
+    // Audio, Units & Mode
     exhaustMode: 'sport',
     volume: 0.65,
-    imperial: false
+    imperial: false,
+    unrealistic: false,
+    unrealisticSize: 'big'
   };
+  function isBigUnrealistic() { return build.unrealistic && build.unrealisticSize === 'big'; }
 
   function isPistonMode() { return build.cycleMode !== 'turbofan' && build.cycleMode !== 'rotary'; }
   function isCombustionPiston() { return build.cycleMode === 'ic4' || build.cycleMode === 'ic2' || build.cycleMode === 'diesel'; }
@@ -906,7 +912,8 @@
   function tempFromInternalEnergy(U, m) {
     if (m <= 1e-12) return T_AMB;
     const u = Math.max(1e4, U / m);
-    return Math.max(180, Math.min(4200, (-662.5 + Math.sqrt(662.5 * 662.5 + 0.74 * u)) / 0.37));
+    const maxT = build.unrealistic ? 1e7 : 4200;
+    return Math.max(180, Math.min(maxT, (-662.5 + Math.sqrt(662.5 * 662.5 + 0.74 * u)) / 0.37));
   }
   function internalEnergyFromTemp(m, T) { return m * (662.5 * T + 0.185 * T * T); }
 
@@ -1014,7 +1021,15 @@
   }
 
   function initEngine(resetCamera = true) {
-    const specs = generateCylinderSpecs();
+    let specs = generateCylinderSpecs();
+    const actualN = specs.length;
+    let cylScale = 1.0;
+    if (actualN > 64) {
+      const sampled = [];
+      for (let i = 0; i < 64; i++) sampled.push(specs[Math.floor((i * actualN) / 64)]);
+      specs = sampled;
+      cylScale = actualN / 64;
+    }
     const N = specs.length;
     const pCount = particlesPerCyl(Math.max(1, N));
     ctrl.selectedCyl = Math.max(0, Math.min(ctrl.selectedCyl, Math.max(0, N - 1)));
@@ -1025,6 +1040,7 @@
     const masterMod = is360Cycle() ? 360 : 720;
 
     eng = {
+      cylScale,
       theta: 0.25, omega: 0.0, alpha: 0.0,
       Pman: P_ATM, Tman: tInit, Pboost: P_ATM, Tboost: T_AMB, turboSpool: 0.0,
       Pexh: P_ATM, Texh: T_AMB, mdotThr: 0,
@@ -1153,7 +1169,7 @@
       eng.cycleTorqueSum = 0; eng.cycleSamples = 0;
     }
 
-    const thrFrac = isDiesel ? 1.0 : Math.max(0, Math.min(1, ctrl.throttle));
+    const thrFrac = isDiesel ? 1.0 : Math.max(0, build.unrealistic ? ctrl.throttle : Math.min(1, ctrl.throttle));
     const aThr = maxThrottleArea * (0.0018 + 0.026 * ctrl.idleBypass + 0.972 * Math.pow(thrFrac, 2.2));
     const mdotThr = orificeMassFlow(aThr, eng.Pboost, eng.Tboost, eng.Pman, eng.Tman, 1.4);
     eng.mdotThr = mdotThr;
@@ -1291,18 +1307,25 @@
       if (c.knockTimer > 0) c.knockTimer = Math.max(0, c.knockTimer - dt);
     }
 
-    eng.Pman = Math.max(15000, Math.min(450000, eng.Pman + (R_GAS * eng.Tman / vManifold) * (mdotThr - sumMdotIn) * dt));
+    const cs = eng.cylScale || 1;
+    sumMdotIn *= cs; sumMdotEx *= cs; sumTauGas *= cs; sumIrecip *= cs; sumTauInertial *= cs; sumTauFricPiston *= cs;
+    const maxP = build.unrealistic ? 1e9 : 450000;
+    const maxPex = build.unrealistic ? 1e9 : 360000;
+    eng.Pman = Math.max(15000, Math.min(maxP, eng.Pman + (R_GAS * eng.Tman / vManifold) * (mdotThr - sumMdotIn) * dt));
     const mdotTail = orificeMassFlow(tailpipeArea, eng.Pexh, eng.Texh, P_ATM, T_AMB, 1.33);
-    eng.Pexh = Math.max(85000, Math.min(360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
+    eng.Pexh = Math.max(85000, Math.min(maxPex, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
 
     const tauBearing = (1.1 + 0.40 * N + (0.006 + 0.0024 * N) * Math.abs(eng.omega) + 0.000014 * N * eng.omega * eng.omega) * signW;
     const tauTotalFric = sumTauFricPiston + tauBearing + tauSupercharger * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.045 * Math.abs(eng.omega) + 0.00014 * eng.omega * eng.omega)) * signW : 0;
 
-    let tauStarter = 0;
-    if (ctrl.starter && eng.omega < 68.0) tauStarter = starterStall * (1.0 - Math.max(-0.5, eng.omega) / 68.0);
-
     const I_eff = build.I_flywheel + sumIrecip;
+    let tauStarter = 0;
+    if (ctrl.starter && eng.omega < 68.0) {
+      tauStarter = isBigUnrealistic()
+        ? (Math.max(0, 68.0 - eng.omega) * I_eff * 20.0 + Math.abs(tauTotalFric) + Math.abs(tauLoad) + Math.abs(sumTauGas) + Math.abs(sumTauInertial) + 1e6)
+        : starterStall * (1.0 - Math.max(-0.5, eng.omega) / 68.0);
+    }
     const tauNet = sumTauGas + sumTauInertial + tauStarter - tauTotalFric - tauLoad;
     eng.alpha = tauNet / I_eff;
     eng.omega += eng.alpha * dt;
@@ -1439,16 +1462,22 @@
       if (c.knockTimer > 0) c.knockTimer = Math.max(0, c.knockTimer - dt);
     }
 
+    const cs = eng.cylScale || 1;
+    sumMdotIn *= cs; sumMdotEx *= cs; sumTauGas *= cs; sumIrecip *= cs; sumTauInertial *= cs; sumTauFricPiston *= cs;
     eng.mdotThr = Math.max(0, sumMdotIn);
     const mdotTail = orificeMassFlow(tailpipeArea, eng.Pexh, eng.Texh, P_ATM, T_AMB, 1.33);
-    eng.Pexh = Math.max(85000, Math.min(360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
+    eng.Pexh = Math.max(85000, Math.min(build.unrealistic ? 1e9 : 360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
 
     const tauBearing = (0.9 + 0.35 * N + (0.005 + 0.002 * N) * Math.abs(eng.omega) + 0.000014 * N * eng.omega * eng.omega) * signW;
     const tauTotalFric = sumTauFricPiston + tauBearing + tauSupercharger * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.055 * Math.abs(eng.omega) + 0.00018 * eng.omega * eng.omega)) * signW : 0;
-    let tauStarter = (ctrl.starter && eng.omega < 68.0) ? starterStall * (1.0 - Math.max(-0.5, eng.omega) / 68.0) : 0;
-
     const I_eff = build.I_flywheel + sumIrecip;
+    let tauStarter = 0;
+    if (ctrl.starter && eng.omega < 68.0) {
+      tauStarter = isBigUnrealistic()
+        ? (Math.max(0, 68.0 - eng.omega) * I_eff * 20.0 + Math.abs(tauTotalFric) + Math.abs(tauLoad) + Math.abs(sumTauGas) + Math.abs(sumTauInertial) + 1e6)
+        : starterStall * (1.0 - Math.max(-0.5, eng.omega) / 68.0);
+    }
     const tauNet = sumTauGas + sumTauInertial + tauStarter - tauTotalFric - tauLoad;
     eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
     eng.instTauGas = sumTauGas; eng.instTauInert = sumTauInertial; eng.instTauFric = tauTotalFric; eng.instTauNet = tauNet; eng.instIeff = I_eff;
@@ -1579,16 +1608,21 @@
       if (c.knockTimer > 0) c.knockTimer = Math.max(0, c.knockTimer - dt);
     }
 
-    eng.Pman = Math.max(15000, Math.min(420000, eng.Pman + (R_GAS * eng.Tman / (0.0018 * dispScale)) * (mdotThr - sumMdotIn) * dt));
+    const cs = eng.cylScale || 1;
+    sumMdotIn *= cs; sumMdotEx *= cs; sumTauGas *= cs;
+    eng.Pman = Math.max(15000, Math.min(build.unrealistic ? 1e9 : 420000, eng.Pman + (R_GAS * eng.Tman / (0.0018 * dispScale)) * (mdotThr - sumMdotIn) * dt));
     const mdotTail = orificeMassFlow(tailpipeArea, eng.Pexh, eng.Texh, P_ATM, T_AMB, 1.33);
-    eng.Pexh = Math.max(85000, Math.min(360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
+    eng.Pexh = Math.max(85000, Math.min(build.unrealistic ? 1e9 : 360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
 
     const tauFric = (1.1 * N + 0.0045 * N * Math.abs(eng.omega) + 0.000010 * N * eng.omega * eng.omega) * signW + tauSC * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.055 * Math.abs(eng.omega) + 0.00016 * eng.omega * eng.omega)) * signW : 0;
-    const tauStarter = (ctrl.starter && eng.omega < 75) ? (95.0 * dispScale * (1 - eng.omega / 75)) : 0;
-
     // Zero reciprocating mass -> pure rotational inertia I_eff (rotaries rev like crazy!)
     const I_eff = 0.014 + 0.006 * N;
+    const tauStarter = (ctrl.starter && eng.omega < 75)
+      ? (isBigUnrealistic()
+        ? (Math.max(0, 75 - eng.omega) * I_eff * 20.0 + Math.abs(tauFric) + Math.abs(tauLoad) + Math.abs(sumTauGas) + 1e6)
+        : (95.0 * dispScale * (1 - eng.omega / 75)))
+      : 0;
     const tauNet = sumTauGas + tauStarter - tauFric - tauLoad;
     eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
     eng.instTauGas = sumTauGas; eng.instTauInert = 0; eng.instTauFric = tauFric; eng.instTauNet = tauNet; eng.instIeff = I_eff;
@@ -1687,8 +1721,13 @@
     const tauBearing = (1.0 + 0.35 * N + (0.008 + 0.003 * N) * Math.abs(eng.omega) + 0.00003 * N * eng.omega * eng.omega) * signW;
     const tauTotalFric = sumTauFricPiston + tauBearing;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.07 * Math.abs(eng.omega) + 0.00025 * eng.omega * eng.omega)) * signW : 0;
-    const tauStarter = ctrl.starter ? ((build.cutoff >= 0 ? 1 : -1) * 85.0 * Math.pow(dispScale, 0.55)) : 0;
     const I_eff = build.I_flywheel + sumIrecip;
+    const dirS = build.cutoff >= 0 ? 1 : -1;
+    const tauStarter = ctrl.starter
+      ? (isBigUnrealistic()
+        ? dirS * (I_eff * 500.0 + Math.abs(tauTotalFric) + Math.abs(tauLoad) + Math.abs(sumTauGas) + Math.abs(sumTauInertial) + 1e6)
+        : (dirS * 85.0 * Math.pow(dispScale, 0.55)))
+      : 0;
     const tauNet = sumTauGas + sumTauInertial + tauStarter - tauTotalFric - tauLoad;
     eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
     eng.instTauGas = sumTauGas; eng.instTauInert = sumTauInertial; eng.instTauFric = tauTotalFric; eng.instTauNet = tauNet; eng.instIeff = I_eff;
@@ -1729,7 +1768,11 @@
     const signW = Math.tanh(eng.omega * 0.6);
     const tauFric = (0.45 + 0.012 * gas.visc * Math.abs(eng.omega) + 0.00004 * gas.visc * eng.omega * eng.omega) * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * (0.08 * Math.abs(eng.omega) + 0.0004 * eng.omega * eng.omega)) * signW : 0;
-    const tauStarter = (ctrl.starter && eng.omega < 55) ? 45.0 * (1 - eng.omega / 55) : 0;
+    const tauStarter = (ctrl.starter && eng.omega < 55)
+      ? (isBigUnrealistic()
+        ? (Math.max(0, 55 - eng.omega) * I_eff * 20.0 + Math.abs(tauFric) + Math.abs(tauLoad) + Math.abs(tauGas) + Math.abs(tauInertial) + 1e6)
+        : 45.0 * (1 - eng.omega / 55))
+      : 0;
 
     const tauNet = tauGas + tauInertial + tauStarter - tauFric - tauLoad;
     eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
@@ -1798,7 +1841,11 @@
     const T3_des = T25_des * (1.0 + (Math.pow(designCorePR, (gAir - 1) / gAir) - 1.0) / etaC);
     const designTauHPC = (rhoAmb * coreArea * 175.0 * cpAir * (T3_des - T25_des)) / maxOmegaN2;
     const tauHPT = lit ? (designTauHPC * (0.20 + 0.95 * fuelSched) * Math.max(0.15, (T4 - T3) / Math.max(200, build.maxTit - T3)) * (1.35 - 0.35 * n2)) : 0;
-    const tauStarterN2 = (ctrl.starter && n2 < 0.25) ? (designTauHPC * 0.45 * (1 - n2 / 0.25)) : 0;
+    const tauStarterN2 = (ctrl.starter && n2 < (isBigUnrealistic() ? 0.45 : 0.25))
+      ? (isBigUnrealistic()
+        ? (I_N2 * 500.0 + tauHPC + tauFric2 + 1e6)
+        : (designTauHPC * 0.45 * (1 - n2 / 0.25)))
+      : 0;
     const tauFric2 = designTauHPC * (0.04 * n2 + 0.12 * n2 * n2);
 
     j.tauCoreNet = tauHPT + tauStarterN2 - tauHPC - tauFric2;
@@ -2032,8 +2079,8 @@
   viewport.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const perspCam = new THREE.PerspectiveCamera(40, 1, 0.02, 40);
-  const orthoCam = new THREE.OrthographicCamera(-0.25, 0.25, 0.25, -0.25, 0.02, 40);
+  const perspCam = new THREE.PerspectiveCamera(40, 1, 0.02, 50000);
+  const orthoCam = new THREE.OrthographicCamera(-0.25, 0.25, 0.25, -0.25, 0.02, 50000);
   let activeCam = perspCam, isOrtho = false;
   const camState = { yaw: 0.65, pitch: 0.24, dist: 0.60, target: new THREE.Vector3(0, 0.10, 0), orthoZoom: 0.22 };
 
@@ -2583,8 +2630,12 @@
   viewport.addEventListener('contextmenu', e => e.preventDefault());
   viewport.addEventListener('wheel', (e) => {
     e.preventDefault(); const f = Math.exp(e.deltaY * 0.0011);
-    if (isOrtho) camState.orthoZoom = Math.max(0.08, Math.min(4.5, camState.orthoZoom * f));
-    else camState.dist = Math.max(0.24, Math.min(12.0, camState.dist * f));
+    const maxDist = build.unrealistic ? 25000 : 12.0;
+    const maxOrtho = build.unrealistic ? 10000 : 4.5;
+    const minDist = build.unrealistic ? 0.001 : 0.24;
+    const minOrtho = build.unrealistic ? 0.001 : 0.08;
+    if (isOrtho) camState.orthoZoom = Math.max(minOrtho, Math.min(maxOrtho, camState.orthoZoom * f));
+    else camState.dist = Math.max(minDist, Math.min(maxDist, camState.dist * f));
     updateCameraTransform();
   }, { passive: false });
 
@@ -2747,6 +2798,7 @@
   function fmtDeltaT(dk) { return build.imperial ? `${Math.round(dk * 9 / 5)} °F` : `${Math.round(dk)} K`; }
   function fmtTrq(nm) { return build.imperial ? `${(nm * 0.73756).toFixed(1)} lb·ft` : `${nm.toFixed(1)} N·m`; }
   function fmtThrust(n) { return build.imperial ? `${Math.round(n * 0.22481)} lbf` : `${(n / 1000).toFixed(1)} kN`; }
+  function fmtMm(v) { return v < 1 ? v.toFixed(3) : (v < 10 ? v.toFixed(1) : Math.round(v)); }
   function fmtDisp(cc) {
     if (build.imperial) return `${(cc / 16.3871).toFixed(1)} ci`;
     return cc >= 1000 ? `${(cc / 1000).toFixed(2)} L` : `${Math.round(cc)} cc`;
@@ -2770,7 +2822,7 @@
     document.getElementById('spLbl2').textContent = mode === 'rotary' ? 'Rotors' : 'Cylinders';
     document.getElementById('spCyls').textContent = mode === 'rotary' ? `${N}-Rotor` : (mode === 'stirling' ? 'Alpha 2-Cyl' : (build.layout === 'radial' ? `${build.numCyl}×${build.radialRows} (${N})` : `${N} Cyl`));
     document.getElementById('spLbl3').textContent = mode === 'rotary' ? 'Porting' : 'Bore / Stroke';
-    document.getElementById('spRatio').textContent = mode === 'rotary' ? PORTING_NAMES[build.porting] : (build.bore / build.stroke).toFixed(2);
+    document.getElementById('spRatio').textContent = mode === 'rotary' ? (PORTING_NAMES[build.porting] || `Port Lv.${build.porting}`) : (build.bore / build.stroke).toFixed(2);
 
     const modeNames = { ic4: '4S GAS', ic2: '2S GAS', diesel: 'DIESEL', rotary: 'WANKEL', steam: 'STEAM', stirling: 'STIRLING' };
     const invTxt = (build.inverted && (build.layout === 'inline' || build.layout === 'v' || build.layout === 'u')) ? ' INV' : '';
@@ -2793,6 +2845,9 @@
   }
 
   function syncAllControls() {
+    const sizeSel = document.getElementById('unrealisticSizeSel');
+    sizeSel.classList.toggle('hidden', !build.unrealistic);
+    sizeSel.value = build.unrealisticSize;
     const mode = build.cycleMode, isJet = mode === 'turbofan', isRotary = mode === 'rotary', isStirling = mode === 'stirling', isSteam = mode === 'steam';
     const isIC4 = mode === 'ic4', isIC2 = mode === 'ic2', isDiesel = mode === 'diesel', L = build.layout;
 
@@ -2819,7 +2874,7 @@
     ignBtnEl.classList.toggle('hidden', isSteam || isStirling);
     ignBtnEl.classList.toggle('on', ctrl.ignition);
     ignBtnEl.textContent = isJet ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGNITION: ON' : 'IGNITION: OFF');
-    document.getElementById('starterBtn').textContent = isJet ? 'HOLD TO SPOOL (APU)' : (isSteam || isStirling ? 'NUDGE FLYWHEEL' : 'HOLD TO CRANK');
+    document.getElementById('starterBtn').textContent = (isJet ? 'HOLD TO SPOOL (APU)' : (isSteam || isStirling ? 'NUDGE FLYWHEEL' : 'HOLD TO CRANK')) + (isBigUnrealistic() ? ' (∞ TORQUE)' : '');
     document.getElementById('lblThrottle').textContent = isJet ? 'Thrust Lever' : (isSteam ? 'Steam Regulator' : (isStirling ? 'Burner Heat' : (isDiesel ? 'Fuel Pedal' : 'Throttle')));
     document.getElementById('lblIdleMain').textContent = isJet ? 'Ground Idle Trim' : (isDiesel ? 'Idle Fuel Trim' : 'Idle Speed / Air Bypass');
 
@@ -2832,12 +2887,13 @@
     }
 
     const slCyl = document.getElementById('slCylCount');
-    if (L === 'radial') { slCyl.min = 3; slCyl.max = 18; slCyl.step = 1; build.numCyl = Math.max(3, Math.min(18, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = 'Cylinders per Row (3–18)'; }
-    else if (L === 'v' || L === 'boxer' || L === 'u') { slCyl.min = 2; slCyl.max = 30; slCyl.step = 2; build.numCyl = Math.max(2, Math.min(30, Math.round(build.numCyl / 2) * 2)); document.getElementById('lblCylSlider').textContent = 'Cylinders (2–30)'; }
-    else if (L === 'vr') { slCyl.min = 4; slCyl.max = 30; slCyl.step = 1; build.numCyl = Math.max(4, Math.min(30, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = 'Cylinders (4–30)'; }
-    else if (L === 'w') { slCyl.min = 3; slCyl.max = 30; slCyl.step = 3; build.numCyl = Math.max(3, Math.min(30, Math.round(build.numCyl / 3) * 3)); document.getElementById('lblCylSlider').textContent = 'Cylinders (3–30, 3-Bank)'; }
-    else if (L === 'x' || L === 'h') { slCyl.min = 4; slCyl.max = 28; slCyl.step = 4; build.numCyl = Math.max(4, Math.min(28, Math.round(build.numCyl / 4) * 4)); document.getElementById('lblCylSlider').textContent = 'Cylinders (4–28, 4-Bank)'; }
-    else { slCyl.min = 1; slCyl.max = 30; slCyl.step = 1; build.numCyl = Math.max(1, Math.min(30, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = 'Cylinders (1–30)'; }
+    const cylMult = isBigUnrealistic() ? 1000 : 1;
+    if (L === 'radial') { slCyl.dataset.normMin = 3; slCyl.dataset.normMax = 18; slCyl.dataset.normStep = 1; slCyl.min = 3; slCyl.max = 18 * cylMult; slCyl.step = 1; build.numCyl = Math.max(3, Math.min(18 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders per Row (3–${18 * cylMult})`; }
+    else if (L === 'v' || L === 'boxer' || L === 'u') { slCyl.dataset.normMin = 2; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 2; slCyl.min = 2; slCyl.max = 30 * cylMult; slCyl.step = 2; build.numCyl = Math.max(2, Math.min(30 * cylMult, Math.round(build.numCyl / 2) * 2)); document.getElementById('lblCylSlider').textContent = `Cylinders (2–${30 * cylMult})`; }
+    else if (L === 'vr') { slCyl.dataset.normMin = 4; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 1; slCyl.min = 4; slCyl.max = 30 * cylMult; slCyl.step = 1; build.numCyl = Math.max(4, Math.min(30 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders (4–${30 * cylMult})`; }
+    else if (L === 'w') { slCyl.dataset.normMin = 3; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 3; slCyl.min = 3; slCyl.max = 30 * cylMult; slCyl.step = 3; build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(build.numCyl / 3) * 3)); document.getElementById('lblCylSlider').textContent = `Cylinders (3–${30 * cylMult}, 3-Bank)`; }
+    else if (L === 'x' || L === 'h') { slCyl.dataset.normMin = 4; slCyl.dataset.normMax = 28; slCyl.dataset.normStep = 4; slCyl.min = 4; slCyl.max = 28 * cylMult; slCyl.step = 4; build.numCyl = Math.max(4, Math.min(28 * cylMult, Math.round(build.numCyl / 4) * 4)); document.getElementById('lblCylSlider').textContent = `Cylinders (4–${28 * cylMult}, 4-Bank)`; }
+    else { slCyl.dataset.normMin = 1; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 1; slCyl.min = 1; slCyl.max = 30 * cylMult; slCyl.step = 1; build.numCyl = Math.max(1, Math.min(30 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders (1–${30 * cylMult})`; }
     slCyl.value = build.numCyl;
     document.getElementById('valCylCount').textContent = L === 'radial' ? `${build.numCyl}/row` : `${build.numCyl} Cyl`;
     document.getElementById('rowRadialRows').classList.toggle('hidden', L !== 'radial');
@@ -2872,8 +2928,38 @@
     document.querySelectorAll('#abChoices .choice-btn').forEach(b => b.classList.toggle('active', (b.dataset.ab === '1') === build.afterburner));
     document.querySelectorAll('#exhaustChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.exh === build.exhaustMode));
 
-    document.getElementById('slBore').value = Math.round(build.bore * 1000); document.getElementById('valBore').textContent = `${Math.round(build.bore * 1000)} mm`;
-    document.getElementById('slStroke').value = Math.round(build.stroke * 1000); document.getElementById('valStroke').textContent = `${Math.round(build.stroke * 1000)} mm`;
+    const INT_SLIDERS = new Set(['slCylCount', 'slRadialRows', 'slRotors', 'slPorting']);
+    const SAFE_ONE_SLIDERS = new Set(['slCr', 'slOpr']);
+    document.querySelectorAll('input[type="range"]').forEach(sl => {
+      if (sl.dataset.normMin === undefined) {
+        sl.dataset.normMin = sl.min;
+        sl.dataset.normMax = sl.max;
+        sl.dataset.normStep = sl.step;
+      }
+      const nMin = parseFloat(sl.dataset.normMin);
+      const nMax = parseFloat(sl.dataset.normMax);
+      const nStep = sl.dataset.normStep;
+      if (build.unrealistic) {
+        if (build.unrealisticSize === 'big') {
+          sl.min = nMin;
+          sl.max = nMax * 1000;
+          sl.step = INT_SLIDERS.has(sl.id) ? nStep : 'any';
+        } else {
+          sl.min = INT_SLIDERS.has(sl.id) ? nMin : (SAFE_ONE_SLIDERS.has(sl.id) ? 1.001 : (nMin < 0 ? nMin * 1000 : (nMin === 0 ? 0 : nMin / 1000)));
+          sl.max = nMax;
+          sl.step = INT_SLIDERS.has(sl.id) ? nStep : 'any';
+        }
+      } else {
+        sl.min = nMin;
+        sl.max = nMax;
+        sl.step = nStep;
+      }
+    });
+
+    const boreMm = build.bore * 1000;
+    document.getElementById('slBore').value = boreMm; document.getElementById('valBore').textContent = `${fmtMm(boreMm)} mm`;
+    const strokeMm = build.stroke * 1000;
+    document.getElementById('slStroke').value = strokeMm; document.getElementById('valStroke').textContent = `${fmtMm(strokeMm)} mm`;
     document.getElementById('slRodRatio').value = build.rodRatio; document.getElementById('valRodRatio').textContent = build.rodRatio.toFixed(2);
     document.getElementById('slCr').value = build.cr; document.getElementById('valCr').textContent = `${build.cr.toFixed(1)} : 1`;
     document.getElementById('slMassScale').value = Math.round(build.massScale * 100); document.getElementById('valMassScale').textContent = `${Math.round(build.massScale * 100)}%`;
@@ -2881,15 +2967,18 @@
 
     document.getElementById('slCamDur').value = build.camDuration; document.getElementById('valCamDur').textContent = `${Math.round(build.camDuration)}°`;
     document.getElementById('slLsa').value = build.lsa; document.getElementById('valLsa').textContent = `${Math.round(build.lsa)}°`;
-    document.getElementById('slLift').value = (build.maxLiftIn * 1000).toFixed(1); document.getElementById('valLift').textContent = `${(build.maxLiftIn * 1000).toFixed(1)} mm`;
+    const liftMm = build.maxLiftIn * 1000;
+    document.getElementById('slLift').value = liftMm; document.getElementById('valLift').textContent = `${fmtMm(liftMm)} mm`;
     document.getElementById('slBoost').value = build.targetBoost; document.getElementById('valBoost').textContent = fmtP(build.targetBoost * 1e5);
     document.getElementById('slTbScale').value = Math.round(build.tbScale * 100); document.getElementById('valTbScale').textContent = `${Math.round(build.tbScale * 100)}%`;
     document.getElementById('slVol').value = Math.round(build.volume * 100); document.getElementById('valVol').textContent = `${Math.round(build.volume * 100)}%`;
 
     document.getElementById('slRotors').value = build.rotors; document.getElementById('valRotors').textContent = `${build.rotors} Rotor${build.rotors>1?'s':''}`;
-    document.getElementById('slRotorR').value = Math.round(build.rotorR * 1000); document.getElementById('valRotorR').textContent = `${Math.round(build.rotorR * 1000)} mm`;
-    document.getElementById('slRotorW').value = Math.round(build.rotorW * 1000); document.getElementById('valRotorW').textContent = `${Math.round(build.rotorW * 1000)} mm`;
-    document.getElementById('slPorting').value = build.porting; document.getElementById('valPorting').textContent = PORTING_NAMES[build.porting];
+    const rotorRMm = build.rotorR * 1000;
+    document.getElementById('slRotorR').value = rotorRMm; document.getElementById('valRotorR').textContent = `${fmtMm(rotorRMm)} mm`;
+    const rotorWMm = build.rotorW * 1000;
+    document.getElementById('slRotorW').value = rotorWMm; document.getElementById('valRotorW').textContent = `${fmtMm(rotorWMm)} mm`;
+    document.getElementById('slPorting').value = build.porting; document.getElementById('valPorting').textContent = PORTING_NAMES[build.porting] || `Port Lv.${build.porting}`;
 
     document.getElementById('slBoilerP').value = build.boilerBar; document.getElementById('valBoilerP').textContent = fmtP(build.boilerBar * 1e5);
     document.getElementById('slSuperheat').value = build.superheatK; document.getElementById('valSuperheat').textContent = `+${fmtDeltaT(build.superheatK)}`;
@@ -3023,6 +3112,68 @@
   }
 
   // Event wiring
+  function clampToActiveRanges() {
+    const isU = build.unrealistic, isBig = isBigUnrealistic(), isSmall = isU && !isBig;
+    const cl = (v, lo, hi) => {
+      const a = isSmall ? (lo < 0 ? lo * 1000 : (lo === 0 ? 0 : lo / 1000)) : lo;
+      const b = isBig ? hi * 1000 : hi;
+      return Math.max(a, Math.min(b, v));
+    };
+    const clInt = (v, lo, hi) => Math.max(lo, Math.min(isBig ? hi * 1000 : hi, v));
+    const clSafeOne = (v, lo, hi) => Math.max(isSmall ? 1.001 : lo, Math.min(isBig ? hi * 1000 : hi, v));
+    build.radialRows = clInt(build.radialRows, 1, 7);
+    build.vAngle = cl(build.vAngle, 15, 120);
+    build.bore = cl(build.bore, 0.055, 0.140);
+    build.stroke = cl(build.stroke, 0.042, 0.140);
+    build.rodRatio = cl(build.rodRatio, 2.50, 4.50);
+    build.cr = clSafeOne(build.cr, 6.5, 24.0);
+    build.massScale = cl(build.massScale, 0.55, 1.70);
+    build.I_flywheel = cl(build.I_flywheel, 0.008, 0.400);
+    build.camDuration = cl(build.camDuration, 190, 310);
+    build.lsa = cl(build.lsa, 96, 120);
+    build.maxLiftIn = cl(build.maxLiftIn, 0.0055, 0.0165);
+    build.maxLiftEx = build.maxLiftIn * 0.93;
+    build.vtecRpm = cl(build.vtecRpm, 2500, 8500);
+    build.targetBoost = cl(build.targetBoost, 0.20, 2.80);
+    build.tbScale = cl(build.tbScale, 0.50, 1.60);
+    build.rotors = clInt(build.rotors, 1, 6);
+    build.rotorR = cl(build.rotorR, 0.075, 0.135);
+    build.rotorW = cl(build.rotorW, 0.050, 0.110);
+    build.porting = clInt(build.porting, 1, 4);
+    build.boilerBar = cl(build.boilerBar, 2.0, 45.0);
+    build.superheatK = cl(build.superheatK, 0, 260);
+    build.cutoff = cl(build.cutoff, -0.85, 0.85);
+    build.condenserBar = cl(build.condenserBar, 0.15, 1.20);
+    build.tHot = cl(build.tHot, 320, 1250);
+    build.tCold = cl(build.tCold, 220, 400);
+    build.sChargeBar = cl(build.sChargeBar, 1.0, 40.0);
+    build.sRegen = cl(build.sRegen, 0.10, 0.96);
+    build.bpr = cl(build.bpr, 0.0, 12.0);
+    build.opr = clSafeOne(build.opr, 5, 45);
+    build.fanDia = cl(build.fanDia, 0.50, 3.20);
+    build.maxTit = cl(build.maxTit, 1100, 2000);
+    build.volume = cl(build.volume, 0, 1.0);
+    ctrl.throttle = cl(ctrl.throttle, 0, 1.0);
+    ctrl.load = cl(ctrl.load, 0, 1.0);
+    ctrl.idleBypass = cl(ctrl.idleBypass, 0, 0.65);
+    ctrl.sparkAdvance = cl(ctrl.sparkAdvance, -10, 50);
+    ctrl.lambdaTarget = cl(ctrl.lambdaTarget, 0.62, 1.55);
+    ctrl.revLimiter = cl(ctrl.revLimiter, 1500, 15000);
+  }
+  document.getElementById('unrealisticBtn').addEventListener('click', (e) => {
+    build.unrealistic = !build.unrealistic;
+    e.target.textContent = build.unrealistic ? 'Unrealistic: ON' : 'Unrealistic: OFF';
+    e.target.classList.toggle('unrealistic', build.unrealistic);
+    clampToActiveRanges();
+    syncAllControls();
+    initEngine(false);
+  });
+  document.getElementById('unrealisticSizeSel').addEventListener('change', (e) => {
+    build.unrealisticSize = e.target.value;
+    clampToActiveRanges();
+    syncAllControls();
+    initEngine(false);
+  });
   document.getElementById('unitBtn').addEventListener('click', (e) => {
     build.imperial = !build.imperial;
     e.target.textContent = build.imperial ? 'Imperial' : 'Metric';
@@ -3120,24 +3271,24 @@
     sl.addEventListener('input', () => { const v = parseFloat(sl.value); fn(v); vl.textContent = fmt(v); });
   }
   bindSlider('slVAngle', 'valVAngle', v => { build.vAngle = v; initEngine(false); }, v => `${v.toFixed(0)}°`);
-  bindSlider('slBore', 'valBore', v => { build.bore = v / 1000; onGeometryChanged(); }, v => `${v.toFixed(0)} mm`);
-  bindSlider('slStroke', 'valStroke', v => { build.stroke = v / 1000; onGeometryChanged(); }, v => `${v.toFixed(0)} mm`);
+  bindSlider('slBore', 'valBore', v => { build.bore = v / 1000; onGeometryChanged(); }, v => `${fmtMm(v)} mm`);
+  bindSlider('slStroke', 'valStroke', v => { build.stroke = v / 1000; onGeometryChanged(); }, v => `${fmtMm(v)} mm`);
   bindSlider('slRodRatio', 'valRodRatio', v => { build.rodRatio = v; onGeometryChanged(); }, v => v.toFixed(2));
   bindSlider('slCr', 'valCr', v => { build.cr = v; onGeometryChanged(); }, v => `${v.toFixed(1)} : 1`);
   bindSlider('slMassScale', 'valMassScale', v => { build.massScale = v / 100; updateSpecDisplay(); }, v => `${v.toFixed(0)}%`);
   bindSlider('slInertia', 'valInertia', v => { build.I_flywheel = v; }, v => `${v.toFixed(3)} kg·m²`);
   bindSlider('slCamDur', 'valCamDur', v => { build.camDuration = v; }, v => `${v.toFixed(0)}°`);
   bindSlider('slLsa', 'valLsa', v => { build.lsa = v; }, v => `${v.toFixed(0)}°`);
-  bindSlider('slLift', 'valLift', v => { build.maxLiftIn = v / 1000; build.maxLiftEx = (v * 0.93) / 1000; }, v => `${v.toFixed(1)} mm`);
+  bindSlider('slLift', 'valLift', v => { build.maxLiftIn = v / 1000; build.maxLiftEx = (v * 0.93) / 1000; }, v => `${fmtMm(v)} mm`);
   bindSlider('slVtecRpm', 'valVtecRpm', v => { build.vtecRpm = v; }, v => `${v.toFixed(0)} RPM`);
   bindSlider('slBoost', 'valBoost', v => { build.targetBoost = v; }, v => fmtP(v * 1e5));
   bindSlider('slTbScale', 'valTbScale', v => { build.tbScale = v / 100; }, v => `${v.toFixed(0)}%`);
   bindSlider('slVol', 'valVol', v => { build.volume = v / 100; }, v => `${v.toFixed(0)}%`);
 
   bindSlider('slRotors', 'valRotors', v => { build.rotors = v; initEngine(true); }, v => `${v} Rotor${v>1?'s':''}`);
-  bindSlider('slRotorR', 'valRotorR', v => { build.rotorR = v / 1000; onGeometryChanged(); }, v => `${v} mm`);
-  bindSlider('slRotorW', 'valRotorW', v => { build.rotorW = v / 1000; onGeometryChanged(); }, v => `${v} mm`);
-  bindSlider('slPorting', 'valPorting', v => { build.porting = v; updateSpecDisplay(); }, v => PORTING_NAMES[v]);
+  bindSlider('slRotorR', 'valRotorR', v => { build.rotorR = v / 1000; onGeometryChanged(); }, v => `${fmtMm(v)} mm`);
+  bindSlider('slRotorW', 'valRotorW', v => { build.rotorW = v / 1000; onGeometryChanged(); }, v => `${fmtMm(v)} mm`);
+  bindSlider('slPorting', 'valPorting', v => { build.porting = v; updateSpecDisplay(); }, v => PORTING_NAMES[v] || `Port Lv.${v}`);
 
   bindSlider('slBoilerP', 'valBoilerP', v => { build.boilerBar = v; }, v => fmtP(v * 1e5));
   bindSlider('slSuperheat', 'valSuperheat', v => { build.superheatK = v; }, v => `+${fmtDeltaT(v)}`);
