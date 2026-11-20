@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WaveLab — 2D Wave Equation, Interference &amp; Phased-Array ML</title>
+<style>
+  :root {
+    --bg: #050814;
+    --glass: rgba(12, 18, 36, 0.68);
+    --glass-strong: rgba(8, 13, 28, 0.88);
+    --card: rgba(56, 189, 248, 0.06);
+    --card-hover: rgba(56, 189, 248, 0.14);
+    --border: rgba(56, 189, 248, 0.24);
+    --text: #f0f9ff;
+    --muted: #94a3b8;
+    --cyan: #38bdf8;
+    --violet: #a855f7;
+    --emerald: #34d399;
+    --amber: #facc15;
+    --rose: #fb7185;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 999px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Inter, sans-serif;
+    background: radial-gradient(circle at 15% 15%, rgba(56,189,248,0.18), transparent 42%),
+                radial-gradient(circle at 85% 85%, rgba(168,85,247,0.18), transparent 44%), var(--bg);
+    color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; user-select: none;
+  }
+  header {
+    height: 54px; background: var(--glass-strong); backdrop-filter: blur(22px);
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; gap: 8px; flex-shrink: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 16px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(56,189,248,0.16); color: #7dd3fc; border: 1px solid rgba(56,189,248,0.42); }
+  .header-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .btn, select {
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    font-weight: 600; font-size: 12px; padding: 6px 10px; border-radius: 10px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; transition: all 0.13s;
+  }
+  select { background: rgba(10,16,32,0.92); }
+  .btn:hover { border-color: var(--cyan); background: var(--card-hover); }
+  .btn.primary { background: linear-gradient(135deg, #38bdf8, #818cf8); color: #04101d; border-color: rgba(255,255,255,0.35); font-weight: 800; }
+  .btn.active { background: linear-gradient(135deg, rgba(56,189,248,0.35), rgba(168,85,247,0.35)); border-color: var(--cyan); color: #fff; box-shadow: 0 0 12px rgba(56,189,248,0.3); }
+  .btn.emerald { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.45); color: #86efac; }
+  .btn.rose { background: rgba(251,113,133,0.18); border-color: rgba(251,113,133,0.45); color: #fda4af; }
+
+  main { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+  .sidebar {
+    width: 300px; background: var(--glass-strong); border-right: 1px solid var(--border);
+    padding: 11px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-shrink: 0;
+  }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; }
+  .panel-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: #7dd3fc; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tool-btn {
+    border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--text);
+    border-radius: 10px; padding: 7px 8px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: all 0.12s; text-align: left;
+  }
+  .tool-btn:hover { border-color: var(--cyan); background: var(--card-hover); }
+  .tool-btn.active { border: 2px solid var(--cyan); background: rgba(56,189,248,0.22); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+
+  .slider-row { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; margin-top: 7px; }
+  .slider-row .top { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; }
+  .slider-row input[type=range] { width: 100%; accent-color: var(--cyan); cursor: pointer; }
+
+  .stage { flex: 1; position: relative; min-width: 0; min-height: 0; background: #030611; }
+  canvas#waveCanvas { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  .hud-top {
+    position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap;
+  }
+  .hud-pill {
+    background: rgba(8,13,28,0.78); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 12px; padding: 6px 11px; font-size: 11.5px; display: flex; gap: 11px; align-items: center;
+  }
+  .hud-pill strong { color: var(--cyan); }
+  .hud-legend {
+    position: absolute; bottom: 10px; left: 10px;
+    background: rgba(8,13,28,0.74); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px; padding: 5px 10px; font-size: 11px; color: var(--muted); pointer-events: none;
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+
+  .right-panel {
+    width: 310px; background: var(--glass-strong); border-left: 1px solid var(--border);
+    padding: 11px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-shrink: 0;
+  }
+  .stat-row { display: flex; justify-content: space-between; font-size: 12px; padding: 2.5px 0; }
+  .stat-row span:first-child { color: var(--muted); }
+  .stat-row span:last-child { font-weight: 700; }
+  canvas.mini-viz { width: 100%; height: 95px; background: rgba(4,8,18,0.85); border: 1px solid var(--border); border-radius: 10px; display: block; }
+  .emitter-list { display: flex; flex-direction: column; gap: 6px; max-height: 195px; overflow-y: auto; }
+  .em-item { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 9px; padding: 7px 8px; font-size: 11px; }
+  .em-item input[type=range] { width: 100%; accent-color: var(--amber); margin-top: 3px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(8,13,28,0.94); border: 1px solid var(--cyan); color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 99; }
+  .toast.show { opacity: 1; }
+
+  .tut-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5,8,20,0.8); backdrop-filter: blur(12px); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
+  .tut-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
+  .tut-card { width: 100%; max-width: 560px; border-radius: 20px; background: rgba(10,16,32,0.96); border: 1px solid var(--border); padding: 22px; box-shadow: 0 24px 60px rgba(0,0,0,0.65); }
+  .tut-card h2 { font-size: 20px; margin-bottom: 8px; color: var(--cyan); }
+  .tut-card p { font-size: 13.5px; color: #cbd5e1; line-height: 1.55; margin-bottom: 12px; }
+  .tut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .tut-tile { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 12px; color: #cbd5e1; line-height: 1.45; }
+  .tut-tile strong { color: #fff; display: block; margin-bottom: 3px; }
+
+  body.mobile-mode { height: auto; min-height: 100dvh; overflow-y: auto; }
+  body.mobile-mode header { height: auto; flex-wrap: wrap; padding: 8px 10px; }
+  body.mobile-mode main { flex-direction: column; overflow: visible; }
+  body.mobile-mode .stage { height: 55dvh; min-height: 320px; order: 1; }
+  body.mobile-mode .sidebar, body.mobile-mode .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; }
+  @media (max-width: 960px) {
+    body { height: auto; min-height: 100dvh; overflow-y: auto; }
+    main { flex-direction: column; overflow: visible; }
+    .stage { height: 55dvh; min-height: 320px; order: 1; }
+    .sidebar, .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span>🔊 WaveLab</span>
+    <span class="badge">2D FDTD Wave Physics • Phased-Array ML</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn primary" id="btnPlay">⏸ Pause</button>
+    <button class="btn" id="btnViewMode" title="Toggle Wave Amplitude vs Time-Averaged Intensity (Key: I)">🌊 View: Wave</button>
+    <button class="btn" id="btnSlice" title="Show 1D Cross-Section Profile at Probe Y">📏 Slice: OFF</button>
+    <button class="btn" id="btnAudio" title="Listen to Probe Audio (WebAudio)">🔇 Audio: OFF</button>
+    <button class="btn" id="btnClearWaves">🌊 Calm</button>
+    <button class="btn rose" id="btnResetAll">🧹 Clear</button>
+    <select id="selPreset" title="Load Wave Physics Preset">
+      <option value="double_slit">🌊 1. Double-Slit Interference</option>
+      <option value="phased_beam">📡 2. Phased-Array Beamformer</option>
+      <option value="dead_zone">🤫 3. Silent Dead-Zone Cloak</option>
+      <option value="parabolic">🥣 4. Parabolic Focal Dish</option>
+      <option value="lens">🔍 5. Convex Refractive Lens</option>
+      <option value="prism_tir">💎 6. Total Internal Reflection</option>
+      <option value="gallery">🏛️ 7. Whispering Gallery</option>
+      <option value="anechoic">🧽 8. Anechoic Chamber</option>
+      <option value="chladni">💠 9. Standing-Wave Cavity</option>
+      <option value="maze">🌀 10. Acoustic Waveguide</option>
+      <option value="beats">🎵 11. Dual-Source Beat Interference</option>
+      <option value="buoys">🛟 12. Buoy Drift Pond</option>
+    </select>
+    <select id="selPalette" title="Colormap">
+      <option value="neon">🌈 Neon Cyan/Rose</option>
+      <option value="ocean">🌊 Deep Ocean</option>
+      <option value="plasma">🔥 Thermal Plasma</option>
+      <option value="mono">⚪ Interferometer</option>
+    </select>
+    <select id="selSpeed" title="Simulation Speed">
+      <option value="0.25">0.25x</option>
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x Real-Time</option>
+      <option value="2">2x Fast</option>
+      <option value="5">5x Turbo</option>
+      <option value="15">15x Hyper</option>
+      <option value="30">30x Warp</option>
+    </select>
+    <button class="btn" id="btnExport">💾 Export</button>
+    <button class="btn" id="btnImport">📂 Import</button>
+    <button class="btn" id="btnMobile">📱 Phone</button>
+    <button class="btn" id="btnHelp">❓ Guide</button>
+  </div>
+</header>
+
+<main>
+  <aside class="sidebar">
+    <div class="panel">
+      <div class="panel-title"><span>Tank Tools</span><span>Click / Drag</span></div>
+      <div class="tool-grid">
+        <button class="tool-btn active" data-tool="ripple">💧 Drop Ripple</button>
+        <button class="tool-btn" data-tool="emitter">📡 Emitter</button>
+        <button class="tool-btn" data-tool="bar">📏 Plane Bar</button>
+        <button class="tool-btn" data-tool="wall">🧱 Reflector Wall</button>
+        <button class="tool-btn" data-tool="sponge">🧽 Anechoic Sponge</button>
+        <button class="tool-btn" data-tool="lens">🔍 Slow Lens (0.5x)</button>
+        <button class="tool-btn" data-tool="fast">⚡ Fast Zone (1.35x)</button>
+        <button class="tool-btn" data-tool="target">🎯 Target Sensor</button>
+        <button class="tool-btn" data-tool="quiet">🤫 Dead-Zone</button>
+        <button class="tool-btn" data-tool="buoy">🛟 Floating Buoy</button>
+        <button class="tool-btn" data-tool="probe">🎙️ Hydrophone</button>
+        <button class="tool-btn" data-tool="erase" style="grid-column: 1 / -1; justify-content: center;">🧹 Eraser (Walls, Lenses &amp; Objects)</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span>Wave Physics &amp; Brush</span></div>
+      <div class="slider-row">
+        <div class="top"><span>Wave Speed (c)</span><span id="valC">0.46</span></div>
+        <input type="range" id="rngC" min="0.15" max="0.62" step="0.01" value="0.46" />
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>Fluid Damping (γ)</span><span id="valDamp">0.9965</span></div>
+        <input type="range" id="rngDamp" min="0.975" max="0.9995" step="0.0005" value="0.9965" />
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>New Emitter Freq</span><span id="valFreq">0.26 Hz</span></div>
+        <input type="range" id="rngFreq" min="0.08" max="0.55" step="0.01" value="0.26" />
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>Brush Radius</span><span id="valBrush">4</span></div>
+        <input type="range" id="rngBrush" min="1" max="12" step="1" value="4" />
+      </div>
+    </div>
+  </aside>
+
+  <section class="stage">
+    <canvas id="waveCanvas"></canvas>
+    <div class="hud-top">
+      <div class="hud-pill">
+        <span>Emitters: <strong id="hudEmit">0</strong></span>
+        <span>Targets: <strong id="hudTarg">0</strong></span>
+        <span>Quiet: <strong id="hudQuiet">0</strong></span>
+        <span>Buoys: <strong id="hudBuoy">0</strong></span>
+      </div>
+      <div class="hud-pill">
+        <span>Target Energy: <strong id="hudEnergy" style="color:#34d399;">0.00</strong></span>
+        <span>Dead-Zone Leak: <strong id="hudLeak" style="color:#fb7185;">0.00</strong></span>
+        <span>ML Gen: <strong id="hudGen" style="color:#facc15;">0</strong></span>
+      </div>
+    </div>
+    <div class="hud-legend">
+      <span>🟡 Emitter</span>
+      <span>🟢 Target (Maximize)</span>
+      <span>🔴 Dead-Zone (Cancel)</span>
+      <span>🟠 Buoy</span>
+      <span>🎙️ Probe</span>
+      <span>🟦 Slow Lens</span>
+      <span>🟪 Fast Medium</span>
+    </div>
+  </section>
+
+  <aside class="right-panel">
+    <div class="panel">
+      <div class="panel-title"><span>🎙️ Hydrophone Oscilloscope</span><span id="probeVal" style="color:#facc15;">0.00</span></div>
+      <canvas id="scopeCanvas" class="mini-viz"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span>🧠 Phased-Array AI Optimizer</span></div>
+      <div style="display:flex;gap:6px;margin-bottom:7px;">
+        <button class="btn emerald" id="btnTrainML" style="flex:1;">▶ Train Phased Array</button>
+        <button class="btn" id="btnApplyBest" title="Apply Best Found Phases">🏆 Best</button>
+        <button class="btn" id="btnResetML">🌱</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:7px;align-items:center;font-size:11px;color:var(--muted);">
+        <span>Pop:</span>
+        <select id="selMLPop" style="flex:1;padding:4px 6px;font-size:11px;">
+          <option value="8">8 Candidates</option>
+          <option value="16" selected>16 Candidates</option>
+          <option value="32">32 Candidates</option>
+          <option value="64">64 Candidates</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" id="chkOptFreq" /> Tune Freq
+        </label>
+      </div>
+      <canvas id="fitCanvas" class="mini-viz"></canvas>
+      <div class="stat-row" style="margin-top:6px;"><span>Best Score</span><span id="mlBest" style="color:#facc15;">—</span></div>
+      <div class="stat-row"><span>Live Score</span><span id="mlLive" style="color:#34d399;">0.00</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span>📡 Emitters (Phase &amp; Amp)</span><span id="emCountLbl">0</span></div>
+      <div class="emitter-list" id="emitterList"></div>
+    </div>
+  </aside>
+</main>
+<div class="toast" id="toast"></div>
+
+<div class="tut-backdrop" id="tutModal">
+  <div class="tut-card">
+    <h2>🔊 Welcome to WaveLab</h2>
+    <p>WaveLab solves the real-time 2D FDTD wave equation with variable wave speed, reflections, anechoic absorbers, and phased-array interference.</p>
+    <div class="tut-grid">
+      <div class="tut-tile"><strong>1. Build Your Tank</strong>Drop ripples or place Emitters, Reflector Walls, Anechoic Sponges, and Slow/Fast Refractive Lenses.</div>
+      <div class="tut-tile"><strong>2. Intensity View</strong>Click <em>View: Intensity</em> in the top bar to see glowing constructive &amp; destructive interference bands.</div>
+      <div class="tut-tile"><strong>3. Phased-Array AI</strong>Place 🎯 Targets (maximize) &amp; 🤫 Dead-Zones (cancel), then click <em>Train Phased Array</em> to evolve emitter phases!</div>
+      <div class="tut-tile"><strong>4. Hydrophone &amp; Audio</strong>Place a 🎙️ Probe to watch live waveforms on the oscilloscope—or turn on <em>Audio</em> to hear the wave!</div>
+    </div>
+    <button class="btn primary" id="btnCloseTut" style="width:100%;justify-content:center;padding:10px;">🌊 Start Experimenting</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const NX = 240, NY = 148;
+  let uPrev = new Float32Array(NX * NY);
+  let uCurr = new Float32Array(NX * NY);
+  let uNext = new Float32Array(NX * NY);
+  let energyAvg = new Float32Array(NX * NY);
+  let mat = new Uint8Array(NX * NY);
+  let speedMap = new Float32Array(NX * NY);
+  speedMap.fill(1.0);
+
+  let emitters = [];
+  let targets = [];
+  let quiets = [];
+  let buoys = [];
+  let probe = { x: 180, y: 74 };
+  let scopeBuf = new Float32Array(160);
+
+  let tool = 'ripple', palette = 'neon', viewMode = 'wave', showSlice = false, simSpeed = 1, isPlaying = true;
+  let waveC = 0.46, damping = 0.9965, defaultFreq = 0.26, brushR = 4, simTick = 0;
+
+  let audioOn = false, audioCtx = null, audioOsc = null, audioGain = null;
+
+  let mlRunning = false, mlGen = 0, mlBestScore = -Infinity, mlBestParams = null, mlHistory = [];
+  let mlPop = [], mlPopSize = 16, mlIdx = 0, mlEvalTicks = 0, tuneFreq = false;
+
+  const canvas = document.getElementById('waveCanvas'), ctx = canvas.getContext('2d');
+  const fitCanvas = document.getElementById('fitCanvas'), fitCtx = fitCanvas.getContext('2d');
+  const scopeCanvas = document.getElementById('scopeCanvas'), scopeCtx = scopeCanvas.getContext('2d');
+  const offCanvas = document.createElement('canvas'); offCanvas.width = NX; offCanvas.height = NY;
+  const offCtx = offCanvas.getContext('2d');
+  const imgData = offCtx.createImageData(NX, NY);
+
+  function showToast(m) {
+    const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show');
+    clearTimeout(t._id); t._id = setTimeout(() => t.classList.remove('show'), 2000);
+  }
+  const idx = (x, y) => y * NX + x;
+
+  function calmTank() {
+    uPrev.fill(0); uCurr.fill(0); uNext.fill(0); energyAvg.fill(0); simTick = 0;
+    targets.forEach(t => t.rms = 0);
+    quiets.forEach(q => q.rms = 0);
+  }
+
+  function clearAll() {
+    calmTank();
+    mat.fill(0); speedMap.fill(1.0);
+    emitters = []; targets = []; quiets = []; buoys = [];
+    mlRunning = false; mlGen = 0; mlBestScore = -Infinity; mlBestParams = null; mlHistory = [];
+    updateMLButton(); renderEmitterList();
+  }
+
+  function loadPreset(name) {
+    clearAll();
+    const cy = Math.floor(NY / 2), cx = Math.floor(NX / 2);
+    probe = { x: Math.round(NX * 0.78), y: cy };
+    if (name === 'double_slit') {
+      const bx = 76;
+      for (let y = 4; y < NY - 4; y++) {
+        if (Math.abs(y - (cy - 18)) > 4 && Math.abs(y - (cy + 18)) > 4) mat[idx(bx, y)] = 1;
+      }
+      emitters.push({ x: 26, y: cy, freq: 0.30, phase: 0, amp: 2.3 });
+      targets.push({ x: 188, y: cy, rms: 0 }, { x: 188, y: cy - 30, rms: 0 });
+      buoys.push({ x: 150, y: cy, vx: 0, vy: 0, z: 0 });
+    } else if (name === 'phased_beam') {
+      for (let i = 0; i < 6; i++) {
+        emitters.push({ x: 30, y: cy - 30 + i * 12, freq: 0.28, phase: i * 0.45, amp: 1.5 });
+      }
+      targets.push({ x: 192, y: cy - 28, rms: 0 });
+      quiets.push({ x: 192, y: cy + 32, rms: 0 });
+      buoys.push({ x: 192, y: cy - 28, vx: 0, vy: 0, z: 0 });
+    } else if (name === 'dead_zone') {
+      emitters.push({ x: 36, y: cy - 22, freq: 0.25, phase: 0, amp: 1.8 });
+      emitters.push({ x: 36, y: cy + 22, freq: 0.25, phase: Math.PI, amp: 1.8 });
+      emitters.push({ x: 64, y: cy - 10, freq: 0.25, phase: 0.7, amp: 1.4 });
+      emitters.push({ x: 64, y: cy + 10, freq: 0.25, phase: 2.1, amp: 1.4 });
+      quiets.push({ x: 162, y: cy, rms: 0 });
+      targets.push({ x: 162, y: cy - 36, rms: 0 });
+      buoys.push({ x: 162, y: cy, vx: 0, vy: 0, z: 0 });
+    } else if (name === 'parabolic') {
+      for (let y = 18; y < NY - 18; y++) {
+        const dy = y - cy;
+        const x = Math.round(196 - (dy * dy) * 0.012);
+        if (x > 10 && x < NX - 10) { mat[idx(x, y)] = 1; mat[idx(x + 1, y)] = 1; }
+      }
+      for (let i = -2; i <= 2; i++) emitters.push({ x: 28, y: cy + i * 14, freq: 0.28, phase: 0, amp: 1.4 });
+      targets.push({ x: 170, y: cy, rms: 0 });
+      probe = { x: 170, y: cy };
+    } else if (name === 'lens') {
+      const lx = 112;
+      for (let y = 24; y < NY - 24; y++) for (let x = lx - 18; x <= lx + 18; x++) {
+        if (((x - lx) / 18) ** 2 + ((y - cy) / 48) ** 2 <= 1) speedMap[idx(x, y)] = 0.52;
+      }
+      for (let i = -2; i <= 2; i++) emitters.push({ x: 28, y: cy + i * 14, freq: 0.26, phase: 0, amp: 1.5 });
+      targets.push({ x: 196, y: cy, rms: 0 });
+      probe = { x: 196, y: cy };
+    } else if (name === 'prism_tir') {
+      for (let y = 40; y < 110; y++) for (let x = 80; x < 165; x++) {
+        if (x - 80 > (y - 40) * 0.8) speedMap[idx(x, y)] = 1.35;
+        else speedMap[idx(x, y)] = 0.55;
+      }
+      emitters.push({ x: 40, y: 64, freq: 0.30, phase: 0, amp: 2.2 });
+      emitters.push({ x: 40, y: 76, freq: 0.30, phase: 0, amp: 2.2 });
+      targets.push({ x: 185, y: 112, rms: 0 });
+    } else if (name === 'gallery') {
+      const r = 60;
+      for (let y = 2; y < NY - 2; y++) for (let x = 2; x < NX - 2; x++) {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d >= r - 1.6 && d <= r + 1.6) mat[idx(x, y)] = 1;
+      }
+      emitters.push({ x: cx - 44, y: cy, freq: 0.30, phase: 0, amp: 2.0 });
+      targets.push({ x: cx + 44, y: cy, rms: 0 });
+      probe = { x: cx + 44, y: cy };
+    } else if (name === 'anechoic') {
+      for (let y = 14; y < NY - 14; y++) for (let x = 14; x < NX - 14; x++) {
+        if (x < 24 || x > NX - 25 || y < 24 || y > NY - 25) mat[idx(x, y)] = 2;
+      }
+      emitters.push({ x: cx - 35, y: cy, freq: 0.27, phase: 0, amp: 2.2 });
+      quiets.push({ x: cx + 50, y: cy, rms: 0 });
+    } else if (name === 'chladni') {
+      for (let y = 24; y < NY - 24; y++) { mat[idx(60, y)] = 1; mat[idx(180, y)] = 1; }
+      for (let x = 60; x <= 180; x++) { mat[idx(x, 24)] = 1; mat[idx(x, NY - 24)] = 1; }
+      emitters.push({ x: cx, y: cy, freq: 0.34, phase: 0, amp: 2.0 });
+      viewMode = 'intensity';
+      document.getElementById('btnViewMode').textContent = '✨ View: Intensity';
+    } else if (name === 'maze') {
+      for (let x = 50; x < 190; x++) { mat[idx(x, 34)] = 1; mat[idx(x, NY - 34)] = 1; }
+      for (let y = 34; y < 95; y++) mat[idx(105, y)] = 1;
+      for (let y = 55; y < NY - 34; y++) mat[idx(145, y)] = 1;
+      emitters.push({ x: 30, y: cy, freq: 0.26, phase: 0, amp: 2.3 });
+      targets.push({ x: 205, y: cy, rms: 0 });
+    } else if (name === 'beats') {
+      emitters.push({ x: 60, y: cy - 22, freq: 0.24, phase: 0, amp: 1.9 });
+      emitters.push({ x: 60, y: cy + 22, freq: 0.27, phase: 0, amp: 1.9 });
+      probe = { x: 165, y: cy };
+    } else if (name === 'buoys') {
+      emitters.push({ x: 40, y: cy, freq: 0.20, phase: 0, amp: 2.0 });
+      for (let i = 0; i < 8; i++) buoys.push({ x: 90 + (i % 4) * 26, y: cy - 24 + Math.floor(i / 4) * 48, vx: 0, vy: 0, z: 0 });
+    }
+    renderEmitterList();
+  }
+
+  function stepWave() {
+    simTick++;
+    const c2 = waveC * waveC;
+    for (const em of emitters) {
+      const gx = Math.round(em.x), gy = Math.round(em.y);
+      if (gx > 1 && gx < NX - 2 && gy > 1 && gy < NY - 2 && mat[idx(gx, gy)] !== 1) {
+        uCurr[idx(gx, gy)] = em.amp * Math.sin(simTick * em.freq + em.phase);
+      }
+    }
+
+    for (let y = 1; y < NY - 1; y++) {
+      const row = y * NX;
+      for (let x = 1; x < NX - 1; x++) {
+        const i = row + x;
+        const m = mat[i];
+        if (m === 1) { uNext[i] = 0; continue; }
+        const lap = uCurr[i - 1] + uCurr[i + 1] + uCurr[i - NX] + uCurr[i + NX] - 4 * uCurr[i];
+        const edgeDist = Math.min(x, NX - 1 - x, y, NY - 1 - y);
+        const edgeDamp = edgeDist < 10 ? (0.90 + edgeDist * 0.0095) : 1.0;
+        const spongeDamp = m === 2 ? 0.88 : 1.0;
+        const sp = speedMap[i];
+        const nextVal = (2 * uCurr[i] - uPrev[i] + c2 * sp * sp * lap) * damping * edgeDamp * spongeDamp;
+        uNext[i] = nextVal;
+        energyAvg[i] = energyAvg[i] * 0.985 + nextVal * nextVal * 0.015;
+      }
+    }
+
+    const tmp = uPrev; uPrev = uCurr; uCurr = uNext; uNext = tmp;
+
+    for (const t of targets) {
+      const v = uCurr[idx(Math.max(1, Math.min(NX - 2, Math.round(t.x))), Math.max(1, Math.min(NY - 2, Math.round(t.y))))];
+      t.rms = t.rms * 0.96 + (v * v) * 0.04;
+    }
+    for (const q of quiets) {
+      const v = uCurr[idx(Math.max(1, Math.min(NX - 2, Math.round(q.x))), Math.max(1, Math.min(NY - 2, Math.round(q.y))))];
+      q.rms = q.rms * 0.96 + (v * v) * 0.04;
+    }
+    for (const b of buoys) {
+      const gx = Math.max(2, Math.min(NX - 3, Math.round(b.x)));
+      const gy = Math.max(2, Math.min(NY - 3, Math.round(b.y)));
+      const gxVal = (uCurr[idx(gx + 1, gy)] - uCurr[idx(gx - 1, gy)]) * 0.5;
+      const gyVal = (uCurr[idx(gx, gy + 1)] - uCurr[idx(gx, gy - 1)]) * 0.5;
+      b.vx = b.vx * 0.94 - gxVal * 0.1;
+      b.vy = b.vy * 0.94 - gyVal * 0.1;
+      const nx = b.x + b.vx, ny = b.y + b.vy;
+      if (nx > 3 && nx < NX - 4 && ny > 3 && ny < NY - 4 && mat[idx(Math.round(nx), Math.round(ny))] !== 1) {
+        b.x = nx; b.y = ny;
+      } else { b.vx *= -0.5; b.vy *= -0.5; }
+      b.z = uCurr[idx(gx, gy)];
+    }
+
+    const pv = uCurr[idx(Math.max(1, Math.min(NX - 2, Math.round(probe.x))), Math.max(1, Math.min(NY - 2, Math.round(probe.y))))];
+    scopeBuf.copyWithin(0, 1);
+    scopeBuf[scopeBuf.length - 1] = pv;
+
+    if (audioOn && audioGain && audioOsc) {
+      const amp = Math.min(0.18, Math.abs(pv) * 0.12);
+      audioGain.gain.setTargetAtTime(amp, audioCtx.currentTime, 0.02);
+      audioOsc.frequency.setTargetAtTime(220 + Math.max(-1, Math.min(1, pv)) * 110, audioCtx.currentTime, 0.02);
+    }
+  }
+
+  function currentScore() {
+    return targets.reduce((s, t) => s + t.rms, 0) * 12 - quiets.reduce((s, q) => s + q.rms, 0) * 20;
+  }
+
+  function applyCandidate(cand) {
+    emitters.forEach((em, i) => {
+      if (cand.phases[i] !== undefined) em.phase = cand.phases[i];
+      if (cand.amps[i] !== undefined) em.amp = cand.amps[i];
+      if (tuneFreq && cand.freqs[i] !== undefined) em.freq = cand.freqs[i];
+    });
+  }
+
+  function startML() {
+    if (!emitters.length || (!targets.length && !quiets.length)) {
+      showToast('Place at least 1 Emitter and 1 Target or Dead-Zone!');
+      return;
+    }
+    mlRunning = !mlRunning;
+    updateMLButton();
+    if (mlRunning) {
+      mlPop = [];
+      for (let p = 0; p < mlPopSize; p++) {
+        mlPop.push({
+          phases: emitters.map((em, i) => (p === 0 && mlBestParams) ? mlBestParams.phases[i] : Math.random() * Math.PI * 2),
+          amps: emitters.map((em, i) => (p === 0 && mlBestParams) ? mlBestParams.amps[i] : 0.8 + Math.random() * 1.4),
+          freqs: emitters.map(em => em.freq),
+          score: 0
+        });
+      }
+      mlIdx = 0; mlEvalTicks = 0;
+      applyCandidate(mlPop[0]);
+      calmTank();
+    } else if (mlBestParams) {
+      applyCandidate(mlBestParams);
+      renderEmitterList();
+    }
+  }
+
+  function stepML() {
+    if (!mlRunning) return;
+    mlEvalTicks++;
+    if (mlEvalTicks < 75) return;
+    mlPop[mlIdx].score = currentScore();
+    mlIdx++; mlEvalTicks = 0;
+    if (mlIdx >= mlPop.length) {
+      mlPop.sort((a, b) => b.score - a.score);
+      const best = mlPop[0];
+      const mean = mlPop.reduce((s, c) => s + c.score, 0) / mlPop.length;
+      if (best.score > mlBestScore) {
+        mlBestScore = best.score;
+        mlBestParams = { phases: best.phases.slice(), amps: best.amps.slice(), freqs: best.freqs.slice() };
+      }
+      mlHistory.push({ best: best.score, mean });
+      if (mlHistory.length > 60) mlHistory.shift();
+      mlGen++;
+      const nextPop = [{ phases: best.phases.slice(), amps: best.amps.slice(), freqs: best.freqs.slice(), score: 0 }];
+      const sig = Math.max(0.12, 0.9 * Math.pow(0.92, mlGen));
+      for (let i = 1; i < mlPopSize; i++) {
+        const par = mlPop[i % Math.max(2, Math.floor(mlPopSize * 0.25))];
+        nextPop.push({
+          phases: par.phases.map(v => (v + (Math.random() - 0.5) * sig * 2 + Math.PI * 2) % (Math.PI * 2)),
+          amps: par.amps.map(v => Math.max(0.4, Math.min(2.5, v + (Math.random() - 0.5) * sig))),
+          freqs: par.freqs.map(v => tuneFreq ? Math.max(0.12, Math.min(0.48, v + (Math.random() - 0.5) * 0.04)) : v),
+          score: 0
+        });
+      }
+      mlPop = nextPop; mlIdx = 0;
+      renderEmitterList();
+    }
+    applyCandidate(mlPop[mlIdx]);
+    calmTank();
+  }
+
+  function updateMLButton() {
+    const b = document.getElementById('btnTrainML');
+    b.textContent = mlRunning ? '⏸ Stop Optimizer' : '▶ Train Phased Array';
+    b.classList.toggle('active', mlRunning);
+  }
+
+  function renderWave() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) {
+      canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr);
+    }
+
+    const data = imgData.data;
+    for (let i = 0; i < NX * NY; i++) {
+      const o = i * 4;
+      if (mat[i] === 1) { data[o] = 148; data[o+1] = 163; data[o+2] = 184; data[o+3] = 255; continue; }
+      if (mat[i] === 2) { data[o] = 55; data[o+1] = 48; data[o+2] = 72; data[o+3] = 255; continue; }
+      const lensTint = speedMap[i] < 0.9 ? 28 : 0;
+      const fastTint = speedMap[i] > 1.1 ? 32 : 0;
+
+      if (viewMode === 'intensity') {
+        const e = Math.min(1, Math.sqrt(energyAvg[i]) * 1.8);
+        data[o] = Math.min(255, Math.round(8 + e * 245 + fastTint));
+        data[o+1] = Math.min(255, Math.round(12 + e * e * 210 + lensTint));
+        data[o+2] = Math.min(255, Math.round(28 + (1 - e) * 60 + e * 120 + lensTint));
+      } else {
+        const v = Math.max(-1.6, Math.min(1.6, uCurr[i])) / 1.6;
+        if (palette === 'neon') {
+          if (v >= 0) {
+            data[o] = Math.min(255, 10 + v * 65 + fastTint);
+            data[o+1] = Math.min(255, 14 + v * 210 + lensTint);
+            data[o+2] = Math.min(255, 34 + v * 255 + lensTint);
+          } else {
+            const av = -v;
+            data[o] = Math.min(255, 10 + av * 244 + fastTint);
+            data[o+1] = Math.min(255, 14 + av * 63 + lensTint);
+            data[o+2] = Math.min(255, 34 + av * 145 + lensTint);
+          }
+        } else if (palette === 'ocean') {
+          const b = Math.max(0, Math.min(1, 0.5 + v * 0.5));
+          data[o] = Math.round(b * 90 + fastTint);
+          data[o+1] = Math.round(30 + b * 190 + lensTint);
+          data[o+2] = Math.round(70 + b * 185 + lensTint);
+        } else if (palette === 'plasma') {
+          const av = Math.abs(v);
+          data[o] = Math.min(255, Math.round(av * 255 + fastTint));
+          data[o+1] = Math.min(255, Math.round(av * av * 200 + lensTint));
+          data[o+2] = Math.min(255, Math.round(40 + (1 - av) * 90));
+        } else {
+          const g = Math.round(128 + v * 120);
+          data[o] = Math.min(255, g + fastTint); data[o+1] = Math.min(255, g + lensTint); data[o+2] = g;
+        }
+      }
+      data[o+3] = 255;
+    }
+    offCtx.putImageData(imgData, 0, 0);
+
+    ctx.save(); ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(offCanvas, 0, 0, canvas.width, canvas.height);
+
+    const sx = canvas.width / NX, sy = canvas.height / NY;
+    for (const t of targets) {
+      ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2.5 * dpr;
+      ctx.beginPath(); ctx.arc(t.x * sx, t.y * sy, 10 * dpr, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(52,211,153,0.28)'; ctx.fill();
+    }
+    for (const q of quiets) {
+      ctx.strokeStyle = '#fb7185'; ctx.lineWidth = 2.5 * dpr;
+      ctx.beginPath(); ctx.arc(q.x * sx, q.y * sy, 10 * dpr, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(251,113,133,0.24)'; ctx.fill();
+    }
+    for (const em of emitters) {
+      ctx.fillStyle = '#facc15'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * dpr;
+      ctx.beginPath(); ctx.arc(em.x * sx, em.y * sy, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    for (const b of buoys) {
+      const r = (6 + b.z * 2.5) * dpr;
+      ctx.fillStyle = '#f97316'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * dpr;
+      ctx.beginPath(); ctx.arc(b.x * sx, b.y * sy, Math.max(4 * dpr, r), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.arc(probe.x * sx, probe.y * sy, 7 * dpr, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo((probe.x - 4) * sx, probe.y * sy); ctx.lineTo((probe.x + 4) * sx, probe.y * sy); ctx.stroke();
+    if (showSlice) {
+      const py = Math.max(1, Math.min(NY - 2, Math.round(probe.y)));
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(0, py * sy); ctx.lineTo(canvas.width, py * sy); ctx.stroke();
+      ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+      for (let x = 0; x < NX; x++) {
+        const v = Math.max(-1.6, Math.min(1.6, uCurr[idx(x, py)]));
+        const px = x * sx, yPos = py * sy - v * 22 * dpr;
+        if (x === 0) ctx.moveTo(px, yPos); else ctx.lineTo(px, yPos);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    document.getElementById('hudEmit').textContent = emitters.length;
+    document.getElementById('hudTarg').textContent = targets.length;
+    document.getElementById('hudQuiet').textContent = quiets.length;
+    document.getElementById('hudBuoy').textContent = buoys.length;
+    document.getElementById('hudEnergy').textContent = targets.reduce((s, t) => s + t.rms, 0).toFixed(3);
+    document.getElementById('hudLeak').textContent = quiets.reduce((s, q) => s + q.rms, 0).toFixed(3);
+    document.getElementById('hudGen').textContent = mlGen;
+    document.getElementById('mlLive').textContent = currentScore().toFixed(2);
+    document.getElementById('mlBest').textContent = mlBestScore === -Infinity ? '—' : mlBestScore.toFixed(2);
+    document.getElementById('probeVal').textContent = scopeBuf[scopeBuf.length - 1].toFixed(2);
+    drawScope();
+    drawFitChart();
+  }
+
+  function drawScope() {
+    const r = scopeCanvas.getBoundingClientRect(); if (r.width <= 0) return;
+    if (scopeCanvas.width !== Math.round(r.width) || scopeCanvas.height !== Math.round(r.height)) {
+      scopeCanvas.width = Math.round(r.width); scopeCanvas.height = Math.round(r.height);
+    }
+    const W = scopeCanvas.width, H = scopeCanvas.height;
+    scopeCtx.clearRect(0, 0, W, H);
+    scopeCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+    scopeCtx.beginPath(); scopeCtx.moveTo(0, H / 2); scopeCtx.lineTo(W, H / 2); scopeCtx.stroke();
+    scopeCtx.strokeStyle = '#38bdf8'; scopeCtx.lineWidth = 2; scopeCtx.beginPath();
+    for (let i = 0; i < scopeBuf.length; i++) {
+      const x = (i / (scopeBuf.length - 1)) * W;
+      const y = H / 2 - Math.max(-1.4, Math.min(1.4, scopeBuf[i])) * (H * 0.34);
+      if (i === 0) scopeCtx.moveTo(x, y); else scopeCtx.lineTo(x, y);
+    }
+    scopeCtx.stroke();
+  }
+
+  function drawFitChart() {
+    const r = fitCanvas.getBoundingClientRect(); if (r.width <= 0) return;
+    if (fitCanvas.width !== Math.round(r.width) || fitCanvas.height !== Math.round(r.height)) {
+      fitCanvas.width = Math.round(r.width); fitCanvas.height = Math.round(r.height);
+    }
+    fitCtx.clearRect(0, 0, fitCanvas.width, fitCanvas.height);
+    if (mlHistory.length < 2) {
+      fitCtx.fillStyle = '#94a3b8'; fitCtx.font = '11px sans-serif';
+      fitCtx.fillText('Hit Train Phased Array...', 12, fitCanvas.height / 2);
+      return;
+    }
+    let mn = Infinity, mx = -Infinity;
+    for (const p of mlHistory) { mn = Math.min(mn, p.mean, p.best); mx = Math.max(mx, p.mean, p.best); }
+    if (mx - mn < 0.01) mx = mn + 1;
+    const mX = i => 8 + (i / (mlHistory.length - 1)) * (fitCanvas.width - 16);
+    const mY = v => fitCanvas.height - 8 - ((v - mn) / (mx - mn)) * (fitCanvas.height - 16);
+    fitCtx.strokeStyle = '#38bdf8'; fitCtx.lineWidth = 1.6; fitCtx.beginPath();
+    mlHistory.forEach((p, i) => i === 0 ? fitCtx.moveTo(mX(i), mY(p.mean)) : fitCtx.lineTo(mX(i), mY(p.mean))); fitCtx.stroke();
+    fitCtx.strokeStyle = '#34d399'; fitCtx.lineWidth = 2; fitCtx.beginPath();
+    mlHistory.forEach((p, i) => i === 0 ? fitCtx.moveTo(mX(i), mY(p.best)) : fitCtx.lineTo(mX(i), mY(p.best))); fitCtx.stroke();
+  }
+
+  function renderEmitterList() {
+    const el = document.getElementById('emitterList');
+    document.getElementById('emCountLbl').textContent = emitters.length;
+    el.innerHTML = emitters.length ? '' : '<div style="font-size:11px;color:var(--muted);">No emitters placed yet.</div>';
+    emitters.forEach((em, i) => {
+      const d = document.createElement('div'); d.className = 'em-item';
+      d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><strong>#${i+1} (${Math.round(em.x)},${Math.round(em.y)})</strong><span class="em-lbl">φ=${(em.phase*57.3).toFixed(0)}° • A=${em.amp.toFixed(1)}</span><button class="btn rose" style="padding:1px 6px;font-size:10px;">✕</button></div>
+      <input type="range" class="em-ph" min="0" max="6.28" step="0.05" value="${em.phase}" />
+      <input type="range" class="em-amp" min="0.2" max="3.0" step="0.1" value="${em.amp}" />`;
+      d.querySelector('.em-ph').oninput = e => { em.phase = parseFloat(e.target.value); d.querySelector('.em-lbl').textContent = `φ=${(em.phase*57.3).toFixed(0)}° • A=${em.amp.toFixed(1)}`; };
+      d.querySelector('.em-amp').oninput = e => { em.amp = parseFloat(e.target.value); d.querySelector('.em-lbl').textContent = `φ=${(em.phase*57.3).toFixed(0)}° • A=${em.amp.toFixed(1)}`; };
+      d.querySelector('button').onclick = () => { emitters.splice(i, 1); renderEmitterList(); };
+      el.appendChild(d);
+    });
+  }
+
+  function gridPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: Math.max(2, Math.min(NX - 3, Math.floor(((e.clientX - r.left) / r.width) * NX))),
+      y: Math.max(2, Math.min(NY - 3, Math.floor(((e.clientY - r.top) / r.height) * NY)))
+    };
+  }
+
+  function paintDisk(cx, cy, r, fn) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (d <= r) {
+        const gx = cx + dx, gy = cy + dy;
+        if (gx > 1 && gx < NX - 2 && gy > 1 && gy < NY - 2) fn(gx, gy, d);
+      }
+    }
+  }
+
+  function applyTool(p, isClick) {
+    if (tool === 'ripple') {
+      paintDisk(p.x, p.y, brushR, (gx, gy, d) => { if (mat[idx(gx, gy)] !== 1) uCurr[idx(gx, gy)] += 1.6 * (1 - d / (brushR + 0.5)); });
+    } else if (tool === 'wall') {
+      paintDisk(p.x, p.y, Math.max(1, Math.floor(brushR * 0.6)), (gx, gy) => { mat[idx(gx, gy)] = 1; uCurr[idx(gx, gy)] = 0; });
+    } else if (tool === 'sponge') {
+      paintDisk(p.x, p.y, brushR, (gx, gy) => { mat[idx(gx, gy)] = 2; });
+    } else if (tool === 'lens') {
+      paintDisk(p.x, p.y, brushR, (gx, gy) => { speedMap[idx(gx, gy)] = 0.52; });
+    } else if (tool === 'fast') {
+      paintDisk(p.x, p.y, brushR, (gx, gy) => { speedMap[idx(gx, gy)] = 1.35; });
+    } else if (tool === 'erase') {
+      paintDisk(p.x, p.y, brushR, (gx, gy) => { mat[idx(gx, gy)] = 0; speedMap[idx(gx, gy)] = 1.0; });
+      emitters = emitters.filter(em => Math.hypot(em.x - p.x, em.y - p.y) > brushR + 2);
+      targets = targets.filter(t => Math.hypot(t.x - p.x, t.y - p.y) > brushR + 2);
+      quiets = quiets.filter(q => Math.hypot(q.x - p.x, q.y - p.y) > brushR + 2);
+      buoys = buoys.filter(b => Math.hypot(b.x - p.x, b.y - p.y) > brushR + 2);
+      renderEmitterList();
+    } else if (tool === 'probe') {
+      probe = { x: p.x, y: p.y };
+    } else if (isClick) {
+      if (tool === 'emitter') { emitters.push({ x: p.x, y: p.y, freq: defaultFreq, phase: 0, amp: 1.8 }); renderEmitterList(); }
+      else if (tool === 'bar') {
+        for (let k = -2; k <= 2; k++) emitters.push({ x: p.x, y: Math.max(4, Math.min(NY - 5, p.y + k * 6)), freq: defaultFreq, phase: 0, amp: 1.4 });
+        renderEmitterList();
+      }
+      else if (tool === 'target') targets.push({ x: p.x, y: p.y, rms: 0 });
+      else if (tool === 'quiet') quiets.push({ x: p.x, y: p.y, rms: 0 });
+      else if (tool === 'buoy') buoys.push({ x: p.x, y: p.y, vx: 0, vy: 0, z: 0 });
+    }
+  }
+
+  let drawing = false;
+  canvas.addEventListener('pointerdown', e => { drawing = true; applyTool(gridPos(e), true); });
+  canvas.addEventListener('pointermove', e => { if (drawing) applyTool(gridPos(e), false); });
+  window.addEventListener('pointerup', () => drawing = false);
+
+  document.querySelectorAll('.tool-btn').forEach(b => b.onclick = () => {
+    tool = b.dataset.tool;
+    document.querySelectorAll('.tool-btn').forEach(x => x.classList.toggle('active', x === b));
+  });
+  document.getElementById('btnPlay').onclick = () => { isPlaying = !isPlaying; document.getElementById('btnPlay').textContent = isPlaying ? '⏸ Pause' : '▶ Play'; };
+  document.getElementById('btnViewMode').onclick = () => {
+    viewMode = viewMode === 'wave' ? 'intensity' : 'wave';
+    document.getElementById('btnViewMode').textContent = viewMode === 'wave' ? '🌊 View: Wave' : '✨ View: Intensity';
+  };
+  document.getElementById('btnSlice').onclick = () => {
+    showSlice = !showSlice;
+    const b = document.getElementById('btnSlice');
+    b.textContent = showSlice ? '📏 Slice: ON' : '📏 Slice: OFF';
+    b.classList.toggle('active', showSlice);
+  };
+  window.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (e.code === 'Space') { e.preventDefault(); document.getElementById('btnPlay').click(); }
+    else if (e.key.toLowerCase() === 'c') calmTank();
+    else if (e.key.toLowerCase() === 'i') document.getElementById('btnViewMode').click();
+    else if (e.key.toLowerCase() === 'm') document.getElementById('btnAudio').click();
+  });
+  document.getElementById('btnAudio').onclick = () => {
+    audioOn = !audioOn;
+    if (audioOn) {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioOsc = audioCtx.createOscillator(); audioGain = audioCtx.createGain();
+        audioOsc.type = 'sine'; audioGain.gain.value = 0;
+        audioOsc.connect(audioGain); audioGain.connect(audioCtx.destination);
+        audioOsc.start();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } else if (audioGain) {
+      audioGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
+    }
+    document.getElementById('btnAudio').textContent = audioOn ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+  };
+  document.getElementById('btnClearWaves').onclick = calmTank;
+  document.getElementById('btnResetAll').onclick = clearAll;
+  document.getElementById('selPreset').onchange = e => loadPreset(e.target.value);
+  document.getElementById('selPalette').onchange = e => palette = e.target.value;
+  document.getElementById('selSpeed').onchange = e => simSpeed = parseFloat(e.target.value);
+  document.getElementById('rngC').oninput = e => { waveC = +e.target.value; document.getElementById('valC').textContent = waveC.toFixed(2); };
+  document.getElementById('rngDamp').oninput = e => { damping = +e.target.value; document.getElementById('valDamp').textContent = damping.toFixed(4); };
+  document.getElementById('rngFreq').oninput = e => { defaultFreq = +e.target.value; document.getElementById('valFreq').textContent = defaultFreq.toFixed(2) + ' Hz'; };
+  document.getElementById('rngBrush').oninput = e => { brushR = +e.target.value; document.getElementById('valBrush').textContent = brushR; };
+  document.getElementById('btnTrainML').onclick = startML;
+  document.getElementById('btnApplyBest').onclick = () => { if (!mlBestParams) return showToast('Train at least 1 gen first!'); applyCandidate(mlBestParams); renderEmitterList(); showToast('🏆 Applied best phased-array config!'); };
+  document.getElementById('btnResetML').onclick = () => { mlRunning = false; mlGen = 0; mlBestScore = -Infinity; mlBestParams = null; mlHistory = []; updateMLButton(); };
+  document.getElementById('selMLPop').onchange = e => mlPopSize = parseInt(e.target.value, 10);
+  document.getElementById('chkOptFreq').onchange = e => tuneFreq = e.target.checked;
+  document.getElementById('btnMobile').onclick = () => { document.body.classList.toggle('mobile-mode'); showToast(document.body.classList.contains('mobile-mode') ? '📱 Phone Mode ON' : '💻 Desktop Mode ON'); };
+  document.getElementById('btnHelp').onclick = () => document.getElementById('tutModal').classList.add('open');
+  document.getElementById('btnCloseTut').onclick = () => document.getElementById('tutModal').classList.remove('open');
+
+  document.getElementById('btnExport').onclick = () => {
+    const blob = new Blob([JSON.stringify({ mat: Array.from(mat), speedMap: Array.from(speedMap), emitters, targets, quiets, buoys, probe })]);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'wavelab-scene.json'; a.click();
+  };
+  document.getElementById('btnImport').onclick = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
+    inp.onchange = async () => {
+      try {
+        const d = JSON.parse(await inp.files[0].text());
+        if (Array.isArray(d.mat) && d.mat.length === NX * NY) mat.set(d.mat);
+        if (Array.isArray(d.speedMap) && d.speedMap.length === NX * NY) speedMap.set(d.speedMap);
+        if (Array.isArray(d.emitters)) emitters = d.emitters;
+        if (Array.isArray(d.targets)) targets = d.targets;
+        if (Array.isArray(d.quiets)) quiets = d.quiets;
+        if (Array.isArray(d.buoys)) buoys = d.buoys;
+        if (d.probe) probe = d.probe;
+        calmTank(); renderEmitterList(); showToast('📂 Imported WaveLab scene!');
+      } catch { showToast('Invalid JSON'); }
+    };
+    inp.click();
+  };
+
+  loadPreset('double_slit');
+
+  function loop() {
+    requestAnimationFrame(loop);
+    if (isPlaying) {
+      const steps = mlRunning ? 14 : Math.max(1, Math.round(simSpeed * 2));
+      for (let s = 0; s < steps; s++) {
+        stepWave();
+        if (mlRunning) stepML();
+      }
+    }
+    renderWave();
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
