@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MicroLab — Organelle Garage &amp; Soft-Body Petri Sandbox</title>
+<style>
+  :root {
+    --bg: #040810;
+    --panel: rgba(11, 18, 30, 0.92);
+    --glass: rgba(12, 20, 34, 0.78);
+    --card: rgba(255, 255, 255, 0.04);
+    --card-hover: rgba(52, 211, 153, 0.12);
+    --border: rgba(56, 189, 248, 0.2);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #34d399;
+    --cyan: #38bdf8;
+    --amber: #facc15;
+    --rose: #fb7185;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 999px; }
+  body {
+    background: radial-gradient(circle at 15% 15%, rgba(52,211,153,0.12), transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(56,189,248,0.12), transparent 45%), var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  header {
+    height: 54px; background: var(--panel); backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; gap: 10px; flex-shrink: 0; z-index: 20;
+  }
+  .brand { font-weight: 800; font-size: 16px; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; white-space: nowrap; color: #f8fafc; }
+  .brand .badge { font-size: 11px; background: linear-gradient(135deg, #059669, #0284c7); color: #ecfdf5; padding: 3px 10px; border-radius: 999px; font-weight: 700; }
+  .tabs { display: flex; gap: 4px; background: rgba(0,0,0,0.38); padding: 4px; border-radius: 11px; border: 1px solid var(--border); }
+  .tab-btn { border: none; background: transparent; color: var(--muted); font-weight: 700; font-size: 12.5px; padding: 6px 14px; border-radius: 8px; cursor: pointer; transition: all 0.14s; }
+  .tab-btn.active { background: linear-gradient(135deg, #34d399, #06b6d4); color: #041512; }
+  .header-actions { display: flex; align-items: center; gap: 6px; overflow-x: auto; }
+  button, select, input[type="text"] {
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 8px; font-size: 12px; font-family: inherit;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  button, select { cursor: pointer; white-space: nowrap; }
+  select { background: #0d1626; }
+  button:hover, select:hover { border-color: var(--accent); background: var(--card-hover); }
+  button.active { background: #059669; border-color: #34d399; color: #fff; font-weight: 700; }
+  button.primary { background: linear-gradient(135deg, #34d399, #06b6d4); color: #041512; border-color: rgba(255,255,255,0.35); font-weight: 800; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #knowSel { border-color: #38bdf8; background: #0f2438; font-weight: 700; }
+
+  main { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+  .view { display: none; width: 100%; height: 100%; }
+  .view.active { display: flex; }
+
+  /* SHARED SIDEBAR & STAGE */
+  .sidebar { width: 342px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; flex-shrink: 0; overflow: hidden; }
+  .sidebar.right { border-right: none; border-left: 1px solid var(--border); }
+  .sec { padding: 11px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; }
+  .sec h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+  .toolbar { padding: 8px 12px; background: var(--glass); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 50%, #0d1b2a 0%, #04070c 100%); }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+  /* ORGANELLE LIST */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { font-size: 11px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-weight: 600; }
+  .chip.active { border-color: var(--accent); background: rgba(52,211,153,0.22); color: #fff; }
+  .org-list { flex: 1; overflow-y: auto; padding: 10px 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; align-content: start; }
+  .org-btn { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px; font-size: 11px; display: flex; align-items: center; gap: 7px; cursor: pointer; text-align: left; }
+  .org-btn:hover { border-color: #64748b; }
+  .org-btn.active { border-color: var(--accent); background: #0f2922; font-weight: 700; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px currentColor; }
+  .org-desc { color: var(--muted); font-size: 11px; min-height: 34px; line-height: 1.4; }
+
+  /* GARAGE RIGHT PANEL */
+  .right-panel { width: 300px; background: var(--panel); border-left: 1px solid var(--border); padding: 11px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-shrink: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 11px; }
+  .panel-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: #6ee7b7; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: center; }
+  .stat-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 3px 0; }
+  .stat-row span:first-child { color: var(--muted); }
+  .stat-row span:last-child { font-weight: 700; }
+  .ai-log { max-height: 92px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin: 6px 0; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--border); font-size: 11px; color: #cbd5e1; }
+  .ai-row { display: flex; gap: 5px; }
+  .ai-row input { flex: 1; user-select: text; background: rgba(0,0,0,0.38); }
+  .saved-list { display: flex; flex-direction: column; gap: 5px; max-height: 140px; overflow-y: auto; }
+  .saved-item { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: rgba(0,0,0,0.28); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 11px; }
+
+  /* HUD & INSPECTOR */
+  .hud { position: absolute; top: 10px; left: 10px; display: flex; gap: 7px; pointer-events: none; flex-wrap: wrap; }
+  .pill { background: rgba(12,18,29,0.85); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .pill b { color: var(--accent); }
+  #inspector { position: absolute; top: 10px; right: 10px; background: rgba(12,18,29,0.92); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 8px 12px; border-radius: 10px; font-size: 11px; pointer-events: none; display: none; min-width: 185px; line-height: 1.5; }
+  #inspector b { color: #38bdf8; font-size: 12px; }
+  .hint { position: absolute; bottom: 10px; left: 10px; background: rgba(12,18,29,0.85); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 6px 11px; border-radius: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
+
+  /* DISH SIDEBAR */
+  .tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .sliders { padding: 10px 12px; background: #090e16; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+  .s-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+  canvas.mini-viz { width: 100%; height: 120px; background: rgba(4,10,13,0.82); border: 1px solid var(--border); border-radius: 9px; display: block; }
+
+  /* TOAST & MODAL */
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(7,17,22,0.95); border: 1px solid var(--accent); color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 999; }
+  .toast.show { opacity: 1; }
+  .modal-bg { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4,8,16,0.82); backdrop-filter: blur(12px); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
+  .modal-bg.open { opacity: 1; visibility: visible; pointer-events: auto; }
+  .modal-card { width: 100%; max-width: 580px; border-radius: 18px; background: #0b121e; border: 1px solid var(--border); padding: 22px; }
+  .modal-card h2 { font-size: 19px; color: var(--accent); margin-bottom: 8px; }
+  .modal-card p { font-size: 13px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px; }
+  .tut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .tut-tile { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 12px; color: #cbd5e1; line-height: 1.4; }
+  .tut-tile strong { color: #fff; display: block; margin-bottom: 3px; }
+
+  body.mobile-mode { height: auto; min-height: 100dvh; overflow-y: auto; }
+  body.mobile-mode header { height: auto; flex-wrap: wrap; padding: 8px 10px; }
+  body.mobile-mode .view.active { flex-direction: column; height: auto; }
+  body.mobile-mode .stage { height: 56dvh; min-height: 340px; order: 1; }
+  body.mobile-mode .sidebar, body.mobile-mode .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; height: auto; }
+  @media (max-width: 980px) {
+    body { height: auto; min-height: 100dvh; overflow-y: auto; }
+    .view.active { flex-direction: column; height: auto; }
+    .stage { height: 56dvh; min-height: 340px; order: 1; }
+    .sidebar, .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; height: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🦠 MicroLab <span class="badge">Organelle Garage + Petri Lounge</span></div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="garage">🔧 Organelle Garage</button>
+    <button class="tab-btn" data-tab="dish">🧪 Petri Dish</button>
+    <button class="tab-btn" data-tab="course">🏁 ML Course</button>
+  </div>
+  <div class="header-actions">
+    <select id="knowSel" onchange="setKnowledge(this.value)" title="Change terminology complexity">
+      <option value="casual">🧠 Knowledge: Casual</option>
+      <option value="student" selected>🔬 Knowledge: Bio Student</option>
+      <option value="phd">🧬 Knowledge: PhD / Molecular</option>
+    </select>
+    <button id="btnExport">💾 Export</button>
+    <button id="btnImport">📂 Import</button>
+    <button id="btnMobile">📱 Phone</button>
+    <button id="btnHelp">❓ Guide</button>
+    <button class="primary" id="btnLaunchDish">🧪 Launch in Dish</button>
+  </div>
+</header>
+
+<main>
+  <!-- VIEW 1: ORGANELLE GARAGE -->
+  <section class="view active" id="view-garage">
+    <aside class="sidebar">
+      <div class="sec">
+        <h2>Blueprint Templates (12) <button class="chip" id="btnGarageClear">Clear</button></h2>
+        <select id="garagePresetSel">
+          <option value="flagellate_hunter">1. Flagellate Apex Hunter</option>
+          <option value="ciliate_cruiser">2. Ciliate Filter Cruiser</option>
+          <option value="solar_leviathan">3. Solar Leviathan</option>
+          <option value="jet_squid">4. Pulsing Jet Squid</option>
+          <option value="spiky_leviathan">5. Armored Spike Dreadnought</option>
+          <option value="toxin_jelly">6. Venomous Jelly</option>
+          <option value="amoeba_blob">7. Soft Amoeba Blob</option>
+          <option value="segmented_worm">8. Segmented Worm</option>
+          <option value="starfish_predator">9. Five-Arm Starfish</option>
+          <option value="mitosis_breeder">10. Mitosis Breeder</option>
+          <option value="neural_trilobite">11. Neural Trilobite</option>
+          <option value="volvox_colony">12. Volvox Solar Ring</option>
+        </select>
+      </div>
+      <div class="sec" style="padding-bottom:8px;">
+        <h2>16 Organelles <span class="knowBadge" style="color:#38bdf8;">Bio Student</span></h2>
+        <div class="chip-row" id="garageCatRow">
+          <button class="chip active" data-cat="all">All (16)</button>
+          <button class="chip" data-cat="move">Motors</button>
+          <button class="chip" data-cat="energy">Energy</button>
+          <button class="chip" data-cat="combat">Combat</button>
+          <button class="chip" data-cat="sense">Sense/Glue</button>
+        </div>
+        <div class="org-desc" id="garageOrgDesc"></div>
+      </div>
+      <div class="org-list" id="garageOrgList"></div>
+    </aside>
+
+    <div class="stage">
+      <div class="toolbar">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button class="g-tool active" data-gt="place">➕ Place &amp; Bond</button>
+          <button class="g-tool" data-gt="move">✋ Move</button>
+          <button class="g-tool" data-gt="bond">🔗 Link</button>
+          <button class="g-tool" data-gt="cut">✂️ Cut / Del</button>
+          <button id="btnMirror">🪞 Mirror Y: ON</button>
+          <button id="btnSnap">🧲 Snap: ON</button>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button id="btnUndo" disabled>↩ Undo</button>
+          <button id="btnRedo" disabled>↪ Redo</button>
+          <button id="btnTestPulse">⚡ Test Pulse</button>
+          <button class="primary" id="btnSpawnInDish">➕ Spawn in Dish</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="garageCanvas"></canvas>
+        <div class="hud">
+          <div class="pill"><span class="lblOrg">Organelles</span>: <b id="gHudNodes">0</b></div>
+          <div class="pill"><span class="lblBonds">Bonds</span>: <b id="gHudBonds">0</b></div>
+          <div class="pill">Tool: <b id="gHudTool">Place &amp; Bond</b></div>
+        </div>
+        <div class="hint">Click: Place &amp; Auto-Bond · Right-Click: Delete Node · Mirror Y builds symmetric bodies · Test Pulse previews spring &amp; neural physics</div>
+      </div>
+    </div>
+
+    <aside class="right-panel">
+      <div class="panel">
+        <div class="panel-title"><span>🤖 AI Organism Forge</span><span style="color:#facc15;">Instant</span></div>
+        <div class="chip-row" id="aiQuick" style="margin-bottom:5px;">
+          <button class="chip" data-p="fast spike hunter with twin flagella">🦷 Hunter</button>
+          <button class="chip" data-p="solar mitosis colony with chloroplasts">☀️ Solar</button>
+          <button class="chip" data-p="pulsing neural jet squid with poison">🦑 Jet Squid</button>
+        </div>
+        <div class="ai-log" id="aiLog"><div>👋 Describe a spring-bonded organism to assemble it on the blueprint!</div></div>
+        <div class="ai-row">
+          <input type="text" id="aiInp" placeholder="e.g. armored toxin jellyfish..." />
+          <button class="primary" id="btnAiForge">✨ Forge</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Blueprint Specs</div>
+        <div id="garageSpecs"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span>Saved Garage Blueprints</span><button class="chip" id="btnSaveBlueprint">💾 Save</button></div>
+        <div class="saved-list" id="savedBlueprints"></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- VIEW 2: PETRI DISH (SHIT LOUNGE ENGINE) -->
+  <section class="view" id="view-dish">
+    <div class="stage">
+      <div class="toolbar">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button id="pauseBtn">⏸ Pause</button>
+          <select id="presetSel">
+            <option value="">🧬 Load Preset (20)...</option>
+            <optgroup label="Single Complex Organisms">
+              <option value="flagellate_hunter">1. Flagellate Apex Hunter</option>
+              <option value="ciliate_cruiser">2. Ciliate Filter Cruiser</option>
+              <option value="solar_leviathan">3. Solar Leviathan</option>
+              <option value="jet_squid">4. Pulsing Jet Squid</option>
+              <option value="spiky_leviathan">5. Armored Spike Dreadnought</option>
+              <option value="toxin_jelly">6. Venomous Jelly</option>
+              <option value="amoeba_blob">7. Soft Amoeba Blob</option>
+              <option value="colonial_volvox">8. Volvox Colony</option>
+              <option value="segmented_worm">9. Segmented Worm</option>
+              <option value="neural_trilobite">10. Neural Trilobite</option>
+              <option value="starfish_predator">11. Five-Arm Starfish</option>
+              <option value="mitosis_breeder">12. Mitosis Breeder</option>
+            </optgroup>
+            <optgroup label="Ecosystems & Arenas">
+              <option value="soup_of_life">13. Primordial Soup</option>
+              <option value="predator_vs_prey">14. Predator vs. Herd</option>
+              <option value="parasite_outbreak">15. Parasitic Outbreak</option>
+              <option value="coral_reef">16. Symbiotic Reef</option>
+              <option value="gladiator_pit">17. Gladiator Arena</option>
+              <option value="chemotaxis_race">18. Foraging Race</option>
+              <option value="division_bloom">19. Mitosis Bloom</option>
+              <option value="chaos_lounge">20. Full Lounge Deluxe</option>
+            </optgroup>
+          </select>
+          <button id="btnAddPreset">➕ Add Preset</button>
+          <button class="primary" id="btnAddGarage">🔧 + My Garage Cell</button>
+          <button id="btnPilot">🎮 Pilot WASD: OFF</button>
+          <select id="selDishSpeed" title="Petri Dish Time Speed">
+            <option value="0.1">⏱ 0.1x Ultra-Slow</option>
+            <option value="0.25">⏱ 0.25x Slow</option>
+            <option value="0.5">⏱ 0.5x</option>
+            <option value="1" selected>⏱ 1x Real-Time</option>
+            <option value="2">⏱ 2x Fast</option>
+            <option value="5">⏱ 5x Hyper</option>
+            <option value="10">⏱ 10x Warp</option>
+            <option value="25">⏱ 25x</option>
+            <option value="50">⏱ 50x</option>
+            <option value="100">⏱ 100x Max</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button id="btnFeed">🍏 Drop Nutrients</button>
+          <button id="btnMutate">☢️ Mutate</button>
+          <button id="btnSaveDish">💾 Save</button>
+          <button id="btnLoadDish">📂 Load</button>
+          <button id="btnCenter">🎯 Center</button>
+          <button id="btnClearDish">🗑 Clear</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="dishCanvas"></canvas>
+        <div class="hud">
+          <div class="pill">Organisms: <b id="hCre">0</b></div>
+          <div class="pill"><span class="lblOrg">Organelles</span>: <b id="hOrg">0</b></div>
+          <div class="pill"><span class="lblBonds">Bonds</span>: <b id="hBonds">0</b></div>
+          <div class="pill"><span class="lblFood">Nutrients</span>: <b id="hFood">0</b></div>
+          <div class="pill">Tool: <b id="hTool">Build &amp; Bond</b></div>
+          <div class="pill">Zoom: <b id="hZoom">1.0x</b></div>
+        </div>
+        <div id="inspector"></div>
+        <div class="hint">Left-Drag: Tool · Right-Drag: Grab/Fling · Alt/Mid-Drag: Pan · Scroll: Zoom · Space: Pause · 1-6: Tools · F: Feed · WASD: Pilot (when ON)</div>
+      </div>
+    </div>
+
+    <aside class="sidebar right">
+      <div class="sec">
+        <h2>Interaction Mode</h2>
+        <div class="tool-grid">
+          <button class="t-btn active" data-t="spawn">🧬 Build</button>
+          <button class="t-btn" data-t="drag">✋ Grab</button>
+          <button class="t-btn" data-t="link">🔗 Bond</button>
+          <button class="t-btn" data-t="cut">✂️ Scalpel</button>
+          <button class="t-btn" data-t="food">🍏 Feed</button>
+          <button class="t-btn" data-t="kill">💀 Lyse</button>
+        </div>
+        <select id="stampSel">
+          <option value="single">Brush: Single Part (Auto-Bonds)</option>
+          <option value="garage">Stamp: My Garage Blueprint ⭐</option>
+          <option value="ring">Stamp: Ciliate Cruiser</option>
+          <option value="swimmer">Stamp: Flagellate Hunter</option>
+          <option value="hunter">Stamp: Spike Dreadnought</option>
+          <option value="plant">Stamp: Solar Rosette</option>
+        </select>
+      </div>
+      <div class="sec" style="padding-bottom:8px;">
+        <h2>16 Organelles <span class="knowBadge" style="color:#38bdf8;">Bio Student</span></h2>
+        <div class="org-desc" id="dishOrgDesc"></div>
+      </div>
+      <div class="org-list" id="dishOrgList"></div>
+      <div class="sliders">
+        <div class="s-row"><span>Viscosity</span><input type="range" id="sDrag" min="0.90" max="0.99" step="0.005" value="0.96"><b id="vDrag">0.96</b></div>
+        <div class="s-row"><span>Bond Stiffness</span><input type="range" id="sStiff" min="0.05" max="0.45" step="0.05" value="0.20"><b id="vStiff">0.20</b></div>
+        <div class="s-row"><span>Swim Thrust</span><input type="range" id="sThrust" min="0.1" max="1.4" step="0.1" value="0.50"><b id="vThrust">0.50</b></div>
+        <div class="s-row"><span>Sunlight</span><input type="range" id="sLight" min="0" max="2.0" step="0.1" value="1.0"><b id="vLight">1.0x</b></div>
+        <div class="s-row">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkMitosis" checked><span id="lblMitosis">Divide at High ATP</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkMetab"><span>Metabolism Drain</span></label>
+        </div>
+        <div class="s-row">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkCurrent" checked><span>Fluid Currents</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkTrails"><span>Bio-Trails</span></label>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- VIEW 3: ML OBSTACLE COURSE (MULTI-GHOST TRAINING) -->
+  <section class="view" id="view-course">
+    <div class="stage">
+      <div class="toolbar">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button id="coursePauseBtn">⏸ Pause</button>
+          <select id="courseMapSel" title="Select Obstacle Course">
+            <option value="channel">1. Winding Bio-Channel</option>
+            <option value="slalom">2. Slalom Pillar Maze</option>
+            <option value="gauntlet">3. Twin-Split Gauntlet</option>
+            <option value="vortex">4. Reef Obstacle Field</option>
+          </select>
+          <select id="selCourseGhosts" title="Parallel Ghost Organisms">
+            <option value="16">👻 16 Ghosts</option>
+            <option value="32">👻 32 Ghosts</option>
+            <option value="64" selected>👻 64 Ghosts</option>
+            <option value="128">👻 128 Ghosts</option>
+            <option value="256">👻 256 Ghosts</option>
+            <option value="500">👻 500 Ghosts</option>
+            <option value="1000">👻 1,000 Ghosts</option>
+            <option value="2000">👻 2,000 Ghosts</option>
+          </select>
+          <select id="selCourseSpeed" title="ML Training Time Speed">
+            <option value="0.1">⏱ 0.1x Ultra-Slow</option>
+            <option value="0.25">⏱ 0.25x Slow</option>
+            <option value="0.5">⏱ 0.5x</option>
+            <option value="1" selected>⏱ 1x Real-Time</option>
+            <option value="3">⏱ 3x Fast</option>
+            <option value="10">⏱ 10x Hyper</option>
+            <option value="30">⏱ 30x Warp</option>
+            <option value="100">⏱ 100x</option>
+            <option value="250">⏱ 250x</option>
+            <option value="500">⏱ 500x</option>
+            <option value="1000">⏱ 1,000x Max ML</option>
+          </select>
+          <select id="selGhostVis" title="Ghost Rendering Mode">
+            <option value="top24" selected>👁 Top 24 Ghosts</option>
+            <option value="top64">👁 Top 64 Ghosts</option>
+            <option value="all">👁 All (up to 150)</option>
+            <option value="champ">👁 Champion Only</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <button id="btnCourseResetGen">🔄 Reset Gen</button>
+          <button id="btnCourseNewBrains">🧬 New Brains</button>
+          <button class="primary" id="btnCourseSyncGarage">🔧 Sync Garage Cell</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="courseCanvas"></canvas>
+        <div class="hud">
+          <div class="pill">Gen: <b id="cHudGen">1</b></div>
+          <div class="pill">Best Fitness: <b id="cHudBest">0</b></div>
+          <div class="pill">Avg: <b id="cHudAvg">0</b></div>
+          <div class="pill">Best Gate: <b id="cHudGate">0 / 0</b></div>
+          <div class="pill">Finished: <b id="cHudFin">0</b></div>
+          <div class="pill">Time: <b id="cHudTime">18.0s</b></div>
+        </div>
+        <div class="hint">Multi-Ghost ML Course: Every ghost is a spring-bonded copy of your Garage organism learning to navigate walls, collect reward pellets, clear gates, and reach the finish.</div>
+      </div>
+    </div>
+
+    <aside class="right-panel">
+      <div class="panel">
+        <div class="panel-title"><span>🧠 Champion Neural Net</span><span>10→12→3</span></div>
+        <canvas id="courseNnCanvas" class="mini-viz"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><span>📈 Evolution Curve</span><span id="cAvgLbl">Avg: 0</span></div>
+        <canvas id="courseChartCanvas" class="mini-viz"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Course Telemetry</div>
+        <div class="stat-row"><span>Active Ghosts</span><span id="cTelGhosts">64</span></div>
+        <div class="stat-row"><span>Garage Organelles</span><span id="cTelNodes">0</span></div>
+        <div class="stat-row"><span>Motors / Boost</span><span id="cTelMotors">0 (1.0x)</span></div>
+        <div class="stat-row"><span>Fastest Finish</span><span id="cTelFast" style="color:#facc15;">--</span></div>
+        <div class="stat-row"><span>Time Speed</span><span id="cTelSpeed">1x</span></div>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="helpModal">
+  <div class="modal-card">
+    <h2>🦠 MicroLab — Organelle Garage &amp; Petri Lounge</h2>
+    <p>Design spring-bonded multi-organelle organisms in the <strong>Organelle Garage</strong>, then release them into the live <strong>Petri Dish</strong> fluid sandbox.</p>
+    <div class="tut-grid">
+      <div class="tut-tile"><strong>1. Organelle Garage</strong>Place &amp; auto-bond any of 16 organelles, toggle Mirror Y symmetry, drag nodes to tune bond lengths, or prompt the AI Organism Forge.</div>
+      <div class="tut-tile"><strong>2. Test Pulse &amp; Save</strong>Click <em>Test Pulse</em> in the Garage to preview spring elasticity, flagella waves, and neural action potentials before launching.</div>
+      <div class="tut-tile"><strong>3. Petri Dish Physics</strong>Real spring-bonded bodies with cytoplasmic hulls, ATP sharing across bonds, spikes, toxins, adhesion glue, and mitosis budding.</div>
+      <div class="tut-tile"><strong>4. Stamp &amp; Pilot</strong>Stamp your Garage organism anywhere in the dish, or turn on <em>Pilot WASD</em> to steer your custom creation directly.</div>
+    </div>
+    <button class="primary" id="btnCloseHelp" style="width:100%;padding:10px;">🧪 Enter MicroLab</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // =========================================================================
+  // 1. KNOWLEDGE TIERS & 16 CORE ORGANELLES (SHIT LOUNGE SPEC)
+  // =========================================================================
+  let knowledge = 'student';
+  const UI_TEXT = {
+    casual: {
+      badge: 'Casual', orgs: 'Parts', bonds: 'Links', food: 'Snacks', feed: '🍏 Drop Snacks', mitosis: 'Split when Full',
+      tools: { spawn: 'Build', drag: 'Grab', link: 'Connect', cut: 'Cut', food: 'Feed', kill: 'Pop' },
+      gTools: { place: 'Place & Bond', move: 'Move', bond: 'Link', cut: 'Cut / Del' }
+    },
+    student: {
+      badge: 'Bio Student', orgs: 'Organelles', bonds: 'Bonds', food: 'Nutrients', feed: '🍏 Drop Nutrients', mitosis: 'Divide at High ATP',
+      tools: { spawn: 'Build & Bond', drag: 'Grab & Fling', link: 'Manual Bond', cut: 'Scalpel', food: 'Feed', kill: 'Lyse' },
+      gTools: { place: 'Place & Bond', move: 'Move', bond: 'Link', cut: 'Cut / Del' }
+    },
+    phd: {
+      badge: 'PhD / Molecular', orgs: 'Subcellular Units', bonds: 'Cytoskeletal Junctions', food: 'Exogenous Substrates', feed: '🍏 Titrate Substrates', mitosis: 'Cytokinesis >185 ATP',
+      tools: { spawn: 'Anabolic Assembly', drag: 'Optical Tweezers', link: 'Desmosome Linker', cut: 'Laser Ablation', food: 'Substrate Pipette', kill: 'Osmotic Lysis' },
+      gTools: { place: 'Anabolic Assembly', move: 'Reposition', bond: 'Desmosome Link', cut: 'Laser Ablation' }
+    }
+  };
+
+  const ORGANELLES = [
+    { id: 0, cat: 'sense', color: '#a855f7', r: 11,
+      casual: ['Brain Core', 'The boss of the creature. Helps it steer and split into babies when full!'],
+      student: ['Nucleus', 'Command & genome center. Coordinates steering and triggers Mitosis when ATP is high.'],
+      phd: ['Eukaryotic Nucleus', 'Double-membrane genome hub regulating chemotactic signaling and mitotic cytokinesis.'] },
+    { id: 1, cat: 'energy', color: '#f97316', r: 8,
+      casual: ['Battery Pack', 'Boosts connected tails, oars, and water jets by 1.5x speed!'],
+      student: ['Mitochondria', 'Powerhouse! Supercharges connected Flagella, Cilia & Jet Vacuoles (1.5x thrust).'],
+      phd: ['Cristae Mitochondrion', 'Oxidative phosphorylation organelle driving 1.5x high-flux ATP motor output.'] },
+    { id: 2, cat: 'energy', color: '#22c55e', r: 8,
+      casual: ['Solar Panel', 'Soaks up light to make free energy without eating!'],
+      student: ['Chloroplast', 'Photosynthetic plastid. Harvests Sunlight to continuously generate ATP.'],
+      phd: ['Thylakoid Chloroplast', 'Photosystem I/II plastid fixing ambient photons into chemiosmotic ATP gradients.'] },
+    { id: 3, cat: 'move', color: '#38bdf8', r: 7,
+      casual: ['Tail Whip', 'Wiggles like a propeller to push the creature forward!'],
+      student: ['Flagellum', 'Whip-like motor tail! Pushes the organism forward with rhythmic undulation.'],
+      phd: ['9+2 Axoneme Flagellum', 'Dynein-driven microtubule motor generating asymmetric planar propulsion waves.'] },
+    { id: 4, cat: 'move', color: '#2dd4bf', r: 6,
+      casual: ['Tiny Oars', 'Little hairs that help the creature glide and turn smoothly.'],
+      student: ['Cilia', 'Rapidly beating hair-like oars for smooth, agile gliding and turning.'],
+      phd: ['Metachronal Ciliary Array', 'Coordinated ciliary beat oscillators providing low-Reynolds-number hydrodynamic thrust.'] },
+    { id: 5, cat: 'combat', color: '#f43f5e', r: 9,
+      casual: ['Mouth', 'Sucks in green snacks and broken bits to feed the creature!'],
+      student: ['Phagocyte (Mouth)', 'Digestive vacuole! Engulfs Nutrient pellets and lysed cell debris.'],
+      phd: ['Endocytic Phagolysosome', 'Active phagocytic invagination internalizing exogenous substrates via endocytosis.'] },
+    { id: 6, cat: 'combat', color: '#64748b', r: 7,
+      casual: ['Soft Skin', 'Squishy outer bubble that holds the creature together.'],
+      student: ['Membrane', 'Flexible lipid bilayer node. Forms protective outer cell walls and rings.'],
+      phd: ['Phospholipid Bilayer', 'Amphipathic fluid-mosaic structural node maintaining osmotic integrity.'] },
+    { id: 7, cat: 'combat', color: '#94a3b8', r: 9,
+      casual: ['Armor Plate', 'Tough shell that blocks Spikes and Poison!'],
+      student: ['Chitin Armor', 'Heavy structural shell plate. Deflects Keratin Spikes and Toxin attacks.'],
+      phd: ['Chitinous Exocuticle', 'Cross-linked β-1,4-N-acetylglucosamine matrix conferring mechanical & toxic resistance.'] },
+    { id: 8, cat: 'combat', color: '#ef4444', r: 7,
+      casual: ['Spike', 'Sharp stinger that pops rival creatures on touch!'],
+      student: ['Keratin Spike', 'Sharp predatory lance! Punctures and lyses rival organisms on contact.'],
+      phd: ['Cytolytic Nematocyst', 'Mechanical-lytic stylet inducing rapid membrane rupture in non-kin cells.'] },
+    { id: 9, cat: 'combat', color: '#84cc16', r: 8,
+      casual: ['Poison Sac', 'Sprays green poison clouds that hurt nearby rivals!'],
+      student: ['Toxin Gland', 'Secretes paralyzing cytotoxic clouds that damage non-kin organelles.'],
+      phd: ['Exocytotic Toxin Pore', 'Vesicular secretion apparatus releasing diffusing pore-forming cytotoxins.'] },
+    { id: 10, cat: 'sense', color: '#fde047', r: 7,
+      casual: ['Eyeball', 'Spots nearby snacks and steers the creature toward them!'],
+      student: ['Photoreceptor Eye', 'Sensory ocellus! Detects nearby Nutrients and steers motors toward them.'],
+      phd: ['Rhodopsin Ocellus', 'Phototactic/chemotactic sensorium modulating flagellar vector orientation.'] },
+    { id: 11, cat: 'sense', color: '#60a5fa', r: 7,
+      casual: ['Nerve Spark', 'Fires blue sparks through links to sync up water jets!'],
+      student: ['Neuron Ganglion', 'Bio-electric pacemaker that fires pulses along bonds to sync Jet Vacuoles.'],
+      phd: ['Action-Potential Soma', 'Electrotonic pacemaker coupling gap-junction depolarization across contractile units.'] },
+    { id: 12, cat: 'move', color: '#06b6d4', r: 9,
+      casual: ['Water Jet', 'Fires a burst of water to dash forward like a squid!'],
+      student: ['Jet Vacuole', 'Contractile water jet! Periodically expels high-speed bursts for dash propulsion.'],
+      phd: ['Contractile Systole Jet', 'Periodic osmoregulatory expulsion chamber generating pulsatile momentum.'] },
+    { id: 13, cat: 'sense', color: '#f472b6', r: 7,
+      casual: ['Super Glue', 'Sticky node that grabs and links onto anything it touches!'],
+      student: ['Adhesion Glue', 'Sticky cadherin junction! Automatically bonds to nearby organelles on contact.'],
+      phd: ['Cadherin Desmosome', 'Ca²⁺-dependent cell-adhesion complex forming spontaneous intercellular junctions.'] },
+    { id: 14, cat: 'energy', color: '#fbbf24', r: 10,
+      casual: ['Fat Sac', 'Stores 2x extra snacks/energy and shares it with the whole body!'],
+      student: ['Lipid Vacuole', 'High-capacity energy storage sac (450 ATP) that shares ATP across bonded cells.'],
+      phd: ['Triacylglycerol Inclusion', 'High-capacity (450 ATP) metabolic reserve droplet buffering intracellular homeostasis.'] },
+    { id: 15, cat: 'energy', color: '#e879f9', r: 8,
+      casual: ['Baby Maker', 'Grows new parts and buds off mini-creatures when well-fed!'],
+      student: ['Stem Budder', 'Reproductive gemmule! Buds off new baby organelles when well-fed.'],
+      phd: ['Totipotent Blastomere', 'Undifferentiated proliferative bud driving somatic morphogenesis & fission.'] }
+  ];
+
+  let selectedOrg = 0, garageCat = 'all', garageTool = 'place';
+  let currentTool = 'spawn', paused = false, lastPreset = 'soup_of_life', pilotMode = false;
+  let mirrorY = true, snapGrid = true, testPulse = false;
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._id); t._id = setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  function renderOrgPalettes() {
+    // Garage list (filtered by category)
+    const gList = document.getElementById('garageOrgList');
+    gList.innerHTML = '';
+    ORGANELLES.filter(o => garageCat === 'all' || o.cat === garageCat).forEach(o => {
+      const [name] = o[knowledge];
+      const b = document.createElement('button');
+      b.className = 'org-btn' + (o.id === selectedOrg ? ' active' : '');
+      b.innerHTML = `<span class="dot" style="background:${o.color};color:${o.color}"></span><span>${name}</span>`;
+      b.onclick = () => { selectedOrg = o.id; renderOrgPalettes(); };
+      gList.appendChild(b);
+    });
+    document.getElementById('garageOrgDesc').textContent = ORGANELLES[selectedOrg][knowledge][1];
+
+    // Dish list (all 16)
+    const dList = document.getElementById('dishOrgList');
+    dList.innerHTML = '';
+    ORGANELLES.forEach(o => {
+      const [name] = o[knowledge];
+      const b = document.createElement('button');
+      b.className = 'org-btn' + (o.id === selectedOrg ? ' active' : '');
+      b.innerHTML = `<span class="dot" style="background:${o.color};color:${o.color}"></span><span>${name}</span>`;
+      b.onclick = () => { selectedOrg = o.id; renderOrgPalettes(); };
+      dList.appendChild(b);
+    });
+    document.getElementById('dishOrgDesc').textContent = ORGANELLES[selectedOrg][knowledge][1];
+  }
+
+  window.setKnowledge = function(lvl) {
+    knowledge = lvl;
+    const t = UI_TEXT[lvl];
+    document.querySelectorAll('.knowBadge').forEach(el => el.textContent = t.badge);
+    document.querySelectorAll('.lblOrg').forEach(el => el.textContent = t.orgs);
+    document.querySelectorAll('.lblBonds').forEach(el => el.textContent = t.bonds);
+    document.querySelectorAll('.lblFood').forEach(el => el.textContent = t.food);
+    document.getElementById('btnFeed').textContent = t.feed;
+    document.getElementById('lblMitosis').textContent = t.mitosis;
+    document.getElementById('hTool').textContent = t.tools[currentTool];
+    document.getElementById('gHudTool').textContent = t.gTools[garageTool];
+    renderOrgPalettes();
+  };
+
+  // =========================================================================
+  // 2. ORGANELLE GARAGE (NODE-AND-BOND BLUEPRINT EDITOR)
+  // =========================================================================
+  const gCanvas = document.getElementById('garageCanvas');
+  const gCtx = gCanvas.getContext('2d');
+  let bp = { nodes: [], bonds: [] }; // coordinates relative to center (0,0)
+  let gUndo = [], gRedo = [], gPulses = [];
+  let gMouse = { x: 0, y: 0, wx: 0, wy: 0, down: false };
+  let gDragNode = null, gLinkStart = null, gHoverNode = null, gPhase = 0;
+
+  function cloneBp(src) {
+    return {
+      nodes: src.nodes.map(n => ({ ...n })),
+      bonds: src.bonds.map(b => [b[0], b[1], b[2]])
+    };
+  }
+  function pushGarageHist() {
+    gUndo.push(cloneBp(bp));
+    if (gUndo.length > 40) gUndo.shift();
+    gRedo = [];
+    updGarageHistBtns();
+  }
+  function updGarageHistBtns() {
+    document.getElementById('btnUndo').disabled = gUndo.length === 0;
+    document.getElementById('btnRedo').disabled = gRedo.length === 0;
+  }
+
+  function resizeCanvases() {
+    const gp = gCanvas.parentElement;
+    if (gp && gp.clientWidth > 0) {
+      gCanvas.width = gp.clientWidth;
+      gCanvas.height = gp.clientHeight;
+    }
+    const dp = dishCanvas.parentElement;
+    if (dp && dp.clientWidth > 0) {
+      dishCanvas.width = dp.clientWidth;
+      dishCanvas.height = dp.clientHeight;
+    }
+    const cp = courseCanvas.parentElement;
+    if (cp && cp.clientWidth > 0) {
+      courseCanvas.width = cp.clientWidth;
+      courseCanvas.height = cp.clientHeight;
+    }
+  }
+  window.addEventListener('resize', resizeCanvases);
+
+  function snapVal(v) { return snapGrid ? Math.round(v / 14) * 14 : v; }
+
+  function addBpNode(x, y, type, autoBond = true) {
+    const idx = bp.nodes.length;
+    bp.nodes.push({ x, y, ox: x, oy: y, vx: 0, vy: 0, type });
+    if (autoBond) {
+      const dists = [];
+      for (let i = 0; i < idx; i++) {
+        const d = Math.hypot(bp.nodes[i].x - x, bp.nodes[i].y - y);
+        if (d < 46) dists.push({ i, d });
+      }
+      dists.sort((a, b) => a.d - b.d);
+      dists.slice(0, 3).forEach(nb => addBpBond(idx, nb.i, Math.max(15, Math.min(58, nb.d))));
+    }
+    return idx;
+  }
+
+  function addBpBond(ia, ib, len = null) {
+    if (ia === ib || ia < 0 || ib < 0 || ia >= bp.nodes.length || ib >= bp.nodes.length) return;
+    if (bp.bonds.some(b => (b[0] === ia && b[1] === ib) || (b[0] === ib && b[1] === ia))) return;
+    const d = len ?? Math.hypot(bp.nodes[ib].x - bp.nodes[ia].x, bp.nodes[ib].y - bp.nodes[ia].y);
+    bp.bonds.push([ia, ib, Math.max(15, Math.min(62, d))]);
+  }
+
+  function deleteBpNode(idx) {
+    bp.bonds = bp.bonds.filter(b => b[0] !== idx && b[1] !== idx).map(b => [
+      b[0] > idx ? b[0] - 1 : b[0],
+      b[1] > idx ? b[1] - 1 : b[1],
+      b[2]
+    ]);
+    bp.nodes.splice(idx, 1);
+  }
+
+  function updateGarageSpecs() {
+    const counts = new Array(16).fill(0);
+    bp.nodes.forEach(n => counts[n.type]++);
+    const motors = counts[3] + counts[4] + counts[12];
+    const mitoBoost = counts[1] > 0 ? '1.5x' : '1.0x';
+    const maxAtp = bp.nodes.reduce((s, n) => s + (n.type === 14 ? 450 : 230), 0);
+    const offense = counts[8] + counts[9];
+    const defense = counts[7];
+    document.getElementById('gHudNodes').textContent = bp.nodes.length;
+    document.getElementById('gHudBonds').textContent = bp.bonds.length;
+    document.getElementById('garageSpecs').innerHTML = `
+      <div class="stat-row"><span>Organelles / Bonds</span><span>${bp.nodes.length} / ${bp.bonds.length}</span></div>
+      <div class="stat-row"><span>Total ATP Capacity</span><span style="color:#34d399;">${maxAtp} ATP</span></div>
+      <div class="stat-row"><span>Propulsion &amp; Boost</span><span>${motors} motors (${mitoBoost})</span></div>
+      <div class="stat-row"><span>Solar / Budding</span><span style="color:#facc15;">${counts[2]} Solar · ${counts[15]} Bud</span></div>
+      <div class="stat-row"><span>Combat / Armor</span><span style="color:#fb7185;">${offense} Atk · ${defense} Armor</span></div>
+      <div class="stat-row"><span>Neural / Eyes</span><span style="color:#38bdf8;">${counts[11]} Nerve · ${counts[10]} Eye</span></div>
+    `;
+  }
+
+  // Generate blueprint from Shit-Lounge builder functions by capturing nodes/bonds around (0,0)
+  function capturePresetIntoGarage(name) {
+    const tmpNodes = [], tmpBonds = [];
+    let gid = 1;
+    function tAdd(x, y, type) {
+      const n = { x, y, type, gid };
+      tmpNodes.push(n);
+      return n;
+    }
+    function tBond(a, b, len = null) {
+      const d = len ?? Math.hypot(b.x - a.x, b.y - a.y);
+      tmpBonds.push([tmpNodes.indexOf(a), tmpNodes.indexOf(b), Math.max(15, Math.min(60, d))]);
+    }
+    buildCreatureInto(name, 0, 0, tAdd, tBond);
+    bp = {
+      nodes: tmpNodes.map(n => ({ x: n.x, y: n.y, ox: n.x, oy: n.y, vx: 0, vy: 0, type: n.type })),
+      bonds: tmpBonds
+    };
+    updateGarageSpecs();
+  }
+
+  // AI Organism Forge (creates genuine spring-bonded blueprints)
+  function forgeGarageOrganism(raw) {
+    const p = raw.trim().toLowerCase();
+    if (!p) return;
+    pushGarageHist();
+    bp = { nodes: [], bonds: [] };
+    const isPred = /pred|hunt|spike|jaw|bite|attack/.test(p);
+    const isSolar = /solar|plant|chlor|algae|sun/.test(p);
+    const isJet = /jet|squid|fast|turbo|speed/.test(p);
+    const isToxin = /toxin|poison|venom|jelly|acid/.test(p);
+    const isArmor = /armor|tank|chitin|shield/.test(p);
+    const isMitosis = /mitosis|baby|breed|colony|split/.test(p);
+
+    const nuc = addBpNode(0, 0, 0, false);
+    const mouth = addBpNode(24, 0, 5, false);
+    addBpBond(nuc, mouth, 24);
+    const eyeL = addBpNode(18, -16, 10, false), eyeR = addBpNode(18, 16, 10, false);
+    addBpBond(nuc, eyeL); addBpBond(nuc, eyeR); addBpBond(mouth, eyeL); addBpBond(mouth, eyeR);
+
+    const sideType = isArmor ? 7 : (isSolar ? 2 : (isMitosis ? 15 : 1));
+    const sL = addBpNode(-6, -20, sideType, false), sR = addBpNode(-6, 20, sideType, false);
+    addBpBond(nuc, sL); addBpBond(nuc, sR); addBpBond(eyeL, sL); addBpBond(eyeR, sR);
+
+    if (isPred) {
+      const spL = addBpNode(34, -14, 8, false), spR = addBpNode(34, 14, 8, false);
+      addBpBond(mouth, spL); addBpBond(mouth, spR); addBpBond(eyeL, spL); addBpBond(eyeR, spR);
+    }
+    if (isToxin) {
+      const txL = addBpNode(-14, -34, 9, false), txR = addBpNode(-14, 34, 9, false);
+      addBpBond(sL, txL); addBpBond(sR, txR);
+    }
+    if (isJet) {
+      const gang = addBpNode(-20, 0, 11, false);
+      addBpBond(nuc, gang);
+      const jL = addBpNode(-36, -14, 12, false), jR = addBpNode(-36, 14, 12, false), jC = addBpNode(-40, 0, 12, false);
+      addBpBond(gang, jL); addBpBond(gang, jR); addBpBond(gang, jC);
+      addBpBond(jL, jC); addBpBond(jR, jC);
+    } else {
+      let prev = nuc;
+      for (let i = 1; i <= 4; i++) {
+        const f = addBpNode(-i * 18, 0, 3, false);
+        addBpBond(prev, f, 18); prev = f;
+      }
+      if (/twin|fast/.test(p)) {
+        const cL = addBpNode(-22, -18, 4, false), cR = addBpNode(-22, 18, 4, false);
+        addBpBond(sL, cL); addBpBond(sR, cR);
+      }
+    }
+    updateGarageSpecs();
+    document.getElementById('aiLog').innerHTML += `<div>✨ Forged "<em>${raw}</em>" (${bp.nodes.length} organelles, ${bp.bonds.length} bonds)</div>`;
+    showToast('🤖 AI assembled bonded organism!');
+  }
+
+  // Garage Canvas Interaction
+  function findBpNode(wx, wy, maxD = 18) {
+    let best = -1, bd = maxD;
+    bp.nodes.forEach((n, i) => {
+      const d = Math.hypot(n.x - wx, n.y - wy);
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+
+  gCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  gCanvas.addEventListener('mousedown', e => {
+    const r = gCanvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const wx = (sx - gCanvas.width / 2) / 1.5, wy = (sy - gCanvas.height / 2) / 1.5;
+    gMouse = { x: sx, y: sy, wx, wy, down: true };
+
+    const hit = findBpNode(wx, wy, 16);
+    if (e.button === 2 || garageTool === 'cut') {
+      pushGarageHist();
+      if (hit !== -1) {
+        const hy = bp.nodes[hit].y;
+        deleteBpNode(hit);
+        if (mirrorY && Math.abs(hy) > 4) {
+          const mir = findBpNode(wx, -hy, 12);
+          if (mir !== -1) deleteBpNode(mir);
+        }
+      } else {
+        // Cut bonds near cursor
+        bp.bonds = bp.bonds.filter(([ia, ib]) => {
+          const a = bp.nodes[ia], b = bp.nodes[ib];
+          if (!a || !b) return false;
+          return Math.hypot((a.x + b.x) * 0.5 - wx, (a.y + b.y) * 0.5 - wy) > 14;
+        });
+      }
+      updateGarageSpecs();
+      return;
+    }
+    if (garageTool === 'move') {
+      gDragNode = hit !== -1 ? hit : null;
+      if (gDragNode !== null) pushGarageHist();
+      return;
+    }
+    if (garageTool === 'bond') {
+      gLinkStart = hit !== -1 ? hit : null;
+      return;
+    }
+    if (garageTool === 'place') {
+      pushGarageHist();
+      const px = snapVal(wx), py = snapVal(wy);
+      addBpNode(px, py, selectedOrg, true);
+      if (mirrorY && Math.abs(py) > 6) {
+        addBpNode(px, -py, selectedOrg, true);
+      }
+      updateGarageSpecs();
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!document.getElementById('view-garage').classList.contains('active')) return;
+    const r = gCanvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const wx = (sx - gCanvas.width / 2) / 1.5, wy = (sy - gCanvas.height / 2) / 1.5;
+    gMouse.x = sx; gMouse.y = sy; gMouse.wx = wx; gMouse.wy = wy;
+    gHoverNode = findBpNode(wx, wy, 16);
+    if (gMouse.down && garageTool === 'move' && gDragNode !== null) {
+      const nx = snapVal(wx), ny = snapVal(wy);
+      const n = bp.nodes[gDragNode];
+      const oldY = n.y;
+      n.x = nx; n.y = ny; n.ox = nx; n.oy = ny;
+      if (mirrorY && Math.abs(oldY) > 4) {
+        const mir = bp.nodes.findIndex((m, idx) => idx !== gDragNode && Math.abs(m.x - n.x) < 18 && Math.abs(m.y + oldY) < 18);
+        if (mir !== -1) {
+          bp.nodes[mir].x = nx; bp.nodes[mir].y = -ny; bp.nodes[mir].ox = nx; bp.nodes[mir].oy = -ny;
+        }
+      }
+      // Update rest lengths of attached bonds
+      bp.bonds.forEach(b => {
+        if (b[0] === gDragNode || b[1] === gDragNode) {
+          const a = bp.nodes[b[0]], c = bp.nodes[b[1]];
+          b[2] = Math.max(15, Math.min(62, Math.hypot(c.x - a.x, c.y - a.y)));
+        }
+      });
+      updateGarageSpecs();
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (garageTool === 'bond' && gLinkStart !== null) {
+      const end = findBpNode(gMouse.wx, gMouse.wy, 18);
+      if (end !== -1 && end !== gLinkStart) {
+        pushGarageHist();
+        addBpBond(gLinkStart, end);
+        updateGarageSpecs();
+      }
+    }
+    gMouse.down = false; gDragNode = null; gLinkStart = null;
+  });
+
+  function drawGarage() {
+    if (gCanvas.width <= 0) return;
+    gPhase += 0.1;
+    // Optional Test Pulse preview animation
+    if (testPulse) {
+      bp.nodes.forEach((n, i) => {
+        n.x = n.ox + Math.sin(gPhase + i * 0.8) * (n.type === 3 ? 4.5 : 1.8);
+        n.y = n.oy + Math.cos(gPhase * 0.9 + i * 0.7) * (n.type === 3 ? 4.5 : 1.8);
+        if (n.type === 11 && Math.sin(gPhase * 0.6) > 0.94 && gPulses.length < 40) {
+          bp.bonds.forEach(([ia, ib]) => {
+            if (ia === i) gPulses.push({ ia, ib, t: 0 });
+            else if (ib === i) gPulses.push({ ia: ib, ib: ia, t: 0 });
+          });
+        }
+      });
+      for (let i = gPulses.length - 1; i >= 0; i--) {
+        gPulses[i].t += 0.08;
+        if (gPulses[i].t >= 1) gPulses.splice(i, 1);
+      }
+    } else {
+      bp.nodes.forEach(n => { n.x = n.ox; n.y = n.oy; });
+      gPulses = [];
+    }
+
+    gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+    gCtx.save();
+    gCtx.translate(gCanvas.width / 2, gCanvas.height / 2);
+    gCtx.scale(1.5, 1.5);
+
+    // Blueprint grid & symmetry axis
+    gCtx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
+    gCtx.lineWidth = 0.7;
+    for (let x = -280; x <= 280; x += 14) { gCtx.beginPath(); gCtx.moveTo(x, -200); gCtx.lineTo(x, 200); gCtx.stroke(); }
+    for (let y = -196; y <= 196; y += 14) { gCtx.beginPath(); gCtx.moveTo(-280, y); gCtx.lineTo(280, y); gCtx.stroke(); }
+    if (mirrorY) {
+      gCtx.strokeStyle = 'rgba(52, 211, 153, 0.35)';
+      gCtx.setLineDash([4, 4]);
+      gCtx.beginPath(); gCtx.moveTo(-260, 0); gCtx.lineTo(260, 0); gCtx.stroke();
+      gCtx.setLineDash([]);
+    }
+    gCtx.fillStyle = 'rgba(110, 231, 183, 0.75)';
+    gCtx.font = 'bold 9px sans-serif';
+    gCtx.fillText('FRONT ➔', 145, -6);
+
+    // Bonds + Cytoplasmic hulls
+    gCtx.lineCap = 'round';
+    bp.bonds.forEach(([ia, ib]) => {
+      const a = bp.nodes[ia], b = bp.nodes[ib];
+      if (!a || !b) return;
+      gCtx.beginPath(); gCtx.moveTo(a.x, a.y); gCtx.lineTo(b.x, b.y);
+      gCtx.strokeStyle = 'rgba(56, 189, 248, 0.16)'; gCtx.lineWidth = 18; gCtx.stroke();
+      gCtx.strokeStyle = 'rgba(148, 163, 184, 0.52)'; gCtx.lineWidth = 3.5; gCtx.stroke();
+    });
+
+    // Test pulses
+    gPulses.forEach(p => {
+      const a = bp.nodes[p.ia], b = bp.nodes[p.ib];
+      if (!a || !b) return;
+      gCtx.beginPath();
+      gCtx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 3.2, 0, Math.PI * 2);
+      gCtx.fillStyle = '#93c5fd'; gCtx.fill();
+    });
+
+    // Link drag preview
+    if (garageTool === 'bond' && gLinkStart !== null && bp.nodes[gLinkStart]) {
+      const s = bp.nodes[gLinkStart];
+      gCtx.beginPath(); gCtx.moveTo(s.x, s.y); gCtx.lineTo(gMouse.wx, gMouse.wy);
+      gCtx.strokeStyle = '#34d399'; gCtx.lineWidth = 2; gCtx.setLineDash([4, 4]); gCtx.stroke(); gCtx.setLineDash([]);
+    }
+
+    // Nodes
+    bp.nodes.forEach((n, idx) => {
+      const def = ORGANELLES[n.type];
+      drawOrganelleArt(gCtx, n.x, n.y, def.r, n.type, def.color, gPhase + idx, 0, 1.0, idx === gHoverNode);
+    });
+
+    // Ghost cursor when placing
+    if (garageTool === 'place' && !gMouse.down) {
+      const px = snapVal(gMouse.wx), py = snapVal(gMouse.wy);
+      const def = ORGANELLES[selectedOrg];
+      gCtx.globalAlpha = 0.45;
+      drawOrganelleArt(gCtx, px, py, def.r, selectedOrg, def.color, gPhase, 0, 1, false);
+      if (mirrorY && Math.abs(py) > 6) drawOrganelleArt(gCtx, px, -py, def.r, selectedOrg, def.color, gPhase, 0, 1, false);
+      gCtx.globalAlpha = 1;
+    }
+    gCtx.restore();
+  }
+
+  // Saved Blueprints
+  function renderSavedBlueprints() {
+    const box = document.getElementById('savedBlueprints');
+    const list = JSON.parse(localStorage.getItem('microlab_blueprints') || '[]');
+    box.innerHTML = list.length ? '' : '<div style="font-size:11px;color:var(--muted);">No saved blueprints yet.</div>';
+    list.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'saved-item';
+      row.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name} (${item.bp.nodes.length})</span>`;
+      const btns = document.createElement('div');
+      btns.style.display = 'flex'; btns.style.gap = '4px';
+      const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.padding = '2px 7px';
+      bLoad.onclick = () => { pushGarageHist(); bp = cloneBp(item.bp); updateGarageSpecs(); showToast(`Loaded "${item.name}"`); };
+      const bDel = document.createElement('button'); bDel.textContent = '✕'; bDel.style.padding = '2px 6px';
+      bDel.onclick = () => {
+        list.splice(idx, 1);
+        localStorage.setItem('microlab_blueprints', JSON.stringify(list));
+        renderSavedBlueprints();
+      };
+      btns.append(bLoad, bDel);
+      row.appendChild(btns);
+      box.appendChild(row);
+    });
+  }
+
+  // =========================================================================
+  // 3. SHARED ORGANELLE RENDERER (SHIT LOUNGE VECTOR ART)
+  // =========================================================================
+  function drawOrganelleArt(c, x, y, r, type, color, phase, vAngle, eFrac, highlight = false, lookAngle = null) {
+    c.save();
+    c.translate(x, y);
+
+    c.beginPath(); c.arc(0, 0, r + 5, 0, Math.PI * 2);
+    c.fillStyle = color + '24'; c.fill();
+
+    c.beginPath();
+    c.arc(0, 0, r + 3, -Math.PI / 2, -Math.PI / 2 + eFrac * Math.PI * 2);
+    c.strokeStyle = eFrac > 0.35 ? 'rgba(52,211,153,0.48)' : 'rgba(239,68,68,0.7)';
+    c.lineWidth = 1.5; c.stroke();
+
+    c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2);
+    c.fillStyle = color; c.fill();
+    c.lineWidth = highlight ? 2.4 : 1.4;
+    c.strokeStyle = highlight ? '#facc15' : 'rgba(248,250,252,0.85)';
+    c.stroke();
+
+    if (type === 0) {
+      c.beginPath(); c.arc(0, 0, 4.5, 0, Math.PI * 2); c.fillStyle = '#f3e8ff'; c.fill();
+    } else if (type === 1) {
+      c.beginPath(); c.moveTo(-4, 0); c.lineTo(-2, -3); c.lineTo(0, 3); c.lineTo(2, -3); c.lineTo(4, 0);
+      c.strokeStyle = '#fff7ed'; c.lineWidth = 1.4; c.stroke();
+    } else if (type === 2) {
+      c.fillStyle = '#bbf7d0'; c.fillRect(-4, -3, 8, 2); c.fillRect(-4, 1, 8, 2);
+    } else if (type === 3) {
+      c.rotate(vAngle);
+      c.beginPath(); c.moveTo(0, 0);
+      c.quadraticCurveTo(-9, Math.sin(phase) * 9, -18, Math.cos(phase) * 9);
+      c.strokeStyle = '#38bdf8'; c.lineWidth = 2.4; c.stroke();
+    } else if (type === 4) {
+      for (let k = 0; k < 4; k++) {
+        const ca = k * Math.PI / 2 + Math.sin(phase) * 0.3;
+        c.beginPath(); c.moveTo(Math.cos(ca) * r, Math.sin(ca) * r);
+        c.lineTo(Math.cos(ca) * (r + 4), Math.sin(ca) * (r + 4));
+        c.strokeStyle = '#99f6e4'; c.lineWidth = 1.2; c.stroke();
+      }
+    } else if (type === 7) {
+      c.beginPath(); c.arc(0, 0, r - 3, 0, Math.PI * 2); c.strokeStyle = '#e2e8f0'; c.lineWidth = 1.6; c.stroke();
+    } else if (type === 8) {
+      c.rotate(vAngle + Math.PI / 2);
+      c.beginPath(); c.moveTo(0, -r - 5); c.lineTo(4, 0); c.lineTo(-4, 0); c.closePath();
+      c.fillStyle = '#fca5a5'; c.fill();
+    } else if (type === 9) {
+      c.beginPath(); c.arc(0, 0, 3.2, 0, Math.PI * 2); c.fillStyle = '#ecfccb'; c.fill();
+    } else if (type === 10) {
+      const lk = lookAngle ?? vAngle;
+      c.beginPath(); c.arc(Math.cos(lk) * 2.5, Math.sin(lk) * 2.5, 2.8, 0, Math.PI * 2);
+      c.fillStyle = '#0f172a'; c.fill();
+    } else if (type === 12) {
+      c.beginPath(); c.arc(0, 0, 4, 0, Math.PI * 2); c.strokeStyle = '#cffafe'; c.lineWidth = 1.6; c.stroke();
+    } else if (type === 14) {
+      c.fillStyle = '#fef3c7'; c.beginPath(); c.arc(-2.5, -2, 2.2, 0, Math.PI * 2); c.arc(2.5, 2, 2.5, 0, Math.PI * 2); c.fill();
+    } else if (type === 15) {
+      c.beginPath(); c.arc(0, 0, 3.5, 0, Math.PI * 2); c.fillStyle = '#fae8ff'; c.fill();
+    }
+    c.restore();
+  }
+
+  // =========================================================================
+  // 4. PETRI DISH SANDBOX (FULL SHIT LOUNGE SPRING-BONDED ENGINE)
+  // =========================================================================
+  const dishCanvas = document.getElementById('dishCanvas');
+  const ctx = dishCanvas.getContext('2d');
+  const WORLD_W = 1280, WORLD_H = 820;
+  let cam = { x: 0, y: 0, zoom: 1 };
+
+  function resetCam() {
+    const W = dishCanvas.width || 900, H = dishCanvas.height || 600;
+    const fit = Math.min((W - 40) / WORLD_W, (H - 40) / WORLD_H, 1.15);
+    cam = { x: W / 2 - WORLD_W / 2, y: H / 2 - WORLD_H / 2, zoom: Math.max(0.45, fit) };
+    document.getElementById('hZoom').textContent = cam.zoom.toFixed(1) + 'x';
+  }
+  function toWorld(sx, sy) {
+    const W = dishCanvas.width, H = dishCanvas.height;
+    return { x: (sx - W / 2) / cam.zoom + W / 2 - cam.x, y: (sy - H / 2) / cam.zoom + H / 2 - cam.y };
+  }
+
+  let nodes = [], bonds = [], foods = [], toxins = [], sparks = [], pulses = [];
+  let bgMotes = Array.from({ length: 65 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 2 + 0.6, s: Math.random() * 0.3 + 0.1 }));
+  let nextGroupId = 1, playerGroupId = null, keys = {};
+
+  function addNode(x, y, type, groupId = 0) {
+    const def = ORGANELLES[type];
+    const n = {
+      x, y, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+      type, r: def.r, color: def.color,
+      energy: type === 14 ? 200 : 115,
+      maxEnergy: type === 14 ? 450 : 230,
+      phase: Math.random() * Math.PI * 2,
+      groupId: groupId || nextGroupId++,
+      angle: Math.random() * Math.PI * 2,
+      dead: false
+    };
+    nodes.push(n);
+    return n;
+  }
+
+  function addBond(a, b, restLen = null) {
+    if (a === b || a.dead || b.dead) return;
+    if (bonds.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a))) return;
+    const d = restLen ?? Math.hypot(b.x - a.x, b.y - a.y);
+    if (b.groupId !== a.groupId) {
+      const oldGid = b.groupId;
+      for (const n of nodes) if (n.groupId === oldGid) n.groupId = a.groupId;
+    }
+    bonds.push({ a, b, len: Math.max(15, Math.min(62, d)) });
+  }
+
+  function recomputeGroups() {
+    const adj = new Map();
+    for (const n of nodes) adj.set(n, []);
+    for (const b of bonds) if (adj.has(b.a) && adj.has(b.b)) { adj.get(b.a).push(b.b); adj.get(b.b).push(b.a); }
+    const visited = new Set();
+    for (const n of nodes) {
+      if (visited.has(n)) continue;
+      const gid = nextGroupId++;
+      const q = [n]; visited.add(n);
+      while (q.length > 0) {
+        const cur = q.pop();
+        cur.groupId = gid;
+        for (const nb of adj.get(cur)) if (!visited.has(nb)) { visited.add(nb); q.push(nb); }
+      }
+    }
+  }
+
+  function spawnGarageInDish(cx, cy, makePlayer = false) {
+    if (!bp.nodes.length) return;
+    const gid = nextGroupId++;
+    if (makePlayer) playerGroupId = gid;
+    const created = bp.nodes.map(nd => addNode(cx + nd.ox, cy + nd.oy, nd.type, gid));
+    bp.bonds.forEach(([ia, ib, len]) => {
+      if (created[ia] && created[ib]) addBond(created[ia], created[ib], len);
+    });
+    sparks.push({ x: cx, y: cy, r: 18, color: '#34d399', alpha: 1 });
+  }
+
+  function feedDish(count = 35) {
+    for (let i = 0; i < count; i++) {
+      foods.push({
+        x: 40 + Math.random() * (WORLD_W - 80),
+        y: 40 + Math.random() * (WORLD_H - 80),
+        vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+        r: 3.5 + Math.random() * 2, val: 38
+      });
+    }
+  }
+
+  function clearDish() { nodes = []; bonds = []; foods = []; toxins = []; sparks = []; pulses = []; playerGroupId = null; }
+
+  // Shared Creature Builders (used by both Garage & Dish Presets)
+  function buildCreatureInto(name, cx, cy, fnAdd, fnBond) {
+    if (name === 'flagellate_hunter') {
+      const nuc = fnAdd(cx, cy, 0), mouth = fnAdd(cx + 18, cy, 5);
+      const eyeL = fnAdd(cx + 14, cy - 12, 10), eyeR = fnAdd(cx + 14, cy + 12, 10);
+      const m1 = fnAdd(cx - 12, cy - 10, 1), m2 = fnAdd(cx - 12, cy + 10, 1);
+      fnBond(nuc, mouth); fnBond(nuc, eyeL); fnBond(nuc, eyeR); fnBond(mouth, eyeL); fnBond(mouth, eyeR);
+      fnBond(nuc, m1); fnBond(nuc, m2); fnBond(m1, m2); fnBond(eyeL, m1); fnBond(eyeR, m2);
+      let prev = nuc;
+      for (let i = 1; i <= 5; i++) { const f = fnAdd(cx - (14 + i * 14), cy, 3); fnBond(prev, f, 14); prev = f; }
+    } else if (name === 'ciliate_cruiser') {
+      const c1 = fnAdd(cx - 12, cy, 0), c2 = fnAdd(cx + 12, cy, 1); fnBond(c1, c2);
+      const ring = [], N = 12;
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const type = (i === 0 || i === 1) ? 5 : (i === 11 ? 10 : (i % 2 === 0 ? 4 : 6));
+        const n = fnAdd(cx + Math.cos(a) * 34, cy + Math.sin(a) * 20, type);
+        ring.push(n); fnBond(n, i < N / 2 ? c1 : c2);
+      }
+      for (let i = 0; i < N; i++) fnBond(ring[i], ring[(i + 1) % N]);
+    } else if (name === 'solar_leviathan' || name === 'volvox_colony') {
+      const center = fnAdd(cx, cy, 0), N = 8, inner = [];
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const n = fnAdd(cx + Math.cos(a) * 22, cy + Math.sin(a) * 22, 2);
+        inner.push(n); fnBond(center, n);
+      }
+      for (let i = 0; i < N; i++) {
+        fnBond(inner[i], inner[(i + 1) % N]);
+        const a = (i / N) * Math.PI * 2;
+        fnBond(inner[i], fnAdd(cx + Math.cos(a) * 38, cy + Math.sin(a) * 38, i % 2 === 0 ? 2 : 4));
+      }
+    } else if (name === 'jet_squid') {
+      const nuc = fnAdd(cx, cy, 0), gang = fnAdd(cx - 16, cy, 11), mouth = fnAdd(cx + 20, cy, 5);
+      const e1 = fnAdd(cx + 16, cy - 14, 10), e2 = fnAdd(cx + 16, cy + 14, 10);
+      const j1 = fnAdd(cx - 30, cy - 12, 12), j2 = fnAdd(cx - 30, cy + 12, 12), j3 = fnAdd(cx - 34, cy, 12);
+      fnBond(nuc, gang); fnBond(nuc, mouth); fnBond(nuc, e1); fnBond(nuc, e2); fnBond(mouth, e1); fnBond(mouth, e2);
+      fnBond(gang, j1); fnBond(gang, j2); fnBond(gang, j3); fnBond(j1, j3); fnBond(j2, j3);
+    } else if (name === 'spiky_leviathan') {
+      const nuc = fnAdd(cx, cy, 0), mito = fnAdd(cx - 16, cy, 1); fnBond(nuc, mito);
+      const N = 10, armor = [];
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2, front = Math.cos(a) > 0.3;
+        const n = fnAdd(cx + Math.cos(a) * 26, cy + Math.sin(a) * 26, front ? 5 : 7);
+        armor.push(n); fnBond(nuc, n);
+        fnBond(n, fnAdd(cx + Math.cos(a) * 42, cy + Math.sin(a) * 42, i === 5 ? 12 : (front ? 10 : 8)));
+      }
+      for (let i = 0; i < N; i++) fnBond(armor[i], armor[(i + 1) % N]);
+    } else if (name === 'toxin_jelly') {
+      const bell = [];
+      for (let i = 0; i < 7; i++) {
+        const a = Math.PI + (i / 6) * Math.PI;
+        const n = fnAdd(cx + Math.cos(a) * 28, cy + Math.sin(a) * 22, i === 3 ? 0 : 4);
+        bell.push(n); if (i > 0) fnBond(bell[i], bell[i - 1]);
+      }
+      fnBond(bell[0], bell[6], 52);
+      const mouth = fnAdd(cx, cy + 4, 5); fnBond(bell[3], mouth);
+      [-20, -7, 7, 20].forEach(ox => {
+        let prev = mouth;
+        for (let k = 1; k <= 4; k++) { const t = fnAdd(cx + ox, cy + 6 + k * 14, k === 4 ? 9 : 6); fnBond(prev, t, 14); prev = t; }
+      });
+    } else if (name === 'amoeba_blob') {
+      const nuc = fnAdd(cx, cy, 0), vac = fnAdd(cx + 12, cy - 8, 14), m1 = fnAdd(cx - 12, cy + 8, 5);
+      fnBond(nuc, vac); fnBond(nuc, m1); fnBond(vac, m1);
+      const N = 14, ring = [];
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const n = fnAdd(cx + Math.cos(a) * 34, cy + Math.sin(a) * 30, i % 3 === 0 ? 5 : (i % 4 === 0 ? 4 : 6));
+        ring.push(n); if (i % 2 === 0) fnBond(nuc, n, 34);
+      }
+      for (let i = 0; i < N; i++) fnBond(ring[i], ring[(i + 1) % N]);
+    } else if (name === 'segmented_worm' || name === 'neural_trilobite') {
+      let prevL = null, prevR = null;
+      for (let s = 0; s < 7; s++) {
+        const sx = cx + 45 - s * 18;
+        const tL = s === 0 ? 10 : (s === 1 ? 0 : (name === 'neural_trilobite' && s % 2 === 1 ? 11 : (s % 2 === 0 ? 4 : 2)));
+        const tR = s === 0 ? 5 : (s === 1 ? 1 : (s % 2 === 0 ? 4 : 6));
+        const L = fnAdd(sx, cy - 9, tL), R = fnAdd(sx, cy + 9, tR);
+        fnBond(L, R, 18);
+        if (prevL) { fnBond(prevL, L, 18); fnBond(prevR, R, 18); fnBond(prevL, R, 24); }
+        prevL = L; prevR = R;
+      }
+    } else if (name === 'starfish_predator') {
+      const mouth = fnAdd(cx, cy, 5), nuc = fnAdd(cx, cy - 12, 0); fnBond(mouth, nuc);
+      const baseRing = [];
+      for (let arm = 0; arm < 5; arm++) {
+        const a = (arm / 5) * Math.PI * 2;
+        let prev = fnAdd(cx + Math.cos(a) * 18, cy + Math.sin(a) * 18, 1);
+        baseRing.push(prev); fnBond(mouth, prev);
+        for (let k = 2; k <= 4; k++) {
+          const seg = fnAdd(cx + Math.cos(a) * (k * 15), cy + Math.sin(a) * (k * 15), k === 4 ? 8 : 4);
+          fnBond(prev, seg, 15); prev = seg;
+        }
+      }
+      for (let i = 0; i < 5; i++) fnBond(baseRing[i], baseRing[(i + 1) % 5]);
+    } else if (name === 'mitosis_breeder') {
+      const n0 = fnAdd(cx, cy, 0), b1 = fnAdd(cx + 16, cy, 15), b2 = fnAdd(cx - 16, cy, 15);
+      const c1 = fnAdd(cx, cy - 16, 2), m1 = fnAdd(cx, cy + 16, 5), f1 = fnAdd(cx - 30, cy, 3);
+      fnBond(n0, b1); fnBond(n0, b2); fnBond(n0, c1); fnBond(n0, m1);
+      fnBond(b1, c1); fnBond(b1, m1); fnBond(b2, c1); fnBond(b2, m1); fnBond(b2, f1);
+    }
+  }
+
+  function spawnPresetCreature(name, cx, cy) {
+    const gid = nextGroupId++;
+    buildCreatureInto(name, cx, cy, (x, y, t) => addNode(x, y, t, gid), (a, b, l) => addBond(a, b, l));
+  }
+
+  function loadDishPreset(name, clear = true) {
+    lastPreset = name;
+    if (clear) { clearDish(); feedDish(60); }
+    const cx = WORLD_W / 2, cy = WORLD_H / 2;
+    if (['flagellate_hunter','ciliate_cruiser','solar_leviathan','jet_squid','spiky_leviathan','toxin_jelly','amoeba_blob','segmented_worm','neural_trilobite','starfish_predator'].includes(name)) {
+      spawnPresetCreature(name, cx, cy);
+    } else if (name === 'colonial_volvox') {
+      spawnPresetCreature('solar_leviathan', cx - 120, cy - 60);
+      spawnPresetCreature('solar_leviathan', cx + 120, cy + 60);
+      spawnPresetCreature('solar_leviathan', cx, cy);
+    } else if (name === 'mitosis_breeder') {
+      spawnPresetCreature('mitosis_breeder', cx - 90, cy);
+      spawnPresetCreature('mitosis_breeder', cx + 90, cy);
+    } else if (name === 'soup_of_life') {
+      spawnPresetCreature('flagellate_hunter', WORLD_W * 0.25, WORLD_H * 0.3);
+      spawnPresetCreature('ciliate_cruiser', WORLD_W * 0.75, WORLD_H * 0.35);
+      spawnPresetCreature('solar_leviathan', WORLD_W * 0.5, WORLD_H * 0.5);
+      spawnPresetCreature('segmented_worm', WORLD_W * 0.3, WORLD_H * 0.75);
+      spawnPresetCreature('mitosis_breeder', WORLD_W * 0.7, WORLD_H * 0.75);
+      feedDish(45);
+    } else if (name === 'predator_vs_prey') {
+      spawnPresetCreature('spiky_leviathan', WORLD_W * 0.2, WORLD_H * 0.5);
+      spawnPresetCreature('flagellate_hunter', WORLD_W * 0.25, WORLD_H * 0.25);
+      for (let i = 0; i < 4; i++) spawnPresetCreature('ciliate_cruiser', WORLD_W * 0.65 + (i % 2) * 110, WORLD_H * 0.3 + Math.floor(i / 2) * 140);
+    } else if (name === 'parasite_outbreak') {
+      spawnPresetCreature('amoeba_blob', cx - 120, cy);
+      spawnPresetCreature('solar_leviathan', cx + 120, cy);
+      for (let i = 0; i < 6; i++) {
+        const gid = nextGroupId++;
+        const sp = addNode(cx + (Math.random() - 0.5) * 100, cy + (Math.random() - 0.5) * 180, 8, gid);
+        const fl = addNode(sp.x - 14, sp.y, 3, gid), tx = addNode(sp.x, sp.y + 14, 9, gid);
+        addBond(sp, fl); addBond(sp, tx);
+      }
+    } else if (name === 'coral_reef') {
+      spawnPresetCreature('solar_leviathan', WORLD_W * 0.25, WORLD_H * 0.5);
+      spawnPresetCreature('solar_leviathan', WORLD_W * 0.75, WORLD_H * 0.5);
+      spawnPresetCreature('toxin_jelly', WORLD_W * 0.5, WORLD_H * 0.35);
+      spawnPresetCreature('ciliate_cruiser', WORLD_W * 0.5, WORLD_H * 0.7);
+    } else if (name === 'gladiator_pit') {
+      spawnPresetCreature('spiky_leviathan', WORLD_W * 0.28, WORLD_H * 0.35);
+      spawnPresetCreature('starfish_predator', WORLD_W * 0.72, WORLD_H * 0.35);
+      spawnPresetCreature('jet_squid', WORLD_W * 0.28, WORLD_H * 0.72);
+      spawnPresetCreature('toxin_jelly', WORLD_W * 0.72, WORLD_H * 0.72);
+    } else if (name === 'chemotaxis_race') {
+      foods = [];
+      for (let i = 0; i < 95; i++) foods.push({ x: WORLD_W - 100 + (Math.random() - 0.5) * 80, y: 70 + Math.random() * (WORLD_H - 140), vx: 0, vy: 0, r: 4.5, val: 45 });
+      for (let i = 0; i < 5; i++) spawnPresetCreature('flagellate_hunter', 100, 100 + i * ((WORLD_H - 200) / 4));
+    } else if (name === 'division_bloom') {
+      for (let i = 0; i < 5; i++) spawnPresetCreature('mitosis_breeder', WORLD_W * (0.2 + i * 0.15), cy + (i % 2 === 0 ? -60 : 60));
+      feedDish(80);
+    } else if (name === 'chaos_lounge') {
+      spawnPresetCreature('flagellate_hunter', WORLD_W * 0.2, WORLD_H * 0.25);
+      spawnPresetCreature('ciliate_cruiser', WORLD_W * 0.8, WORLD_H * 0.25);
+      spawnPresetCreature('solar_leviathan', WORLD_W * 0.5, WORLD_H * 0.5);
+      spawnPresetCreature('jet_squid', WORLD_W * 0.2, WORLD_H * 0.75);
+      spawnPresetCreature('starfish_predator', WORLD_W * 0.8, WORLD_H * 0.75);
+      spawnPresetCreature('segmented_worm', WORLD_W * 0.5, WORLD_H * 0.22);
+      spawnPresetCreature('toxin_jelly', WORLD_W * 0.5, WORLD_H * 0.8);
+      feedDish(75);
+    }
+  }
+
+  // Dish Input
+  let mouse = { sx: 0, sy: 0, x: 0, y: 0, down: false, right: false, pan: false, px: 0, py: 0 };
+  let grabbedNode = null, linkStartNode = null;
+
+  function nearestNode(x, y, maxDist = 28) {
+    let best = null, bd = maxDist;
+    for (const n of nodes) {
+      if (n.dead) continue;
+      const d = Math.hypot(n.x - x, n.y - y);
+      if (d < bd) { bd = d; best = n; }
+    }
+    return best;
+  }
+
+  function setDishTool(t) {
+    currentTool = t;
+    document.querySelectorAll('.t-btn').forEach(x => x.classList.toggle('active', x.dataset.t === t));
+    document.getElementById('hTool').textContent = UI_TEXT[knowledge].tools[t];
+  }
+
+  dishCanvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = dishCanvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const before = toWorld(sx, sy);
+    cam.zoom = Math.max(0.35, Math.min(3.5, cam.zoom * (e.deltaY < 0 ? 1.12 : 0.89)));
+    const after = toWorld(sx, sy);
+    cam.x += after.x - before.x; cam.y += after.y - before.y;
+    document.getElementById('hZoom').textContent = cam.zoom.toFixed(1) + 'x';
+  }, { passive: false });
+
+  dishCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  dishCanvas.addEventListener('mousedown', e => {
+    const r = dishCanvas.getBoundingClientRect();
+    mouse.sx = e.clientX - r.left; mouse.sy = e.clientY - r.top;
+    const w = toWorld(mouse.sx, mouse.sy);
+    mouse.x = w.x; mouse.y = w.y; mouse.down = true;
+    mouse.right = (e.button === 2);
+    mouse.pan = (e.button === 1 || (e.button === 0 && e.altKey));
+    mouse.px = mouse.sx; mouse.py = mouse.sy;
+
+    if (mouse.pan) return;
+    if (mouse.right || currentTool === 'drag') { grabbedNode = nearestNode(mouse.x, mouse.y, 40 / cam.zoom); return; }
+    if (currentTool === 'link') { linkStartNode = nearestNode(mouse.x, mouse.y, 30 / cam.zoom); return; }
+    if (currentTool === 'food') {
+      for (let i = 0; i < 6; i++) foods.push({ x: mouse.x + (Math.random() - 0.5) * 24, y: mouse.y + (Math.random() - 0.5) * 24, vx: 0, vy: 0, r: 4, val: 35 });
+      return;
+    }
+    if (currentTool === 'kill') {
+      const target = nearestNode(mouse.x, mouse.y, 24 / cam.zoom);
+      if (target) target.dead = true;
+      return;
+    }
+    if (currentTool === 'spawn') {
+      const stamp = document.getElementById('stampSel').value;
+      if (stamp === 'garage') { spawnGarageInDish(mouse.x, mouse.y, pilotMode); return; }
+      if (stamp === 'ring') { spawnPresetCreature('ciliate_cruiser', mouse.x, mouse.y); return; }
+      if (stamp === 'swimmer') { spawnPresetCreature('flagellate_hunter', mouse.x, mouse.y); return; }
+      if (stamp === 'hunter') { spawnPresetCreature('spiky_leviathan', mouse.x, mouse.y); return; }
+      if (stamp === 'plant') { spawnPresetCreature('solar_leviathan', mouse.x, mouse.y); return; }
+
+      const nearby = nodes.filter(o => !o.dead && Math.hypot(o.x - mouse.x, o.y - mouse.y) < 36);
+      const gid = nearby.length > 0 ? nearby[0].groupId : nextGroupId++;
+      const created = addNode(mouse.x, mouse.y, selectedOrg, gid);
+      nearby.slice(0, 3).forEach(nb => addBond(created, nb, Math.max(18, Math.hypot(nb.x - created.x, nb.y - created.y))));
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!document.getElementById('view-dish').classList.contains('active')) return;
+    const r = dishCanvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    if (mouse.pan && mouse.down) {
+      cam.x += (sx - mouse.px) / cam.zoom; cam.y += (sy - mouse.py) / cam.zoom;
+      mouse.px = sx; mouse.py = sy; return;
+    }
+    mouse.sx = sx; mouse.sy = sy;
+    const w = toWorld(sx, sy);
+    mouse.x = w.x; mouse.y = w.y;
+
+    const hov = nearestNode(mouse.x, mouse.y, 18 / cam.zoom);
+    const insp = document.getElementById('inspector');
+    if (hov && !mouse.down) {
+      insp.style.display = 'block';
+      insp.innerHTML = `<b>${ORGANELLES[hov.type][knowledge][0]}</b><br>ATP: ${Math.round(hov.energy)} / ${hov.maxEnergy}<br>Organism #${hov.groupId}${hov.groupId === playerGroupId && pilotMode ? ' (Piloted)' : ''}`;
+    } else insp.style.display = 'none';
+
+    if (!mouse.down) return;
+    if (currentTool === 'cut' && !mouse.right) {
+      const prevLen = bonds.length;
+      bonds = bonds.filter(b => Math.hypot((b.a.x + b.b.x) * 0.5 - mouse.x, (b.a.y + b.b.y) * 0.5 - mouse.y) > 18);
+      if (bonds.length !== prevLen) recomputeGroups();
+    } else if (currentTool === 'food' && !mouse.right) {
+      foods.push({ x: mouse.x + (Math.random() - 0.5) * 16, y: mouse.y + (Math.random() - 0.5) * 16, vx: 0, vy: 0, r: 4, val: 35 });
+    } else if (currentTool === 'kill' && !mouse.right) {
+      const target = nearestNode(mouse.x, mouse.y, 20 / cam.zoom);
+      if (target) target.dead = true;
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (currentTool === 'link' && linkStartNode) {
+      const endNode = nearestNode(mouse.x, mouse.y, 30 / cam.zoom);
+      if (endNode && endNode !== linkStartNode) addBond(linkStartNode, endNode);
+    }
+    mouse.down = false; mouse.pan = false; grabbedNode = null; linkStartNode = null;
+  });
+
+  // Physics Step
+  let groupTarget = {};
+  function stepDish() {
+    if (paused) return;
+    const drag = parseFloat(document.getElementById('sDrag').value);
+    const stiff = parseFloat(document.getElementById('sStiff').value);
+    const thrust = parseFloat(document.getElementById('sThrust').value);
+    const sunlight = parseFloat(document.getElementById('sLight').value);
+    const allowMitosis = document.getElementById('chkMitosis').checked;
+    const metabDrain = document.getElementById('chkMetab').checked;
+    const useCurrent = document.getElementById('chkCurrent').checked;
+
+    if (foods.length < 95 && Math.random() < 0.16) {
+      foods.push({ x: 30 + Math.random() * (WORLD_W - 60), y: 30 + Math.random() * (WORLD_H - 60), vx: 0, vy: 0, r: 3.8, val: 30 });
+    }
+
+    const hasMito = {}, hasSpike = {}, uniqueGroups = new Set();
+    groupTarget = {};
+    for (const n of nodes) {
+      if (n.dead) continue;
+      uniqueGroups.add(n.groupId);
+      if (n.type === 1) hasMito[n.groupId] = true;
+      if (n.type === 8) hasSpike[n.groupId] = true;
+    }
+    for (const n of nodes) {
+      if (n.dead || n.type !== 10) continue;
+      let bestT = null, bd = 260;
+      for (const f of foods) { const d = Math.hypot(f.x - n.x, f.y - n.y); if (d < bd) { bd = d; bestT = f; } }
+      if (!bestT && hasSpike[n.groupId]) {
+        for (const o of nodes) {
+          if (!o.dead && o.groupId !== n.groupId && o.type !== 7) {
+            const d = Math.hypot(o.x - n.x, o.y - n.y);
+            if (d < bd) { bd = d; bestT = o; }
+          }
+        }
+      }
+      if (bestT) groupTarget[n.groupId] = { dx: (bestT.x - n.x) / bd, dy: (bestT.y - n.y) / bd, fx: bestT.x, fy: bestT.y };
+    }
+
+    for (let sub = 0; sub < 2; sub++) {
+      for (const b of bonds) {
+        const dx = b.b.x - b.a.x, dy = b.b.y - b.a.y, d = Math.hypot(dx, dy) || 0.001;
+        const nx = dx / d, ny = dy / d;
+        const f = Math.max(-6, Math.min(6, (d - b.len) * stiff * 0.5));
+        const rvx = b.b.vx - b.a.vx, rvy = b.b.vy - b.a.vy;
+        const damp = (rvx * nx + rvy * ny) * 0.08;
+        const fx = nx * (f + damp), fy = ny * (f + damp);
+        b.a.vx += fx; b.a.vy += fy; b.b.vx -= fx; b.b.vy -= fy;
+        if (sub === 0) {
+          const avgE = (b.a.energy + b.b.energy) * 0.5;
+          b.a.energy = Math.min(b.a.maxEnergy, b.a.energy * 0.88 + avgE * 0.12);
+          b.b.energy = Math.min(b.b.maxEnergy, b.b.energy * 0.88 + avgE * 0.12);
+        }
+      }
+    }
+
+    const pxIn = (keys['KeyD'] || keys['ArrowRight'] ? 1 : 0) - (keys['KeyA'] || keys['ArrowLeft'] ? 1 : 0);
+    const pyIn = (keys['KeyS'] || keys['ArrowDown'] ? 1 : 0) - (keys['KeyW'] || keys['ArrowUp'] ? 1 : 0);
+    const newChildren = [];
+
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i]; if (n.dead) continue;
+      n.phase += 0.14;
+      const mBoost = hasMito[n.groupId] ? 1.5 : 1.0;
+
+      if (metabDrain) { n.energy -= 0.04; if (n.energy <= 0) { n.dead = true; continue; } }
+      if (n === grabbedNode) { n.vx = (mouse.x - n.x) * 0.25; n.vy = (mouse.y - n.y) * 0.25; }
+
+      if (pilotMode && n.groupId === playerGroupId && (pxIn || pyIn)) {
+        n.vx += pxIn * thrust * 0.35 * mBoost;
+        n.vy += pyIn * thrust * 0.35 * mBoost;
+      }
+
+      if (n.type === 2) n.energy = Math.min(n.maxEnergy, n.energy + 0.15 * sunlight);
+      if (n.type === 1 && n.energy > 20) n.energy = Math.min(n.maxEnergy, n.energy + 0.06);
+
+      if (n.type === 3) {
+        const steer = groupTarget[n.groupId];
+        if (steer) { n.vx += steer.dx * thrust * 0.42 * mBoost; n.vy += steer.dy * thrust * 0.42 * mBoost; }
+        else {
+          n.angle += (Math.random() - 0.5) * 0.12;
+          n.vx += (Math.cos(n.angle) * thrust * 0.35 + Math.sin(n.phase) * 0.14) * mBoost;
+          n.vy += (Math.sin(n.angle) * thrust * 0.35 + Math.cos(n.phase) * 0.14) * mBoost;
+        }
+      } else if (n.type === 4) {
+        const steer = groupTarget[n.groupId];
+        if (steer) { n.vx += steer.dx * thrust * 0.3 * mBoost; n.vy += steer.dy * thrust * 0.3 * mBoost; }
+        else { n.vx += Math.cos(n.phase * 0.5 + i) * thrust * 0.22 * mBoost; n.vy += Math.sin(n.phase * 0.5 + i) * thrust * 0.22 * mBoost; }
+      } else if (n.type === 11 && Math.sin(n.phase * 0.7) > 0.96 && pulses.length < 200) {
+        for (const b of bonds) {
+          if (b.a === n) pulses.push({ a: b.a, b: b.b, t: 0 });
+          else if (b.b === n) pulses.push({ a: b.b, b: b.a, t: 0 });
+        }
+      } else if (n.type === 12 && Math.sin(n.phase * 0.7) > 0.92) {
+        const steer = groupTarget[n.groupId];
+        const jx = steer ? steer.dx : Math.cos(n.angle), jy = steer ? steer.dy : Math.sin(n.angle);
+        n.vx += jx * thrust * 2.1 * mBoost; n.vy += jy * thrust * 2.1 * mBoost;
+        sparks.push({ x: n.x, y: n.y, r: 4, color: '#06b6d4', alpha: 0.9 });
+      }
+
+      if (n.type === 5) {
+        for (let f = foods.length - 1; f >= 0; f--) {
+          const fd = foods[f], d = Math.hypot(fd.x - n.x, fd.y - n.y);
+          if (d < n.r + fd.r + 22) {
+            fd.x += (n.x - fd.x) * 0.22; fd.y += (n.y - fd.y) * 0.22;
+            if (d < n.r + fd.r + 3) {
+              n.energy = Math.min(n.maxEnergy, n.energy + fd.val);
+              foods.splice(f, 1);
+              sparks.push({ x: n.x, y: n.y, r: 3, color: '#4ade80', alpha: 0.8 });
+            }
+          }
+        }
+      }
+
+      if (n.type === 9 && Math.random() < 0.025) {
+        toxins.push({ x: n.x, y: n.y, vx: (Math.random() - 0.5) * 1.4, vy: (Math.random() - 0.5) * 1.4, groupId: n.groupId, life: 90 });
+      }
+
+      if (allowMitosis && (n.type === 15 || n.type === 0) && n.energy > 185 && nodes.length + newChildren.length < 440 && Math.random() < 0.015) {
+        n.energy -= 80;
+        newChildren.push({ parent: n, type: n.type === 15 ? [3,4,5,2,8][(Math.random() * 5) | 0] : 4 });
+        sparks.push({ x: n.x, y: n.y, r: 6, color: '#e879f9', alpha: 1 });
+      }
+
+      for (let j = i + 1; j < nodes.length; j++) {
+        const o = nodes[j]; if (o.dead) continue;
+        const dx = o.x - n.x, dy = o.y - n.y, d = Math.hypot(dx, dy) || 0.01, minD = n.r + o.r;
+        if (d < minD) {
+          const push = (minD - d) * 0.32, nx = dx / d, ny = dy / d;
+          n.vx -= nx * push; n.vy -= ny * push; o.vx += nx * push; o.vy += ny * push;
+          if ((n.type === 13 || o.type === 13) && bonds.length < 750) addBond(n, o, minD + 2);
+          if (n.groupId !== o.groupId) {
+            if (n.type === 8 && o.type !== 7 && o.type !== 8) {
+              o.energy -= 18; n.energy = Math.min(n.maxEnergy, n.energy + 10);
+              sparks.push({ x: o.x, y: o.y, r: 4, color: '#ef4444', alpha: 0.9 });
+              if (o.energy <= 0) o.dead = true;
+            } else if (o.type === 8 && n.type !== 7 && n.type !== 8) {
+              n.energy -= 18; o.energy = Math.min(o.maxEnergy, o.energy + 10);
+              sparks.push({ x: n.x, y: n.y, r: 4, color: '#ef4444', alpha: 0.9 });
+              if (n.energy <= 0) n.dead = true;
+            }
+          }
+        }
+      }
+
+      if (useCurrent) {
+        n.vx += Math.sin(n.y * 0.008 + n.phase * 0.05) * 0.015;
+        n.vy += Math.cos(n.x * 0.008 + n.phase * 0.05) * 0.015;
+      }
+      n.vx *= drag; n.vy *= drag;
+      const spd = Math.hypot(n.vx, n.vy);
+      if (spd > 8.5) { n.vx = (n.vx / spd) * 8.5; n.vy = (n.vy / spd) * 8.5; }
+      n.x += n.vx; n.y += n.vy;
+
+      if (n.x < n.r + 8) { n.x = n.r + 8; n.vx *= -0.75; }
+      if (n.x > WORLD_W - n.r - 8) { n.x = WORLD_W - n.r - 8; n.vx *= -0.75; }
+      if (n.y < n.r + 8) { n.y = n.r + 8; n.vy *= -0.75; }
+      if (n.y > WORLD_H - n.r - 8) { n.y = WORLD_H - n.r - 8; n.vy *= -0.75; }
+    }
+
+    for (const ch of newChildren) {
+      const child = addNode(ch.parent.x + (Math.random() - 0.5) * 20, ch.parent.y + (Math.random() - 0.5) * 20, ch.type, ch.parent.groupId);
+      addBond(ch.parent, child, 20);
+    }
+
+    for (let i = toxins.length - 1; i >= 0; i--) {
+      const tx = toxins[i]; tx.x += tx.vx; tx.y += tx.vy; tx.life--;
+      for (const n of nodes) {
+        if (!n.dead && n.groupId !== tx.groupId && n.type !== 7 && Math.hypot(n.x - tx.x, n.y - tx.y) < n.r + 5) {
+          n.energy -= 22; tx.life = 0; if (n.energy <= 0) n.dead = true; break;
+        }
+      }
+      if (tx.life <= 0) toxins.splice(i, 1);
+    }
+
+    let anyDead = false;
+    for (const n of nodes) if (n.dead) { anyDead = true; foods.push({ x: n.x, y: n.y, vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.5) * 1.2, r: 4.5, val: 30 }); }
+    if (anyDead) { nodes = nodes.filter(n => !n.dead); bonds = bonds.filter(b => !b.a.dead && !b.b.dead); recomputeGroups(); }
+    if (sparks.length > 150) sparks.splice(0, sparks.length - 150);
+    for (let i = sparks.length - 1; i >= 0; i--) { sparks[i].r += 1.2; sparks[i].alpha -= 0.06; if (sparks[i].alpha <= 0) sparks.splice(i, 1); }
+    for (let i = pulses.length - 1; i >= 0; i--) { pulses[i].t += 0.14; if (pulses[i].t >= 1) pulses.splice(i, 1); }
+
+    document.getElementById('hCre').textContent = uniqueGroups.size;
+    document.getElementById('hOrg').textContent = nodes.length;
+    document.getElementById('hBonds').textContent = bonds.length;
+    document.getElementById('hFood').textContent = foods.length;
+  }
+
+  function drawDish() {
+    const W = dishCanvas.width, H = dishCanvas.height;
+    if (W <= 0) return;
+    if (document.getElementById('chkTrails').checked) {
+      ctx.fillStyle = 'rgba(5, 8, 15, 0.24)'; ctx.fillRect(0, 0, W, H);
+    } else ctx.clearRect(0, 0, W, H);
+
+    for (const m of bgMotes) {
+      m.y -= m.s * 0.0005; if (m.y < 0) m.y = 1;
+      ctx.beginPath(); ctx.arc(m.x * W, m.y * H, m.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.07)'; ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(W / 2, H / 2); ctx.scale(cam.zoom, cam.zoom); ctx.translate(-W / 2 + cam.x, -H / 2 + cam.y);
+
+    ctx.fillStyle = 'rgba(10, 20, 34, 0.45)'; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.28)'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
+
+    for (const f of foods) {
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r + 2, 0, Math.PI * 2); ctx.fillStyle = 'rgba(74, 222, 128, 0.22)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fillStyle = '#4ade80'; ctx.fill();
+    }
+    for (const tx of toxins) {
+      ctx.beginPath(); ctx.arc(tx.x, tx.y, 5, 0, Math.PI * 2); ctx.fillStyle = `rgba(163, 230, 53, ${tx.life / 90})`; ctx.fill();
+    }
+
+    ctx.lineCap = 'round';
+    for (const b of bonds) {
+      ctx.beginPath(); ctx.moveTo(b.a.x, b.a.y); ctx.lineTo(b.b.x, b.b.y);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)'; ctx.lineWidth = 18; ctx.stroke();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)'; ctx.lineWidth = 4; ctx.stroke();
+    }
+
+    for (const p of pulses) {
+      ctx.beginPath(); ctx.arc(p.a.x + (p.b.x - p.a.x) * p.t, p.a.y + (p.b.y - p.a.y) * p.t, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#93c5fd'; ctx.fill();
+    }
+
+    if (grabbedNode && mouse.down) {
+      ctx.beginPath(); ctx.moveTo(grabbedNode.x, grabbedNode.y); ctx.lineTo(mouse.x, mouse.y);
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+    } else if (currentTool === 'link' && linkStartNode && mouse.down) {
+      ctx.beginPath(); ctx.moveTo(linkStartNode.x, linkStartNode.y); ctx.lineTo(mouse.x, mouse.y);
+      ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    for (const n of nodes) {
+      const vAngle = Math.hypot(n.vx, n.vy) > 0.15 ? Math.atan2(n.vy, n.vx) : n.angle;
+      const eFrac = Math.max(0, Math.min(1, n.energy / n.maxEnergy));
+      const t = groupTarget[n.groupId];
+      const look = t ? Math.atan2(t.fy - n.y, t.fx - n.x) : vAngle;
+      drawOrganelleArt(ctx, n.x, n.y, n.r, n.type, n.color, n.phase, vAngle, eFrac, pilotMode && n.groupId === playerGroupId, look);
+    }
+
+    for (const sp of sparks) {
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
+      ctx.strokeStyle = sp.color; ctx.globalAlpha = sp.alpha; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // 5. WIRING & EVENTS
+  // =========================================================================
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${tab}`));
+    resizeCanvases();
+    if (tab === 'dish') resetCam();
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+  document.getElementById('btnLaunchDish').onclick = () => {
+    switchTab('dish');
+    clearDish();
+    feedDish(65);
+    spawnGarageInDish(WORLD_W / 2, WORLD_H / 2, true);
+    spawnPresetCreature('ciliate_cruiser', WORLD_W * 0.25, WORLD_H * 0.35);
+    spawnPresetCreature('solar_leviathan', WORLD_W * 0.75, WORLD_H * 0.65);
+    showToast('🧪 Launched Garage organism into Petri Dish!');
+  };
+
+  document.getElementById('btnSpawnInDish').onclick = () => {
+    switchTab('dish');
+    spawnGarageInDish(WORLD_W / 2 + (Math.random() - 0.5) * 160, WORLD_H / 2 + (Math.random() - 0.5) * 120, true);
+    showToast('➕ Added Garage organism to live Dish!');
+  };
+
+  document.getElementById('btnAddGarage').onclick = () => {
+    spawnGarageInDish(WORLD_W / 2 + (Math.random() - 0.5) * 200, WORLD_H / 2 + (Math.random() - 0.5) * 160, true);
+    showToast('🔧 Spawned your Garage Cell!');
+  };
+
+  document.querySelectorAll('#garageCatRow .chip').forEach(c => {
+    c.onclick = () => {
+      garageCat = c.dataset.cat;
+      document.querySelectorAll('#garageCatRow .chip').forEach(x => x.classList.toggle('active', x === c));
+      renderOrgPalettes();
+    };
+  });
+
+  document.querySelectorAll('.g-tool').forEach(b => {
+    b.onclick = () => {
+      garageTool = b.dataset.gt;
+      document.querySelectorAll('.g-tool').forEach(x => x.classList.toggle('active', x === b));
+      document.getElementById('gHudTool').textContent = UI_TEXT[knowledge].gTools[garageTool];
+    };
+  });
+
+  document.getElementById('btnMirror').onclick = e => {
+    mirrorY = !mirrorY;
+    e.target.textContent = `🪞 Mirror Y: ${mirrorY ? 'ON' : 'OFF'}`;
+    e.target.classList.toggle('active', mirrorY);
+  };
+  document.getElementById('btnSnap').onclick = e => {
+    snapGrid = !snapGrid;
+    e.target.textContent = `🧲 Snap: ${snapGrid ? 'ON' : 'OFF'}`;
+    e.target.classList.toggle('active', snapGrid);
+  };
+  document.getElementById('btnTestPulse').onclick = e => {
+    testPulse = !testPulse;
+    e.target.classList.toggle('active', testPulse);
+    e.target.textContent = testPulse ? '⏹ Stop Pulse' : '⚡ Test Pulse';
+  };
+  document.getElementById('btnUndo').onclick = () => {
+    if (!gUndo.length) return;
+    gRedo.push(cloneBp(bp));
+    bp = gUndo.pop();
+    updGarageHistBtns(); updateGarageSpecs();
+  };
+  document.getElementById('btnRedo').onclick = () => {
+    if (!gRedo.length) return;
+    gUndo.push(cloneBp(bp));
+    bp = gRedo.pop();
+    updGarageHistBtns(); updateGarageSpecs();
+  };
+  document.getElementById('btnGarageClear').onclick = () => {
+    pushGarageHist();
+    bp = { nodes: [], bonds: [] };
+    addBpNode(0, 0, 0, false);
+    updateGarageSpecs();
+  };
+
+  document.getElementById('garagePresetSel').onchange = e => {
+    pushGarageHist();
+    capturePresetIntoGarage(e.target.value);
+    showToast('Loaded blueprint into Garage');
+  };
+
+  document.getElementById('btnAiForge').onclick = () => {
+    const inp = document.getElementById('aiInp');
+    forgeGarageOrganism(inp.value);
+    inp.value = '';
+  };
+  document.getElementById('aiInp').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btnAiForge').click(); });
+  document.querySelectorAll('#aiQuick .chip').forEach(c => c.onclick = () => forgeGarageOrganism(c.dataset.p));
+
+  document.getElementById('btnSaveBlueprint').onclick = () => {
+    const name = prompt('Blueprint name:', `Organism ${bp.nodes.length}-Cell`) || `Organism ${bp.nodes.length}-Cell`;
+    const list = JSON.parse(localStorage.getItem('microlab_blueprints') || '[]');
+    list.unshift({ name, bp: cloneBp(bp) });
+    localStorage.setItem('microlab_blueprints', JSON.stringify(list.slice(0, 12)));
+    renderSavedBlueprints();
+    showToast(`Saved "${name}" to Garage`);
+  };
+
+  // Dish Toolbar Wiring
+  document.querySelectorAll('.t-btn').forEach(b => b.onclick = () => setDishTool(b.dataset.t));
+  document.getElementById('pauseBtn').onclick = () => {
+    paused = !paused;
+    const b = document.getElementById('pauseBtn');
+    b.textContent = paused ? '▶ Play' : '⏸ Pause';
+    b.classList.toggle('active', paused);
+  };
+  document.getElementById('presetSel').onchange = e => { if (e.target.value) { loadDishPreset(e.target.value); e.target.value = ''; } };
+  document.getElementById('btnAddPreset').onclick = () => loadDishPreset(lastPreset, false);
+  document.getElementById('btnPilot').onclick = e => {
+    pilotMode = !pilotMode;
+    e.target.textContent = `🎮 Pilot WASD: ${pilotMode ? 'ON' : 'OFF'}`;
+    e.target.classList.toggle('active', pilotMode);
+    if (pilotMode && !playerGroupId && nodes.length) playerGroupId = nodes[0].groupId;
+  };
+  document.getElementById('btnFeed').onclick = () => feedDish(45);
+  document.getElementById('btnMutate').onclick = () => {
+    for (const n of nodes) if (Math.random() < 0.25) {
+      const nt = Math.floor(Math.random() * ORGANELLES.length);
+      n.type = nt; n.r = ORGANELLES[nt].r; n.color = ORGANELLES[nt].color;
+      n.maxEnergy = nt === 14 ? 450 : 230;
+    }
+    showToast('☢️ Mutated 25% of dish organelles!');
+  };
+  document.getElementById('btnSaveDish').onclick = () => {
+    const payload = {
+      nodes: nodes.map(n => ({ x: n.x, y: n.y, type: n.type, groupId: n.groupId, energy: n.energy })),
+      bonds: bonds.map(b => [nodes.indexOf(b.a), nodes.indexOf(b.b), b.len]),
+      foods: foods.slice(0, 120)
+    };
+    localStorage.setItem('microlab_dish_save', JSON.stringify(payload));
+    showToast('💾 Dish saved to browser');
+  };
+  document.getElementById('btnLoadDish').onclick = () => {
+    const raw = localStorage.getItem('microlab_dish_save');
+    if (!raw) return showToast('No saved dish found');
+    try {
+      const p = JSON.parse(raw); clearDish();
+      const created = p.nodes.map(nd => { const n = addNode(nd.x, nd.y, nd.type, nd.groupId); n.energy = nd.energy; return n; });
+      p.bonds.forEach(([ia, ib, len]) => { if (created[ia] && created[ib]) addBond(created[ia], created[ib], len); });
+      foods = p.foods || [];
+      showToast('📂 Loaded saved dish');
+    } catch {}
+  };
+  document.getElementById('btnCenter').onclick = resetCam;
+  document.getElementById('btnClearDish').onclick = clearDish;
+
+  ['sDrag', 'sStiff', 'sThrust', 'sLight'].forEach(id => {
+    document.getElementById(id).oninput = e => {
+      document.getElementById('v' + id.slice(1)).textContent = id === 'sLight' ? e.target.value + 'x' : e.target.value;
+    };
+  });
+
+  document.getElementById('btnExport').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ bp })]));
+    a.download = 'microlab-blueprint.json'; a.click();
+  };
+  document.getElementById('btnImport').onclick = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
+    inp.onchange = async () => {
+      try {
+        const d = JSON.parse(await inp.files[0].text());
+        if (d.bp && Array.isArray(d.bp.nodes)) { pushGarageHist(); bp = cloneBp(d.bp); updateGarageSpecs(); showToast('📂 Imported blueprint!'); }
+      } catch { showToast('Invalid blueprint JSON'); }
+    };
+    inp.click();
+  };
+  document.getElementById('btnMobile').onclick = () => {
+    document.body.classList.toggle('mobile-mode');
+    resizeCanvases();
+    showToast(document.body.classList.contains('mobile-mode') ? '📱 Phone Mode ON' : '💻 Desktop Mode ON');
+  };
+  document.getElementById('btnHelp').onclick = () => document.getElementById('helpModal').classList.add('open');
+  document.getElementById('btnCloseHelp').onclick = () => document.getElementById('helpModal').classList.remove('open');
+
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (document.getElementById('view-dish').classList.contains('active')) {
+      if (e.code === 'Space') { e.preventDefault(); document.getElementById('pauseBtn').click(); }
+      else if (e.key === '1') setDishTool('spawn');
+      else if (e.key === '2') setDishTool('drag');
+      else if (e.key === '3') setDishTool('link');
+      else if (e.key === '4') setDishTool('cut');
+      else if (e.key === '5') setDishTool('food');
+      else if (e.key === '6') setDishTool('kill');
+      else if (e.key === 'f' || e.key === 'F') feedDish(35);
+      else if (e.key === 'r' || e.key === 'R') resetCam();
+    }
+  });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+  // =========================================================================
+  // 5B. ML OBSTACLE COURSE ENGINE (MULTI-GHOST SPRING-BONDED TRAINING)
+  // =========================================================================
+  const courseCanvas = document.getElementById('courseCanvas');
+  const cCtx = courseCanvas.getContext('2d');
+  const cNnCanvas = document.getElementById('courseNnCanvas');
+  const cNnCtx = cNnCanvas.getContext('2d');
+  const cChartCanvas = document.getElementById('courseChartCanvas');
+  const cChartCtx = cChartCanvas.getContext('2d');
+
+  const COURSE_W = 1280, COURSE_H = 720, COURSE_DURATION = 18.0;
+  function randn() {
+    let u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  class CourseNN {
+    constructor() {
+      this.w1 = new Float32Array(120); this.b1 = new Float32Array(12);
+      this.w2 = new Float32Array(36);  this.b2 = new Float32Array(3);
+      this.lastIn = new Float32Array(10); this.lastHid = new Float32Array(12); this.lastOut = new Float32Array(3);
+      for (let i = 0; i < this.w1.length; i++) this.w1[i] = randn() * 0.38;
+      for (let i = 0; i < this.w2.length; i++) this.w2[i] = randn() * 0.38;
+    }
+    cloneNoise(sig) {
+      const c = new CourseNN();
+      for (let i = 0; i < this.w1.length; i++) c.w1[i] = this.w1[i] + randn() * sig;
+      for (let i = 0; i < this.b1.length; i++) c.b1[i] = this.b1[i] + randn() * sig;
+      for (let i = 0; i < this.w2.length; i++) c.w2[i] = this.w2[i] + randn() * sig;
+      for (let i = 0; i < this.b2.length; i++) c.b2[i] = this.b2[i] + randn() * sig;
+      return c;
+    }
+    forward(inp) {
+      this.lastIn.set(inp);
+      for (let h = 0; h < 12; h++) {
+        let s = this.b1[h], off = h * 10;
+        for (let i = 0; i < 10; i++) s += this.w1[off + i] * inp[i];
+        this.lastHid[h] = Math.tanh(s);
+      }
+      for (let o = 0; o < 3; o++) {
+        let s = this.b2[o], off = o * 12;
+        for (let h = 0; h < 12; h++) s += this.w2[off + h] * this.lastHid[h];
+        this.lastOut[o] = Math.tanh(s);
+      }
+      return this.lastOut;
+    }
+  }
+
+  const COURSE_MAPS = {
+    channel: {
+      start: { x: 110, y: 580 },
+      goal: { x: 1150, y: 150, r: 44 },
+      walls: [
+        { x: 260, y: 210, w: 38, h: 510 },
+        { x: 540, y: 0, w: 38, h: 490 },
+        { x: 830, y: 220, w: 38, h: 500 }
+      ],
+      pillars: [
+        { x: 410, y: 390, r: 28 },
+        { x: 695, y: 310, r: 28 },
+        { x: 990, y: 350, r: 30 }
+      ],
+      gates: [
+        { x: 279, y: 120, r: 52 },
+        { x: 420, y: 540, r: 52 },
+        { x: 559, y: 590, r: 52 },
+        { x: 700, y: 160, r: 52 },
+        { x: 849, y: 120, r: 52 },
+        { x: 1020, y: 200, r: 52 }
+      ],
+      rewards: [
+        { x: 190, y: 340, r: 10, val: 45 }, { x: 355, y: 210, r: 10, val: 45 },
+        { x: 480, y: 600, r: 10, val: 45 }, { x: 640, y: 420, r: 10, val: 45 },
+        { x: 760, y: 130, r: 10, val: 45 }, { x: 950, y: 170, r: 10, val: 45 },
+        { x: 1080, y: 240, r: 10, val: 45 }
+      ]
+    },
+    slalom: {
+      start: { x: 95, y: 360 },
+      goal: { x: 1175, y: 360, r: 44 },
+      walls: [],
+      pillars: [
+        { x: 270, y: 250, r: 46 }, { x: 270, y: 470, r: 46 },
+        { x: 470, y: 150, r: 44 }, { x: 470, y: 360, r: 54 }, { x: 470, y: 570, r: 44 },
+        { x: 690, y: 240, r: 50 }, { x: 690, y: 480, r: 50 },
+        { x: 910, y: 150, r: 44 }, { x: 910, y: 360, r: 54 }, { x: 910, y: 570, r: 44 }
+      ],
+      gates: [
+        { x: 270, y: 360, r: 48 },
+        { x: 470, y: 255, r: 48 },
+        { x: 690, y: 360, r: 50 },
+        { x: 910, y: 465, r: 48 },
+        { x: 1055, y: 360, r: 50 }
+      ],
+      rewards: [
+        { x: 185, y: 360, r: 10, val: 40 }, { x: 370, y: 210, r: 10, val: 40 },
+        { x: 580, y: 240, r: 10, val: 40 }, { x: 580, y: 480, r: 10, val: 40 },
+        { x: 800, y: 360, r: 10, val: 40 }, { x: 1020, y: 460, r: 10, val: 40 },
+        { x: 1100, y: 360, r: 10, val: 40 }
+      ]
+    },
+    gauntlet: {
+      start: { x: 105, y: 360 },
+      goal: { x: 1165, y: 360, r: 44 },
+      walls: [
+        { x: 330, y: 240, w: 220, h: 36 },
+        { x: 330, y: 444, w: 220, h: 36 },
+        { x: 700, y: 120, w: 36, h: 210 },
+        { x: 700, y: 390, w: 36, h: 210 },
+        { x: 930, y: 230, w: 36, h: 260 }
+      ],
+      pillars: [
+        { x: 220, y: 360, r: 34 },
+        { x: 590, y: 360, r: 36 },
+        { x: 830, y: 200, r: 28 },
+        { x: 830, y: 520, r: 28 }
+      ],
+      gates: [
+        { x: 220, y: 200, r: 50 },
+        { x: 440, y: 360, r: 50 },
+        { x: 718, y: 360, r: 46 },
+        { x: 948, y: 140, r: 52 },
+        { x: 1070, y: 260, r: 52 }
+      ],
+      rewards: [
+        { x: 220, y: 130, r: 10, val: 50 }, { x: 380, y: 360, r: 10, val: 50 },
+        { x: 640, y: 360, r: 10, val: 50 }, { x: 830, y: 360, r: 10, val: 50 },
+        { x: 948, y: 90, r: 10, val: 50 }, { x: 1090, y: 320, r: 10, val: 50 }
+      ]
+    },
+    vortex: {
+      start: { x: 110, y: 600 },
+      goal: { x: 1150, y: 130, r: 44 },
+      walls: [
+        { x: 420, y: 320, w: 420, h: 32 }
+      ],
+      pillars: [
+        { x: 260, y: 470, r: 42 }, { x: 340, y: 220, r: 44 },
+        { x: 560, y: 520, r: 44 }, { x: 630, y: 170, r: 44 },
+        { x: 840, y: 520, r: 42 }, { x: 920, y: 220, r: 44 },
+        { x: 1040, y: 410, r: 42 }
+      ],
+      gates: [
+        { x: 240, y: 320, r: 54 },
+        { x: 480, y: 190, r: 54 },
+        { x: 760, y: 220, r: 54 },
+        { x: 980, y: 330, r: 54 },
+        { x: 1070, y: 190, r: 54 }
+      ],
+      rewards: [
+        { x: 180, y: 440, r: 10, val: 45 }, { x: 360, y: 130, r: 10, val: 45 },
+        { x: 560, y: 220, r: 10, val: 45 }, { x: 760, y: 120, r: 10, val: 45 },
+        { x: 950, y: 440, r: 10, val: 45 }, { x: 1080, y: 120, r: 10, val: 45 }
+      ]
+    }
+  };
+
+  let courseMapKey = 'channel';
+  let courseGhostCount = 64;
+  let courseSpeed = 1;
+  let dishSpeed = 1;
+  let courseGhostVis = 'top24';
+  let coursePaused = false;
+  let courseGen = 1;
+  let courseTime = 0;
+  let masterCourseNN = new CourseNN();
+  let courseHistory = [];
+  let bestCourseFitness = 0;
+  let fastestCourseFinish = null;
+  let ghosts = [];
+
+  let courseBodyTemplate = { nodes: [], bonds: [], hasMito: false, motorCount: 0, bodyR: 20 };
+
+  function compileCourseBody() {
+    const raw = bp.nodes.length ? bp.nodes : [{ ox: 0, oy: 0, type: 0 }, { ox: -16, oy: 0, type: 3 }];
+    let mcx = 0, mcy = 0;
+    raw.forEach(n => { mcx += n.ox; mcy += n.oy; });
+    mcx /= raw.length; mcy /= raw.length;
+    let maxR = 14;
+    const nodesT = raw.map(nd => {
+      const ox = (nd.ox - mcx) * 0.72, oy = (nd.oy - mcy) * 0.72;
+      const d = Math.hypot(ox, oy) + ORGANELLES[nd.type].r * 0.75;
+      if (d > maxR) maxR = d;
+      return { ox, oy, type: nd.type, r: ORGANELLES[nd.type].r * 0.82, color: ORGANELLES[nd.type].color };
+    });
+    const bondsT = bp.bonds.filter(([ia, ib]) => nodesT[ia] && nodesT[ib]);
+    const hasMito = nodesT.some(n => n.type === 1);
+    const motorCount = nodesT.filter(n => n.type === 3 || n.type === 4 || n.type === 12).length;
+    courseBodyTemplate = { nodes: nodesT, bonds: bondsT, hasMito, motorCount, bodyR: Math.max(15, Math.min(34, maxR * 0.78)) };
+  }
+
+  function createGhostFromGarage(nn) {
+    const map = COURSE_MAPS[courseMapKey];
+    const sx = map.start.x, sy = map.start.y;
+    return {
+      nn,
+      cx: sx, cy: sy,
+      vx: 0, vy: 0,
+      ang: 0,
+      phase: Math.random() * 6.28,
+      gateIdx: 0,
+      collected: new Set(),
+      fitness: 0,
+      rewardScore: 0,
+      wallHits: 0,
+      finished: false,
+      finishTime: null,
+      bestDist: 9999
+    };
+  }
+
+  function initCourseGen() {
+    compileCourseBody();
+    ghosts = [];
+    courseTime = 0;
+    for (let i = 0; i < courseGhostCount; i++) {
+      const nn = i === 0 ? masterCourseNN.cloneNoise(0) : masterCourseNN.cloneNoise(i < courseGhostCount * 0.35 ? 0.16 : 0.34);
+      ghosts.push(createGhostFromGarage(nn));
+    }
+    document.getElementById('cTelGhosts').textContent = courseGhostCount;
+    document.getElementById('cTelNodes').textContent = bp.nodes.length;
+    document.getElementById('cTelMotors').textContent = `${courseBodyTemplate.motorCount} (${courseBodyTemplate.hasMito ? '1.5x' : '1.0x'})`;
+  }
+
+  function stepCourse(dt) {
+    if (coursePaused) return;
+    const map = COURSE_MAPS[courseMapKey];
+    courseTime += dt;
+    const scale = dt * 60;
+    const { hasMito, motorCount, bodyR } = courseBodyTemplate;
+    const boost = hasMito ? 1.5 : 1.0;
+    const baseDrive = (0.36 + Math.min(4, motorCount) * 0.05) * boost;
+    let allDone = true;
+
+    for (let gi = 0; gi < ghosts.length; gi++) {
+      const g = ghosts[gi];
+      if (g.finished) continue;
+      allDone = false;
+      g.phase += 0.18 * scale;
+
+      const target = g.gateIdx < map.gates.length ? map.gates[g.gateIdx] : map.goal;
+      const tdx = target.x - g.cx, tdy = target.y - g.cy;
+      const tDist = Math.hypot(tdx, tdy) || 1;
+      const targetAng = Math.atan2(tdy, tdx);
+      let angDiff = targetAng - g.ang;
+      while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+      while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+
+      let obsDist = 280, obsAngDiff = 0;
+      for (let pi = 0; pi < map.pillars.length; pi++) {
+        const p = map.pillars[pi];
+        const d = Math.hypot(p.x - g.cx, p.y - g.cy) - p.r - bodyR;
+        if (d < obsDist) {
+          obsDist = d;
+          let oa = Math.atan2(p.y - g.cy, p.x - g.cx) - g.ang;
+          while (oa > Math.PI) oa -= Math.PI * 2; while (oa < -Math.PI) oa += Math.PI * 2;
+          obsAngDiff = oa;
+        }
+      }
+      for (let wi = 0; wi < map.walls.length; wi++) {
+        const w = map.walls[wi];
+        const qx = Math.max(w.x, Math.min(g.cx, w.x + w.w));
+        const qy = Math.max(w.y, Math.min(g.cy, w.y + w.h));
+        const d = Math.hypot(qx - g.cx, qy - g.cy) - bodyR;
+        if (d < obsDist) {
+          obsDist = d;
+          let oa = Math.atan2(qy - g.cy, qx - g.cx) - g.ang;
+          while (oa > Math.PI) oa -= Math.PI * 2; while (oa < -Math.PI) oa += Math.PI * 2;
+          obsAngDiff = oa;
+        }
+      }
+
+      const inp = [
+        angDiff / Math.PI,
+        Math.min(1, tDist / 500) * 2 - 1,
+        obsAngDiff / Math.PI,
+        Math.min(1, obsDist / 160) * 2 - 1,
+        Math.max(-1, Math.min(1, g.vx / 7)),
+        Math.max(-1, Math.min(1, g.vy / 7)),
+        Math.cos(g.ang),
+        Math.sin(g.ang),
+        g.gateIdx / Math.max(1, map.gates.length),
+        Math.sin(g.phase * 0.5)
+      ];
+      const out = g.nn.forward(inp);
+      g.ang += out[0] * 0.115 * scale;
+      const throttle = Math.max(0.25, (out[1] + 1) * 0.5);
+      const jetBurst = out[2] > 0.55 && Math.sin(g.phase * 0.4) > 0.75 ? 1.65 : 1.0;
+
+      g.vx += Math.cos(g.ang) * baseDrive * throttle * jetBurst * scale;
+      g.vy += Math.sin(g.ang) * baseDrive * throttle * jetBurst * scale;
+      g.vx *= Math.pow(0.935, scale);
+      g.vy *= Math.pow(0.935, scale);
+      const spd = Math.hypot(g.vx, g.vy);
+      if (spd > 8.5) { g.vx = (g.vx / spd) * 8.5; g.vy = (g.vy / spd) * 8.5; }
+      g.cx += g.vx * scale;
+      g.cy += g.vy * scale;
+
+      if (g.cx < bodyR + 8) { g.cx = bodyR + 8; g.vx = Math.abs(g.vx) * 0.55; g.wallHits += 0.5; }
+      if (g.cx > COURSE_W - bodyR - 8) { g.cx = COURSE_W - bodyR - 8; g.vx = -Math.abs(g.vx) * 0.55; g.wallHits += 0.5; }
+      if (g.cy < bodyR + 8) { g.cy = bodyR + 8; g.vy = Math.abs(g.vy) * 0.55; g.wallHits += 0.5; }
+      if (g.cy > COURSE_H - bodyR - 8) { g.cy = COURSE_H - bodyR - 8; g.vy = -Math.abs(g.vy) * 0.55; g.wallHits += 0.5; }
+
+      for (let pi = 0; pi < map.pillars.length; pi++) {
+        const p = map.pillars[pi];
+        const dx = g.cx - p.x, dy = g.cy - p.y, d = Math.hypot(dx, dy) || 0.01;
+        const minD = bodyR + p.r;
+        if (d < minD) {
+          const nx = dx / d, ny = dy / d;
+          g.cx = p.x + nx * minD; g.cy = p.y + ny * minD;
+          const vn = g.vx * nx + g.vy * ny;
+          if (vn < 0) { g.vx -= 1.5 * vn * nx; g.vy -= 1.5 * vn * ny; }
+          g.wallHits += 0.5;
+        }
+      }
+
+      for (let wi = 0; wi < map.walls.length; wi++) {
+        const w = map.walls[wi];
+        const qx = Math.max(w.x, Math.min(g.cx, w.x + w.w));
+        const qy = Math.max(w.y, Math.min(g.cy, w.y + w.h));
+        const dx = g.cx - qx, dy = g.cy - qy, d = Math.hypot(dx, dy);
+        if (d === 0) {
+          const dL = g.cx - w.x, dR = w.x + w.w - g.cx, dT = g.cy - w.y, dB = w.y + w.h - g.cy;
+          const m = Math.min(dL, dR, dT, dB);
+          if (m === dL) { g.cx = w.x - bodyR; g.vx = -Math.abs(g.vx) * 0.5; }
+          else if (m === dR) { g.cx = w.x + w.w + bodyR; g.vx = Math.abs(g.vx) * 0.5; }
+          else if (m === dT) { g.cy = w.y - bodyR; g.vy = -Math.abs(g.vy) * 0.5; }
+          else { g.cy = w.y + w.h + bodyR; g.vy = Math.abs(g.vy) * 0.5; }
+          g.wallHits += 0.5;
+        } else if (d < bodyR) {
+          const nx = dx / d, ny = dy / d;
+          g.cx = qx + nx * bodyR; g.cy = qy + ny * bodyR;
+          const vn = g.vx * nx + g.vy * ny;
+          if (vn < 0) { g.vx -= 1.5 * vn * nx; g.vy -= 1.5 * vn * ny; }
+          g.wallHits += 0.5;
+        }
+      }
+
+      for (let rIdx = 0; rIdx < map.rewards.length; rIdx++) {
+        const rw = map.rewards[rIdx];
+        if (!g.collected.has(rIdx) && Math.hypot(g.cx - rw.x, g.cy - rw.y) < rw.r + bodyR + 8) {
+          g.collected.add(rIdx);
+          g.rewardScore += rw.val;
+        }
+      }
+
+      if (g.gateIdx < map.gates.length) {
+        const gt = map.gates[g.gateIdx];
+        if (Math.hypot(g.cx - gt.x, g.cy - gt.y) < gt.r + 12) {
+          g.gateIdx++;
+          g.rewardScore += 150;
+          g.bestDist = 9999;
+        }
+      } else if (Math.hypot(g.cx - map.goal.x, g.cy - map.goal.y) < map.goal.r + 14) {
+        g.finished = true;
+        g.finishTime = courseTime;
+        g.rewardScore += 600 + Math.max(0, (COURSE_DURATION - courseTime) * 28);
+        if (fastestCourseFinish === null || courseTime < fastestCourseFinish) fastestCourseFinish = courseTime;
+      }
+
+      if (tDist < g.bestDist) g.bestDist = tDist;
+      const distProgress = Math.max(0, 420 - tDist) * 0.35;
+      g.fitness = g.rewardScore + g.gateIdx * 100 + distProgress - g.wallHits * 1.4;
+    }
+
+    if (courseTime >= COURSE_DURATION || allDone) {
+      ghosts.sort((a, b) => b.fitness - a.fitness);
+      const best = ghosts[0];
+      const mean = ghosts.reduce((s, g) => s + g.fitness, 0) / Math.max(1, ghosts.length);
+      if (best && best.fitness > bestCourseFitness) bestCourseFitness = best.fitness;
+      if (best) masterCourseNN = best.nn.cloneNoise(0);
+      courseHistory.push({ best: best ? best.fitness : 0, mean });
+      if (courseHistory.length > 60) courseHistory.shift();
+      courseGen++;
+      initCourseGen();
+    }
+  }
+
+  function drawCourse() {
+    const W = courseCanvas.width, H = courseCanvas.height;
+    if (W <= 0) return;
+    const map = COURSE_MAPS[courseMapKey];
+    cCtx.clearRect(0, 0, W, H);
+
+    const scale = Math.min((W - 24) / COURSE_W, (H - 24) / COURSE_H);
+    const ox = (W - COURSE_W * scale) / 2, oy = (H - COURSE_H * scale) / 2;
+
+    cCtx.save();
+    cCtx.translate(ox, oy);
+    cCtx.scale(scale, scale);
+
+    cCtx.fillStyle = 'rgba(8, 16, 28, 0.72)';
+    cCtx.fillRect(0, 0, COURSE_W, COURSE_H);
+    cCtx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+    cCtx.lineWidth = 3;
+    cCtx.strokeRect(0, 0, COURSE_W, COURSE_H);
+
+    cCtx.beginPath(); cCtx.arc(map.start.x, map.start.y, 44, 0, Math.PI * 2);
+    cCtx.fillStyle = 'rgba(56, 189, 248, 0.1)'; cCtx.fill();
+    cCtx.strokeStyle = 'rgba(56, 189, 248, 0.45)'; cCtx.lineWidth = 2; cCtx.stroke();
+
+    const ranked = [...ghosts].sort((a, b) => b.fitness - a.fitness);
+    const champ = ranked[0];
+
+    map.gates.forEach((gt, idx) => {
+      const isNext = champ && champ.gateIdx === idx;
+      const cleared = champ && champ.gateIdx > idx;
+      cCtx.beginPath(); cCtx.arc(gt.x, gt.y, gt.r, 0, Math.PI * 2);
+      cCtx.strokeStyle = isNext ? '#facc15' : (cleared ? 'rgba(52,211,153,0.4)' : 'rgba(148,163,184,0.28)');
+      cCtx.lineWidth = isNext ? 3 : 2;
+      cCtx.setLineDash([6, 5]); cCtx.stroke(); cCtx.setLineDash([]);
+      cCtx.fillStyle = isNext ? '#facc15' : 'rgba(203,213,225,0.65)';
+      cCtx.font = 'bold 12px sans-serif'; cCtx.textAlign = 'center';
+      cCtx.fillText(`G${idx + 1}`, gt.x, gt.y + 4);
+    });
+
+    cCtx.beginPath(); cCtx.arc(map.goal.x, map.goal.y, map.goal.r, 0, Math.PI * 2);
+    cCtx.fillStyle = 'rgba(52, 211, 153, 0.18)'; cCtx.fill();
+    cCtx.strokeStyle = '#34d399'; cCtx.lineWidth = 3.5; cCtx.stroke();
+    cCtx.fillStyle = '#ecfdf5'; cCtx.font = 'bold 14px sans-serif'; cCtx.textAlign = 'center';
+    cCtx.fillText('FINISH', map.goal.x, map.goal.y + 5);
+
+    map.rewards.forEach((rw, rIdx) => {
+      const taken = champ && champ.collected.has(rIdx);
+      cCtx.beginPath(); cCtx.arc(rw.x, rw.y, rw.r + 4, 0, Math.PI * 2);
+      cCtx.fillStyle = taken ? 'rgba(74, 222, 128, 0.08)' : 'rgba(250, 204, 21, 0.22)'; cCtx.fill();
+      cCtx.beginPath(); cCtx.arc(rw.x, rw.y, rw.r, 0, Math.PI * 2);
+      cCtx.fillStyle = taken ? 'rgba(74, 222, 128, 0.35)' : '#facc15'; cCtx.fill();
+    });
+
+    for (const w of map.walls) {
+      cCtx.fillStyle = 'rgba(30, 41, 59, 0.92)';
+      cCtx.strokeStyle = '#fb7185'; cCtx.lineWidth = 2;
+      cCtx.fillRect(w.x, w.y, w.w, w.h); cCtx.strokeRect(w.x, w.y, w.w, w.h);
+    }
+    for (const p of map.pillars) {
+      cCtx.beginPath(); cCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      cCtx.fillStyle = 'rgba(30, 41, 59, 0.92)'; cCtx.fill();
+      cCtx.strokeStyle = '#fb7185'; cCtx.lineWidth = 2.2; cCtx.stroke();
+    }
+
+    const visList = courseGhostVis === 'champ' ? [champ] : (courseGhostVis === 'top24' ? ranked.slice(0, 24) : (courseGhostVis === 'top64' ? ranked.slice(0, 64) : ranked.slice(0, 150)));
+    const { nodes: tplNodes, bonds: tplBonds } = courseBodyTemplate;
+    for (let k = visList.length - 1; k >= 0; k--) {
+      const g = visList[k];
+      if (!g) continue;
+      const isChamp = g === champ;
+      const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
+      const pts = tplNodes.map((nd, idx) => {
+        const wob = nd.type === 3 ? Math.sin(g.phase + idx * 0.8) * 3.5 : Math.sin(g.phase + idx) * 1.1;
+        const lx = nd.ox, ly = nd.oy + wob;
+        return { x: g.cx + lx * ca - ly * sa, y: g.cy + lx * sa + ly * ca, nd };
+      });
+      cCtx.save();
+      cCtx.globalAlpha = isChamp ? 1.0 : 0.25;
+      cCtx.lineCap = 'round';
+      for (const [ia, ib] of tplBonds) {
+        const a = pts[ia], b = pts[ib];
+        if (!a || !b) continue;
+        cCtx.beginPath(); cCtx.moveTo(a.x, a.y); cCtx.lineTo(b.x, b.y);
+        cCtx.strokeStyle = isChamp ? 'rgba(250, 204, 21, 0.5)' : 'rgba(56, 189, 248, 0.35)';
+        cCtx.lineWidth = isChamp ? 4 : 2; cCtx.stroke();
+      }
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        if (isChamp) {
+          drawOrganelleArt(cCtx, p.x, p.y, p.nd.r, p.nd.type, p.nd.color, g.phase + i, g.ang, 1.0, true);
+        } else {
+          cCtx.beginPath(); cCtx.arc(p.x, p.y, p.nd.r * 0.8, 0, Math.PI * 2);
+          cCtx.fillStyle = p.nd.color; cCtx.fill();
+        }
+      }
+      cCtx.restore();
+    }
+    cCtx.restore();
+
+    const finCount = ghosts.filter(g => g.finished).length;
+    const avgFit = ghosts.reduce((s, g) => s + g.fitness, 0) / Math.max(1, ghosts.length);
+    document.getElementById('cHudGen').textContent = courseGen;
+    document.getElementById('cHudBest').textContent = Math.round(Math.max(bestCourseFitness, champ ? champ.fitness : 0));
+    document.getElementById('cHudAvg').textContent = Math.round(avgFit);
+    document.getElementById('cHudGate').textContent = `${champ ? champ.gateIdx : 0} / ${map.gates.length}`;
+    document.getElementById('cHudFin').textContent = `${finCount} / ${ghosts.length}`;
+    document.getElementById('cHudTime').textContent = Math.max(0, COURSE_DURATION - courseTime).toFixed(1) + 's';
+    document.getElementById('cTelFast').textContent = fastestCourseFinish !== null ? fastestCourseFinish.toFixed(2) + 's' : '--';
+    document.getElementById('cTelSpeed').textContent = courseSpeed + 'x';
+
+    drawCourseNN(champ ? champ.nn : masterCourseNN);
+    drawCourseChart();
+  }
+
+  function drawCourseNN(nn) {
+    const r = cNnCanvas.getBoundingClientRect(); if (r.width <= 0) return;
+    if (cNnCanvas.width !== Math.round(r.width) || cNnCanvas.height !== Math.round(r.height)) {
+      cNnCanvas.width = Math.round(r.width); cNnCanvas.height = Math.round(r.height);
+    }
+    cNnCtx.clearRect(0, 0, cNnCanvas.width, cNnCanvas.height);
+    const xs = [24, cNnCanvas.width * 0.5, cNnCanvas.width - 24], counts = [10, 12, 3], pos = [[], [], []];
+    counts.forEach((n, l) => {
+      const st = (cNnCanvas.height - 18) / Math.max(1, n - 1);
+      for (let i = 0; i < n; i++) pos[l].push({ x: xs[l], y: 9 + i * st });
+    });
+    for (let h = 0; h < 12; h++) for (let i = 0; i < 10; i++) {
+      const w = nn.w1[h * 10 + i]; if (Math.abs(w) < 0.28) continue;
+      cNnCtx.strokeStyle = w > 0 ? 'rgba(52,211,153,0.42)' : 'rgba(251,113,133,0.42)';
+      cNnCtx.beginPath(); cNnCtx.moveTo(pos[0][i].x, pos[0][i].y); cNnCtx.lineTo(pos[1][h].x, pos[1][h].y); cNnCtx.stroke();
+    }
+    const acts = [nn.lastIn, nn.lastHid, nn.lastOut];
+    counts.forEach((n, l) => {
+      for (let i = 0; i < n; i++) {
+        const v = acts[l][i] || 0;
+        cNnCtx.fillStyle = v > 0.15 ? '#34d399' : (v < -0.15 ? '#fb7185' : '#0f292e');
+        cNnCtx.beginPath(); cNnCtx.arc(pos[l][i].x, pos[l][i].y, 3.4, 0, Math.PI * 2); cNnCtx.fill();
+      }
+    });
+  }
+
+  function drawCourseChart() {
+    const r = cChartCanvas.getBoundingClientRect(); if (r.width <= 0) return;
+    if (cChartCanvas.width !== Math.round(r.width) || cChartCanvas.height !== Math.round(r.height)) {
+      cChartCanvas.width = Math.round(r.width); cChartCanvas.height = Math.round(r.height);
+    }
+    cChartCtx.clearRect(0, 0, cChartCanvas.width, cChartCanvas.height);
+    if (courseHistory.length < 2) return;
+    let mn = 0, mx = 100;
+    for (const p of courseHistory) { mn = Math.min(mn, p.mean); mx = Math.max(mx, p.best); }
+    const mX = i => 8 + (i / (courseHistory.length - 1)) * (cChartCanvas.width - 16);
+    const mY = v => cChartCanvas.height - 8 - ((v - mn) / Math.max(1, mx - mn)) * (cChartCanvas.height - 16);
+    cChartCtx.strokeStyle = '#34d399'; cChartCtx.lineWidth = 2; cChartCtx.beginPath();
+    courseHistory.forEach((p, i) => i === 0 ? cChartCtx.moveTo(mX(i), mY(p.mean)) : cChartCtx.lineTo(mX(i), mY(p.mean))); cChartCtx.stroke();
+    cChartCtx.strokeStyle = '#facc15'; cChartCtx.beginPath();
+    courseHistory.forEach((p, i) => i === 0 ? cChartCtx.moveTo(mX(i), mY(p.best)) : cChartCtx.lineTo(mX(i), mY(p.best))); cChartCtx.stroke();
+    document.getElementById('cAvgLbl').textContent = 'Avg: ' + Math.round(courseHistory[courseHistory.length - 1].mean);
+  }
+
+  document.getElementById('coursePauseBtn').onclick = () => {
+    coursePaused = !coursePaused;
+    const b = document.getElementById('coursePauseBtn');
+    b.textContent = coursePaused ? '▶ Play' : '⏸ Pause';
+    b.classList.toggle('active', coursePaused);
+  };
+  document.getElementById('courseMapSel').onchange = e => {
+    courseMapKey = e.target.value; fastestCourseFinish = null; bestCourseFitness = 0; courseHistory = []; courseGen = 1; initCourseGen();
+  };
+  document.getElementById('selCourseGhosts').onchange = e => {
+    courseGhostCount = parseInt(e.target.value, 10); initCourseGen();
+  };
+  document.getElementById('selCourseSpeed').onchange = e => { courseSpeed = parseFloat(e.target.value); };
+  document.getElementById('selGhostVis').onchange = e => { courseGhostVis = e.target.value; };
+  document.getElementById('btnCourseResetGen').onclick = initCourseGen;
+  document.getElementById('btnCourseNewBrains').onclick = () => {
+    masterCourseNN = new CourseNN(); courseHistory = []; bestCourseFitness = 0; fastestCourseFinish = null; courseGen = 1; initCourseGen();
+    showToast('🧬 Reset neural population!');
+  };
+  document.getElementById('btnCourseSyncGarage').onclick = () => { initCourseGen(); showToast('🔧 Synced Garage organism into Course!'); };
+  document.getElementById('selDishSpeed').onchange = e => { dishSpeed = parseFloat(e.target.value); };
+
+  // =========================================================================
+  // 6. BOOTSTRAP & MAIN LOOP
+  // =========================================================================
+  resizeCanvases();
+  setKnowledge('student');
+  capturePresetIntoGarage('flagellate_hunter');
+  renderSavedBlueprints();
+  loadDishPreset('soup_of_life');
+  initCourseGen();
+  resetCam();
+
+  let dishAccum = 0, courseAccum = 0;
+  function loop() {
+    const t0 = performance.now();
+    if (document.getElementById('view-garage').classList.contains('active')) {
+      drawGarage();
+    } else if (document.getElementById('view-course').classList.contains('active')) {
+      if (courseSpeed < 1) {
+        courseAccum += courseSpeed;
+        if (courseAccum >= 1) { courseAccum -= 1; stepCourse(1 / 60); }
+      } else {
+        const steps = Math.round(courseSpeed);
+        for (let s = 0; s < steps; s++) {
+          stepCourse(1 / 60);
+          if (performance.now() - t0 > 13) break;
+        }
+      }
+      drawCourse();
+    } else {
+      if (dishSpeed < 1) {
+        dishAccum += dishSpeed;
+        if (dishAccum >= 1) { dishAccum -= 1; stepDish(); }
+      } else {
+        const steps = Math.round(dishSpeed);
+        for (let s = 0; s < steps; s++) {
+          stepDish();
+          if (performance.now() - t0 > 13) break;
+        }
+      }
+      drawDish();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
