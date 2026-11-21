@@ -1,0 +1,2745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Steam Engine Simulator v2 — Multi-Cylinder & 100% Physics-Based</title>
+<style>
+  :root {
+    --bg: #0d1015;
+    --panel: #141922;
+    --panel2: #1b222e;
+    --border: #2a3444;
+    --text: #e6edf5;
+    --muted: #8b9bb4;
+    --brass: #d4a44c;
+    --brass-bright: #f0c86e;
+    --accent: #38bdf8;
+    --hot: #f97316;
+    --danger: #ef4444;
+    --ok: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  .app { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+
+  /* Top Bar */
+  .topbar {
+    min-height: 48px;
+    background: linear-gradient(180deg, #1a202c 0%, #121720 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 12px; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .brand-icon {
+    width: 26px; height: 26px; border-radius: 6px;
+    background: radial-gradient(circle at 35% 35%, var(--brass-bright), #8a5a18);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px; color: #161108;
+    box-shadow: 0 0 10px rgba(212,164,76,0.35);
+  }
+  .brand h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.4px; color: var(--brass-bright); }
+  .badge {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 2px 6px; border-radius: 99px;
+    background: rgba(56,189,248,0.12); color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.3);
+  }
+  .top-controls { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .preset-select {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 7px; font-size: 11px; outline: none; cursor: pointer;
+  }
+  .time-group {
+    display: inline-flex; align-items: center;
+    background: #0d1118; border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px; gap: 2px;
+  }
+  .time-btn {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 10px; font-weight: 700; padding: 3px 5px; border-radius: 4px; cursor: pointer;
+  }
+  .time-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .time-btn.active { background: rgba(56,189,248,0.22); color: var(--accent); }
+  .scale-group {
+    display: inline-flex; align-items: center;
+    background: #0d1118; border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px; gap: 2px;
+  }
+  .scale-btn {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 10px; font-weight: 800; padding: 3px 6px; border-radius: 4px; cursor: pointer;
+    transition: all 0.12s;
+  }
+  .scale-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .scale-btn.active { background: rgba(56,189,248,0.22); color: var(--accent); }
+  .scale-btn.small-active { background: rgba(168,85,247,0.28); color: #d8b4fe; box-shadow: 0 0 8px rgba(168,85,247,0.35); }
+  .scale-btn.big-active { background: rgba(249,115,22,0.3); color: #fdba74; box-shadow: 0 0 10px rgba(249,115,22,0.45); }
+  .btn-mega {
+    background: linear-gradient(180deg, #f97316, #b91c1c) !important;
+    border-color: #fde047 !important; color: #fffbeb !important;
+    box-shadow: 0 0 12px rgba(249,115,22,0.55);
+  }
+
+  .btn {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px; font-size: 11px; font-weight: 600;
+    cursor: pointer; transition: all 0.12s;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .btn:hover { background: #263042; border-color: #41516a; }
+  .btn:active { transform: translateY(1px); }
+  .btn-brass {
+    background: linear-gradient(180deg, #b88732, #8e641d);
+    border-color: var(--brass-bright); color: #fff8e7;
+  }
+  .btn-hot { background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.5); color: #fdba74; }
+  .btn-danger { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+  .btn-active { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.6); color: #86efac; }
+
+  /* Main Workspace */
+  .main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+  .stage-col { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+  .canvas-wrap {
+    flex: 1; position: relative; min-height: 0;
+    background: radial-gradient(ellipse at 50% 45%, #161c26 0%, #0b0e13 100%);
+    overflow: hidden;
+  }
+  #simCanvas { width: 100%; height: 100%; display: block; cursor: default; }
+  .canvas-hint {
+    position: absolute; bottom: 8px; left: 10px;
+    background: rgba(13,16,21,0.82); border: 1px solid rgba(212,164,76,0.3);
+    color: var(--muted); font-size: 11px; padding: 4px 9px; border-radius: 6px;
+    pointer-events: none; backdrop-filter: blur(4px);
+  }
+  .canvas-hint strong { color: var(--brass-bright); }
+  .alert-banner {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(239,68,68,0.92); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 99px;
+    box-shadow: 0 4px 16px rgba(239,68,68,0.4); display: none; z-index: 10;
+  }
+
+  /* Bottom Dock */
+  .dock {
+    height: 168px; background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; gap: 10px; padding: 8px 12px; flex-shrink: 0;
+  }
+  .chart-card {
+    background: #0e1218; border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 8px; display: flex; flex-direction: column; position: relative;
+  }
+  .chart-card.pv { width: 245px; flex-shrink: 0; }
+  .chart-card.scope { flex: 1; min-width: 170px; }
+  .chart-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+  }
+  .chart-canvas { width: 100%; flex: 1; display: block; min-height: 0; }
+  .metrics-grid {
+    width: 345px; flex-shrink: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px;
+  }
+  .metric-box {
+    background: #0e1218; border: 1px solid var(--border); border-radius: 7px;
+    padding: 5px 8px; display: flex; flex-direction: column; justify-content: center;
+  }
+  .metric-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .metric-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); margin-top: 1px; }
+  .metric-sub { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Right Sidebar */
+  .sidebar {
+    width: 356px; flex-shrink: 0; background: var(--panel);
+    border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0;
+  }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); background: #10151d; flex-shrink: 0; }
+  .tab {
+    flex: 1; padding: 9px 4px; text-align: center; font-size: 11px; font-weight: 700;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.12s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--brass-bright); border-bottom-color: var(--brass-bright); background: rgba(212,164,76,0.06); }
+  .tab-body { flex: 1; overflow-y: auto; padding: 10px 11px; display: none; flex-direction: column; gap: 10px; }
+  .tab-body.active { display: flex; }
+
+  .section {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 10px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--brass-bright);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .ctrl { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; }
+  .ctrl-name { color: #cbd5e1; font-weight: 500; }
+  .ctrl-val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); font-size: 11.5px; }
+
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+    background: #0b0e14; border-radius: 99px; border: 1px solid #2a3444; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, var(--brass-bright), #94661d);
+    border: 1px solid #fff3d1; box-shadow: 0 1px 4px rgba(0,0,0,0.6); cursor: grab;
+  }
+  input[type="number"], select.field-select {
+    background: #0d1118; color: var(--text); border: 1px solid var(--border);
+    border-radius: 5px; padding: 4px 6px; font-size: 11.5px; outline: none;
+  }
+  .quick-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .quick-row .btn { flex: 1; justify-content: center; padding: 4px 5px; font-size: 10.5px; }
+  .toggle-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #cbd5e1; }
+  .switch { position: relative; width: 34px; height: 19px; display: inline-block; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-sw {
+    position: absolute; inset: 0; background: #0c1017;
+    border: 1px solid var(--border); border-radius: 99px; cursor: pointer; transition: 0.15s;
+  }
+  .slider-sw:before {
+    content: ""; position: absolute; width: 13px; height: 13px;
+    left: 2px; top: 2px; background: #64748b; border-radius: 50%; transition: 0.15s;
+  }
+  .switch input:checked + .slider-sw { background: rgba(56,189,248,0.22); border-color: var(--accent); }
+  .switch input:checked + .slider-sw:before { transform: translateX(15px); background: var(--accent); }
+
+  .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 11px; }
+  .spec-item { background: #10151d; border: 1px solid #232c3b; border-radius: 5px; padding: 4px 7px; }
+  .spec-item span { display: block; color: var(--muted); font-size: 9.5px; }
+  .spec-item strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  /* Cylinder Builder Pills */
+  .cyl-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 92px; overflow-y: auto; }
+  .cyl-pill {
+    padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    background: #10151d; border: 1px solid var(--border); color: var(--muted);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .cyl-pill:hover { color: var(--text); border-color: #4b5d78; }
+  .cyl-pill.active { background: rgba(212,164,76,0.18); border-color: var(--brass-bright); color: var(--brass-bright); }
+  .stage-tag {
+    font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 800;
+    background: rgba(56,189,248,0.18); color: #7dd3fc;
+  }
+  .stage-tag.s1 { background: rgba(249,115,22,0.2); color: #fdba74; }
+  .stage-tag.s2 { background: rgba(34,197,94,0.2); color: #86efac; }
+
+  @media (max-width: 1080px) {
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; height: 290px; border-left: none; border-top: 1px solid var(--border); }
+    .dock { height: 145px; }
+    .metrics-grid { width: 250px; }
+    .chart-card.pv { width: 170px; }
+  }
+
+  /* === PHONE OPTIMIZED MODE === */
+  body.mobile-mode { height: auto !important; min-height: 100dvh; overflow-y: auto !important; overflow-x: hidden; }
+  body.mobile-mode .app { height: auto !important; min-height: 100dvh; width: 100% !important; overflow: visible !important; }
+  body.mobile-mode .topbar { padding: 6px 8px; gap: 6px; }
+  body.mobile-mode .brand h1 { font-size: 13.5px; }
+  body.mobile-mode .brand .badge { display: none !important; }
+  body.mobile-mode .top-controls { width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  body.mobile-mode .top-controls > * { flex-shrink: 0; }
+  body.mobile-mode .main { flex-direction: column !important; overflow: visible !important; height: auto !important; flex: none; }
+  body.mobile-mode .stage-col { width: 100% !important; flex: none; overflow: visible !important; }
+  body.mobile-mode .canvas-wrap { height: 50dvh !important; min-height: 290px; max-height: 440px; flex: none; touch-action: none; }
+  body.mobile-mode .canvas-hint { display: none !important; }
+  body.mobile-mode .dock { height: auto !important; flex-wrap: wrap; padding: 8px; gap: 8px; }
+  body.mobile-mode .chart-card.pv, body.mobile-mode .chart-card.scope { width: 100% !important; flex: 1 1 100%; height: 155px; }
+  body.mobile-mode .metrics-grid { width: 100% !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body.mobile-mode .sidebar { width: 100% !important; height: auto !important; max-height: none; border-left: none; border-top: 1px solid var(--border); overflow: visible !important; }
+  body.mobile-mode .btn, body.mobile-mode select, body.mobile-mode .time-btn, body.mobile-mode .scale-btn { min-height: 36px; font-size: 12px; }
+
+  .mobile-whistle-btn {
+    display: none; position: absolute; right: 10px; bottom: 10px; z-index: 20;
+    padding: 10px 14px; border-radius: 999px; font-weight: 800; font-size: 12.5px;
+    background: linear-gradient(135deg, rgba(212,164,76,0.92), rgba(249,115,22,0.92));
+    color: #0b0e14; border: 1.5px solid rgba(255,243,209,0.7);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45); touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .mobile-whistle-btn.pressed { transform: scale(0.94); filter: brightness(1.15); }
+  body.mobile-mode .mobile-whistle-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">⚙</div>
+      <h1>STEAM ENGINE SIMULATOR</h1>
+      <span class="badge">100% PHYSICS · BUILD YOUR OWN</span>
+    </div>
+    <div class="top-controls">
+      <select id="presetSelect" class="preset-select" title="Load Engine & Boiler Preset">
+        <option value="loco2">2-Cyl 90° Locomotive (14 bar)</option>
+        <option value="loco1">1-Cyl Classic Simple (12 bar)</option>
+        <option value="compound2">2-Cyl Cross-Compound HP→LP (15 bar)</option>
+        <option value="triple3">3-Cyl Triple-Expansion Marine (22 bar)</option>
+        <option value="mill4">4-Cyl 90° Mill Engine (10 bar)</option>
+        <option value="monster8">8-Cyl Steam Monster (18 bar)</option>
+        <option value="tabletop">1-Cyl Tabletop Brass (3.5 bar)</option>
+      </select>
+      <div class="time-group" title="Simulation Physics Time Scale">
+        <button class="time-btn" data-ts="0.05">0.05×</button>
+        <button class="time-btn" data-ts="0.25">0.25×</button>
+        <button class="time-btn" data-ts="0.5">0.5×</button>
+        <button class="time-btn active" data-ts="1">1×</button>
+        <button class="time-btn" data-ts="2">2×</button>
+        <button class="time-btn" data-ts="5">5×</button>
+        <button class="time-btn" data-ts="10">10×</button>
+      </div>
+      <div class="scale-group" title="Unrealistic Mode: Scale all value sliders ÷100 (Small) or ×100 (Big)">
+        <button class="scale-btn" data-scale="0.01">🔬 ÷100</button>
+        <button class="scale-btn active" data-scale="1">1×</button>
+        <button class="scale-btn" data-scale="100">🌋 ×100</button>
+      </div>
+      <button id="btnTopStarter" class="btn" title="Click to kick or hold to crank flywheel">⚙️ Starter</button>
+      <button id="btnFullSteam" class="btn btn-hot" title="Bring boiler to operating pressure">🔥 Full Steam</button>
+      <button id="btnColdStart" class="btn" title="Cool boiler to ambient">❄️ Cold</button>
+      <button id="btnAudio" class="btn" title="Toggle procedural physics-driven steam audio">🔇 Audio</button>
+      <button id="btnUnits" class="btn" title="Switch BAR/mm/kW and PSI/in/HP">BAR</button>
+      <button id="btnPause" class="btn">⏸ Pause</button>
+      <button id="btnStep" class="btn" title="Advance 1 physics micro-step while paused">⏭ Step</button>
+      <button id="btnReset" class="btn">🔄 Reset</button>
+      <button id="btnMobileToggle" class="btn" title="Toggle Phone/Desktop Layout">📱 Phone</button>
+    </div>
+  </div>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="main">
+    <div class="stage-col">
+      <div class="canvas-wrap">
+        <canvas id="simCanvas"></canvas>
+        <button id="btnMobWhistle" class="mobile-whistle-btn">📯 Whistle</button>
+        <div id="alertBanner" class="alert-banner">⚠️ WARNING</div>
+        <div class="canvas-hint" id="canvasHint">
+          <strong>Tip:</strong> Drag the <strong>Flywheel</strong> to bar over dead center · Click any <strong>Cylinder</strong> to inspect its P–V card · Hold <strong>Space</strong> for Whistle
+        </div>
+      </div>
+
+      <!-- BOTTOM TELEMETRY & CHARTS DOCK -->
+      <div class="dock">
+        <div class="chart-card pv">
+          <div class="chart-title">
+            <span id="pvTitle">P–V Card (Cyl #1)</span>
+            <span id="pvImep" style="color:var(--brass-bright)">IMEP 0.0</span>
+          </div>
+          <canvas id="pvCanvas" class="chart-canvas"></canvas>
+        </div>
+        <div class="chart-card scope">
+          <div class="chart-title">
+            <span>Live Telemetry (RPM · Boiler P · Power)</span>
+            <span style="font-weight:500;">
+              <span style="color:#38bdf8">■ RPM</span> &nbsp;
+              <span style="color:#f97316">■ Boiler P</span> &nbsp;
+              <span style="color:#22c55e">■ Power</span>
+            </span>
+          </div>
+          <canvas id="scopeCanvas" class="chart-canvas"></canvas>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <div class="metric-lbl">Speed</div>
+            <div class="metric-val" id="mRpm">0</div>
+            <div class="metric-sub" id="mDir">STOPPED</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Boiler Pressure</div>
+            <div class="metric-val" id="mPress" style="color:var(--hot)">0.0</div>
+            <div class="metric-sub" id="mTemp">100 °C</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Shaft Power</div>
+            <div class="metric-val" id="mPower" style="color:var(--ok)">0.0</div>
+            <div class="metric-sub" id="mTorque">0 N·m</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Manifold / Recv</div>
+            <div class="metric-val" id="mChest">0.0</div>
+            <div class="metric-sub" id="mFlow">0.0 g/s</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Water Level</div>
+            <div class="metric-val" id="mWater" style="color:var(--accent)">65%</div>
+            <div class="metric-sub" id="mBoil">0.0 g/s boil</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Thermal Eff.</div>
+            <div class="metric-val" id="mEff">0.0%</div>
+            <div class="metric-sub" id="mCylCount">2 Cylinders</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT ENGINEERING SIDEBAR -->
+    <div class="sidebar">
+      <div class="tabs">
+        <div class="tab active" data-tab="controls">Operate</div>
+        <div class="tab" data-tab="builder">Build Cyls</div>
+        <div class="tab" data-tab="mechanics">Mechanics</div>
+        <div class="tab" data-tab="boiler">Boiler</div>
+      </div>
+
+      <!-- TAB 1: LIVE OPERATION -->
+      <div class="tab-body active" id="tab-controls">
+        <div class="section">
+          <div class="section-title">Regulator &amp; Valve Gear</div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Throttle / Regulator</span>
+              <span class="ctrl-val" id="vThrottle">45%</span>
+            </div>
+            <input type="range" id="sThrottle" min="0" max="100" step="1" value="45" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Reverser / Cutoff Lever</span>
+              <span class="ctrl-val" id="vReverser">+75% FWD</span>
+            </div>
+            <input type="range" id="sReverser" min="-100" max="100" step="1" value="75" />
+            <div class="quick-row" style="margin-top:2px;">
+              <button class="btn" data-rev="-100">Full Rev</button>
+              <button class="btn" data-rev="0">Neutral</button>
+              <button class="btn" data-rev="30">30% Econ</button>
+              <button class="btn" data-rev="100">Full Fwd</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Fine Time Scale</span>
+              <span class="ctrl-val" id="vTimeScale">1.00×</span>
+            </div>
+            <input type="range" id="sTimeScale" min="0.02" max="10" step="0.02" value="1" />
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Boiler Firing &amp; Water</div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Firebox Stoker / Fuel</span>
+              <span class="ctrl-val" id="vFire">65%</span>
+            </div>
+            <input type="range" id="sFire" min="0" max="100" step="1" value="65" />
+          </div>
+          <div class="toggle-row">
+            <span>Auto Pressure Firing (PID)</span>
+            <label class="switch"><input type="checkbox" id="cAutoFire" /><span class="slider-sw"></span></label>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Feedwater Pump</span>
+              <span class="ctrl-val" id="vFeed">AUTO</span>
+            </div>
+            <input type="range" id="sFeed" min="0" max="100" step="1" value="30" />
+          </div>
+          <div class="toggle-row">
+            <span>Auto Water Level (65%)</span>
+            <label class="switch"><input type="checkbox" id="cAutoWater" checked /><span class="slider-sw"></span></label>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Load, Governor &amp; Auxiliaries</div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Dynamo / Brake Load</span>
+              <span class="ctrl-val" id="vLoad">25%</span>
+            </div>
+            <input type="range" id="sLoad" min="0" max="100" step="1" value="25" />
+          </div>
+          <div class="toggle-row">
+            <span>Watt Flyball Governor</span>
+            <label class="switch"><input type="checkbox" id="cGovernor" /><span class="slider-sw"></span></label>
+          </div>
+          <div class="ctrl" id="govRpmWrap" style="opacity:0.45;">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Governor Target Speed</span>
+              <span class="ctrl-val" id="vGovRpm">220 RPM</span>
+            </div>
+            <input type="range" id="sGovRpm" min="30" max="800" step="5" value="220" />
+          </div>
+          <div class="quick-row">
+            <button id="btnWhistle" class="btn btn-brass">📯 Whistle</button>
+            <button id="btnDrain" class="btn">💨 Drain</button>
+            <button id="btnBarOver" class="btn">⚙️ Kick</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: BUILD YOUR OWN MULTI-CYLINDER ENGINE -->
+      <div class="tab-body" id="tab-builder">
+        <div class="section">
+          <div class="section-title">
+            <span>Cylinder Bank Builder</span>
+            <span id="lblBankCount" style="color:var(--accent)">2 Cyls</span>
+          </div>
+          <div class="quick-row">
+            <button id="btnAddCyl" class="btn btn-brass">+ Add Cylinder</button>
+            <button id="btnRemCyl" class="btn btn-danger">− Remove</button>
+            <input type="number" id="numCylTarget" min="1" max="32" value="2" style="width:52px;text-align:center;" title="Type any cylinder count (1–32)" />
+            <button id="btnSetCylCount" class="btn">Set</button>
+          </div>
+          <div class="quick-row">
+            <button id="btnAutoPhase" class="btn" title="Evenly space crank phases">Auto-Phase</button>
+            <button id="btnAutoCompound" class="btn" title="Configure progressive HP→MP→LP compound bores">Auto-Compound</button>
+            <button id="btnSyncAll" class="btn" title="Copy selected cylinder bore/stroke/lap to all cylinders">Sync All</button>
+          </div>
+          <div class="cyl-list" id="cylList"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">
+            <span id="selCylTitle">Selected: Cylinder #1</span>
+            <span id="selCylDisp" style="color:var(--muted)">6.62 L</span>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Expansion Stage (Routing)</span>
+              <select id="selStage" class="field-select">
+                <option value="0">Stage 1: High Pressure (Boiler)</option>
+                <option value="1">Stage 2: Med/Low Pressure (Recv 1)</option>
+                <option value="2">Stage 3: Low Pressure (Recv 2)</option>
+              </select>
+            </div>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Cylinder Bore</span>
+              <span class="ctrl-val" id="vBore">180 mm</span>
+            </div>
+            <input type="range" id="sBore" min="35" max="600" step="5" value="180" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Piston Stroke</span>
+              <span class="ctrl-val" id="vStroke">260 mm</span>
+            </div>
+            <input type="range" id="sStroke" min="40" max="700" step="5" value="260" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Crank Phase Offset</span>
+              <span class="ctrl-val" id="vPhase">0°</span>
+            </div>
+            <input type="range" id="sPhase" min="0" max="355" step="5" value="0" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Clearance Volume</span>
+              <span class="ctrl-val" id="vClearance">8%</span>
+            </div>
+            <input type="range" id="sClearance" min="3" max="22" step="1" value="8" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Steam Lap (Cutoff)</span>
+              <span class="ctrl-val" id="vLap">22%</span>
+            </div>
+            <input type="range" id="sLap" min="5" max="45" step="1" value="22" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Valve Lead</span>
+              <span class="ctrl-val" id="vLead">4%</span>
+            </div>
+            <input type="range" id="sLead" min="0" max="15" step="1" value="4" />
+          </div>
+          <div class="toggle-row">
+            <span>Double-Acting Cylinder</span>
+            <label class="switch"><input type="checkbox" id="cDoubleActing" checked /><span class="slider-sw"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Overlay All Cyls on P–V Card</span>
+            <label class="switch"><input type="checkbox" id="cPvAll" /><span class="slider-sw"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: MECHANICS, VALVE TYPE & EXHAUST -->
+      <div class="tab-body" id="tab-mechanics">
+        <div class="section">
+          <div class="section-title">Valve Gear &amp; Flow Architecture</div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Valve Mechanism</span>
+              <select id="selValveType" class="field-select">
+                <option value="slide">D-Slide Valve (Classic)</option>
+                <option value="piston">Piston Valve (High Flow)</option>
+                <option value="corliss">Corliss Poppet (Crisp Cutoff)</option>
+              </select>
+            </div>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Port &amp; Manifold Flow Scale</span>
+              <span class="ctrl-val" id="vPortScale">100%</span>
+            </div>
+            <input type="range" id="sPortScale" min="30" max="240" step="5" value="100" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Connecting Rod Ratio (L/r)</span>
+              <span class="ctrl-val" id="vRodRatio">4.2</span>
+            </div>
+            <input type="range" id="sRodRatio" min="2.6" max="6.5" step="0.1" value="4.2" />
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Inertia, Friction &amp; Condenser</div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Flywheel Mass</span>
+              <span class="ctrl-val" id="vFlywheel">240 kg</span>
+            </div>
+            <input type="range" id="sFlywheel" min="5" max="3000" step="5" value="240" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Reciprocating Mass Scale</span>
+              <span class="ctrl-val" id="vRecipScale">1.0×</span>
+            </div>
+            <input type="range" id="sRecipScale" min="0.25" max="3.0" step="0.05" value="1.0" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Mechanical Friction Scale</span>
+              <span class="ctrl-val" id="vFricScale">1.0×</span>
+            </div>
+            <input type="range" id="sFricScale" min="0.1" max="3.0" step="0.1" value="1.0" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Exhaust Pressure (Vacuum ↔ Back-P)</span>
+              <span class="ctrl-val" id="vExhPress">1.01 bar</span>
+            </div>
+            <input type="range" id="sExhPress" min="0.08" max="2.0" step="0.02" value="1.01" />
+            <div class="quick-row" style="margin-top:2px;">
+              <button class="btn" data-exh="0.12">Condenser (0.12)</button>
+              <button class="btn" data-exh="1.01">Atmospheric (1.01)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Total Engine Specs</div>
+          <div class="spec-grid">
+            <div class="spec-item"><span>Total Displacement</span><strong id="spDisp">13.24 L</strong></div>
+            <div class="spec-item"><span>Flywheel Inertia</span><strong id="spInertia">22.4 kg·m²</strong></div>
+            <div class="spec-item"><span>Receiver 1 Press</span><strong id="spRecv1">—</strong></div>
+            <div class="spec-item"><span>Receiver 2 Press</span><strong id="spRecv2">—</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: BOILER & PRESSURES -->
+      <div class="tab-body" id="tab-boiler">
+        <div class="section">
+          <div class="section-title">Boiler Design &amp; Fuel</div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Boiler Architecture</span>
+              <select id="selBoilerType" class="field-select">
+                <option value="firetube">Fire-Tube (Balanced)</option>
+                <option value="watertube">Water-Tube (Fast Steam)</option>
+                <option value="lancashire">Lancashire (Huge Mass)</option>
+                <option value="flash">Flash Monotube (Ultra-Fast)</option>
+              </select>
+            </div>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Fuel Type</span>
+              <select id="selFuelType" class="field-select">
+                <option value="coal">Bituminous Coal (1.0×)</option>
+                <option value="wood">Seasoned Wood (0.72×)</option>
+                <option value="anthracite">Anthracite Coal (1.22×)</option>
+                <option value="oil">Fuel Oil Burner (1.45× Fast)</option>
+              </select>
+            </div>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Safety Relief Pressure</span>
+              <span class="ctrl-val" id="vSafetyP">14.0 bar</span>
+            </div>
+            <input type="range" id="sSafetyP" min="2" max="40" step="0.5" value="14" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Boiler Internal Volume</span>
+              <span class="ctrl-val" id="vBoilerVol">300 L</span>
+            </div>
+            <input type="range" id="sBoilerVol" min="20" max="2000" step="10" value="300" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Max Firebox Output</span>
+              <span class="ctrl-val" id="vMaxFire">750 kW</span>
+            </div>
+            <input type="range" id="sMaxFire" min="15" max="4000" step="15" value="750" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Superheater Boost</span>
+              <span class="ctrl-val" id="vSuperheat">+60 °C</span>
+            </div>
+            <input type="range" id="sSuperheat" min="0" max="200" step="5" value="60" />
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Ambient Temperature</span>
+              <span class="ctrl-val" id="vAmbTemp">20 °C</span>
+            </div>
+            <input type="range" id="sAmbTemp" min="-20" max="50" step="1" value="20" />
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Boiler Operations</div>
+          <div class="toggle-row">
+            <span>Safety Relief Valve Active</span>
+            <label class="switch"><input type="checkbox" id="cSafetyValve" checked /><span class="slider-sw"></span></label>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-row">
+              <span class="ctrl-name">Boiler Thermal Speed</span>
+              <span class="ctrl-val" id="vThermScale">8×</span>
+            </div>
+            <input type="range" id="sThermScale" min="1" max="25" step="1" value="8" />
+          </div>
+          <div class="quick-row">
+            <button id="btnBlowdown" class="btn btn-danger">💨 Blowdown Pressure</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Steam Table State (IAPWS-95)</div>
+          <div class="spec-grid">
+            <div class="spec-item"><span>Sat. Pressure</span><strong id="spPsat">14.0 bar</strong></div>
+            <div class="spec-item"><span>Boiling Temp</span><strong id="spTsat">195.0 °C</strong></div>
+            <div class="spec-item"><span>Steam Mass</span><strong id="spMs">0.45 kg</strong></div>
+            <div class="spec-item"><span>Latent Heat h_fg</span><strong id="spHfg">1960 kJ/kg</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // =========================================================================
+  // PHYSICAL CONSTANTS & IAPWS-95 STEAM EQUATIONS
+  // =========================================================================
+  const R_STEAM = 461.52;
+  const GAMMA = 1.33;
+  const P_ATM = 101325;
+  const C_WATER = 4186;
+  const RHO_WATER = 940;
+  const T_CRIT = 647.096;
+  const P_CRIT = 22.064e6;
+  const R_CRIT_FLOW = Math.pow(2 / (GAMMA + 1), GAMMA / (GAMMA - 1));
+  const CHOKED_FACTOR = Math.sqrt(GAMMA / R_STEAM) * Math.pow(2 / (GAMMA + 1), (GAMMA + 1) / (2 * (GAMMA - 1)));
+
+  function steamPsat(T) {
+    const Tc = T_CRIT;
+    if (T >= Tc - 0.5) {
+      return P_CRIT * Math.pow(T / Tc, 6.5);
+    }
+    if (T < 273.16) {
+      return 611.657 * Math.pow(Math.max(180, T) / 273.16, 18);
+    }
+    const tau = 1 - T / Tc;
+    const lnP = (Tc / T) * (
+      -7.85951783 * tau +
+      1.84408259 * Math.pow(tau, 1.5) -
+      11.7866497 * Math.pow(tau, 3) +
+      22.6807411 * Math.pow(tau, 3.5) -
+      15.9618719 * Math.pow(tau, 4) +
+      1.80122502 * Math.pow(tau, 7.5)
+    );
+    return P_CRIT * Math.exp(lnP);
+  }
+
+  function steamTsat(P) {
+    if (P >= P_CRIT * 0.98) {
+      return T_CRIT * Math.pow(P / P_CRIT, 1 / 6.5);
+    }
+    if (P <= 620) {
+      return 273.16 * Math.pow(Math.max(20, P) / 611.657, 1 / 18);
+    }
+    const Pclamped = Math.max(620, Math.min(P_CRIT * 0.98, P));
+    let T = Pclamped < 10000 ? 310 : 373.15;
+    for (let i = 0; i < 14; i++) {
+      const p0 = steamPsat(T);
+      const dp = (steamPsat(T + 0.05) - p0) / 0.05;
+      const err = p0 - Pclamped;
+      if (Math.abs(err) < Math.max(1, Pclamped * 1e-4)) break;
+      T = Math.max(273.2, Math.min(T_CRIT - 0.6, T - err / Math.max(0.5, dp)));
+    }
+    return T;
+  }
+
+  function steamHfg(T) {
+    const f = Math.max(0.05, (T_CRIT - Math.min(T_CRIT - 1, T)) / (T_CRIT - 373.15));
+    return 2.257e6 * Math.pow(f, 0.38);
+  }
+
+  function orificeFlow(P1, T1, P2, T2, A_eff) {
+    if (A_eff <= 1e-10) return 0;
+    const dir = P1 >= P2 ? 1 : -1;
+    const PH = dir > 0 ? P1 : P2;
+    const PL = dir > 0 ? P2 : P1;
+    const TH = dir > 0 ? T1 : T2;
+    if (PH - PL < 1.0) return 0;
+    const rp = PL / PH;
+    let mdot;
+    if (rp <= R_CRIT_FLOW) {
+      mdot = A_eff * PH * CHOKED_FACTOR / Math.sqrt(Math.max(250, TH));
+    } else {
+      const term = Math.max(0, Math.pow(rp, 2 / GAMMA) - Math.pow(rp, (GAMMA + 1) / GAMMA));
+      mdot = A_eff * PH * Math.sqrt((2 * GAMMA) / ((GAMMA - 1) * R_STEAM * Math.max(250, TH)) * term);
+    }
+    return dir * mdot;
+  }
+
+  const BOILER_TYPES = {
+    firetube:   { boilRateMul: 1.0, massMul: 1.0, eff: 0.82 },
+    watertube:  { boilRateMul: 1.8, massMul: 0.55, eff: 0.86 },
+    lancashire: { boilRateMul: 0.7, massMul: 2.1, eff: 0.76 },
+    flash:      { boilRateMul: 3.0, massMul: 0.25, eff: 0.88 }
+  };
+
+  const FUEL_TYPES = {
+    coal:       { powerMul: 1.0,  resp: 0.45 },
+    wood:       { powerMul: 0.72, resp: 0.55 },
+    anthracite: { powerMul: 1.22, resp: 0.25 },
+    oil:        { powerMul: 1.45, resp: 1.80 }
+  };
+
+  const VALVE_TYPES = {
+    slide:   { flowMul: 1.0,  fricMul: 1.0,  sharpness: 1.0 },
+    piston:  { flowMul: 1.35, fricMul: 0.72, sharpness: 1.15 },
+    corliss: { flowMul: 1.45, fricMul: 0.65, sharpness: 1.85 }
+  };
+
+  const CYL_COLORS = [
+    '#38bdf8', '#f97316', '#22c55e', '#a855f7', '#eab308', '#ec4899', '#14b8a6', '#f43f5e'
+  ];
+
+  // =========================================================================
+  // CYLINDER FACTORY & PRESETS
+  // =========================================================================
+  function makeCyl(opts = {}) {
+    return {
+      bore: opts.bore ?? 0.180,
+      stroke: opts.stroke ?? 0.260,
+      phaseDeg: opts.phaseDeg ?? 0,
+      clearance: opts.clearance ?? 0.08,
+      steamLap: opts.steamLap ?? 0.22,
+      valveLead: opts.valveLead ?? 0.04,
+      doubleActing: opts.doubleActing ?? true,
+      stage: opts.stage ?? 0, // 0 = HP (Boiler), 1 = MP/LP (Recv 1), 2 = LP (Recv 2)
+
+      // Runtime physics state
+      head: { m: 0.005, T: 420, P: P_ATM },
+      crank: { m: 0.005, T: 420, P: P_ATM },
+      x: 0,
+      zv: 0,
+      pvHead: [],
+      pvCrank: [],
+      imep: 0,
+      indPower: 0,
+      screenRect: { x: 0, y: 0, w: 0, h: 0 }
+    };
+  }
+
+  const PRESETS = {
+    loco2: {
+      cyls: [
+        { bore: 0.180, stroke: 0.260, phaseDeg: 0,  stage: 0 },
+        { bore: 0.180, stroke: 0.260, phaseDeg: 90, stage: 0 }
+      ],
+      rodRatio: 4.2, flywheelMass: 240, valveType: 'piston', portScale: 1.1,
+      boilerType: 'firetube', fuelType: 'coal', safetyBar: 14.0, boilerVol: 0.320, maxFireKW: 850, superheatC: 70,
+      throttle: 0.45, reverser: 0.75, fire: 0.65, load: 0.28, exhBar: 1.01, governor: false, govRpm: 220,
+      shellColor: '#2c3543'
+    },
+    loco1: {
+      cyls: [{ bore: 0.180, stroke: 0.260, phaseDeg: 0, stage: 0 }],
+      rodRatio: 4.2, flywheelMass: 200, valveType: 'slide', portScale: 1.0,
+      boilerType: 'firetube', fuelType: 'coal', safetyBar: 12.0, boilerVol: 0.220, maxFireKW: 450, superheatC: 50,
+      throttle: 0.50, reverser: 0.80, fire: 0.60, load: 0.22, exhBar: 1.01, governor: false, govRpm: 200,
+      shellColor: '#2c3543'
+    },
+    compound2: {
+      cyls: [
+        { bore: 0.170, stroke: 0.300, phaseDeg: 0,  stage: 0, steamLap: 0.26 },
+        { bore: 0.280, stroke: 0.300, phaseDeg: 90, stage: 1, steamLap: 0.22 }
+      ],
+      rodRatio: 4.5, flywheelMass: 480, valveType: 'corliss', portScale: 1.2,
+      boilerType: 'watertube', fuelType: 'anthracite', safetyBar: 15.0, boilerVol: 0.420, maxFireKW: 900, superheatC: 90,
+      throttle: 0.55, reverser: 0.65, fire: 0.65, load: 0.35, exhBar: 0.15, governor: false, govRpm: 160,
+      shellColor: '#23363b'
+    },
+    triple3: {
+      cyls: [
+        { bore: 0.150, stroke: 0.320, phaseDeg: 0,   stage: 0, steamLap: 0.26 },
+        { bore: 0.230, stroke: 0.320, phaseDeg: 120, stage: 1, steamLap: 0.24 },
+        { bore: 0.350, stroke: 0.320, phaseDeg: 240, stage: 2, steamLap: 0.20 }
+      ],
+      rodRatio: 4.6, flywheelMass: 750, valveType: 'piston', portScale: 1.3,
+      boilerType: 'watertube', fuelType: 'oil', safetyBar: 22.0, boilerVol: 0.600, maxFireKW: 1600, superheatC: 120,
+      throttle: 0.55, reverser: 0.65, fire: 0.68, load: 0.42, exhBar: 0.12, governor: false, govRpm: 150,
+      shellColor: '#1f2d3d'
+    },
+    mill4: {
+      cyls: [
+        { bore: 0.220, stroke: 0.340, phaseDeg: 0,   stage: 0 },
+        { bore: 0.220, stroke: 0.340, phaseDeg: 90,  stage: 0 },
+        { bore: 0.220, stroke: 0.340, phaseDeg: 180, stage: 0 },
+        { bore: 0.220, stroke: 0.340, phaseDeg: 270, stage: 0 }
+      ],
+      rodRatio: 4.8, flywheelMass: 1200, valveType: 'corliss', portScale: 1.15,
+      boilerType: 'lancashire', fuelType: 'coal', safetyBar: 10.0, boilerVol: 0.850, maxFireKW: 1500, superheatC: 40,
+      throttle: 0.50, reverser: 0.55, fire: 0.62, load: 0.38, exhBar: 0.18, governor: true, govRpm: 140,
+      shellColor: '#253830'
+    },
+    monster8: {
+      cyls: Array.from({ length: 8 }, (_, i) => ({
+        bore: 0.185, stroke: 0.240, phaseDeg: i * 45, stage: 0, steamLap: 0.24
+      })),
+      rodRatio: 4.0, flywheelMass: 900, valveType: 'piston', portScale: 1.35,
+      boilerType: 'watertube', fuelType: 'oil', safetyBar: 18.0, boilerVol: 1.100, maxFireKW: 3200, superheatC: 110,
+      throttle: 0.50, reverser: 0.65, fire: 0.72, load: 0.45, exhBar: 0.20, governor: false, govRpm: 240,
+      shellColor: '#3a2229'
+    },
+    tabletop: {
+      cyls: [{ bore: 0.055, stroke: 0.075, phaseDeg: 0, stage: 0, steamLap: 0.16, valveLead: 0.05 }],
+      rodRatio: 3.8, flywheelMass: 12, valveType: 'slide', portScale: 1.1,
+      boilerType: 'firetube', fuelType: 'wood', safetyBar: 3.5, boilerVol: 0.030, maxFireKW: 35, superheatC: 10,
+      throttle: 0.55, reverser: 0.90, fire: 0.65, load: 0.14, exhBar: 1.01, governor: false, govRpm: 380,
+      shellColor: '#7a4924'
+    }
+  };
+
+  // =========================================================================
+  // GLOBAL CONFIG & SIMULATION STATE
+  // =========================================================================
+  const cfg = {
+    cyls: [makeCyl({ phaseDeg: 0 }), makeCyl({ phaseDeg: 90 })],
+    selectedCyl: 0,
+    pvAll: false,
+
+    rodRatio: 4.2,
+    flywheelMass: 240,
+    recipScale: 1.0,
+    fricScale: 1.0,
+    valveType: 'piston',
+    portScale: 1.1,
+    exhBar: 1.01,
+
+    boilerType: 'firetube',
+    fuelType: 'coal',
+    safetyBar: 14.0,
+    boilerVol: 0.320,
+    maxFireKW: 850,
+    superheatC: 70,
+    ambTempC: 20,
+    safetyValveActive: true,
+    thermScale: 8,
+
+    throttle: 0.45,
+    reverser: 0.75,
+    fire: 0.65,
+    autoFire: false,
+    feed: 0.30,
+    autoWater: true,
+    load: 0.28,
+    governor: false,
+    govRpm: 220,
+
+    whistle: false,
+    drainCocks: false,
+    blowdown: false,
+    starterHold: false,
+
+    scaleFactor: 1,
+    timeScale: 1.0,
+    units: 'SI',
+    paused: false,
+    shellColor: '#2c3543'
+  };
+
+  const sim = {
+    Tb: 468.0,
+    Mw: 190.0,
+    Ms: 0.85,
+    Pb: 13.8e5,
+    fireTemp: 0.65,
+    boilRate: 0,
+    safetyLift: 0,
+    safetyFlow: 0,
+    whistleFlow: 0,
+
+    manifold: { m: 0.04, T: 470, P: 6e5 },
+    receivers: [
+      { m: 0.015, T: 400, P: 2.5e5 },
+      { m: 0.015, T: 370, P: 1.2e5 }
+    ],
+
+    theta: 0.55,
+    omega: 6.5,
+    alpha: 0,
+
+    govPhi: 0.35,
+    govPhiDot: 0,
+    govThrottleMod: 1.0,
+
+    exhaustFlow: 0,
+    intakeFlow: 0,
+    gasTorque: 0,
+    shaftPower: 0,
+    indicatedPower: 0,
+    heatInputW: 0,
+    smoothRpm: 0,
+    smoothPower: 0,
+    smoothTorque: 0,
+    smoothEff: 0,
+    smoothFlow: 0,
+
+    handGrab: false,
+    handTargetAngle: 0,
+
+    pvMaxLen: 220,
+    scope: [],
+    scopeTimer: 0,
+
+    particles: [],
+    bubbles: []
+  };
+
+  // =========================================================================
+  // GEOMETRY & KINEMATICS HELPERS
+  // =========================================================================
+  function effBoilerVol() {
+    return cfg.boilerVol * cfg.scaleFactor * cfg.scaleFactor;
+  }
+
+  function cylGeom(c) {
+    const sf = cfg.scaleFactor;
+    const r = c.stroke * 0.5;
+    const L = r * cfg.rodRatio;
+    const A_head = Math.PI * 0.25 * c.bore * c.bore;
+    const rodDia = c.bore * 0.18;
+    const A_rod = Math.PI * 0.25 * rodDia * rodDia;
+    const A_crank = Math.max(A_head * 0.7, A_head - A_rod);
+    const V_disp = A_head * c.stroke;
+    const V_clear = V_disp * c.clearance;
+    const bNorm = c.bore / sf;
+    const sNorm = c.stroke / sf;
+    const m_recip = Math.max(1e-10, (180 * Math.pow(bNorm, 2.2) + 8 * sNorm) * Math.pow(sf, 3) * (cfg.recipScale / sf));
+    const vSpec = VALVE_TYPES[cfg.valveType] || VALVE_TYPES.slide;
+    const A_portMax = A_head * 0.088 * cfg.portScale * vSpec.flowMul;
+    return { r, L, A_head, A_crank, V_disp, V_clear, m_recip, A_portMax };
+  }
+
+  function engineGeom() {
+    const sf = cfg.scaleFactor;
+    let totalDisp = 0;
+    let totalHeadArea = 0;
+    let maxStroke = 0.001;
+    let maxStage = 0;
+    for (const c of cfg.cyls) {
+      const g = cylGeom(c);
+      totalDisp += g.V_disp;
+      totalHeadArea += g.A_head;
+      if (c.stroke > maxStroke) maxStroke = c.stroke;
+      if (c.stage > maxStage) maxStage = c.stage;
+    }
+    const V_manifold = Math.max(1e-11, totalDisp * 0.75);
+    const V_receiver = Math.max(1e-11, totalDisp * 1.15);
+    const fwRadius = Math.max(0.001, maxStroke * 1.48);
+    const I_fw = Math.max(1e-12, 0.5 * (cfg.flywheelMass * sf) * fwRadius * fwRadius);
+    const vSpec = VALVE_TYPES[cfg.valveType] || VALVE_TYPES.slide;
+    const A_throttleMax = totalHeadArea * 0.095 * cfg.portScale * vSpec.flowMul;
+    return { totalDisp, totalHeadArea, maxStroke, maxStage, V_manifold, V_receiver, fwRadius, I_fw, A_throttleMax };
+  }
+
+  function pistonKinematics(theta, r, L) {
+    const s = Math.sin(theta);
+    const c = Math.cos(theta);
+    const rs = r * s;
+    const sq = Math.sqrt(Math.max(1e-12, L * L - rs * rs));
+    const x = r * (1 - c) + (L - sq);
+    const J = r * s + (r * r * s * c) / sq;
+    const Jp = r * c + (r * r * Math.cos(2 * theta) * (L * L - rs * rs) + Math.pow(r, 4) * s * s * c * c) / (sq * sq * sq);
+    return { x, J, Jp };
+  }
+
+  function initState(pressureFrac = 0.92, kickOmega = 6.5) {
+    const eg = engineGeom();
+    const bVol = effBoilerVol();
+    const T_amb = cfg.ambTempC + 273.15;
+    const P_refAtm = P_ATM * Math.min(1, cfg.scaleFactor);
+    const Ptarget = Math.max(P_refAtm * 1.05, cfg.safetyBar * 1e5 * pressureFrac);
+    sim.Tb = pressureFrac <= 0.05 ? T_amb : steamTsat(Ptarget);
+    const waterFill = 0.65;
+    sim.Mw = bVol * waterFill * RHO_WATER;
+    const Vs = bVol * (1 - waterFill);
+    const Psat = steamPsat(sim.Tb);
+    sim.Pb = Math.max(P_refAtm, Psat);
+    sim.Ms = (sim.Pb * Vs) / (R_STEAM * sim.Tb);
+    sim.fireTemp = pressureFrac <= 0.05 ? 0.05 : cfg.fire;
+
+    const Tsup = sim.Tb + (pressureFrac <= 0.05 ? 0 : cfg.superheatC * 0.6);
+    const Pman0 = P_refAtm + (sim.Pb - P_refAtm) * cfg.throttle * 0.65;
+    sim.manifold.T = Tsup;
+    sim.manifold.P = Pman0;
+    sim.manifold.m = (Pman0 * eg.V_manifold) / (R_STEAM * Tsup);
+
+    // Initialize receiver tanks for compound stages
+    for (let rIdx = 0; rIdx < 2; rIdx++) {
+      const pRecv = Math.max(cfg.exhBar * 1e5, Pman0 * Math.pow(0.42, rIdx + 1));
+      const tRecv = Math.max(T_amb + 20, Tsup * Math.pow(0.90, rIdx + 1));
+      sim.receivers[rIdx] = {
+        m: (pRecv * eg.V_receiver) / (R_STEAM * tRecv),
+        T: tRecv,
+        P: pRecv
+      };
+    }
+
+    sim.theta = 0.62;
+    sim.omega = pressureFrac <= 0.05 ? 0 : kickOmega;
+    sim.alpha = 0;
+    sim.govPhi = 0.35;
+    sim.govPhiDot = 0;
+
+    for (const c of cfg.cyls) {
+      const cg = cylGeom(c);
+      const th = sim.theta + (c.phaseDeg * Math.PI) / 180;
+      const kin = pistonKinematics(th, cg.r, cg.L);
+      const Vh = cg.V_clear + cg.A_head * kin.x;
+      const Vc = cg.V_clear + cg.A_crank * (c.stroke - kin.x);
+      const pInit = Math.max(cfg.exhBar * 1e5, P_refAtm + (Pman0 - P_refAtm) * 0.25);
+      c.head = { m: (pInit * Vh) / (R_STEAM * (Tsup * 0.9)), T: Tsup * 0.9, P: pInit };
+      c.crank = { m: (cfg.exhBar * 1e5 * Vc) / (R_STEAM * (T_amb + 50)), T: T_amb + 50, P: cfg.exhBar * 1e5 };
+      c.x = kin.x;
+      c.pvHead = [];
+      c.pvCrank = [];
+      c.imep = 0;
+    }
+
+    sim.particles = [];
+    sim.bubbles = [];
+    for (let i = 0; i < 45; i++) {
+      sim.bubbles.push({ u: Math.random(), v: Math.random(), r: 1.5 + Math.random() * 3.5, vy: 0.15 + Math.random() * 0.35 });
+    }
+  }
+
+  // =========================================================================
+  // PHYSICS STEPPER (ADAPTIVE SUBSTEPS FOR 0.02× TO 10× TIME SCALE)
+  // =========================================================================
+  function stepPhysics(dtFrame, forceRun = false) {
+    if (cfg.paused && !forceRun) return;
+    const realDt = Math.min(0.033, dtFrame);
+    const simDt = forceRun ? dtFrame : realDt * cfg.timeScale;
+    const SUBSTEPS = Math.max(12, Math.min(180, Math.ceil(simDt / 0.0007)));
+    const dt = simDt / SUBSTEPS;
+
+    const eg = engineGeom();
+    const bSpec = BOILER_TYPES[cfg.boilerType] || BOILER_TYPES.firetube;
+    const fSpec = FUEL_TYPES[cfg.fuelType] || FUEL_TYPES.coal;
+    const vSpec = VALVE_TYPES[cfg.valveType] || VALVE_TYPES.slide;
+
+    const sf = cfg.scaleFactor;
+    const sf3 = sf * sf * sf;
+    const bVol = effBoilerVol();
+    const T_amb = cfg.ambTempC + 273.15;
+    const P_refAtm = P_ATM * Math.min(1, sf);
+    const P_exh = cfg.exhBar * 1e5;
+    const P_relief = cfg.safetyBar * 1e5;
+    const minP = Math.max(50, P_refAtm * 0.05);
+    const maxTb = sf > 1 ? 4500 : (T_CRIT - 2);
+    const maxGasT = sf > 1 ? 30000 : 900;
+    const maxOmega = 420;
+
+    // Precompute per-cylinder geometry & stage usage
+    const nCyl = cfg.cyls.length;
+    const cGeoms = cfg.cyls.map(cylGeom);
+    const hasStage = [false, false, false];
+    for (const c of cfg.cyls) hasStage[c.stage] = true;
+
+    let accIndicatedW = 0;
+    let accShaftW = 0;
+    let accExhaust = 0;
+    let accIntake = 0;
+    let accGasTorque = 0;
+    const cylIndAcc = new Float64Array(nCyl);
+
+    function clampTransfer(mdot, mSrc, Vsrc, Psrc, mDst, Vdst, Pdst) {
+      const dm = mdot * dt;
+      if (Math.abs(dm) < 1e-18) return 0;
+      const dP = Math.abs(Psrc - Pdst);
+      const eqM = dP / (R_STEAM * Math.max(280, sim.Tb) * (1 / Vsrc + 1 / Vdst));
+      const lim = Math.min(eqM * 0.42, (dm > 0 ? mSrc : mDst) * 0.32);
+      return Math.max(-lim, Math.min(lim, dm));
+    }
+    function clampVent(mdot, mCh, Vch, Pch, Pext) {
+      const dm = mdot * dt;
+      if (Math.abs(dm) < 1e-18) return 0;
+      const eqM = Math.abs(Pch - Pext) * Vch / (R_STEAM * Math.max(280, sim.Tb));
+      const lim = Math.min(eqM * 0.42, dm > 0 ? mCh * 0.32 : eqM * 0.42);
+      return Math.max(-lim, Math.min(lim, dm));
+    }
+
+    for (let s = 0; s < SUBSTEPS; s++) {
+      // 1. BOILER THERMODYNAMICS
+      const thermDt = dt * cfg.thermScale;
+      let fireCmd = cfg.fire;
+      if (cfg.autoFire) {
+        const pErr = (P_relief * 0.94 - sim.Pb) / P_relief;
+        fireCmd = Math.max(0.05, Math.min(1.0, 0.45 + pErr * 6.0));
+      }
+      sim.fireTemp += (fireCmd - sim.fireTemp) * Math.min(1, thermDt * fSpec.resp);
+      const Q_fire = sim.fireTemp * cfg.maxFireKW * 1000 * sf3 * fSpec.powerMul * bSpec.eff;
+      sim.heatInputW = Q_fire;
+
+      const Vw = sim.Mw / RHO_WATER;
+      const waterFrac = Math.max(0, Math.min(0.95, Vw / bVol));
+      const Vs = Math.max(bVol * 0.05, bVol - Vw);
+
+      let feedFrac = cfg.feed;
+      if (cfg.autoWater) {
+        feedFrac = Math.max(0, Math.min(1, (0.65 - waterFrac) * 12));
+      }
+      const maxFeedRate = (cfg.maxFireKW * 1000 * sf3 / 2.2e6) * 2.8 + 0.02 * sf3;
+      const mdotFeed = waterFrac < 0.90 ? feedFrac * maxFeedRate : 0;
+      sim.Mw = Math.max(0, Math.min(bVol * 0.92 * RHO_WATER, sim.Mw + mdotFeed * thermDt));
+
+      sim.Pb = Math.max(minP, (sim.Ms * R_STEAM * sim.Tb) / Vs);
+      const Psat = steamPsat(sim.Tb);
+      const hfg = steamHfg(sim.Tb);
+      const Ms_eq = (Psat * Vs) / (R_STEAM * sim.Tb);
+
+      let mdotBoil = 0;
+      if (sim.Mw > 0.05 * sf3 && sim.Ms < Ms_eq) {
+        mdotBoil = (Ms_eq - sim.Ms) * 14.0 * bSpec.boilRateMul;
+        mdotBoil = Math.min(mdotBoil, (sim.Mw / Math.max(1e-6, thermDt)) * 0.25);
+      } else if (sim.Ms > Ms_eq) {
+        mdotBoil = (Ms_eq - sim.Ms) * 10.0;
+      }
+      sim.boilRate = mdotBoil;
+
+      const dMboil = mdotBoil * thermDt;
+      sim.Mw = Math.max(0, sim.Mw - dMboil);
+      sim.Ms = Math.max(1e-12, sim.Ms + dMboil);
+
+      const A_boilerSurf = 6.0 * Math.pow(bVol, 2 / 3);
+      const Q_loss = 18 * A_boilerSurf * Math.max(0, sim.Tb - T_amb);
+      const Q_feedCool = mdotFeed * C_WATER * Math.max(0, sim.Tb - T_amb);
+      const M_steel = bVol * 350 * bSpec.massMul;
+      const C_total = Math.max(12000 * sf3, (sim.Mw * C_WATER * bSpec.massMul + M_steel * 500));
+      sim.Tb = Math.max(T_amb, Math.min(maxTb, sim.Tb + ((Q_fire - Q_loss - mdotBoil * hfg - Q_feedCool) / C_total) * thermDt));
+
+      const Vs2 = Math.max(bVol * 0.05, bVol - sim.Mw / RHO_WATER);
+      sim.Pb = Math.max(minP, (sim.Ms * R_STEAM * sim.Tb) / Vs2);
+
+      let mdotSafety = 0;
+      if (cfg.safetyValveActive && sim.Pb > P_relief) {
+        sim.safetyLift = Math.min(1, (sim.Pb - P_relief) / (0.06 * P_relief));
+        const A_sv = (0.00018 * sf3 + cfg.maxFireKW * 4.5e-7 * sf * sf) * sim.safetyLift;
+        mdotSafety = orificeFlow(sim.Pb, sim.Tb, P_refAtm, T_amb, A_sv);
+      } else {
+        sim.safetyLift *= 0.85;
+      }
+      if (cfg.blowdown && sim.Pb > P_refAtm * 1.05) {
+        mdotSafety += orificeFlow(sim.Pb, sim.Tb, P_refAtm, T_amb, 0.0006 * sf3 + bVol * 0.0015);
+      }
+      sim.safetyFlow = mdotSafety;
+
+      let mdotWhistle = 0;
+      if (cfg.whistle && sim.Pb > P_refAtm * 1.05) {
+        mdotWhistle = orificeFlow(sim.Pb, sim.Tb, P_refAtm, T_amb, 0.000045 * sf3 + bVol * 0.00005);
+      }
+      sim.whistleFlow = mdotWhistle;
+
+      // 2. WATT FLYBALL GOVERNOR
+      const targetOmega = (cfg.govRpm * 2 * Math.PI) / 60;
+      const gArm = 0.16;
+      const omegaGovTarget = Math.sqrt(9.81 / (gArm * Math.cos(0.72)));
+      const govGear = omegaGovTarget / Math.max(1.0, targetOmega);
+      const omegaGov = Math.abs(sim.omega) * govGear;
+      const phiAcc = (omegaGov * omegaGov * Math.sin(sim.govPhi) * Math.cos(sim.govPhi) - (9.81 / gArm) * Math.sin(sim.govPhi)) - 4.5 * sim.govPhiDot;
+      sim.govPhiDot += phiAcc * dt;
+      sim.govPhi += sim.govPhiDot * dt;
+      const phiMin = 0.22, phiMax = 1.18;
+      if (sim.govPhi < phiMin) { sim.govPhi = phiMin; sim.govPhiDot = Math.max(0, sim.govPhiDot); }
+      if (sim.govPhi > phiMax) { sim.govPhi = phiMax; sim.govPhiDot = Math.min(0, sim.govPhiDot); }
+      const liftFrac = (Math.cos(phiMin) - Math.cos(sim.govPhi)) / (Math.cos(phiMin) - Math.cos(phiMax));
+      sim.govThrottleMod = cfg.governor ? Math.max(0.03, Math.min(1.0, 1.35 - liftFrac * 1.45)) : 1.0;
+
+      // 3. BOILER -> MAIN STEAM MANIFOLD
+      const T_supply = sim.Tb + cfg.superheatC * Math.min(1, sim.fireTemp * 1.3);
+      const effThrottle = cfg.throttle * sim.govThrottleMod;
+      const A_throt = eg.A_throttleMax * effThrottle * effThrottle;
+      let mdotThrot = orificeFlow(sim.Pb, T_supply, sim.manifold.P, sim.manifold.T, A_throt);
+      const dM_throt = Math.max(-sim.manifold.m * 0.35, Math.min(sim.Ms * 0.25, mdotThrot * dt));
+      sim.Ms = Math.max(1e-12, sim.Ms - dM_throt - (mdotSafety + mdotWhistle) * dt);
+
+      // Accumulators for manifold & receiver tanks
+      let manDm = dM_throt;
+      let manH = dM_throt > 0 ? dM_throt * T_supply : dM_throt * sim.manifold.T;
+      const recvDm = [0, 0];
+      const recvH = [0, 0];
+
+      // 4. PER-CYLINDER GAS FLOWS & TORQUE CONTRIBUTIONS
+      let sumTauGas = 0;
+      let sumTauInert = 0;
+      let sumI_recip = 0;
+      const stepKin0 = new Array(nCyl);
+      const stepVh0 = new Float64Array(nCyl);
+      const stepVc0 = new Float64Array(nCyl);
+      const stepDm = new Array(nCyl);
+
+      for (let i = 0; i < nCyl; i++) {
+        const c = cfg.cyls[i];
+        const cg = cGeoms[i];
+        const th = sim.theta + (c.phaseDeg * Math.PI) / 180;
+        const kin0 = pistonKinematics(th, cg.r, cg.L);
+        stepKin0[i] = kin0;
+        const Vh0 = cg.V_clear + cg.A_head * kin0.x;
+        const Vc0 = cg.V_clear + cg.A_crank * (c.stroke - kin0.x);
+        stepVh0[i] = Vh0;
+        stepVc0[i] = Vc0;
+
+        // Valve kinematics (Walschaerts / Stephenson + Valve Type sharpness)
+        const lap = c.steamLap;
+        const lead = c.valveLead;
+        const exhLap = lap * 0.15;
+        const zvRaw = (lap + lead) * Math.cos(th) + cfg.reverser * (1.0 - lap * 0.35) * Math.sin(th);
+        c.zv = Math.max(-1.2, Math.min(1.2, zvRaw));
+
+        const shape = x => Math.min(1, Math.pow(Math.max(0, x), 1 / vSpec.sharpness));
+        const headAdm = shape((c.zv - lap) / (1.0 - lap));
+        const crankExh = shape((c.zv - exhLap) / (1.0 - exhLap));
+        const crankAdm = c.doubleActing ? shape((-c.zv - lap) / (1.0 - lap)) : 0;
+        const headExh = shape((-c.zv - exhLap) / (1.0 - exhLap));
+
+        // Intake source (Manifold for stage 0, Receiver[stage-1] for stage > 0)
+        const srcTank = c.stage === 0 ? sim.manifold : sim.receivers[c.stage - 1];
+        const srcVol = c.stage === 0 ? eg.V_manifold : eg.V_receiver;
+
+        // Exhaust destination (Receiver[stage] if a downstream stage exists, else P_exh)
+        const toReceiver = (c.stage < 2 && hasStage[c.stage + 1]);
+        const dstTank = toReceiver ? sim.receivers[c.stage] : null;
+
+        const A_hAdm = cg.A_portMax * headAdm;
+        const A_hExh = cg.A_portMax * headExh * 1.15 + (cfg.drainCocks ? cg.A_portMax * 0.22 : 0);
+        const A_cAdm = cg.A_portMax * crankAdm;
+        const A_cExh = c.doubleActing
+          ? (cg.A_portMax * crankExh * 1.15 + (cfg.drainCocks ? cg.A_portMax * 0.22 : 0))
+          : cg.A_portMax * 2.0;
+
+        const m_in_h = orificeFlow(srcTank.P, srcTank.T, c.head.P, c.head.T, A_hAdm);
+        const m_in_c = orificeFlow(srcTank.P, srcTank.T, c.crank.P, c.crank.T, A_cAdm);
+        const dm_in_h = clampTransfer(m_in_h, srcTank.m, srcVol, srcTank.P, c.head.m, Vh0, c.head.P);
+        const dm_in_c = clampTransfer(m_in_c, srcTank.m, srcVol, srcTank.P, c.crank.m, Vc0, c.crank.P);
+
+        let dm_ex_h, dm_ex_c;
+        if (toReceiver) {
+          const m_ex_h = orificeFlow(c.head.P, c.head.T, dstTank.P, dstTank.T, A_hExh);
+          const m_ex_c = orificeFlow(c.crank.P, c.crank.T, dstTank.P, dstTank.T, A_cExh);
+          dm_ex_h = clampTransfer(m_ex_h, c.head.m, Vh0, c.head.P, dstTank.m, eg.V_receiver, dstTank.P);
+          dm_ex_c = clampTransfer(m_ex_c, c.crank.m, Vc0, c.crank.P, dstTank.m, eg.V_receiver, dstTank.P);
+          recvDm[c.stage] += dm_ex_h + dm_ex_c;
+          recvH[c.stage] += (dm_ex_h > 0 ? dm_ex_h * c.head.T : dm_ex_h * dstTank.T)
+                          + (dm_ex_c > 0 ? dm_ex_c * c.crank.T : dm_ex_c * dstTank.T);
+        } else {
+          const m_ex_h = orificeFlow(c.head.P, c.head.T, P_exh, T_amb + 70, A_hExh);
+          const m_ex_c = orificeFlow(c.crank.P, c.crank.T, P_exh, T_amb + 70, A_cExh);
+          dm_ex_h = clampVent(m_ex_h, c.head.m, Vh0, c.head.P, P_exh);
+          dm_ex_c = clampVent(m_ex_c, c.crank.m, Vc0, c.crank.P, P_exh);
+          accExhaust += Math.max(0, (dm_ex_h + dm_ex_c) / dt);
+        }
+
+        // Deduct intake from source tank
+        const hTakeH = dm_in_h > 0 ? dm_in_h * srcTank.T : dm_in_h * c.head.T;
+        const hTakeC = dm_in_c > 0 ? dm_in_c * srcTank.T : dm_in_c * c.crank.T;
+        if (c.stage === 0) {
+          manDm -= (dm_in_h + dm_in_c);
+          manH -= (hTakeH + hTakeC);
+        } else {
+          recvDm[c.stage - 1] -= (dm_in_h + dm_in_c);
+          recvH[c.stage - 1] -= (hTakeH + hTakeC);
+        }
+
+        stepDm[i] = { dm_in_h, dm_in_c, dm_ex_h, dm_ex_c, srcT: srcTank.T, dstT: toReceiver ? dstTank.T : (T_amb + 70) };
+
+        // Forces & Torques
+        const F_gas = (c.head.P - P_refAtm) * cg.A_head - (c.crank.P - P_refAtm) * cg.A_crank;
+        sumTauGas += F_gas * kin0.J;
+        sumTauInert += -cg.m_recip * kin0.J * kin0.Jp * sim.omega * sim.omega;
+        sumI_recip += cg.m_recip * kin0.J * kin0.J;
+      }
+
+      // 5. CRANKSHAFT & FLYWHEEL INTEGRATION (SEMI-IMPLICIT FOR 100% STABILITY AT ANY SCALE)
+      const I_eff = eg.I_fw + sumI_recip;
+      const fricBase = (eg.totalDisp * P_relief / 9240) * (cfg.fricScale / sf) * vSpec.fricMul;
+      const loadBase = (cfg.load / sf) * (eg.totalDisp * cfg.safetyBar * 1e5 * 0.042);
+
+      let tau_hand = 0;
+      if (sim.handGrab) {
+        let diff = sim.handTargetAngle - sim.theta;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        tau_hand = eg.I_fw * 110 * diff - eg.I_fw * 14 * sim.omega;
+      }
+
+      let tau_starter = 0;
+      if (cfg.starterHold) {
+        const sDir = cfg.reverser >= 0 ? 1 : -1;
+        const starterAccel = sf > 1 ? 95 : 18;
+        const maxStarterOmega = sf > 1 ? 90 : 24;
+        if (sDir * sim.omega < maxStarterOmega) {
+          tau_starter = sDir * I_eff * starterAccel;
+        }
+      }
+
+      const tau_drive = sumTauGas + sumTauInert + tau_hand + tau_starter;
+      const b_damp = 0.20 * fricBase + 0.055 * loadBase;
+      const tau_coul = 11.5 * fricBase + 0.25 * loadBase;
+      const prevOmega = sim.omega;
+      let omegaNext = (prevOmega + (tau_drive / I_eff) * dt) / (1 + (b_damp / I_eff) * dt);
+      const maxCoulDelta = (tau_coul / I_eff) * dt;
+      if (Math.abs(omegaNext) <= maxCoulDelta) {
+        omegaNext = 0;
+      } else {
+        omegaNext -= Math.sign(omegaNext) * maxCoulDelta;
+      }
+      sim.omega = Math.max(-maxOmega, Math.min(maxOmega, omegaNext));
+      sim.alpha = (sim.omega - prevOmega) / dt;
+      const tau_load = -loadBase * (0.25 * Math.tanh(sim.omega / 0.4) + 0.055 * sim.omega);
+      sim.theta += sim.omega * dt;
+      if (sim.theta >= Math.PI * 2) sim.theta -= Math.PI * 2;
+      if (sim.theta < 0) sim.theta += Math.PI * 2;
+
+      // 6. UPDATE MANIFOLD, RECEIVERS & ALL CYLINDER CHAMBERS
+      {
+        const mNew = Math.max(1e-12, sim.manifold.m + manDm);
+        const Tnew = (sim.manifold.m * sim.manifold.T + GAMMA * manH) / mNew;
+        sim.manifold.m = mNew;
+        sim.manifold.T = Math.max(250, Math.min(maxGasT, Tnew));
+        sim.manifold.P = Math.max(minP, (sim.manifold.m * R_STEAM * sim.manifold.T) / eg.V_manifold);
+      }
+      for (let rIdx = 0; rIdx < 2; rIdx++) {
+        const rv = sim.receivers[rIdx];
+        const mNew = Math.max(1e-12, rv.m + recvDm[rIdx]);
+        const Tnew = (rv.m * rv.T + GAMMA * recvH[rIdx]) / mNew;
+        rv.m = mNew;
+        rv.T = Math.max(250, Math.min(maxGasT, Tnew));
+        rv.P = Math.max(minP, (rv.m * R_STEAM * rv.T) / eg.V_receiver);
+      }
+
+      const TcylWall = Math.max(T_amb + 15, sim.Tb * 0.88);
+      const recPV = (s % Math.max(2, Math.floor(SUBSTEPS / 6)) === 0);
+
+      for (let i = 0; i < nCyl; i++) {
+        const c = cfg.cyls[i];
+        const cg = cGeoms[i];
+        const th1 = sim.theta + (c.phaseDeg * Math.PI) / 180;
+        const kin1 = pistonKinematics(th1, cg.r, cg.L);
+        const Vh1 = cg.V_clear + cg.A_head * kin1.x;
+        const Vc1 = cg.V_clear + cg.A_crank * (c.stroke - kin1.x);
+        const dVh = Vh1 - stepVh0[i];
+        const dVc = Vc1 - stepVc0[i];
+        const fl = stepDm[i];
+
+        // Head End
+        {
+          const hd = c.head;
+          const mNew = Math.max(1e-13, hd.m + fl.dm_in_h - fl.dm_ex_h);
+          const hFlow = (fl.dm_in_h > 0 ? fl.dm_in_h * fl.srcT : fl.dm_in_h * hd.T)
+                      - (fl.dm_ex_h > 0 ? fl.dm_ex_h * hd.T : fl.dm_ex_h * fl.dstT);
+          const work = (GAMMA - 1) * (hd.P * dVh) / R_STEAM;
+          const cool = (hd.T - TcylWall) * 1.5 * dt * hd.m;
+          hd.T = Math.max(250, Math.min(maxGasT, (hd.m * hd.T + GAMMA * hFlow - work - cool) / mNew));
+          hd.m = mNew;
+          hd.P = Math.max(minP, (hd.m * R_STEAM * hd.T) / Vh1);
+        }
+        // Crank End
+        {
+          const ck = c.crank;
+          const mNew = Math.max(1e-13, ck.m + fl.dm_in_c - fl.dm_ex_c);
+          const hFlow = (fl.dm_in_c > 0 ? fl.dm_in_c * fl.srcT : fl.dm_in_c * ck.T)
+                      - (fl.dm_ex_c > 0 ? fl.dm_ex_c * ck.T : fl.dm_ex_c * fl.dstT);
+          const work = (GAMMA - 1) * (ck.P * dVc) / R_STEAM;
+          const cool = (ck.T - TcylWall) * 1.5 * dt * ck.m;
+          ck.T = Math.max(250, Math.min(maxGasT, (ck.m * ck.T + GAMMA * hFlow - work - cool) / mNew));
+          ck.m = mNew;
+          ck.P = Math.max(minP, (ck.m * R_STEAM * ck.T) / Vc1);
+        }
+
+        c.x = kin1.x;
+        const pInd = (c.head.P * dVh + c.crank.P * dVc) / dt;
+        cylIndAcc[i] += pInd;
+        accIndicatedW += pInd;
+
+        if (recPV) {
+          const xNorm = c.x / c.stroke;
+          c.pvHead.push({ x: xNorm, P: c.head.P });
+          c.pvCrank.push({ x: xNorm, P: c.crank.P });
+          if (c.pvHead.length > sim.pvMaxLen) c.pvHead.shift();
+          if (c.pvCrank.length > sim.pvMaxLen) c.pvCrank.shift();
+        }
+      }
+
+      accShaftW += (-tau_load * sim.omega);
+      accIntake += Math.max(0, dM_throt / dt);
+      accGasTorque += sumTauGas;
+    }
+
+    sim.indicatedPower = accIndicatedW / SUBSTEPS;
+    sim.shaftPower = Math.max(0, accShaftW / SUBSTEPS);
+    sim.exhaustFlow = accExhaust / SUBSTEPS;
+    sim.intakeFlow = accIntake / SUBSTEPS;
+    sim.gasTorque = accGasTorque / SUBSTEPS;
+
+    const revPerSec = Math.abs(sim.omega) / (2 * Math.PI);
+    for (let i = 0; i < nCyl; i++) {
+      const c = cfg.cyls[i];
+      c.indPower = cylIndAcc[i] / SUBSTEPS;
+      const tImep = revPerSec > 0.15 ? Math.max(0, c.indPower / (cGeoms[i].V_disp * (c.doubleActing ? 2 : 1) * revPerSec)) : 0;
+      c.imep += (tImep - c.imep) * 0.08;
+    }
+
+    const rpm = (sim.omega * 60) / (2 * Math.PI);
+    sim.smoothRpm += (rpm - sim.smoothRpm) * 0.08;
+    sim.smoothPower += (sim.shaftPower - sim.smoothPower) * 0.08;
+    sim.smoothTorque += (sim.gasTorque - sim.smoothTorque) * 0.08;
+    sim.smoothFlow += (sim.intakeFlow - sim.smoothFlow) * 0.08;
+    const effNow = sim.heatInputW > 500 ? Math.max(0, Math.min(48, (sim.shaftPower / sim.heatInputW) * 100)) : 0;
+    sim.smoothEff += (effNow - sim.smoothEff) * 0.05;
+
+    sim.scopeTimer += realDt;
+    if (sim.scopeTimer >= 0.065) {
+      sim.scopeTimer = 0;
+      sim.scope.push({ rpm: Math.abs(sim.smoothRpm), pBar: sim.Pb / 1e5, powerKW: sim.smoothPower / 1000 });
+      if (sim.scope.length > 180) sim.scope.shift();
+    }
+
+    updateParticles(Math.min(0.05, simDt));
+    updateAudio();
+  }
+
+  // =========================================================================
+  // STEAM PARTICLES & BOILING BUBBLES
+  // =========================================================================
+  const emitPos = { exhaust: { x: 0, y: 0 }, safety: { x: 0, y: 0 }, whistle: { x: 0, y: 0 }, drain: { x: 0, y: 0 } };
+
+  function spawnSteam(x, y, vx, vy, size, alpha, life) {
+    if (sim.particles.length > 260) return;
+    sim.particles.push({ x, y, vx, vy, r: size, alpha, life, maxLife: life });
+  }
+
+  function updateParticles(dt) {
+    const boilIntensity = Math.min(1, Math.max(0, sim.boilRate * 3.5 + (sim.Tb > 372 ? 0.15 : 0)));
+    for (const b of sim.bubbles) {
+      b.v -= b.vy * (0.25 + boilIntensity * 2.6) * dt;
+      if (b.v < 0) {
+        b.v = 1.0;
+        b.u = 0.08 + Math.random() * 0.84;
+        b.r = 1.4 + Math.random() * (2.2 + boilIntensity * 2.6);
+      }
+    }
+    if (sim.exhaustFlow > 0.002 && emitPos.exhaust.x > 0) {
+      const intensity = Math.min(1, sim.exhaustFlow * 6.0);
+      const count = Math.ceil(intensity * 3);
+      for (let i = 0; i < count; i++) {
+        if (Math.random() < 0.4 + intensity * 0.6) {
+          spawnSteam(
+            emitPos.exhaust.x + (Math.random() - 0.5) * 10,
+            emitPos.exhaust.y,
+            (Math.random() - 0.5) * (25 + intensity * 40),
+            -(65 + intensity * 145) * (0.7 + Math.random() * 0.5),
+            5 + intensity * 9,
+            0.35 + intensity * 0.45,
+            0.65 + Math.random() * 0.65
+          );
+        }
+      }
+    }
+    if (sim.safetyFlow > 0.001 && emitPos.safety.x > 0) {
+      for (let i = 0; i < 2; i++) {
+        spawnSteam(emitPos.safety.x + (Math.random() - 0.5) * 4, emitPos.safety.y, (Math.random() - 0.5) * 35, -(120 + Math.random() * 90), 4 + Math.random() * 6, 0.65, 0.5 + Math.random() * 0.35);
+      }
+    }
+    if (sim.whistleFlow > 0.0005 && emitPos.whistle.x > 0) {
+      spawnSteam(emitPos.whistle.x + (Math.random() - 0.5) * 3, emitPos.whistle.y, (Math.random() - 0.5) * 28, -(90 + Math.random() * 70), 3.5 + Math.random() * 5, 0.55, 0.45 + Math.random() * 0.3);
+    }
+    if (cfg.drainCocks && emitPos.drain.x > 0) {
+      spawnSteam(emitPos.drain.x + (Math.random() - 0.5) * 40, emitPos.drain.y, (Math.random() - 0.5) * 45, 55 + Math.random() * 55, 4 + Math.random() * 5, 0.5, 0.45 + Math.random() * 0.3);
+    }
+    for (let i = sim.particles.length - 1; i >= 0; i--) {
+      const p = sim.particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { sim.particles.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.97; p.vy *= 0.96; p.vy -= 18 * dt; p.r += 16 * dt;
+    }
+  }
+
+  // =========================================================================
+  // PROCEDURAL WEB AUDIO
+  // =========================================================================
+  let audioCtx = null, audioOn = false;
+  let chuffGain, chuffFilter, hissGain, whistleGain, whistleOscs = [], mechOsc, mechGain;
+
+  function initAudio() {
+    if (audioCtx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = new AC();
+    const bufLen = audioCtx.sampleRate * 2;
+    const noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+
+    const chuffSrc = audioCtx.createBufferSource();
+    chuffSrc.buffer = noiseBuf; chuffSrc.loop = true;
+    chuffFilter = audioCtx.createBiquadFilter();
+    chuffFilter.type = 'bandpass'; chuffFilter.frequency.value = 320; chuffFilter.Q.value = 1.2;
+    chuffGain = audioCtx.createGain(); chuffGain.gain.value = 0;
+    chuffSrc.connect(chuffFilter).connect(chuffGain).connect(audioCtx.destination);
+    chuffSrc.start();
+
+    const hissSrc = audioCtx.createBufferSource();
+    hissSrc.buffer = noiseBuf; hissSrc.loop = true;
+    const hissFilter = audioCtx.createBiquadFilter();
+    hissFilter.type = 'highpass'; hissFilter.frequency.value = 2400;
+    hissGain = audioCtx.createGain(); hissGain.gain.value = 0;
+    hissSrc.connect(hissFilter).connect(hissGain).connect(audioCtx.destination);
+    hissSrc.start();
+
+    mechOsc = audioCtx.createOscillator();
+    mechOsc.type = 'triangle'; mechOsc.frequency.value = 45;
+    mechGain = audioCtx.createGain(); mechGain.gain.value = 0;
+    mechOsc.connect(mechGain).connect(audioCtx.destination);
+    mechOsc.start();
+
+    whistleGain = audioCtx.createGain(); whistleGain.gain.value = 0;
+    const whFilter = audioCtx.createBiquadFilter();
+    whFilter.type = 'lowpass'; whFilter.frequency.value = 2200;
+    whFilter.connect(whistleGain).connect(audioCtx.destination);
+    whistleOscs = [440, 554.37, 659.25].map(f => {
+      const o = audioCtx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+      const g = audioCtx.createGain(); g.gain.value = 0.25;
+      o.connect(g).connect(whFilter); o.start(); return o;
+    });
+  }
+
+  function updateAudio() {
+    if (!audioOn || !audioCtx || cfg.paused) {
+      if (chuffGain) {
+        chuffGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+        hissGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+        mechGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+        whistleGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+      }
+      return;
+    }
+    const now = audioCtx.currentTime;
+    const tsPitch = Math.max(0.35, Math.min(2.2, Math.pow(cfg.timeScale, 0.4)));
+    chuffGain.gain.setTargetAtTime(Math.min(0.42, sim.exhaustFlow * 1.6), now, 0.015);
+    chuffFilter.frequency.setTargetAtTime((210 + Math.min(900, Math.abs(sim.omega) * 14 + sim.exhaustFlow * 600)) * tsPitch, now, 0.02);
+    hissGain.gain.setTargetAtTime(Math.min(0.28, sim.safetyFlow * 1.8 + (cfg.drainCocks ? 0.1 : 0)), now, 0.025);
+    const rpmAbs = Math.abs(sim.smoothRpm);
+    mechOsc.frequency.setTargetAtTime((30 + Math.min(180, rpmAbs * 0.35)) * tsPitch, now, 0.05);
+    mechGain.gain.setTargetAtTime(Math.min(0.06, rpmAbs / 1800), now, 0.05);
+    const whAmp = sim.whistleFlow > 0.0005 ? Math.min(0.18, sim.whistleFlow * 10 + 0.04) : 0;
+    const pitchScale = 0.92 + Math.min(0.18, (sim.Pb / 1e5) * 0.008);
+    [440, 554.37, 659.25].forEach((f, i) => whistleOscs[i].frequency.setTargetAtTime(f * pitchScale, now, 0.03));
+    whistleGain.gain.setTargetAtTime(whAmp, now, 0.03);
+  }
+
+  // =========================================================================
+  // RENDERING — MULTI-CYLINDER CUTAWAY ENGINE CANVAS
+  // =========================================================================
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d');
+  const pvCanvas = document.getElementById('pvCanvas');
+  const pvCtx = pvCanvas.getContext('2d');
+  const scopeCanvas = document.getElementById('scopeCanvas');
+  const scopeCtx = scopeCanvas.getContext('2d');
+
+  const fwHit = { cx: 0, cy: 0, R: 60 };
+
+  function resizeCanvases() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    for (const c of [canvas, pvCanvas, scopeCanvas]) {
+      const rect = c.getBoundingClientRect();
+      c.width = Math.max(10, Math.floor(rect.width * dpr));
+      c.height = Math.max(10, Math.floor(rect.height * dpr));
+      c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+  window.addEventListener('resize', resizeCanvases);
+
+  function steamColor(P, alpha = 0.85) {
+    const pBar = Math.max(0, P / 1e5);
+    const maxRef = Math.max(0.04, cfg.safetyBar);
+    const baseP = 0.5 * Math.min(1, cfg.scaleFactor);
+    const t = Math.max(0, Math.min(1, (pBar - baseP) / maxRef));
+    let r, g, b;
+    if (t < 0.45) {
+      const k = t / 0.45;
+      r = Math.round(70 + k * 140); g = Math.round(130 + k * 95); b = Math.round(190 + k * 55);
+    } else {
+      const k = (t - 0.45) / 0.55;
+      r = Math.round(210 + k * 45); g = Math.round(225 - k * 115); b = Math.round(245 - k * 195);
+    }
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  function drawRoundRect(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+
+  function renderMain() {
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let gx = 0; gx < W; gx += 32) { ctx.moveTo(gx, 0); ctx.lineTo(gx, H); }
+    for (let gy = 0; gy < H; gy += 32) { ctx.moveTo(0, gy); ctx.lineTo(W, gy); }
+    ctx.stroke();
+
+    const floorY = H * 0.86;
+    ctx.fillStyle = '#181e28';
+    ctx.fillRect(W * 0.02, floorY, W * 0.96, 14);
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(W * 0.02, floorY, W * 0.96, 14);
+
+    // 1. CUTAWAY BOILER (LEFT ~21%)
+    const boilerScale = 0.72 + Math.min(0.42, Math.pow(cfg.boilerVol / (0.30 * cfg.scaleFactor), 0.28) * 0.30);
+    const bW = Math.min(W * 0.19, 155 * boilerScale);
+    const bH = Math.min(H * 0.52, 225 * boilerScale);
+    const bX = W * 0.045;
+    const bY = floorY - bH - 34;
+
+    const fbH = 34, fbY = bY + bH;
+    ctx.fillStyle = '#1a1514';
+    ctx.fillRect(bX + 8, fbY, bW - 16, fbH);
+    ctx.strokeStyle = '#475569'; ctx.strokeRect(bX + 8, fbY, bW - 16, fbH);
+
+    if (sim.fireTemp > 0.02) {
+      const fGrad = ctx.createLinearGradient(0, fbY + fbH, 0, fbY - 10);
+      fGrad.addColorStop(0, `rgba(255,220,120,${0.4 + sim.fireTemp * 0.6})`);
+      fGrad.addColorStop(0.5, `rgba(249,115,22,${0.3 + sim.fireTemp * 0.65})`);
+      fGrad.addColorStop(1, 'rgba(239,68,68,0)');
+      ctx.fillStyle = fGrad;
+      ctx.fillRect(bX + 10, fbY + 2, bW - 20, fbH - 4);
+      const tNow = performance.now() * 0.008;
+      ctx.fillStyle = `rgba(255,190,70,${0.35 + sim.fireTemp * 0.5})`;
+      for (let i = 0; i < 6; i++) {
+        const fx = bX + 16 + (i / 5) * (bW - 32);
+        const fh = (9 + Math.sin(tNow + i * 1.7) * 5) * sim.fireTemp;
+        ctx.beginPath();
+        ctx.moveTo(fx - 6, fbY + fbH - 3);
+        ctx.quadraticCurveTo(fx, fbY + fbH - 3 - fh * 2, fx + 6, fbY + fbH - 3);
+        ctx.fill();
+      }
+    }
+
+    ctx.save();
+    drawRoundRect(ctx, bX + 7, bY + 7, bW - 14, bH - 14, 15);
+    ctx.clip();
+    ctx.fillStyle = steamColor(sim.Pb, 0.78);
+    ctx.fillRect(bX, bY, bW, bH);
+
+    const waterFrac = Math.max(0, Math.min(0.95, (sim.Mw / RHO_WATER) / effBoilerVol()));
+    const waterY = bY + 7 + (1 - waterFrac) * (bH - 14);
+    const wGrad = ctx.createLinearGradient(0, waterY, 0, bY + bH);
+    const hotMix = Math.max(0, Math.min(1, (sim.Tb - 300) / 180));
+    wGrad.addColorStop(0, `rgba(${Math.round(45 + hotMix * 80)},${Math.round(145 + hotMix * 35)},${Math.round(220 - hotMix * 40)},0.88)`);
+    wGrad.addColorStop(1, `rgba(${Math.round(25 + hotMix * 110)},${Math.round(80 + hotMix * 30)},${Math.round(155 - hotMix * 55)},0.95)`);
+    ctx.fillStyle = wGrad;
+    ctx.fillRect(bX, waterY, bW, bY + bH - waterY);
+
+    ctx.strokeStyle = 'rgba(224,242,254,0.75)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    const wPhase = performance.now() * 0.005;
+    const amp = 1.2 + Math.min(4.5, sim.boilRate * 16);
+    for (let wx = bX + 6; wx <= bX + bW - 6; wx += 6) {
+      const wy = waterY + Math.sin(wx * 0.08 + wPhase) * amp;
+      if (wx === bX + 6) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
+    }
+    ctx.stroke();
+
+    if (waterFrac > 0.03) {
+      ctx.fillStyle = 'rgba(240,249,255,0.55)';
+      for (const b of sim.bubbles) {
+        const bx = bX + 10 + b.u * (bW - 20);
+        const by = waterY + b.v * (bY + bH - 10 - waterY);
+        if (by > waterY + 2) { ctx.beginPath(); ctx.arc(bx, by, b.r, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
+    ctx.fillStyle = `rgba(${Math.round(70 + sim.fireTemp * 170)},${Math.round(45 + sim.fireTemp * 65)},35,0.82)`;
+    for (let i = 0; i < 4; i++) {
+      const ty = bY + bH - 20 - i * 15;
+      if (ty > bY + 24) ctx.fillRect(bX + 12, ty, bW - 24, 5);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = cfg.shellColor; ctx.lineWidth = 7;
+    drawRoundRect(ctx, bX + 4, bY + 4, bW - 8, bH - 8, 16); ctx.stroke();
+    ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.5;
+    drawRoundRect(ctx, bX, bY, bW, bH, 18); ctx.stroke();
+
+    // Dome, Safety Valve, Whistle, Bourdon Gauge, Sight Glass
+    const domeW = bW * 0.36, domeH = 26, domeX = bX + bW * 0.52 - domeW / 2, domeY = bY - domeH + 4;
+    const domeGrad = ctx.createLinearGradient(domeX, 0, domeX + domeW, 0);
+    domeGrad.addColorStop(0, '#8a5d1c'); domeGrad.addColorStop(0.5, '#f0c86e'); domeGrad.addColorStop(1, '#7a4f16');
+    ctx.fillStyle = domeGrad;
+    drawRoundRect(ctx, domeX, domeY, domeW, domeH, [12, 12, 2, 2]); ctx.fill();
+    ctx.strokeStyle = '#47310f'; ctx.lineWidth = 1.2; ctx.stroke();
+
+    const svX = bX + bW * 0.22, svY = bY - 16 - sim.safetyLift * 8;
+    ctx.fillStyle = '#d4a44c'; ctx.fillRect(svX - 5, bY - 12, 10, 14);
+    ctx.fillStyle = sim.safetyLift > 0.05 ? '#ef4444' : '#f0c86e'; ctx.fillRect(svX - 8, svY, 16, 5);
+    emitPos.safety.x = svX; emitPos.safety.y = svY;
+
+    const whX = bX + bW * 0.82, whY = bY - 24;
+    ctx.fillStyle = cfg.whistle ? '#fde047' : '#d4a44c';
+    ctx.fillRect(whX - 3.5, whY, 7, 24); ctx.fillRect(whX - 5.5, whY, 11, 3.5);
+    emitPos.whistle.x = whX; emitPos.whistle.y = whY;
+
+    const gR = Math.min(21, bW * 0.16), gCx = bX + bW * 0.5, gCy = bY + 30;
+    ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(gCx, gCy, gR, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d4a44c'; ctx.lineWidth = 2.5; ctx.stroke();
+    const pFrac = Math.max(0, Math.min(1.2, (sim.Pb / 1e5) / Math.max(2, cfg.safetyBar * 1.15)));
+    const needleAng = Math.PI * 0.75 + pFrac * Math.PI * 1.5;
+    ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(gCx, gCy);
+    ctx.lineTo(gCx + Math.cos(needleAng) * (gR - 4), gCy + Math.sin(needleAng) * (gR - 4)); ctx.stroke();
+
+    const sgX = bX - 10;
+    ctx.fillStyle = 'rgba(15,23,42,0.85)'; ctx.fillRect(sgX, bY + 16, 5, bH - 32);
+    const sgFillH = waterFrac * (bH - 32);
+    ctx.fillStyle = '#38bdf8'; ctx.fillRect(sgX + 1, bY + bH - 16 - sgFillH, 3, sgFillH);
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.strokeRect(sgX, bY + 16, 5, bH - 32);
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 9.5px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(cfg.boilerType.toUpperCase() + ' BOILER', bX + bW * 0.5, floorY + 11);
+
+    // 2. MULTI-CYLINDER BANK + SHARED CRANKSHAFT / FLYWHEEL
+    const nCyl = cfg.cyls.length;
+    const bankLeft = bX + bW + 38;
+    const fwRadiusPx = Math.max(46, Math.min(H * 0.28, 52 + Math.pow(cfg.flywheelMass / (2500 * cfg.scaleFactor), 0.34) * 85));
+    const crankCx = W - fwRadiusPx - 26;
+    const crankCy = H * 0.50;
+    fwHit.cx = crankCx; fwHit.cy = crankCy; fwHit.R = fwRadiusPx;
+
+    // Main Steam Header Pipe from Boiler Dome -> Throttle -> Manifold vertical rail
+    const railX = bankLeft - 14;
+    const pipeTopY = Math.max(22, Math.min(domeY + 6, H * 0.12));
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 11; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(domeX + domeW * 0.5, domeY + 4);
+    ctx.lineTo(domeX + domeW * 0.5, pipeTopY);
+    ctx.lineTo(railX, pipeTopY);
+    ctx.lineTo(railX, floorY - 24);
+    ctx.stroke();
+    ctx.strokeStyle = steamColor(sim.manifold.P, 0.85); ctx.lineWidth = 6; ctx.stroke();
+
+    // Throttle Valve & Flyball Governor on top steam pipe
+    const throtX = (domeX + domeW * 0.5 + railX) * 0.5;
+    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(throtX, pipeTopY, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d4a44c'; ctx.lineWidth = 2; ctx.stroke();
+    const effThrot = cfg.throttle * sim.govThrottleMod;
+    const flapAng = (1 - effThrot) * Math.PI * 0.5;
+    ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(throtX - Math.cos(flapAng) * 7.5, pipeTopY - Math.sin(flapAng) * 7.5);
+    ctx.lineTo(throtX + Math.cos(flapAng) * 7.5, pipeTopY + Math.sin(flapAng) * 7.5);
+    ctx.stroke();
+
+    // Watt Flyball Governor above throttle
+    {
+      const govX = throtX, govBaseY = pipeTopY - 12, govTopY = Math.max(10, govBaseY - 34);
+      ctx.save();
+      ctx.globalAlpha = cfg.governor ? 1.0 : 0.25;
+      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(govX, govBaseY); ctx.lineTo(govX, govTopY); ctx.stroke();
+      const armL = 22;
+      const bxOff = Math.sin(sim.govPhi) * armL;
+      const byOff = Math.cos(sim.govPhi) * armL;
+      ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(govX, govTopY); ctx.lineTo(govX - bxOff, govTopY + byOff);
+      ctx.moveTo(govX, govTopY); ctx.lineTo(govX + bxOff, govTopY + byOff);
+      ctx.stroke();
+      ctx.fillStyle = '#f0c86e';
+      ctx.beginPath(); ctx.arc(govX - bxOff, govTopY + byOff, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(govX + bxOff, govTopY + byOff, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Exhaust stack position
+    emitPos.exhaust.x = railX + 26;
+    emitPos.exhaust.y = Math.max(18, pipeTopY - 12);
+    ctx.fillStyle = '#27303f';
+    ctx.fillRect(emitPos.exhaust.x - 6, emitPos.exhaust.y, 12, 26);
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.2;
+    ctx.strokeRect(emitPos.exhaust.x - 6, emitPos.exhaust.y, 12, 26);
+
+    // Draw Flywheel (shared crankshaft at crankCx, crankCy)
+    ctx.save();
+    ctx.translate(crankCx, crankCy);
+    ctx.rotate(sim.theta);
+    ctx.beginPath(); ctx.arc(0, 0, fwRadiusPx, 0, Math.PI * 2);
+    ctx.strokeStyle = sim.handGrab ? '#f0c86e' : '#3b4758';
+    ctx.lineWidth = Math.max(10, fwRadiusPx * 0.16); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, fwRadiusPx + Math.max(4, fwRadiusPx * 0.08), 0, Math.PI * 2);
+    ctx.strokeStyle = sim.handGrab ? '#fde047' : '#94a3b8'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = Math.max(5, fwRadiusPx * 0.085);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * (fwRadiusPx - 5), Math.sin(a) * (fwRadiusPx - 5)); ctx.stroke();
+    }
+    ctx.fillStyle = '#64748b'; ctx.beginPath(); ctx.arc(0, 0, fwRadiusPx * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+
+    // Dynamo indicator beneath flywheel
+    if (cfg.load > 0.01) {
+      const dynX = crankCx, dynY = floorY - 16;
+      const glow = Math.min(1, sim.smoothPower / Math.max(1000, cfg.maxFireKW * 140));
+      ctx.fillStyle = '#1e293b'; drawRoundRect(ctx, dynX - 24, dynY - 12, 48, 24, 5); ctx.fill();
+      ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.fillStyle = `rgba(250,204,21,${0.15 + glow * 0.85})`;
+      ctx.beginPath(); ctx.arc(dynX + 34, dynY, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 8.5px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('DYNAMO', dynX, dynY + 3);
+    }
+
+    // Layout ALL N Cylinders cleanly in the middle stage!
+    const bankW = Math.max(160, (crankCx - fwRadiusPx * 0.35) - bankLeft - 16);
+    const bankTop = Math.max(42, H * 0.10);
+    const bankBot = floorY - 16;
+    const bankH = Math.max(80, bankBot - bankTop);
+    const slotH = bankH / nCyl;
+
+    const uMul = cfg.units === 'SI' ? 1e-5 : 0.000145038;
+    const uStr = cfg.units === 'SI' ? 'bar' : 'psi';
+
+    for (let i = 0; i < nCyl; i++) {
+      const c = cfg.cyls[i];
+      const cy = bankTop + (i + 0.5) * slotH;
+      const th = sim.theta + (c.phaseDeg * Math.PI) / 180;
+      const isSel = (i === cfg.selectedCyl);
+
+      // Visual scaling proportional to each cylinder's Bore & Stroke!
+      const maxBorePx = Math.min(slotH * 0.52, nCyl === 1 ? H * 0.24 : 72);
+      const borePx = Math.max(14, Math.min(maxBorePx, (c.bore / (0.35 * cfg.scaleFactor)) * maxBorePx * 0.92 + 10));
+      const maxStrokePx = Math.min(bankW * 0.42, 165);
+      const strokePx = Math.max(26, Math.min(maxStrokePx, (c.stroke / (0.50 * cfg.scaleFactor)) * maxStrokePx * 0.85 + 22));
+      const cylLenPx = strokePx + 20;
+      const cylX = bankLeft + 8;
+      const cylTop = cy - borePx * 0.5;
+      const cylRight = cylX + cylLenPx;
+      const pistonThick = Math.max(7, Math.min(15, borePx * 0.24));
+
+      c.screenRect = { x: cylX - 6, y: cylTop - Math.max(14, borePx * 0.35), w: cylLenPx + 12, h: borePx + Math.max(22, borePx * 0.45) };
+      if (i === nCyl - 1) { emitPos.drain.x = cylX + cylLenPx * 0.5; emitPos.drain.y = cylTop + borePx + 4; }
+
+      // Steam Chest & D-Slide Valve above each cylinder
+      const chestH = Math.max(10, Math.min(28, borePx * 0.38));
+      const chestW = cylLenPx * 0.72;
+      const chestX = cylX + (cylLenPx - chestW) * 0.5;
+      const chestY = cylTop - chestH - 5;
+
+      // Feed branch from steam rail or receiver
+      const srcP = c.stage === 0 ? sim.manifold.P : sim.receivers[c.stage - 1].P;
+      ctx.strokeStyle = steamColor(srcP, 0.8);
+      ctx.lineWidth = Math.max(2.5, Math.min(6, borePx * 0.1));
+      ctx.beginPath();
+      ctx.moveTo(railX, cy - borePx * 0.5 - chestH * 0.5);
+      ctx.lineTo(chestX, cy - borePx * 0.5 - chestH * 0.5);
+      ctx.stroke();
+
+      // Steam Chest Box
+      ctx.fillStyle = steamColor(srcP, 0.82);
+      ctx.fillRect(chestX + 2, chestY + 2, chestW - 4, chestH - 2);
+      ctx.strokeStyle = isSel ? '#f0c86e' : '#475569';
+      ctx.lineWidth = isSel ? 2 : 1.5;
+      ctx.strokeRect(chestX, chestY, chestW, chestH);
+
+      // D-Slide Valve (brass)
+      const vW = chestW * 0.52;
+      const vH = chestH * 0.62;
+      const vCx = chestX + chestW * 0.5 + c.zv * (chestW * 0.14);
+      ctx.fillStyle = '#d4a44c';
+      ctx.fillRect(vCx - vW * 0.5, chestY + chestH - vH - 1, vW, vH);
+
+      // Piston screen X from exact c.x / c.stroke
+      const pX = cylX + 4 + pistonThick * 0.5 + (c.x / c.stroke) * strokePx;
+      const pLeft = pX - pistonThick * 0.5;
+      const pRight = pX + pistonThick * 0.5;
+
+      // Head-End & Crank-End pressure-colored gas
+      ctx.fillStyle = steamColor(c.head.P, 0.90);
+      ctx.fillRect(cylX + 3, cylTop + 3, Math.max(0, pLeft - (cylX + 3)), borePx - 6);
+      ctx.fillStyle = c.doubleActing ? steamColor(c.crank.P, 0.90) : 'rgba(51,65,85,0.35)';
+      ctx.fillRect(pRight, cylTop + 3, Math.max(0, (cylRight - 3) - pRight), borePx - 6);
+
+      // Cylinder Wall Cutaway
+      ctx.strokeStyle = isSel ? '#f0c86e' : '#475569';
+      ctx.lineWidth = isSel ? 3.5 : Math.max(2.5, Math.min(5, borePx * 0.08));
+      ctx.strokeRect(cylX, cylTop, cylLenPx, borePx);
+
+      // Piston
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(pLeft, cylTop + 3, pistonThick, borePx - 6);
+      ctx.fillStyle = '#d4a44c';
+      ctx.fillRect(pLeft + 2, cylTop + 3, 2, borePx - 6);
+      ctx.fillRect(pRight - 4, cylTop + 3, 2, borePx - 6);
+
+      // Crosshead & Connecting Rod to shared Crankshaft pin at angle th!
+      const crankPinR = Math.min(fwRadiusPx * 0.42, strokePx * 0.5);
+      const pinX = crankCx - Math.cos(th) * crankPinR;
+      const pinY = crankCy - Math.sin(th) * crankPinR;
+      const chX = cylRight + 14 + (c.x / c.stroke) * strokePx * 0.55;
+
+      // Piston rod
+      ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = Math.max(2, Math.min(5, borePx * 0.11));
+      ctx.beginPath(); ctx.moveTo(pRight, cy); ctx.lineTo(chX, cy); ctx.stroke();
+
+      // Crosshead block
+      ctx.fillStyle = CYL_COLORS[i % CYL_COLORS.length];
+      ctx.fillRect(chX - 5, cy - 5, 10, 10);
+
+      // Connecting rod -> Crankpin
+      ctx.strokeStyle = isSel ? '#f0c86e' : 'rgba(226,232,240,0.72)';
+      ctx.lineWidth = Math.max(2, Math.min(5.5, borePx * 0.11));
+      ctx.beginPath(); ctx.moveTo(chX, cy); ctx.lineTo(pinX, pinY); ctx.stroke();
+
+      // Crank web & pin on flywheel
+      ctx.strokeStyle = CYL_COLORS[i % CYL_COLORS.length];
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(crankCx, crankCy); ctx.lineTo(pinX, pinY); ctx.stroke();
+      ctx.fillStyle = CYL_COLORS[i % CYL_COLORS.length];
+      ctx.beginPath(); ctx.arc(pinX, pinY, 4.5, 0, Math.PI * 2); ctx.fill();
+
+      // Cylinder Label & Live Pressures
+      if (slotH >= 32) {
+        const stgLbl = c.stage === 0 ? 'HP' : (c.stage === 1 ? 'MP' : 'LP');
+        ctx.font = `bold ${slotH < 52 ? 9 : 10}px monospace`;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = isSel ? '#fde047' : '#e2e8f0';
+        ctx.fillText(`#${i + 1} ${stgLbl} ${c.phaseDeg}°  H:${(c.head.P * uMul).toFixed(1)} C:${(c.crank.P * uMul).toFixed(1)} ${uStr}`, cylX, cylTop + borePx + 11);
+      }
+    }
+
+    // Steam Particles
+    for (const p of sim.particles) {
+      const a = (p.life / p.maxLife) * p.alpha;
+      ctx.fillStyle = `rgba(226,232,240,${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function renderPV() {
+    const W = pvCanvas.clientWidth, H = pvCanvas.clientHeight;
+    pvCtx.clearRect(0, 0, W, H);
+    const padL = 28, padR = 8, padT = 8, padB = 16;
+    const pw = W - padL - padR, ph = H - padT - padB;
+    const maxP = Math.max(3000, cfg.safetyBar * 1e5 * 1.1);
+
+    pvCtx.strokeStyle = 'rgba(148,163,184,0.14)'; pvCtx.lineWidth = 1;
+    pvCtx.beginPath();
+    for (let i = 0; i <= 4; i++) { const y = padT + (i / 4) * ph; pvCtx.moveTo(padL, y); pvCtx.lineTo(padL + pw, y); }
+    pvCtx.stroke();
+
+    const yAtm = padT + ph * (1 - (P_ATM * Math.min(1, cfg.scaleFactor)) / maxP);
+    pvCtx.strokeStyle = 'rgba(148,163,184,0.35)'; pvCtx.setLineDash([3, 3]);
+    pvCtx.beginPath(); pvCtx.moveTo(padL, yAtm); pvCtx.lineTo(padL + pw, yAtm); pvCtx.stroke();
+    pvCtx.setLineDash([]);
+
+    function drawTrace(arr, color, width = 1.7) {
+      if (arr.length < 2) return;
+      pvCtx.strokeStyle = color; pvCtx.lineWidth = width;
+      pvCtx.beginPath();
+      for (let i = 0; i < arr.length; i++) {
+        const px = padL + arr[i].x * pw;
+        const py = padT + ph * (1 - Math.min(1, arr[i].P / maxP));
+        if (i === 0) pvCtx.moveTo(px, py); else pvCtx.lineTo(px, py);
+      }
+      pvCtx.stroke();
+    }
+
+    if (cfg.pvAll) {
+      cfg.cyls.forEach((c, idx) => drawTrace(c.pvHead, CYL_COLORS[idx % CYL_COLORS.length], 1.4));
+    } else {
+      const c = cfg.cyls[Math.min(cfg.selectedCyl, cfg.cyls.length - 1)];
+      if (c) {
+        if (c.doubleActing) drawTrace(c.pvCrank, 'rgba(249,115,22,0.75)', 1.6);
+        drawTrace(c.pvHead, '#38bdf8', 1.9);
+      }
+    }
+
+    pvCtx.fillStyle = '#64748b'; pvCtx.font = '9px monospace'; pvCtx.textAlign = 'right';
+    const topLbl = cfg.units === 'SI' ? (maxP / 1e5).toFixed(0) : (maxP * 0.000145038).toFixed(0);
+    pvCtx.fillText(topLbl, padL - 3, padT + 7);
+    pvCtx.fillText('0', padL - 3, padT + ph);
+    pvCtx.textAlign = 'center';
+    pvCtx.fillText('TDC ← Stroke Volume → BDC', padL + pw * 0.5, H - 3);
+  }
+
+  function renderScope() {
+    const W = scopeCanvas.clientWidth, H = scopeCanvas.clientHeight;
+    scopeCtx.clearRect(0, 0, W, H);
+    if (sim.scope.length < 2) return;
+    const pad = 6, sw = W - pad * 2, sh = H - pad * 2;
+    scopeCtx.strokeStyle = 'rgba(148,163,184,0.12)'; scopeCtx.lineWidth = 1;
+    scopeCtx.beginPath();
+    for (let i = 0; i <= 3; i++) { const y = pad + (i / 3) * sh; scopeCtx.moveTo(pad, y); scopeCtx.lineTo(pad + sw, y); }
+    scopeCtx.stroke();
+
+    const maxRpm = Math.max(250, ...sim.scope.map(d => d.rpm)) * 1.1;
+    const maxP = Math.max(cfg.safetyBar * 1.15, 4);
+    const maxKW = Math.max(5, ...sim.scope.map(d => d.powerKW)) * 1.15;
+
+    function plot(key, maxVal, color) {
+      scopeCtx.strokeStyle = color; scopeCtx.lineWidth = 1.6;
+      scopeCtx.beginPath();
+      for (let i = 0; i < sim.scope.length; i++) {
+        const x = pad + (i / (sim.scope.length - 1)) * sw;
+        const y = pad + sh * (1 - Math.min(1, sim.scope[i][key] / maxVal));
+        if (i === 0) scopeCtx.moveTo(x, y); else scopeCtx.lineTo(x, y);
+      }
+      scopeCtx.stroke();
+    }
+    plot('pBar', maxP, '#f97316');
+    plot('powerKW', maxKW, '#22c55e');
+    plot('rpm', maxRpm, '#38bdf8');
+  }
+
+  // =========================================================================
+  // UI & BUILDER BINDINGS
+  // =========================================================================
+  const $ = id => document.getElementById(id);
+
+  function fmtPress(pa) {
+    if (cfg.units === 'SI') {
+      const b = pa / 1e5;
+      if (b < 0.5) return `${(b * 1000).toFixed(0)} mbar`;
+      if (b >= 1000) return `${(b / 1000).toFixed(2)} kbar`;
+      return `${b.toFixed(b < 5 ? 2 : 1)} bar`;
+    }
+    const psi = pa * 0.000145038;
+    if (psi >= 10000) return `${(psi / 1000).toFixed(1)} kpsi`;
+    return `${psi.toFixed(psi < 10 ? 2 : 0)} psi`;
+  }
+  function fmtTemp(K) { const C = K - 273.15; return cfg.units === 'SI' ? `${C.toFixed(0)} °C` : `${(C * 9 / 5 + 32).toFixed(0)} °F`; }
+  function fmtPower(W) {
+    if (cfg.units === 'SI') {
+      if (W < 1) return `${(W * 1000).toFixed(1)} mW`;
+      if (W < 1000) return `${W.toFixed(1)} W`;
+      if (W < 1e6) return `${(W / 1000).toFixed(1)} kW`;
+      if (W < 1e9) return `${(W / 1e6).toFixed(2)} MW`;
+      return `${(W / 1e9).toFixed(2)} GW`;
+    }
+    const hp = W / 745.7;
+    if (hp >= 1e6) return `${(hp / 1e6).toFixed(2)} MHP`;
+    if (hp >= 1e4) return `${(hp / 1000).toFixed(1)} kHP`;
+    return `${hp.toFixed(hp < 10 ? 2 : 1)} HP`;
+  }
+  function fmtTorque(Nm) {
+    const a = Math.abs(Nm);
+    if (cfg.units === 'SI') {
+      if (a < 0.1) return `${(Nm * 1000).toFixed(1)} mN·m`;
+      if (a < 1e4) return `${Nm.toFixed(a < 10 ? 2 : 0)} N·m`;
+      if (a < 1e7) return `${(Nm / 1000).toFixed(1)} kN·m`;
+      return `${(Nm / 1e6).toFixed(2)} MN·m`;
+    }
+    const lb = Nm * 0.73756;
+    return Math.abs(lb) >= 1e4 ? `${(lb / 1000).toFixed(1)} klb·ft` : `${lb.toFixed(0)} lb·ft`;
+  }
+  function fmtLenMM(m) {
+    if (cfg.units === 'SI') {
+      const mm = m * 1000;
+      if (mm < 10) return `${mm.toFixed(2)} mm`;
+      if (mm >= 1000) return `${m.toFixed(2)} m`;
+      return `${mm.toFixed(0)} mm`;
+    }
+    const ins = m * 39.3701;
+    return ins >= 120 ? `${(ins / 12).toFixed(1)} ft` : `${ins.toFixed(ins < 1 ? 3 : 2)} in`;
+  }
+  function fmtMass(kg) {
+    if (kg < 1) return `${(kg * 1000).toFixed(0)} g`;
+    if (kg >= 10000) return `${(kg / 1000).toFixed(1)} t`;
+    return `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
+  }
+  function fmtVolL(m3) {
+    const L = m3 * 1000;
+    if (cfg.units === 'SI') {
+      if (L < 0.01) return `${(L * 1000).toFixed(2)} mL`;
+      if (L < 1) return `${L.toFixed(3)} L`;
+      if (L >= 10000) return `${m3.toFixed(1)} m³`;
+      return `${L.toFixed(L < 100 ? 2 : 0)} L`;
+    }
+    return `${(L * 61.024).toFixed(1)} in³`;
+  }
+
+  function renderCylList() {
+    const list = $('cylList');
+    list.innerHTML = '';
+    cfg.cyls.forEach((c, idx) => {
+      const pill = document.createElement('div');
+      pill.className = 'cyl-pill' + (idx === cfg.selectedCyl ? ' active' : '');
+      const stgLbl = c.stage === 0 ? 'HP' : (c.stage === 1 ? 'MP' : 'LP');
+      pill.innerHTML = `<span>#${idx + 1}</span><span class="stage-tag s${c.stage}">${stgLbl}</span><span>${c.phaseDeg}°</span>`;
+      pill.addEventListener('click', () => { cfg.selectedCyl = idx; renderCylList(); syncSelectedCylUI(); });
+      list.appendChild(pill);
+    });
+    $('lblBankCount').textContent = `${cfg.cyls.length} Cyl${cfg.cyls.length > 1 ? 's' : ''}`;
+    $('numCylTarget').value = cfg.cyls.length;
+    $('mCylCount').textContent = `${cfg.cyls.length} Cylinder${cfg.cyls.length > 1 ? 's' : ''}`;
+  }
+
+  function syncSelectedCylUI() {
+    cfg.selectedCyl = Math.max(0, Math.min(cfg.cyls.length - 1, cfg.selectedCyl));
+    const c = cfg.cyls[cfg.selectedCyl];
+    const cg = cylGeom(c);
+    $('selCylTitle').textContent = `Selected: Cylinder #${cfg.selectedCyl + 1}`;
+    $('selCylDisp').textContent = fmtVolL(cg.V_disp);
+    $('selStage').value = String(c.stage);
+    $('sBore').value = Number((c.bore * 1000).toFixed(3));
+    $('vBore').textContent = fmtLenMM(c.bore);
+    $('sStroke').value = Number((c.stroke * 1000).toFixed(3));
+    $('vStroke').textContent = fmtLenMM(c.stroke);
+    $('sPhase').value = c.phaseDeg;
+    $('vPhase').textContent = `${c.phaseDeg}°`;
+    $('sClearance').value = Math.round(c.clearance * 100);
+    $('vClearance').textContent = `${Math.round(c.clearance * 100)}%`;
+    $('sLap').value = Math.round(c.steamLap * 100);
+    $('vLap').textContent = `${Math.round(c.steamLap * 100)}%`;
+    $('sLead').value = Math.round(c.valveLead * 100);
+    $('vLead').textContent = `${Math.round(c.valveLead * 100)}%`;
+    $('cDoubleActing').checked = c.doubleActing;
+    updateSpecReadouts();
+  }
+
+  function updateSpecReadouts() {
+    const eg = engineGeom();
+    $('spDisp').textContent = fmtVolL(eg.totalDisp);
+    $('spInertia').textContent = eg.I_fw >= 1e5 ? `${(eg.I_fw / 1e6).toFixed(2)}M kg·m²` : `${eg.I_fw.toFixed(eg.I_fw < 0.1 ? 5 : 2)} kg·m²`;
+    $('vSafetyP').textContent = fmtPress(cfg.safetyBar * 1e5);
+    $('vExhPress').textContent = fmtPress(cfg.exhBar * 1e5);
+    $('vBoilerVol').textContent = cfg.units === 'SI' ? fmtVolL(cfg.boilerVol) : `${(cfg.boilerVol * 264.172).toFixed(cfg.boilerVol < 0.01 ? 2 : 0)} gal`;
+    $('vMaxFire').textContent = fmtPower(cfg.maxFireKW * 1000);
+    $('vSuperheat').textContent = cfg.units === 'SI' ? `+${Number(cfg.superheatC.toFixed(2))} °C` : `+${(cfg.superheatC * 1.8).toFixed(1)} °F`;
+    $('vAmbTemp').textContent = cfg.units === 'SI' ? `${cfg.ambTempC} °C` : `${(cfg.ambTempC * 9 / 5 + 32).toFixed(0)} °F`;
+    $('vFlywheel').textContent = fmtMass(cfg.flywheelMass);
+  }
+
+  function setCylinderCount(target) {
+    const n = Math.max(1, Math.min(32, Math.round(target)));
+    const template = cfg.cyls[cfg.selectedCyl] || cfg.cyls[0] || makeCyl();
+    while (cfg.cyls.length < n) {
+      cfg.cyls.push(makeCyl({
+        bore: template.bore, stroke: template.stroke, clearance: template.clearance,
+        steamLap: template.steamLap, valveLead: template.valveLead,
+        doubleActing: template.doubleActing, stage: 0
+      }));
+    }
+    while (cfg.cyls.length > n) cfg.cyls.pop();
+    autoPhaseCylinders();
+    renderCylList();
+    syncSelectedCylUI();
+  }
+
+  function autoPhaseCylinders() {
+    const n = cfg.cyls.length;
+    if (n === 1) { cfg.cyls[0].phaseDeg = 0; }
+    else if (n === 2) { cfg.cyls[0].phaseDeg = 0; cfg.cyls[1].phaseDeg = 90; }
+    else {
+      const step = Math.round(360 / n);
+      cfg.cyls.forEach((c, i) => { c.phaseDeg = (i * step) % 360; });
+    }
+    renderCylList();
+    syncSelectedCylUI();
+  }
+
+  function autoCompoundCylinders() {
+    const n = cfg.cyls.length;
+    if (n < 2) return;
+    const baseBore = cfg.cyls[0].bore;
+    if (n === 2) {
+      cfg.cyls[0].stage = 0;
+      cfg.cyls[1].stage = 1;
+      cfg.cyls[1].bore = Math.min(0.60, baseBore * 1.62);
+    } else {
+      cfg.cyls.forEach((c, i) => {
+        const st = Math.min(2, Math.floor((i * 3) / n));
+        c.stage = st;
+        c.bore = Math.min(0.60, baseBore * Math.pow(1.48, st));
+      });
+    }
+    renderCylList();
+    syncSelectedCylUI();
+  }
+
+  function updateHUD() {
+    const rpm = sim.smoothRpm;
+    $('mRpm').textContent = Math.abs(rpm).toFixed(0);
+    $('mDir').textContent = Math.abs(rpm) < 1.5 ? 'STALLED / IDLE' : (rpm > 0 ? 'FORWARD ↻' : 'REVERSE ↺');
+    $('mDir').style.color = Math.abs(rpm) < 1.5 ? '#94a3b8' : (rpm > 0 ? '#22c55e' : '#f97316');
+
+    $('mPress').textContent = fmtPress(sim.Pb);
+    $('mTemp').textContent = fmtTemp(sim.Tb + cfg.superheatC * Math.min(1, sim.fireTemp));
+    $('mPower').textContent = fmtPower(sim.smoothPower);
+    $('mTorque').textContent = fmtTorque(sim.smoothTorque);
+    $('mChest').textContent = fmtPress(sim.manifold.P);
+    $('mFlow').textContent = `${(sim.smoothFlow * 1000).toFixed(1)} g/s`;
+
+    const waterPct = Math.max(0, Math.min(100, ((sim.Mw / RHO_WATER) / effBoilerVol()) * 100));
+    $('mWater').textContent = `${waterPct.toFixed(0)}%`;
+    $('mWater').style.color = waterPct < 15 ? '#ef4444' : '#38bdf8';
+    $('mBoil').textContent = `${(Math.max(0, sim.boilRate) * 1000).toFixed(1)} g/s boil`;
+    $('mEff').textContent = `${sim.smoothEff.toFixed(1)}%`;
+
+    const selC = cfg.cyls[Math.min(cfg.selectedCyl, cfg.cyls.length - 1)];
+    $('pvTitle').textContent = cfg.pvAll ? `P–V Card (All ${cfg.cyls.length})` : `P–V Card (Cyl #${cfg.selectedCyl + 1})`;
+    $('pvImep').textContent = `IMEP ${fmtPress(selC ? selC.imep : 0)}`;
+
+    const hasS1 = cfg.cyls.some(c => c.stage === 1);
+    const hasS2 = cfg.cyls.some(c => c.stage === 2);
+    $('spRecv1').textContent = hasS1 ? fmtPress(sim.receivers[0].P) : '—';
+    $('spRecv2').textContent = hasS2 ? fmtPress(sim.receivers[1].P) : '—';
+
+    $('spPsat').textContent = fmtPress(steamPsat(sim.Tb));
+    $('spTsat').textContent = fmtTemp(sim.Tb);
+    $('spMs').textContent = `${sim.Ms.toFixed(3)} kg`;
+    $('spHfg').textContent = `${(steamHfg(sim.Tb) / 1000).toFixed(0)} kJ/kg`;
+
+    const banner = $('alertBanner');
+    if (waterPct < 12) {
+      banner.style.display = 'block';
+      banner.textContent = '⚠️ LOW BOILER WATER — INCREASE FEEDWATER PUMP!';
+    } else if (sim.Pb > cfg.safetyBar * 1e5 * 1.12) {
+      banner.style.display = 'block';
+      banner.textContent = `⚠️ OVERPRESSURE (${fmtPress(sim.Pb)}) — SAFETY VALVE VENTING!`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  const SCALED_SLIDER_IDS = [
+    'sLoad', 'sGovRpm', 'sBore', 'sStroke', 'sPortScale',
+    'sFlywheel', 'sRecipScale', 'sFricScale', 'sExhPress',
+    'sSafetyP', 'sBoilerVol', 'sMaxFire', 'sSuperheat'
+  ];
+  const BASE_SLIDER_BOUNDS = {};
+  for (const id of SCALED_SLIDER_IDS) {
+    const el = $(id);
+    BASE_SLIDER_BOUNDS[id] = { min: Number(el.min), max: Number(el.max), step: Number(el.step) };
+  }
+
+  function applySliderBounds(sf) {
+    for (const id of SCALED_SLIDER_IDS) {
+      const el = $(id);
+      const b = BASE_SLIDER_BOUNDS[id];
+      el.min = Number((b.min * sf).toPrecision(6));
+      el.max = Number((b.max * sf).toPrecision(6));
+      el.step = Number((b.step * sf).toPrecision(6));
+    }
+  }
+
+  function updateStarterButtons() {
+    const isBig = cfg.scaleFactor > 1;
+    const b1 = $('btnBarOver'), b2 = $('btnTopStarter');
+    b1.textContent = isBig ? '⚡ Mega Starter' : '⚙️ Kick';
+    b2.textContent = isBig ? '⚡ Mega Starter' : '⚙️ Starter';
+    b1.classList.toggle('btn-mega', isBig);
+    b2.classList.toggle('btn-mega', isBig);
+  }
+
+  function setScaleMode(newFactor) {
+    const sf = Number(newFactor);
+    if (Math.abs(sf - cfg.scaleFactor) < 1e-9) return;
+    const ratio = sf / cfg.scaleFactor;
+    cfg.scaleFactor = sf;
+    applySliderBounds(sf);
+
+    cfg.load *= ratio;
+    cfg.govRpm *= ratio;
+    cfg.portScale *= ratio;
+    cfg.flywheelMass *= ratio;
+    cfg.recipScale *= ratio;
+    cfg.fricScale *= ratio;
+    cfg.exhBar *= ratio;
+    cfg.safetyBar *= ratio;
+    cfg.boilerVol *= ratio;
+    cfg.maxFireKW *= ratio;
+    cfg.superheatC *= ratio;
+    cfg.cyls.forEach(c => { c.bore *= ratio; c.stroke *= ratio; });
+
+    document.querySelectorAll('.scale-btn').forEach(b => {
+      const val = Number(b.dataset.scale);
+      b.classList.remove('active', 'small-active', 'big-active');
+      if (Math.abs(val - sf) < 1e-6) {
+        b.classList.add(sf < 1 ? 'small-active' : (sf > 1 ? 'big-active' : 'active'));
+      }
+    });
+    updateStarterButtons();
+    syncAllControls();
+    sim.smoothPower = 0; sim.smoothTorque = 0; sim.smoothRpm = 0; sim.smoothFlow = 0; sim.scope = [];
+    initState(0.92, sf > 1 ? 14 : 6.5);
+  }
+
+  function applyPreset(key) {
+    const p = PRESETS[key];
+    if (!p) return;
+    const sf = cfg.scaleFactor;
+    cfg.cyls = p.cyls.map(c => makeCyl({ ...c, bore: c.bore * sf, stroke: c.stroke * sf }));
+    cfg.selectedCyl = 0;
+    Object.assign(cfg, {
+      rodRatio: p.rodRatio, flywheelMass: p.flywheelMass * sf, valveType: p.valveType, portScale: p.portScale * sf,
+      boilerType: p.boilerType, fuelType: p.fuelType, safetyBar: p.safetyBar * sf, boilerVol: p.boilerVol * sf,
+      maxFireKW: p.maxFireKW * sf, superheatC: p.superheatC * sf, throttle: p.throttle, reverser: p.reverser,
+      fire: p.fire, load: p.load * sf, exhBar: p.exhBar * sf, governor: p.governor, govRpm: p.govRpm * sf,
+      recipScale: 1.0 * sf, fricScale: 1.0 * sf,
+      shellColor: p.shellColor
+    });
+    applySliderBounds(sf);
+    updateStarterButtons();
+    syncAllControls();
+    initState(0.92, sf > 1 ? 14 : 6.5);
+  }
+
+  function setTimeScale(val) {
+    cfg.timeScale = Math.max(0.02, Math.min(10, Number(val)));
+    $('sTimeScale').value = cfg.timeScale;
+    $('vTimeScale').textContent = `${cfg.timeScale.toFixed(2)}×`;
+    document.querySelectorAll('.time-btn').forEach(b => {
+      b.classList.toggle('active', Math.abs(Number(b.dataset.ts) - cfg.timeScale) < 0.005);
+    });
+  }
+
+  function syncAllControls() {
+    $('sThrottle').value = Math.round(cfg.throttle * 100); $('vThrottle').textContent = `${Math.round(cfg.throttle * 100)}%`;
+    $('sReverser').value = Math.round(cfg.reverser * 100); updateReverserLabel();
+    $('sFire').value = Math.round(cfg.fire * 100); $('vFire').textContent = `${Math.round(cfg.fire * 100)}%`;
+    $('cAutoFire').checked = cfg.autoFire;
+    $('sFeed').value = Math.round(cfg.feed * 100); $('vFeed').textContent = cfg.autoWater ? 'AUTO' : `${Math.round(cfg.feed * 100)}%`;
+    $('cAutoWater').checked = cfg.autoWater;
+    $('sLoad').value = Number((cfg.load * 100).toPrecision(4)); $('vLoad').textContent = `${Number((cfg.load * 100).toFixed(2))}%`;
+    $('cGovernor').checked = cfg.governor; $('govRpmWrap').style.opacity = cfg.governor ? '1' : '0.45';
+    $('sGovRpm').value = Number(cfg.govRpm.toPrecision(4)); $('vGovRpm').textContent = `${Number(cfg.govRpm.toFixed(2))} RPM`;
+
+    $('selValveType').value = cfg.valveType;
+    $('sPortScale').value = Number((cfg.portScale * 100).toPrecision(4)); $('vPortScale').textContent = `${Number((cfg.portScale * 100).toFixed(2))}%`;
+    $('sRodRatio').value = cfg.rodRatio; $('vRodRatio').textContent = cfg.rodRatio.toFixed(1);
+    $('sFlywheel').value = Number(cfg.flywheelMass.toPrecision(4)); $('vFlywheel').textContent = fmtMass(cfg.flywheelMass);
+    $('sRecipScale').value = Number(cfg.recipScale.toPrecision(4)); $('vRecipScale').textContent = `${Number(cfg.recipScale.toFixed(3))}×`;
+    $('sFricScale').value = Number(cfg.fricScale.toPrecision(4)); $('vFricScale').textContent = `${Number(cfg.fricScale.toFixed(3))}×`;
+    $('sExhPress').value = Number(cfg.exhBar.toPrecision(4));
+
+    $('selBoilerType').value = cfg.boilerType;
+    $('selFuelType').value = cfg.fuelType;
+    $('sSafetyP').value = Number(cfg.safetyBar.toPrecision(4));
+    $('sBoilerVol').value = Number((cfg.boilerVol * 1000).toPrecision(4));
+    $('sMaxFire').value = Number(cfg.maxFireKW.toPrecision(4));
+    $('sSuperheat').value = Number(cfg.superheatC.toPrecision(4));
+    $('sAmbTemp').value = cfg.ambTempC;
+    $('cSafetyValve').checked = cfg.safetyValveActive;
+    $('sThermScale').value = cfg.thermScale; $('vThermScale').textContent = `${cfg.thermScale}×`;
+
+    renderCylList();
+    syncSelectedCylUI();
+  }
+
+  function updateReverserLabel() {
+    const pct = Math.round(cfg.reverser * 100);
+    $('vReverser').textContent = pct === 0 ? '0% NEUTRAL' : (pct > 0 ? `+${pct}% FWD` : `${pct}% REV`);
+  }
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-body').forEach(b => b.classList.remove('active'));
+      tab.classList.add('active');
+      $(`tab-${tab.dataset.tab}`).classList.add('active');
+    });
+  });
+
+  // Topbar & Time Scale
+  $('presetSelect').addEventListener('change', e => applyPreset(e.target.value));
+  document.querySelectorAll('.time-btn').forEach(b => b.addEventListener('click', () => setTimeScale(b.dataset.ts)));
+  $('sTimeScale').addEventListener('input', e => setTimeScale(e.target.value));
+  $('btnStep').addEventListener('click', () => {
+    if (!cfg.paused) { cfg.paused = true; $('btnPause').textContent = '▶ Resume'; $('btnPause').classList.add('btn-active'); }
+    stepPhysics(0.008, true);
+  });
+
+  // Controls Tab
+  $('sThrottle').addEventListener('input', e => { cfg.throttle = e.target.value / 100; $('vThrottle').textContent = `${e.target.value}%`; });
+  $('sReverser').addEventListener('input', e => { cfg.reverser = e.target.value / 100; updateReverserLabel(); });
+  document.querySelectorAll('[data-rev]').forEach(btn => btn.addEventListener('click', () => {
+    cfg.reverser = Number(btn.dataset.rev) / 100; $('sReverser').value = btn.dataset.rev; updateReverserLabel();
+  }));
+  $('sFire').addEventListener('input', e => { cfg.fire = e.target.value / 100; cfg.autoFire = false; $('cAutoFire').checked = false; $('vFire').textContent = `${e.target.value}%`; });
+  $('cAutoFire').addEventListener('change', e => { cfg.autoFire = e.target.checked; });
+  $('sFeed').addEventListener('input', e => { cfg.feed = e.target.value / 100; cfg.autoWater = false; $('cAutoWater').checked = false; $('vFeed').textContent = `${e.target.value}%`; });
+  $('cAutoWater').addEventListener('change', e => { cfg.autoWater = e.target.checked; $('vFeed').textContent = cfg.autoWater ? 'AUTO' : `${Math.round(cfg.feed * 100)}%`; });
+  $('sLoad').addEventListener('input', e => { cfg.load = e.target.value / 100; $('vLoad').textContent = `${e.target.value}%`; });
+  $('cGovernor').addEventListener('change', e => { cfg.governor = e.target.checked; $('govRpmWrap').style.opacity = cfg.governor ? '1' : '0.45'; });
+  $('sGovRpm').addEventListener('input', e => { cfg.govRpm = Number(e.target.value); $('vGovRpm').textContent = `${cfg.govRpm} RPM`; });
+
+  // Builder Tab
+  $('btnAddCyl').addEventListener('click', () => setCylinderCount(cfg.cyls.length + 1));
+  $('btnRemCyl').addEventListener('click', () => setCylinderCount(cfg.cyls.length - 1));
+  $('btnSetCylCount').addEventListener('click', () => setCylinderCount(Number($('numCylTarget').value)));
+  $('btnAutoPhase').addEventListener('click', autoPhaseCylinders);
+  $('btnAutoCompound').addEventListener('click', autoCompoundCylinders);
+  $('btnSyncAll').addEventListener('click', () => {
+    const src = cfg.cyls[cfg.selectedCyl];
+    cfg.cyls.forEach(c => {
+      c.bore = src.bore; c.stroke = src.stroke; c.clearance = src.clearance;
+      c.steamLap = src.steamLap; c.valveLead = src.valveLead; c.doubleActing = src.doubleActing;
+    });
+    syncSelectedCylUI();
+  });
+
+  $('selStage').addEventListener('change', e => { cfg.cyls[cfg.selectedCyl].stage = Number(e.target.value); renderCylList(); });
+  $('sBore').addEventListener('input', e => { cfg.cyls[cfg.selectedCyl].bore = Number(e.target.value) / 1000; syncSelectedCylUI(); });
+  $('sStroke').addEventListener('input', e => { cfg.cyls[cfg.selectedCyl].stroke = Number(e.target.value) / 1000; syncSelectedCylUI(); });
+  $('sPhase').addEventListener('input', e => { cfg.cyls[cfg.selectedCyl].phaseDeg = Number(e.target.value); $('vPhase').textContent = `${e.target.value}°`; renderCylList(); });
+  $('sClearance').addEventListener('input', e => { cfg.cyls[cfg.selectedCyl].clearance = Number(e.target.value) / 100; $('vClearance').textContent = `${e.target.value}%`; });
+  $('sLap').addEventListener('input', e => { cfg.cyls[cfg.selectedCyl].steamLap = Number(e.target.value) / 100; $('vLap').textContent = `${e.target.value}%`; });
+  $('sLead').addEventListener('input', e => { cfg.cyls[cfg.selectedCyl].valveLead = Number(e.target.value) / 100; $('vLead').textContent = `${e.target.value}%`; });
+  $('cDoubleActing').addEventListener('change', e => { cfg.cyls[cfg.selectedCyl].doubleActing = e.target.checked; });
+  $('cPvAll').addEventListener('change', e => { cfg.pvAll = e.target.checked; });
+
+  // Mechanics Tab
+  $('selValveType').addEventListener('change', e => { cfg.valveType = e.target.value; });
+  $('sPortScale').addEventListener('input', e => { cfg.portScale = Number(e.target.value) / 100; $('vPortScale').textContent = `${e.target.value}%`; });
+  $('sRodRatio').addEventListener('input', e => { cfg.rodRatio = Number(e.target.value); $('vRodRatio').textContent = cfg.rodRatio.toFixed(1); });
+  $('sFlywheel').addEventListener('input', e => { cfg.flywheelMass = Number(e.target.value); $('vFlywheel').textContent = `${cfg.flywheelMass} kg`; updateSpecReadouts(); });
+  $('sRecipScale').addEventListener('input', e => { cfg.recipScale = Number(e.target.value); $('vRecipScale').textContent = `${cfg.recipScale.toFixed(2)}×`; });
+  $('sFricScale').addEventListener('input', e => { cfg.fricScale = Number(e.target.value); $('vFricScale').textContent = `${cfg.fricScale.toFixed(1)}×`; });
+  $('sExhPress').addEventListener('input', e => { cfg.exhBar = Number(e.target.value); updateSpecReadouts(); });
+  document.querySelectorAll('[data-exh]').forEach(btn => btn.addEventListener('click', () => {
+    cfg.exhBar = Number(btn.dataset.exh); $('sExhPress').value = cfg.exhBar; updateSpecReadouts();
+  }));
+
+  // Boiler Tab
+  $('selBoilerType').addEventListener('change', e => { cfg.boilerType = e.target.value; });
+  $('selFuelType').addEventListener('change', e => { cfg.fuelType = e.target.value; });
+  $('sSafetyP').addEventListener('input', e => { cfg.safetyBar = Number(e.target.value); updateSpecReadouts(); });
+  $('sBoilerVol').addEventListener('input', e => {
+    const oldVol = cfg.boilerVol; cfg.boilerVol = Number(e.target.value) / 1000;
+    const ratio = cfg.boilerVol / oldVol; sim.Mw *= ratio; sim.Ms *= ratio; updateSpecReadouts();
+  });
+  $('sMaxFire').addEventListener('input', e => { cfg.maxFireKW = Number(e.target.value); updateSpecReadouts(); });
+  $('sSuperheat').addEventListener('input', e => { cfg.superheatC = Number(e.target.value); updateSpecReadouts(); });
+  $('sAmbTemp').addEventListener('input', e => { cfg.ambTempC = Number(e.target.value); updateSpecReadouts(); });
+  $('cSafetyValve').addEventListener('change', e => { cfg.safetyValveActive = e.target.checked; });
+  $('sThermScale').addEventListener('input', e => { cfg.thermScale = Number(e.target.value); $('vThermScale').textContent = `${cfg.thermScale}×`; });
+
+  function bindHold(el, prop) {
+    const on = () => { cfg[prop] = true; el.classList.add('btn-active'); };
+    const off = () => { cfg[prop] = false; el.classList.remove('btn-active'); };
+    el.addEventListener('mousedown', on);
+    el.addEventListener('touchstart', e => { e.preventDefault(); on(); });
+    window.addEventListener('mouseup', off);
+    window.addEventListener('touchend', off);
+  }
+  bindHold($('btnWhistle'), 'whistle');
+  bindHold($('btnDrain'), 'drainCocks');
+  bindHold($('btnBlowdown'), 'blowdown');
+
+  document.querySelectorAll('.scale-btn').forEach(b => b.addEventListener('click', () => setScaleMode(b.dataset.scale)));
+  function bindStarter(el) {
+    const on = () => {
+      cfg.starterHold = true;
+      el.classList.add('btn-active');
+      const kick = cfg.scaleFactor > 1 ? 28 : 4.5;
+      sim.omega += (cfg.reverser >= 0 ? kick : -kick);
+    };
+    const off = () => { cfg.starterHold = false; el.classList.remove('btn-active'); };
+    el.addEventListener('mousedown', on);
+    el.addEventListener('touchstart', e => { e.preventDefault(); on(); });
+    window.addEventListener('mouseup', off);
+    window.addEventListener('touchend', off);
+  }
+  bindStarter($('btnBarOver'));
+  bindStarter($('btnTopStarter'));
+  $('btnFullSteam').addEventListener('click', () => {
+    const Ptarget = cfg.safetyBar * 1e5 * 0.96;
+    sim.Tb = steamTsat(Ptarget);
+    const bVol = effBoilerVol();
+    const Vs = Math.max(bVol * 0.05, bVol - sim.Mw / RHO_WATER);
+    sim.Pb = Ptarget; sim.Ms = (Ptarget * Vs) / (R_STEAM * sim.Tb);
+  });
+  $('btnColdStart').addEventListener('click', () => initState(0.0, 0));
+  $('btnReset').addEventListener('click', () => applyPreset($('presetSelect').value));
+  $('btnPause').addEventListener('click', () => {
+    cfg.paused = !cfg.paused;
+    $('btnPause').textContent = cfg.paused ? '▶ Resume' : '⏸ Pause';
+    $('btnPause').classList.toggle('btn-active', cfg.paused);
+  });
+  $('btnUnits').addEventListener('click', () => {
+    cfg.units = cfg.units === 'SI' ? 'IMP' : 'SI';
+    $('btnUnits').textContent = cfg.units === 'SI' ? 'BAR' : 'PSI';
+    syncSelectedCylUI();
+  });
+  $('btnAudio').addEventListener('click', () => {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    audioOn = !audioOn;
+    $('btnAudio').textContent = audioOn ? '🔊 Audio' : '🔇 Audio';
+    $('btnAudio').classList.toggle('btn-active', audioOn);
+  });
+
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault(); cfg.whistle = true; $('btnWhistle').classList.add('btn-active');
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space') { cfg.whistle = false; $('btnWhistle').classList.remove('btn-active'); }
+  });
+
+  // Canvas Interaction: Drag Flywheel OR Click a Cylinder to select it!
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+  function startDrag(e) {
+    const pos = getCanvasPos(e);
+    if (Math.hypot(pos.x - fwHit.cx, pos.y - fwHit.cy) <= fwHit.R + 22) {
+      sim.handGrab = true;
+      sim.handTargetAngle = Math.atan2(pos.y - fwHit.cy, pos.x - fwHit.cx) + Math.PI;
+      canvas.style.cursor = 'grabbing';
+      if (e.cancelable) e.preventDefault();
+      return;
+    }
+    // Check if clicking any cylinder to select it
+    for (let i = 0; i < cfg.cyls.length; i++) {
+      const r = cfg.cyls[i].screenRect;
+      if (pos.x >= r.x && pos.x <= r.x + r.w && pos.y >= r.y && pos.y <= r.y + r.h) {
+        cfg.selectedCyl = i;
+        renderCylList();
+        syncSelectedCylUI();
+        return;
+      }
+    }
+  }
+  function moveDrag(e) {
+    const pos = getCanvasPos(e);
+    if (sim.handGrab) {
+      sim.handTargetAngle = Math.atan2(pos.y - fwHit.cy, pos.x - fwHit.cx) + Math.PI;
+      if (e.cancelable) e.preventDefault();
+    } else {
+      const overFw = Math.hypot(pos.x - fwHit.cx, pos.y - fwHit.cy) <= fwHit.R + 22;
+      canvas.style.cursor = overFw ? 'grab' : 'default';
+    }
+  }
+  function endDrag() { sim.handGrab = false; canvas.style.cursor = 'default'; }
+  canvas.addEventListener('mousedown', startDrag);
+  canvas.addEventListener('touchstart', startDrag, { passive: false });
+  window.addEventListener('mousemove', moveDrag);
+  window.addEventListener('touchmove', moveDrag, { passive: false });
+  window.addEventListener('mouseup', endDrag);
+  window.addEventListener('touchend', endDrag);
+
+  // =========================================================================
+  // MAIN LOOP
+  // =========================================================================
+  let lastT = performance.now();
+  let hudTick = 0;
+
+  function loop(now) {
+    const dt = (now - lastT) / 1000;
+    lastT = now;
+    stepPhysics(dt);
+    renderMain();
+    renderPV();
+    renderScope();
+    hudTick++;
+    if (hudTick % 4 === 0) updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  resizeCanvases();
+  applyPreset('loco2');
+  setTimeScale(1);
+  requestAnimationFrame(loop);
+})();
+
+  // === PHONE OPTIMIZED MODE ===
+  (function initEnginePhoneMode() {
+    let mobileOverride = null;
+    function detectPhone() {
+      return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+    }
+    function applyMobileMode() {
+      const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+      document.body.classList.toggle('mobile-mode', isMob);
+      const btn = document.getElementById('btnMobileToggle');
+      if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+      window.dispatchEvent(new Event('resize'));
+    }
+    const mobBtn = document.getElementById('btnMobileToggle');
+    if (mobBtn) mobBtn.addEventListener('click', () => {
+      mobileOverride = !document.body.classList.contains('mobile-mode');
+      applyMobileMode();
+    });
+    window.addEventListener('resize', applyMobileMode);
+    
+    const wBtn = document.getElementById('btnMobWhistle');
+    if (wBtn) {
+      const down = (e) => { e.preventDefault(); wBtn.classList.add('pressed'); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true })); };
+      const up = (e) => { e.preventDefault(); wBtn.classList.remove('pressed'); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true })); };
+      wBtn.addEventListener('touchstart', down, { passive: false });
+      wBtn.addEventListener('touchend', up, { passive: false });
+      wBtn.addEventListener('touchcancel', up, { passive: false });
+      wBtn.addEventListener('mousedown', down);
+      wBtn.addEventListener('mouseup', up);
+      wBtn.addEventListener('mouseleave', up);
+    }
+
+    applyMobileMode();
+  })();
+
+</script>
+</body>
+</html>
