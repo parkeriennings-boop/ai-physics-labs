@@ -302,6 +302,130 @@
     font-size: 12px;
   }
   input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; width: 14px; height: 14px; }
+
+  /* PHONE OPTIMIZED MODE */
+  html.mobile-mode, body.mobile-mode {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100dvh;
+    width: 100%;
+  }
+  body.mobile-mode #topbar {
+    height: auto;
+    min-height: 48px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  body.mobile-mode #topbar::-webkit-scrollbar { display: none; }
+  body.mobile-mode .brand,
+  body.mobile-mode .top-group {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  body.mobile-mode .top-group:last-child {
+    margin-left: 0;
+  }
+  body.mobile-mode #main {
+    flex-direction: column;
+    overflow: visible;
+    height: auto;
+    flex: none;
+  }
+  body.mobile-mode #canvas-wrap {
+    order: 1;
+    flex: none;
+    width: 100%;
+    height: 55dvh;
+    min-height: 320px;
+    max-height: 520px;
+    touch-action: none;
+  }
+  body.mobile-mode canvas#sim {
+    touch-action: none;
+  }
+  body.mobile-mode #leftbar {
+    order: 2;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--border);
+  }
+  body.mobile-mode #rightbar {
+    order: 3;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  body.mobile-mode .tool-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  body.mobile-mode button,
+  body.mobile-mode select {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+  body.mobile-mode .tool-btn {
+    min-height: 44px;
+    padding: 6px 4px;
+  }
+  body.mobile-mode .stepper button {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  body.mobile-mode input[type="range"] {
+    height: 28px;
+  }
+  body.mobile-mode input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  body.mobile-mode #hud-bottom {
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    padding: 4px 8px;
+    gap: 6px;
+    font-size: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  body.mobile-mode #scope-wrap {
+    right: 6px;
+    top: 6px;
+    bottom: auto;
+    width: 164px;
+    height: 82px;
+    padding: 4px 6px;
+  }
+  body.mobile-mode #scope-canvas {
+    height: 54px;
+  }
+  body.mobile-mode #planetary-quick {
+    top: 6px;
+    left: 6px;
+    padding: 5px 7px;
+    max-width: calc(100% - 178px);
+  }
+  body.mobile-mode #planetary-quick .pill-row button {
+    min-height: 30px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  body.mobile-mode #toast {
+    top: 8px;
+    font-size: 11px;
+    padding: 5px 10px;
+    max-width: 90%;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -353,6 +477,7 @@
     <button id="btn-scope" class="active" title="Toggle live RPM telemetry graph">📈 Graph</button>
     <button id="btn-center" title="Reset camera view">⌖ Center</button>
     <button id="btn-clear" class="danger">✕ Clear</button>
+    <button id="btnMobileToggle" title="Toggle Phone Optimized Mode">📱 Phone</button>
   </div>
 </div>
 
@@ -3601,7 +3726,132 @@ function loop(now) {
   }
   render();
   updateLiveTelemetry();
-  requestAnimationFrame(loop);
+  
+// =========================================================================
+// PHONE OPTIMIZED MODE & TOUCH / PINCH-ZOOM BRIDGE
+// =========================================================================
+(function initMobileMode() {
+  const btnMobile = document.getElementById('btnMobileToggle');
+  let mobileOverride = null;
+
+  function isAutoMobile() {
+    return window.innerWidth <= 860 ||
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+
+  function applyMobileMode(emitResize = true) {
+    const enabled = mobileOverride !== null ? mobileOverride : isAutoMobile();
+    const changed = document.body.classList.contains('mobile-mode') !== enabled;
+    document.body.classList.toggle('mobile-mode', enabled);
+    document.documentElement.classList.toggle('mobile-mode', enabled);
+    if (btnMobile) {
+      btnMobile.textContent = enabled ? '💻 Desktop' : '📱 Phone';
+      btnMobile.classList.toggle('active', enabled);
+    }
+    if (emitResize && changed) {
+      window.dispatchEvent(new Event('resize'));
+    }
+  }
+
+  if (btnMobile) {
+    btnMobile.addEventListener('click', () => {
+      mobileOverride = !document.body.classList.contains('mobile-mode');
+      applyMobileMode(true);
+    });
+  }
+
+  let resizeSyncLock = false;
+  window.addEventListener('resize', () => {
+    if (resizeSyncLock) return;
+    if (mobileOverride === null) {
+      const enabled = isAutoMobile();
+      if (document.body.classList.contains('mobile-mode') !== enabled) {
+        resizeSyncLock = true;
+        applyMobileMode(false);
+        resizeSyncLock = false;
+      }
+    }
+  });
+
+  applyMobileMode(false);
+
+  // Touch-to-mouse + two-finger pinch-zoom & pan bridge on #sim
+  let touchDragging = false;
+  let pinching = false;
+  let pinchPrevDist = 0;
+  let pinchPrevMid = { x: 0, y: 0 };
+  let lastTouchPos = { x: 0, y: 0 };
+
+  function emitMouse(target, type, clientX, clientY, buttons) {
+    target.dispatchEvent(new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+      button: 0,
+      buttons
+    }));
+  }
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && !pinching) {
+      const t = e.touches[0];
+      touchDragging = true;
+      lastTouchPos = { x: t.clientX, y: t.clientY };
+      emitMouse(canvas, 'mousedown', t.clientX, t.clientY, 1);
+    } else if (e.touches.length >= 2) {
+      if (touchDragging) {
+        emitMouse(window, 'mouseup', lastTouchPos.x, lastTouchPos.y, 0);
+        touchDragging = false;
+      }
+      pinching = true;
+      const t0 = e.touches[0], t1 = e.touches[1];
+      pinchPrevDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      pinchPrevMid = { x: (t0.clientX + t1.clientX) * 0.5, y: (t0.clientY + t1.clientY) * 0.5 };
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (pinching && e.touches.length >= 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const curDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const curMid = { x: (t0.clientX + t1.clientX) * 0.5, y: (t0.clientY + t1.clientY) * 0.5 };
+      const rect = canvas.getBoundingClientRect();
+      const worldBefore = screenToWorld(pinchPrevMid.x - rect.left, pinchPrevMid.y - rect.top);
+      const scale = curDist / Math.max(1, pinchPrevDist);
+      cam.zoom = clamp(cam.zoom * scale, 0.1, 4.0);
+      const worldAfter = screenToWorld(curMid.x - rect.left, curMid.y - rect.top);
+      cam.x += worldBefore.x - worldAfter.x;
+      cam.y += worldBefore.y - worldAfter.y;
+      pinchPrevDist = curDist;
+      pinchPrevMid = curMid;
+    } else if (touchDragging && e.touches.length === 1) {
+      const t = e.touches[0];
+      lastTouchPos = { x: t.clientX, y: t.clientY };
+      emitMouse(window, 'mousemove', t.clientX, t.clientY, 1);
+    }
+  }, { passive: false });
+
+  function handleTouchEnd(e) {
+    if (e.touches.length === 0) {
+      if (touchDragging) {
+        emitMouse(window, 'mouseup', lastTouchPos.x, lastTouchPos.y, 0);
+        touchDragging = false;
+      }
+      pinching = false;
+    } else if (e.touches.length === 1 && pinching) {
+      // Keep pinching true until all fingers lift so we don't accidentally spawn/click
+      const t = e.touches[0];
+      lastTouchPos = { x: t.clientX, y: t.clientY };
+    }
+  }
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+})();
+
+requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 </script>

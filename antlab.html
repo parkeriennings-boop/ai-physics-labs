@@ -235,6 +235,86 @@
     .garage-left { border-right: none; border-bottom: 1px solid var(--border); max-height: 280px; }
     .stat-group .hide-sm { display: none; }
   }
+
+  /* === PHONE OPTIMIZED MODE === */
+  body.mobile-mode {
+    height: auto; min-height: 100dvh; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column;
+  }
+  body.mobile-mode .topbar {
+    position: sticky; top: 0; left: 0; right: 0; height: auto;
+    border-radius: 0; border-left: none; border-right: none; border-top: none;
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    justify-content: flex-start; padding: 6px 8px; gap: 6px; order: 1; flex-shrink: 0;
+  }
+  body.mobile-mode .topbar::-webkit-scrollbar { display: none; }
+  body.mobile-mode .row, body.mobile-mode .stat-group { flex-shrink: 0; }
+  body.mobile-mode .brand-pill { display: none; }
+  body.mobile-mode #simCanvas {
+    order: 2; width: 100%; height: 54dvh; min-height: 320px; max-height: 500px;
+    touch-action: none; flex-shrink: 0;
+  }
+  body.mobile-mode #bottomPill {
+    position: static; transform: none; order: 3; margin: 6px 8px 0;
+    text-align: center; white-space: normal; font-size: 10.5px;
+    padding: 5px 10px; border-radius: 10px; box-shadow: none;
+  }
+  body.mobile-mode .dock {
+    position: static; width: 100% !important; height: auto; max-height: none;
+    transform: none !important; border-radius: 0;
+    border-left: none; border-right: none; border-bottom: none;
+    box-shadow: none; flex-shrink: 0; overflow: visible; margin-top: 6px;
+  }
+  body.mobile-mode #leftDock { order: 4; }
+  body.mobile-mode #rightDock { order: 5; }
+  body.mobile-mode .dock-body { max-height: 46dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  body.mobile-mode .dock-toggle { display: none !important; }
+  body.mobile-mode button, body.mobile-mode select { min-height: 36px; font-size: 12px; }
+  body.mobile-mode .stat-pill { padding: 4px 7px; font-size: 11px; }
+  body.mobile-mode #garageOverlay { padding: 6px; }
+  body.mobile-mode .garage-modal { width: 100%; height: 94dvh; border-radius: 14px; }
+  body.mobile-mode .garage-header { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  body.mobile-mode .garage-body { grid-template-columns: 1fr; overflow-y: auto; }
+  body.mobile-mode .garage-left { border-right: none; border-bottom: 1px solid var(--border); max-height: none; overflow: visible; }
+  body.mobile-mode .garage-right { overflow: visible; }
+  body.mobile-mode .parts-grid { overflow: visible; }
+
+  /* Glassmorphic Touch D-Pad + Action Pad (WASD Alpha Ant Mode) */
+  #touchPadAnt {
+    display: none; position: fixed; left: 10px; right: 10px; bottom: 18px; z-index: 35;
+    justify-content: space-between; align-items: flex-end; pointer-events: none;
+  }
+  body.mobile-mode.manual-active #touchPadAnt { display: flex; }
+  .ant-dpad {
+    display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px);
+    gap: 5px; pointer-events: auto;
+  }
+  .ant-actions {
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: auto;
+  }
+  .ant-tkey {
+    background: rgba(13, 20, 34, 0.76); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.24); border-radius: 12px;
+    color: #f1f5ff; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    padding: 0; min-height: 44px; min-width: 44px;
+  }
+  .ant-tkey.pressed {
+    background: rgba(56, 189, 248, 0.55); border-color: #38bdf8;
+    transform: scale(0.95);
+  }
+  .ant-tkey.boost-btn {
+    width: 92px; height: 48px; border-radius: 14px; font-size: 12.5px;
+    background: rgba(245, 158, 11, 0.35); border-color: rgba(251, 191, 36, 0.65);
+  }
+  .ant-tkey.boost-btn.pressed { background: rgba(245, 158, 11, 0.78); color: #0b0f19; }
+  .ant-tkey.phero-btn {
+    width: 92px; height: 48px; border-radius: 14px; font-size: 12.5px;
+    background: rgba(16, 185, 129, 0.35); border-color: rgba(52, 211, 153, 0.65);
+  }
+  .ant-tkey.phero-btn.pressed { background: rgba(16, 185, 129, 0.78); color: #04130d; }
 </style>
 </head>
 <body>
@@ -279,6 +359,7 @@
     <div class="div"></div>
     <button id="btnManual" class="sm cyan" title="Take direct WASD control of the Alpha Scout Ant">🎮 WASD</button>
     <button id="btnNextGen" class="sm" title="Evolve Next Generation Now">🧬 Evolve</button>
+    <button id="btnMobileToggle" class="sm" title="Toggle Phone/Desktop Layout">📱 Phone</button>
   </div>
 </div>
 
@@ -404,6 +485,21 @@
 </div>
 
 <div id="bottomPill">Click/Drag: Drop Food or Paint Walls · Right-Drag: Pan · Scroll: Zoom · WASD: Control Alpha Ant (in WASD mode)</div>
+
+<!-- Glassmorphic Touch Controls for WASD Alpha Ant Mode -->
+<div id="touchPadAnt" aria-label="Alpha Ant Touch Controls">
+  <div class="ant-dpad">
+    <div></div><button class="ant-tkey" id="antUp" aria-label="Move Forward">▲</button><div></div>
+    <button class="ant-tkey" id="antLeft" aria-label="Turn Left">◀</button>
+    <button class="ant-tkey" id="antDown" aria-label="Reverse">▼</button>
+    <button class="ant-tkey" id="antRight" aria-label="Turn Right">▶</button>
+    <div></div><div></div><div></div>
+  </div>
+  <div class="ant-actions">
+    <button class="ant-tkey phero-btn" id="antPhero">✨ PHERO</button>
+    <button class="ant-tkey boost-btn" id="antBoost">⚡ BOOST</button>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -944,7 +1040,8 @@
         const boost = input.keys.has('ShiftLeft') || input.keys.has('ShiftRight') ? 1.55 : 1.0;
         a.angle += turn * 4.2 * dt;
         a.speed = fwd * maxSpeed * 1.25 * boost;
-        depositPhero(a.carrying > 0 ? pheroFood : pheroHome, a.x, a.y, pheroStrength * 2.5);
+        const pheroMult = input.keys.has('Space') ? 6.0 : 2.5;
+        depositPhero(a.carrying > 0 ? pheroFood : pheroHome, a.x, a.y, pheroStrength * pheroMult);
       } else {
         // Neural Network Sensor Suite
         const cosA = Math.cos(a.angle), sinA = Math.sin(a.angle);
@@ -1148,15 +1245,19 @@
   function fitCamera() {
     cam.x = WORLD_W / 2;
     cam.y = WORLD_H / 2;
-    const zx = (canvas.width - 560) / WORLD_W;
-    const zy = (canvas.height - 90) / WORLD_H;
-    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.08, 0.35, 1.15);
+    const isMob = document.body.classList.contains('mobile-mode');
+    const padX = isMob ? 24 : 560;
+    const padY = isMob ? 24 : 90;
+    const zx = Math.max(120, canvas.width - padX) / WORLD_W;
+    const zy = Math.max(120, canvas.height - padY) / WORLD_H;
+    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.08, 0.28, 1.15);
   }
 
   function screenToWorld(sx, sy) {
+    const r = canvas.getBoundingClientRect();
     return {
-      x: (sx - canvas.width / 2) / cam.zoom + cam.x,
-      y: (sy - canvas.height / 2) / cam.zoom + cam.y
+      x: ((sx - r.left) - canvas.width / 2) / cam.zoom + cam.x,
+      y: ((sy - r.top) - canvas.height / 2) / cam.zoom + cam.y
     };
   }
 
@@ -1619,7 +1720,16 @@
     }
   }
 
-  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  function resize() {
+    if (document.body.classList.contains('mobile-mode')) {
+      const r = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(r.width || window.innerWidth));
+      canvas.height = Math.max(1, Math.round(r.height || 360));
+    } else {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+  }
   window.addEventListener('resize', resize);
   resize();
 
@@ -1692,6 +1802,7 @@
   document.getElementById('btnManual').addEventListener('click', e => {
     state.manualMode = !state.manualMode;
     e.target.classList.toggle('active', state.manualMode);
+    document.body.classList.toggle('manual-active', state.manualMode);
     if (state.manualMode) {
       state.simSpeed = 1;
       document.querySelectorAll('.spd-btn').forEach(x => x.classList.toggle('active', x.dataset.spd === '1'));
@@ -1815,6 +1926,121 @@
 
     requestAnimationFrame(loop);
   }
+
+
+  // =========================================================================
+  // PHONE OPTIMIZED MODE + TOUCH BRIDGE + ALPHA ANT D-PAD
+  // =========================================================================
+  let mobileOverride = null;
+  let applyingMobile = false;
+  function detectPhone() {
+    return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+  function applyMobileMode(dispatchResize) {
+    if (applyingMobile) return;
+    applyingMobile = true;
+    const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+    document.body.classList.toggle('mobile-mode', isMob);
+    document.body.classList.toggle('manual-active', state.manualMode);
+    const btn = document.getElementById('btnMobileToggle');
+    if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+    resize();
+    if (dispatchResize) window.dispatchEvent(new Event('resize'));
+    applyingMobile = false;
+  }
+  const btnMobAnt = document.getElementById('btnMobileToggle');
+  if (btnMobAnt) {
+    btnMobAnt.addEventListener('click', () => {
+      mobileOverride = !document.body.classList.contains('mobile-mode');
+      applyMobileMode(true);
+      fitCamera();
+    });
+  }
+  window.addEventListener('resize', () => applyMobileMode(false));
+
+  // Touch-to-Mouse + Two-Finger Pinch-Zoom & Pan Bridge on simCanvas
+  let antPinchDist = 0, antPinchMidX = 0, antPinchMidY = 0, antTouchActive = false;
+  canvas.addEventListener('touchstart', e => {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    if (e.touches.length >= 2) {
+      if (antTouchActive) {
+        window.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+        antTouchActive = false;
+      }
+      const t0 = e.touches[0], t1 = e.touches[1];
+      antPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+      antPinchMidX = (t0.clientX + t1.clientX) * 0.5;
+      antPinchMidY = (t0.clientY + t1.clientY) * 0.5;
+      return;
+    }
+    const t = e.touches[0];
+    antTouchActive = true;
+    canvas.dispatchEvent(new MouseEvent('mousedown', {
+      button: 0, buttons: 1, clientX: t.clientX, clientY: t.clientY, bubbles: true
+    }));
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    if (e.touches.length >= 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+      const midX = (t0.clientX + t1.clientX) * 0.5;
+      const midY = (t0.clientY + t1.clientY) * 0.5;
+      if (antPinchDist > 0) {
+        const before = screenToWorld(midX, midY);
+        cam.targetZoom = clamp(cam.targetZoom * (dist / antPinchDist), 0.3, 2.4);
+        cam.zoom = cam.targetZoom;
+        const after = screenToWorld(midX, midY);
+        cam.x += before.x - after.x - (midX - antPinchMidX) / cam.zoom;
+        cam.y += before.y - after.y - (midY - antPinchMidY) / cam.zoom;
+      }
+      antPinchDist = dist;
+      antPinchMidX = midX;
+      antPinchMidY = midY;
+      return;
+    }
+    if (antTouchActive) {
+      const t = e.touches[0];
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        button: 0, buttons: 1, clientX: t.clientX, clientY: t.clientY, bubbles: true
+      }));
+    }
+  }, { passive: false });
+
+  function antEndTouch(e) {
+    if (e.touches.length < 2) antPinchDist = 0;
+    if (e.touches.length === 0 && antTouchActive) {
+      antTouchActive = false;
+      window.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+    }
+  }
+  canvas.addEventListener('touchend', antEndTouch, { passive: false });
+  canvas.addEventListener('touchcancel', antEndTouch, { passive: false });
+
+  // Bind Glassmorphic Touch D-Pad + Action Buttons
+  function bindAntTouchKey(id, code) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const on = e => { e.preventDefault(); input.keys.add(code); el.classList.add('pressed'); };
+    const off = e => { e.preventDefault(); input.keys.delete(code); el.classList.remove('pressed'); };
+    el.addEventListener('touchstart', on, { passive: false });
+    el.addEventListener('touchend', off, { passive: false });
+    el.addEventListener('touchcancel', off, { passive: false });
+    el.addEventListener('mousedown', on);
+    el.addEventListener('mouseup', off);
+    el.addEventListener('mouseleave', off);
+  }
+  bindAntTouchKey('antUp', 'KeyW');
+  bindAntTouchKey('antDown', 'KeyS');
+  bindAntTouchKey('antLeft', 'KeyA');
+  bindAntTouchKey('antRight', 'KeyD');
+  bindAntTouchKey('antBoost', 'ShiftLeft');
+  bindAntTouchKey('antPhero', 'Space');
+
+  applyMobileMode(false);
 
   // Boot!
   recomputeAntStats();

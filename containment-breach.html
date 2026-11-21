@@ -229,6 +229,81 @@
     #toggleLeft { left: 236px; }
     #toggleRight { right: 244px; }
   }
+
+  /* === PHONE OPTIMIZED MODE === */
+  body.mobile-mode {
+    height: auto; min-height: 100dvh; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column;
+  }
+  body.mobile-mode #topBar {
+    position: sticky; top: 0; left: 0; right: 0; height: auto;
+    border-radius: 0; border-left: none; border-right: none; border-top: none;
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    justify-content: flex-start; padding: 6px 8px; gap: 6px; order: 1; flex-shrink: 0;
+  }
+  body.mobile-mode #topBar::-webkit-scrollbar { display: none; }
+  body.mobile-mode .top-group, body.mobile-mode .stats-bar { flex-shrink: 0; }
+  body.mobile-mode .brand span:last-child { font-size: 12.5px; }
+  body.mobile-mode .brand-badge { display: none; }
+  body.mobile-mode #gameCanvas {
+    order: 2; width: 100%; height: 54dvh; min-height: 320px; max-height: 500px;
+    touch-action: none; flex-shrink: 0;
+  }
+  body.mobile-mode #leftDock, body.mobile-mode #rightDock {
+    position: static; width: 100%; height: auto; max-height: none;
+    transform: none !important; border-radius: 0;
+    border-left: none; border-right: none; border-bottom: none;
+    box-shadow: none; flex-shrink: 0; overflow: visible;
+  }
+  body.mobile-mode #leftDock { order: 3; }
+  body.mobile-mode #rightDock { order: 4; }
+  body.mobile-mode .dock-scroll { max-height: 44dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  body.mobile-mode .dock-toggle { display: none !important; }
+  body.mobile-mode #hintBar { display: none !important; }
+  body.mobile-mode #possessBanner {
+    bottom: 8px; left: 8px; right: 8px; transform: none;
+    padding: 6px 10px; gap: 8px; flex-wrap: wrap; justify-content: space-between;
+  }
+  body.mobile-mode #possessBanner .p-keys { display: none; }
+  body.mobile-mode #possessBanner .p-title { font-size: 11.5px; }
+  body.mobile-mode button, body.mobile-mode select { min-height: 36px; font-size: 12px; }
+  body.mobile-mode .stat-pill { padding: 4px 6px; font-size: 11px; }
+
+  /* Glassmorphic Touch D-Pad + Action Pad (Possess Mode) */
+  #touchPadCB {
+    display: none; position: fixed; left: 10px; right: 10px; bottom: 72px; z-index: 28;
+    justify-content: space-between; align-items: flex-end; pointer-events: none;
+  }
+  body.mobile-mode.possess-active #touchPadCB { display: flex; }
+  .cb-dpad {
+    display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px);
+    gap: 5px; pointer-events: auto;
+  }
+  .cb-actions {
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: auto;
+  }
+  .cb-act-row { display: flex; gap: 6px; }
+  .touch-key {
+    background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(148, 163, 184, 0.35); border-radius: 12px;
+    color: #f8fafc; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    padding: 0; min-height: 44px; min-width: 44px;
+  }
+  .touch-key.pressed {
+    background: rgba(56, 189, 248, 0.52); border-color: #38bdf8;
+    transform: scale(0.95);
+  }
+  .touch-key.fire-btn {
+    width: 86px; height: 54px; border-radius: 16px; font-size: 13px;
+    background: rgba(239, 68, 68, 0.42); border-color: rgba(248, 113, 113, 0.7);
+  }
+  .touch-key.fire-btn.pressed { background: rgba(239, 68, 68, 0.78); }
+  .touch-key.sub-btn {
+    padding: 0 11px; height: 38px; min-height: 38px; font-size: 11px; border-radius: 10px;
+  }
 </style>
 </head>
 <body>
@@ -273,6 +348,7 @@
     <button id="btnNight" title="Toggle Daylight / Night Power-Outage">☀ Day</button>
     <button id="btnResetCam" class="sm" title="Center Camera (C)">⌖ Fit</button>
     <button id="btnResetMap" class="danger sm" title="Reload Current Map">↻ Reset</button>
+    <button id="btnMobileToggle" class="sm" title="Toggle Phone/Desktop Layout">📱 Phone</button>
   </div>
 </div>
 
@@ -549,6 +625,24 @@
 
 <div id="hintBar">Left-Click/Drag: Place or Paint · Right-Drag / WASD: Pan · Scroll: Zoom · Space: Pause · Click Door in Door Mode to Lock/Barricade</div>
 
+<!-- Glassmorphic Touch Controls for Possess Mode -->
+<div id="touchPadCB" aria-label="Touch Controls">
+  <div class="cb-dpad">
+    <div></div><button class="touch-key" id="cbUp" aria-label="Move Up">▲</button><div></div>
+    <button class="touch-key" id="cbLeft" aria-label="Move Left">◀</button>
+    <button class="touch-key" id="cbDown" aria-label="Move Down">▼</button>
+    <button class="touch-key" id="cbRight" aria-label="Move Right">▶</button>
+    <div></div><div></div><div></div>
+  </div>
+  <div class="cb-actions">
+    <div class="cb-act-row">
+      <button class="touch-key sub-btn" id="cbDoor">🔑 Door</button>
+      <button class="touch-key sub-btn" id="cbReload">↻ Reload</button>
+    </div>
+    <button class="touch-key fire-btn" id="cbShoot">🔥 FIRE</button>
+  </div>
+</div>
+
 <script>
 (() => {
   'use strict';
@@ -769,9 +863,10 @@
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
   function dist2(x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1; return dx * dx + dy * dy; }
   function screenToWorld(sx, sy) {
+    const r = canvas.getBoundingClientRect();
     return {
-      x: (sx - canvas.width / 2) / cam.zoom + cam.x,
-      y: (sy - canvas.height / 2) / cam.zoom + cam.y
+      x: ((sx - r.left) - canvas.width / 2) / cam.zoom + cam.x,
+      y: ((sy - r.top) - canvas.height / 2) / cam.zoom + cam.y
     };
   }
   function worldToScreen(wx, wy) {
@@ -1255,9 +1350,12 @@
   function resetCamera() {
     cam.x = WORLD_W / 2;
     cam.y = WORLD_H / 2;
-    const zx = (canvas.width - 540) / WORLD_W;
-    const zy = (canvas.height - 90) / WORLD_H;
-    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.18, 0.35, 1.1);
+    const isMob = document.body.classList.contains('mobile-mode');
+    const padX = isMob ? 24 : 540;
+    const padY = isMob ? 24 : 90;
+    const zx = Math.max(120, canvas.width - padX) / WORLD_W;
+    const zy = Math.max(120, canvas.height - padY) / WORLD_H;
+    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.18, 0.25, 1.1);
   }
 
   // =========================================================================
@@ -1565,7 +1663,7 @@
         }
         u.angle = Math.atan2(input.worldY - u.y, input.worldX - u.x);
 
-        if (input.leftDown) {
+        if (input.leftDown || input.keys.has('Space')) {
           if (u.faction === 'human') {
             const def = HUMAN_DEFS[u.kind] || HUMAN_DEFS.survivor;
             if (u.fireCd <= 0) {
@@ -2664,8 +2762,14 @@
   // INPUT HANDLERS
   // =========================================================================
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    if (document.body.classList.contains('mobile-mode')) {
+      const r = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(r.width || window.innerWidth));
+      canvas.height = Math.max(1, Math.round(r.height || 360));
+    } else {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
   }
   window.addEventListener('resize', resize);
   resize();
@@ -2765,7 +2869,7 @@
 
     if (e.code === 'Space') {
       e.preventDefault();
-      togglePause();
+      if (state.mode !== 'possess') togglePause();
     } else if (e.code === 'Escape') {
       if (state.mode === 'possess') exitPossess();
     } else if (e.code === 'KeyC' && state.mode === 'director') {
@@ -2822,6 +2926,7 @@
   function updateModeButtons() {
     document.getElementById('btnModeDirector').classList.toggle('active', state.mode === 'director');
     document.getElementById('btnModePossess').classList.toggle('active', state.mode === 'possess');
+    document.body.classList.toggle('possess-active', state.mode === 'possess');
   }
   document.getElementById('btnModeDirector').addEventListener('click', () => exitPossess());
   document.getElementById('btnModePossess').addEventListener('click', () => {
@@ -3025,6 +3130,134 @@
 
     requestAnimationFrame(loop);
   }
+
+
+  // =========================================================================
+  // PHONE OPTIMIZED MODE + TOUCH BRIDGE + POSSESS D-PAD
+  // =========================================================================
+  let mobileOverride = null;
+  let applyingMobile = false;
+  function detectPhone() {
+    return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+  function applyMobileMode(dispatchResize) {
+    if (applyingMobile) return;
+    applyingMobile = true;
+    const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+    document.body.classList.toggle('mobile-mode', isMob);
+    document.body.classList.toggle('possess-active', state.mode === 'possess');
+    const btn = document.getElementById('btnMobileToggle');
+    if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+    resize();
+    if (dispatchResize) window.dispatchEvent(new Event('resize'));
+    applyingMobile = false;
+  }
+  const btnMobCB = document.getElementById('btnMobileToggle');
+  if (btnMobCB) {
+    btnMobCB.addEventListener('click', () => {
+      mobileOverride = !document.body.classList.contains('mobile-mode');
+      applyMobileMode(true);
+      resetCamera();
+      logEvent(mobileOverride ? 'Phone Optimized Mode enabled.' : 'Desktop Mode enabled.');
+    });
+  }
+  window.addEventListener('resize', () => applyMobileMode(false));
+
+  // Touch-to-Mouse + Two-Finger Pinch-Zoom & Pan Bridge on gameCanvas
+  let cbPinchDist = 0, cbPinchMidX = 0, cbPinchMidY = 0, cbTouchActive = false;
+  canvas.addEventListener('touchstart', e => {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    if (e.touches.length >= 2) {
+      if (cbTouchActive) {
+        window.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+        cbTouchActive = false;
+      }
+      const t0 = e.touches[0], t1 = e.touches[1];
+      cbPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+      cbPinchMidX = (t0.clientX + t1.clientX) * 0.5;
+      cbPinchMidY = (t0.clientY + t1.clientY) * 0.5;
+      return;
+    }
+    const t = e.touches[0];
+    cbTouchActive = true;
+    canvas.dispatchEvent(new MouseEvent('mousedown', {
+      button: 0, buttons: 1, clientX: t.clientX, clientY: t.clientY, bubbles: true
+    }));
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    if (e.touches.length >= 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+      const midX = (t0.clientX + t1.clientX) * 0.5;
+      const midY = (t0.clientY + t1.clientY) * 0.5;
+      if (cbPinchDist > 0) {
+        const before = screenToWorld(midX, midY);
+        cam.targetZoom = clamp(cam.targetZoom * (dist / cbPinchDist), 0.25, 2.5);
+        cam.zoom = cam.targetZoom;
+        const after = screenToWorld(midX, midY);
+        cam.x += before.x - after.x - (midX - cbPinchMidX) / cam.zoom;
+        cam.y += before.y - after.y - (midY - cbPinchMidY) / cam.zoom;
+      }
+      cbPinchDist = dist;
+      cbPinchMidX = midX;
+      cbPinchMidY = midY;
+      return;
+    }
+    if (cbTouchActive) {
+      const t = e.touches[0];
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        button: 0, buttons: 1, clientX: t.clientX, clientY: t.clientY, bubbles: true
+      }));
+    }
+  }, { passive: false });
+
+  function cbEndTouch(e) {
+    if (e.touches.length < 2) cbPinchDist = 0;
+    if (e.touches.length === 0 && cbTouchActive) {
+      cbTouchActive = false;
+      window.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+    }
+  }
+  canvas.addEventListener('touchend', cbEndTouch, { passive: false });
+  canvas.addEventListener('touchcancel', cbEndTouch, { passive: false });
+
+  // Bind Glassmorphic Touch D-Pad + Action Buttons
+  function bindCBTouchKey(id, code, triggerKeydown) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const on = e => {
+      e.preventDefault();
+      input.keys.add(code);
+      if (code === 'Space') input.leftDown = true;
+      if (triggerKeydown) window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+      el.classList.add('pressed');
+    };
+    const off = e => {
+      e.preventDefault();
+      input.keys.delete(code);
+      if (code === 'Space') input.leftDown = false;
+      el.classList.remove('pressed');
+    };
+    el.addEventListener('touchstart', on, { passive: false });
+    el.addEventListener('touchend', off, { passive: false });
+    el.addEventListener('touchcancel', off, { passive: false });
+    el.addEventListener('mousedown', on);
+    el.addEventListener('mouseup', off);
+    el.addEventListener('mouseleave', off);
+  }
+  bindCBTouchKey('cbUp', 'KeyW', false);
+  bindCBTouchKey('cbDown', 'KeyS', false);
+  bindCBTouchKey('cbLeft', 'KeyA', false);
+  bindCBTouchKey('cbRight', 'KeyD', false);
+  bindCBTouchKey('cbShoot', 'Space', false);
+  bindCBTouchKey('cbDoor', 'KeyE', true);
+  bindCBTouchKey('cbReload', 'KeyR', true);
+
+  applyMobileMode(false);
 
   // Boot!
   loadMap('compound');

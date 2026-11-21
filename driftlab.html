@@ -958,6 +958,55 @@
 #dlTutModal .tut-btn--finish { border: 1px solid rgba(244,63,94,0.55); background: linear-gradient(135deg, #f43f5e, #e11d48); color: #fff; }
 @media (max-width: 600px) { #dlTutModal .tut-grid-2, #dlTutModal .tut-grid-3 { grid-template-columns: 1fr; } }
 
+
+  /* === PHONE OPTIMIZED MODE + TOUCH DRIFT PAD === */
+  .touch-drift-pad {
+    display: none;
+    position: absolute; bottom: 58px; left: 10px; right: 10px;
+    justify-content: space-between; align-items: flex-end;
+    pointer-events: none; z-index: 25;
+  }
+  .td-group { display: flex; gap: 8px; pointer-events: auto; align-items: flex-end; }
+  .td-btn {
+    width: 56px; height: 56px; border-radius: 16px;
+    border: 1.5px solid rgba(56, 189, 248, 0.55);
+    background: rgba(10, 16, 30, 0.78); backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: #f8fafc; font-size: 16px; font-weight: 800;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  }
+  .td-btn span { font-size: 9px; font-weight: 700; opacity: 0.85; }
+  .td-btn.gas { border-color: rgba(52, 211, 153, 0.65); background: rgba(16, 185, 129, 0.28); }
+  .td-btn.nitro { width: 62px; height: 62px; border-radius: 50%; border-color: rgba(244, 63, 94, 0.75); background: linear-gradient(135deg, rgba(244, 63, 94, 0.85), rgba(245, 158, 11, 0.85)); }
+  .td-btn.pressed { transform: scale(0.92); filter: brightness(1.25); }
+
+  body.mobile-mode { height: auto !important; min-height: 100dvh; overflow-y: auto !important; overflow-x: hidden; }
+  body.mobile-mode .app-shell { height: auto !important; min-height: 100dvh; padding: 8px; gap: 10px; }
+  body.mobile-mode .topbar { flex-wrap: wrap; padding: 8px 10px; gap: 8px; }
+  body.mobile-mode .brand-sub, body.mobile-mode .brand-title .tag { display: none !important; }
+  body.mobile-mode .tab-switch { order: 3; width: 100%; display: flex; }
+  body.mobile-mode .tab-btn { flex: 1; min-height: 38px; font-size: 13px; }
+  body.mobile-mode .header-meta { margin-left: auto; gap: 6px; }
+  body.mobile-mode #hdr-fps { display: none !important; }
+  body.mobile-mode #view-garage.active { display: flex !important; flex-direction: column !important; height: auto !important; gap: 10px; }
+  body.mobile-mode .garage-left, body.mobile-mode .garage-right { width: 100% !important; min-width: 0; }
+  body.mobile-mode .preview-wrap { height: 220px !important; touch-action: none; }
+  body.mobile-mode #view-arena.active { display: flex !important; flex-direction: column !important; height: auto !important; gap: 10px; }
+  body.mobile-mode .arena-stage-col { order: 1; width: 100% !important; min-width: 0; }
+  body.mobile-mode .arena-canvas-card { height: 56dvh !important; min-height: 330px; max-height: 520px; touch-action: none; }
+  body.mobile-mode .arena-sidebar { order: 2; width: 100% !important; min-width: 0; }
+  body.mobile-mode .hud-top { top: 6px; left: 6px; right: 6px; gap: 4px; flex-wrap: wrap; }
+  body.mobile-mode .hud-pill { padding: 4px 6px; }
+  body.mobile-mode .hud-k { font-size: 8.5px; }
+  body.mobile-mode .hud-v { font-size: 11.5px; }
+  body.mobile-mode .hud-bottom { bottom: 6px; left: 6px; right: 6px; }
+  body.mobile-mode .drift-banner { padding: 5px 10px; gap: 10px; }
+  body.mobile-mode #wasd-hint { display: none !important; }
+  body.mobile-mode.manual-active .touch-drift-pad { display: flex !important; }
+  body.mobile-mode .btn, body.mobile-mode .mini-btn, body.mobile-mode select { min-height: 36px; }
+
 </style>
 </head>
 <body>
@@ -981,6 +1030,7 @@
 
     <div class="header-meta">
       <button class="btn-tut-open" id="btnTutorial" title="Open Interactive Tutorial">❓ Tutorial</button>
+      <button class="btn" id="btnMobileToggle" title="Toggle Phone/Desktop Layout">📱 Phone</button>
       <span class="status-pill"><span class="pulse-dot"></span><span id="hdr-build-label">Touge King</span></span>
       <span class="status-pill" id="hdr-fps">60 FPS</span>
     </div>
@@ -1082,6 +1132,19 @@
               <span class="hud-k">Lat Slip</span>
               <span class="hud-v" id="hud-slip">0.0</span>
             </div>
+          </div>
+        </div>
+
+        <!-- On-Screen Touch Drift Pad (Phone Mode + Manual WASD) -->
+        <div class="touch-drift-pad" id="touchDriftPad">
+          <div class="td-group">
+            <button class="td-btn" id="tdLeft">◀<span>LEFT</span></button>
+            <button class="td-btn" id="tdRight">▶<span>RIGHT</span></button>
+          </div>
+          <div class="td-group">
+            <button class="td-btn" id="tdBrake">🛑<span>BRK</span></button>
+            <button class="td-btn gas" id="tdGas">▲<span>GAS</span></button>
+            <button class="td-btn nitro" id="tdNitro">🔥<span>NITRO</span></button>
           </div>
         </div>
 
@@ -2845,6 +2908,7 @@
     e.target.classList.toggle('btn-cyan', manualMode);
     e.target.classList.toggle('btn-rose', !manualMode);
     document.getElementById('wasd-hint').classList.toggle('visible', manualMode);
+      document.body.classList.toggle('manual-active', manualMode);
     document.getElementById('sim-state-tag').textContent = manualMode ? 'MANUAL' : 'TRAINING';
     skidMarks.length = 0;
     smokeParticles.length = 0;
@@ -3047,6 +3111,56 @@
   });
   if (!hasSeen()) openModal(0);
 })();
+
+
+  // === PHONE OPTIMIZED MODE + TOUCH DRIFT CONTROLS ===
+  (function initDriftMobileMode() {
+    let mobileOverride = null;
+    function detectPhone() {
+      return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+    }
+    function applyMobileMode() {
+      const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+      document.body.classList.toggle('mobile-mode', isMob);
+      const btn = document.getElementById('btnMobileToggle');
+      if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+      window.dispatchEvent(new Event('resize'));
+    }
+    const mobBtn = document.getElementById('btnMobileToggle');
+    if (mobBtn) mobBtn.addEventListener('click', () => {
+      mobileOverride = !document.body.classList.contains('mobile-mode');
+      applyMobileMode();
+    });
+    window.addEventListener('resize', applyMobileMode);
+
+    function bindDriftKey(id, keyVal) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const press = (e) => {
+        e.preventDefault();
+        el.classList.add('pressed');
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: keyVal, bubbles: true }));
+      };
+      const release = (e) => {
+        e.preventDefault();
+        el.classList.remove('pressed');
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: keyVal, bubbles: true }));
+      };
+      el.addEventListener('touchstart', press, { passive: false });
+      el.addEventListener('touchend', release, { passive: false });
+      el.addEventListener('touchcancel', release, { passive: false });
+      el.addEventListener('mousedown', press);
+      el.addEventListener('mouseup', release);
+      el.addEventListener('mouseleave', release);
+    }
+    bindDriftKey('tdLeft', 'ArrowLeft');
+    bindDriftKey('tdRight', 'ArrowRight');
+    bindDriftKey('tdGas', 'ArrowUp');
+    bindDriftKey('tdBrake', 'ArrowDown');
+    bindDriftKey('tdNitro', ' ');
+
+    applyMobileMode();
+  })();
 
 </script>
 </body>

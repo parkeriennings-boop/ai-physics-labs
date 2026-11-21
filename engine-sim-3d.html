@@ -74,7 +74,7 @@
   }
   #viewport { position: relative; width: 100%; height: 100%; min-height: 0; cursor: grab; }
   #viewport:active { cursor: grabbing; }
-  #viewport canvas { display: block; width: 100%; height: 100%; }
+  #viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
   .overlay-top-left { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
   .pill-row { display: flex; gap: 5px; flex-wrap: wrap; pointer-events: auto; }
@@ -191,13 +191,187 @@
   .preset-btn:hover { border-color: var(--accent); color: #fff; background: rgba(56,189,248,0.08); }
   .preset-sub { display: block; font-size: 9.5px; color: var(--muted); font-weight: 500; margin-top: 1px; }
   .hidden { display: none !important; }
-  @media (max-width: 900px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: 48px minmax(260px, 52vh) 1fr; }
-    .stage { grid-template-rows: 1fr 125px; }
-    aside { border-left: none; border-top: 1px solid var(--border); }
-    .rpm-box { min-width: 145px; padding: 5px 9px; }
-    .rpm-val { font-size: 22px; }
-    .cam-hint { display: none; }
+  /* Phone Optimized Mode & Touch Drive Bar */
+  .mobile-drive-bar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 8px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .mobile-drive-bar .mob-btn {
+    min-height: 38px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 800;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .mob-thr-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+  }
+  .mob-thr-btn {
+    min-width: 58px;
+    text-align: center;
+  }
+  .mob-thr-btn.pressed {
+    background: rgba(56, 189, 248, 0.24);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .mob-thr-val {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 44px;
+    text-align: center;
+  }
+
+  html:has(body.mobile-mode), body.mobile-mode {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100dvh;
+  }
+  body.mobile-mode .app {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+  }
+  body.mobile-mode header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    flex-wrap: wrap;
+    height: auto;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  body.mobile-mode .brand {
+    font-size: 12px;
+    gap: 6px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  body.mobile-mode .badge {
+    font-size: 9.5px;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body.mobile-mode .header-controls {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 5px;
+    padding-bottom: 2px;
+  }
+  body.mobile-mode .header-controls::-webkit-scrollbar { display: none; }
+  body.mobile-mode .stage {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+  body.mobile-mode #viewport {
+    height: 52dvh;
+    min-height: 300px;
+    max-height: 480px;
+    width: 100%;
+    flex-shrink: 0;
+    touch-action: none;
+  }
+  body.mobile-mode .mobile-drive-bar { display: flex; }
+  body.mobile-mode .overlay-top-left {
+    top: 6px;
+    left: 6px;
+    gap: 4px;
+    max-width: 58%;
+  }
+  body.mobile-mode .pill-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
+  }
+  body.mobile-mode .pill-row::-webkit-scrollbar { display: none; }
+  body.mobile-mode .pill {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  body.mobile-mode .hud-top-right {
+    top: 6px;
+    right: 6px;
+    gap: 3px;
+    max-width: 40%;
+  }
+  body.mobile-mode .rpm-box {
+    min-width: 112px;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+  body.mobile-mode .rpm-val { font-size: 19px; }
+  body.mobile-mode .rpm-lbl { font-size: 8.5px; }
+  body.mobile-mode .cyl-badges {
+    max-width: 148px;
+    max-height: 52px;
+    overflow-y: auto;
+  }
+  body.mobile-mode .cam-hint { display: none; }
+  body.mobile-mode .charts-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 136px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 520px) {
+    body.mobile-mode .charts-bar {
+      grid-template-columns: 1fr;
+      height: 220px;
+    }
+  }
+  body.mobile-mode aside {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  body.mobile-mode .sidebar-scroll {
+    overflow: visible;
+    padding: 10px;
+    gap: 10px;
+  }
+  body.mobile-mode .btn,
+  body.mobile-mode .seg-btn,
+  body.mobile-mode .tab-btn,
+  body.mobile-mode .choice-btn,
+  body.mobile-mode .preset-btn,
+  body.mobile-mode .starter-btn,
+  body.mobile-mode .ign-btn,
+  body.mobile-mode .spark-btn,
+  body.mobile-mode .cyl-stepper button {
+    min-height: 36px;
+  }
+  body.mobile-mode input[type="range"] {
+    height: 28px;
   }
 </style>
 </head>
@@ -209,6 +383,7 @@
       <span class="badge" id="hdrEngineTag">4S GAS · INLINE-1 · 450cc</span>
     </div>
     <div class="header-controls">
+      <button class="btn" id="btnMobileToggle" title="Toggle Phone Optimized Mode">📱 Phone</button>
       <div class="seg-group" id="timeGroup">
         <button class="seg-btn" data-scale="0.02">0.02x</button>
         <button class="seg-btn" data-scale="0.06">0.06x</button>
@@ -252,6 +427,16 @@
       </div>
 
       <div class="cam-hint">Drag: Orbit · Scroll: Zoom · Right/Shift-Drag: Pan · Space: Crank · W/S: Throttle</div>
+    </div>
+
+    <div class="mobile-drive-bar" id="mobileDriveBar">
+      <button class="starter-btn mob-btn" id="mobStarterBtn">CRANK</button>
+      <button class="ign-btn on mob-btn" id="mobIgnBtn">IGN: ON</button>
+      <div class="mob-thr-group">
+        <button class="btn mob-btn mob-thr-btn" id="mobThrDown" aria-label="Throttle Down">− THR</button>
+        <span class="mob-thr-val" id="mobThrVal">0%</span>
+        <button class="btn mob-btn mob-thr-btn" id="mobThrUp" aria-label="Throttle Up">+ THR</button>
+      </div>
     </div>
 
     <div class="charts-bar">
@@ -2613,29 +2798,82 @@
   // 7. ORBIT / PAN / ZOOM & CHARTS
   // =========================================================================
   let dragMode = 0, lastX = 0, lastY = 0;
-  viewport.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button') || e.target.closest('.cyl-chip') || e.target.closest('.cyl-stepper')) return;
-    dragMode = (e.button === 2 || e.shiftKey) ? 2 : 1; lastX = e.clientX; lastY = e.clientY;
-    try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
-  });
-  viewport.addEventListener('pointermove', (e) => {
-    if (!dragMode) return;
-    const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
-    if (dragMode === 1 && !isOrtho) { camState.yaw -= dx * 0.007; camState.pitch = Math.max(-1.3, Math.min(1.3, camState.pitch + dy * 0.007)); }
-    else { const ps = (isOrtho ? camState.orthoZoom : camState.dist * 0.5) * 0.0022; camState.target.x -= dx * ps * Math.cos(camState.yaw); camState.target.z += dx * ps * Math.sin(camState.yaw); camState.target.y += dy * ps; }
-    updateCameraTransform();
-  });
-  viewport.addEventListener('pointerup', () => dragMode = 0);
-  viewport.addEventListener('pointercancel', () => dragMode = 0);
-  viewport.addEventListener('contextmenu', e => e.preventDefault());
-  viewport.addEventListener('wheel', (e) => {
-    e.preventDefault(); const f = Math.exp(e.deltaY * 0.0011);
+  const activePointers = new Map();
+  let pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
+
+  function applyZoomFactor(f) {
     const maxDist = build.unrealistic ? 25000 : 12.0;
     const maxOrtho = build.unrealistic ? 10000 : 4.5;
     const minDist = build.unrealistic ? 0.001 : 0.24;
     const minOrtho = build.unrealistic ? 0.001 : 0.08;
     if (isOrtho) camState.orthoZoom = Math.max(minOrtho, Math.min(maxOrtho, camState.orthoZoom * f));
     else camState.dist = Math.max(minDist, Math.min(maxDist, camState.dist * f));
+  }
+
+  function getPinchMetrics() {
+    const pts = Array.from(activePointers.values());
+    const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+    return { dist: Math.hypot(dx, dy), mx: (pts[0].x + pts[1].x) * 0.5, my: (pts[0].y + pts[1].y) * 0.5 };
+  }
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, input, select, .cyl-chip, .cyl-stepper')) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size === 1) {
+      dragMode = (e.button === 2 || e.shiftKey) ? 2 : 1;
+      lastX = e.clientX; lastY = e.clientY;
+    } else if (activePointers.size === 2) {
+      dragMode = 3;
+      const pm = getPinchMetrics();
+      pinchDist = Math.max(1, pm.dist); pinchMidX = pm.mx; pinchMidY = pm.my;
+    }
+    try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  viewport.addEventListener('pointermove', (e) => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size >= 2) {
+      const pm = getPinchMetrics();
+      const d = Math.max(1, pm.dist);
+      if (pinchDist > 0) applyZoomFactor(pinchDist / d);
+      const dx = pm.mx - pinchMidX, dy = pm.my - pinchMidY;
+      const ps = (isOrtho ? camState.orthoZoom : camState.dist * 0.5) * 0.0022;
+      camState.target.x -= dx * ps * Math.cos(camState.yaw);
+      camState.target.z += dx * ps * Math.sin(camState.yaw);
+      camState.target.y += dy * ps;
+      pinchDist = d; pinchMidX = pm.mx; pinchMidY = pm.my;
+      updateCameraTransform();
+      return;
+    }
+    if (!dragMode) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
+    if (dragMode === 1 && !isOrtho) { camState.yaw -= dx * 0.007; camState.pitch = Math.max(-1.3, Math.min(1.3, camState.pitch + dy * 0.007)); }
+    else { const ps = (isOrtho ? camState.orthoZoom : camState.dist * 0.5) * 0.0022; camState.target.x -= dx * ps * Math.cos(camState.yaw); camState.target.z += dx * ps * Math.sin(camState.yaw); camState.target.y += dy * ps; }
+    updateCameraTransform();
+  });
+  function releaseViewportPointer(e) {
+    activePointers.delete(e.pointerId);
+    if (activePointers.size === 1) {
+      const rem = activePointers.values().next().value;
+      dragMode = 1; lastX = rem.x; lastY = rem.y; pinchDist = 0;
+    } else if (activePointers.size === 0) {
+      dragMode = 0; pinchDist = 0;
+    }
+  }
+  viewport.addEventListener('pointerup', releaseViewportPointer);
+  viewport.addEventListener('pointercancel', releaseViewportPointer);
+  viewport.addEventListener('touchstart', (e) => {
+    if (e.target.closest('button, input, select, .cyl-chip, .cyl-stepper')) return;
+    if (e.touches.length >= 2 || document.body.classList.contains('mobile-mode')) e.preventDefault();
+  }, { passive: false });
+  viewport.addEventListener('touchmove', (e) => {
+    if (e.target.closest('button, input, select, .cyl-chip, .cyl-stepper')) return;
+    if (e.touches.length >= 2 || document.body.classList.contains('mobile-mode')) e.preventDefault();
+  }, { passive: false });
+  viewport.addEventListener('contextmenu', e => e.preventDefault());
+  viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    applyZoomFactor(Math.exp(e.deltaY * 0.0011));
     updateCameraTransform();
   }, { passive: false });
 
@@ -2875,6 +3113,18 @@
     ignBtnEl.classList.toggle('on', ctrl.ignition);
     ignBtnEl.textContent = isJet ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGNITION: ON' : 'IGNITION: OFF');
     document.getElementById('starterBtn').textContent = (isJet ? 'HOLD TO SPOOL (APU)' : (isSteam || isStirling ? 'NUDGE FLYWHEEL' : 'HOLD TO CRANK')) + (isBigUnrealistic() ? ' (∞ TORQUE)' : '');
+    const mobIgnEl = document.getElementById('mobIgnBtn');
+    if (mobIgnEl) {
+      mobIgnEl.classList.toggle('hidden', isSteam || isStirling);
+      mobIgnEl.classList.toggle('on', ctrl.ignition);
+      mobIgnEl.textContent = isJet ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGN: ON' : 'IGN: OFF');
+    }
+    const mobStarterEl = document.getElementById('mobStarterBtn');
+    if (mobStarterEl) {
+      mobStarterEl.textContent = isJet ? 'SPOOL' : (isSteam || isStirling ? 'NUDGE' : 'CRANK');
+    }
+    const mobThrValEl = document.getElementById('mobThrVal');
+    if (mobThrValEl) mobThrValEl.textContent = `${Math.round(ctrl.throttle * 100)}%`;
     document.getElementById('lblThrottle').textContent = isJet ? 'Thrust Lever' : (isSteam ? 'Steam Regulator' : (isStirling ? 'Burner Heat' : (isDiesel ? 'Fuel Pedal' : 'Throttle')));
     document.getElementById('lblIdleMain').textContent = isJet ? 'Ground Idle Trim' : (isDiesel ? 'Idle Fuel Trim' : 'Idle Speed / Air Bypass');
 
@@ -3312,7 +3562,14 @@
   document.getElementById('slCutoff').addEventListener('input', e => setCutoffPct(parseInt(e.target.value, 10)));
   document.getElementById('slDriveCutoff').addEventListener('input', e => setCutoffPct(parseInt(e.target.value, 10)));
 
-  bindSlider('slThrottle', 'valThrottle', v => ctrl.throttle = v / 100, v => `${v.toFixed(0)}%`);
+  function syncThrottleUI() {
+    const pct = Math.round(ctrl.throttle * 100);
+    document.getElementById('slThrottle').value = pct;
+    document.getElementById('valThrottle').textContent = `${pct}%`;
+    const mobThrValEl = document.getElementById('mobThrVal');
+    if (mobThrValEl) mobThrValEl.textContent = `${pct}%`;
+  }
+  bindSlider('slThrottle', 'valThrottle', v => { ctrl.throttle = v / 100; const el = document.getElementById('mobThrVal'); if (el) el.textContent = `${Math.round(v)}%`; }, v => `${v.toFixed(0)}%`);
   bindSlider('slLoad', 'valLoad', v => ctrl.load = v / 100, v => `${v.toFixed(0)}%`);
   bindSlider('slIdle', 'valIdle', v => ctrl.idleBypass = v / 100, v => `${v.toFixed(0)}%`);
   bindSlider('slTiming', 'valTiming', v => ctrl.sparkAdvance = v, v => `${v.toFixed(0)}° BTDC`);
@@ -3320,17 +3577,35 @@
   bindSlider('slRevLim', 'valRevLim', v => ctrl.revLimiter = v, v => `${v.toFixed(0)} RPM`);
 
   const starterBtn = document.getElementById('starterBtn');
-  function setStarter(on) { ctrl.starter = on; starterBtn.classList.toggle('cranking', on); }
+  const mobStarterBtn = document.getElementById('mobStarterBtn');
+  function setStarter(on) {
+    ctrl.starter = on;
+    starterBtn.classList.toggle('cranking', on);
+    if (mobStarterBtn) mobStarterBtn.classList.toggle('cranking', on);
+  }
   starterBtn.addEventListener('pointerdown', () => setStarter(true));
+  if (mobStarterBtn) {
+    mobStarterBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); setStarter(true); });
+    mobStarterBtn.addEventListener('pointerleave', () => setStarter(false));
+    mobStarterBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
   window.addEventListener('pointerup', () => setStarter(false));
   window.addEventListener('pointercancel', () => setStarter(false));
   starterBtn.addEventListener('pointerleave', () => setStarter(false));
 
   const ignBtn = document.getElementById('ignBtn');
-  ignBtn.addEventListener('click', () => {
-    ctrl.ignition = !ctrl.ignition; ignBtn.classList.toggle('on', ctrl.ignition);
+  const mobIgnBtn = document.getElementById('mobIgnBtn');
+  function toggleIgnition() {
+    ctrl.ignition = !ctrl.ignition;
+    ignBtn.classList.toggle('on', ctrl.ignition);
     ignBtn.textContent = build.cycleMode === 'turbofan' ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGNITION: ON' : 'IGNITION: OFF');
-  });
+    if (mobIgnBtn) {
+      mobIgnBtn.classList.toggle('on', ctrl.ignition);
+      mobIgnBtn.textContent = build.cycleMode === 'turbofan' ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGN: ON' : 'IGN: OFF');
+    }
+  }
+  ignBtn.addEventListener('click', toggleIgnition);
+  if (mobIgnBtn) mobIgnBtn.addEventListener('click', toggleIgnition);
 
   document.querySelectorAll('#timeGroup .seg-btn').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('#timeGroup .seg-btn').forEach(b => b.classList.remove('active'));
@@ -3355,14 +3630,82 @@
     if (e.code === 'Space') { setStarter(false); }
     keys[e.code] = false;
   });
+  const mobThrUp = document.getElementById('mobThrUp');
+  const mobThrDown = document.getElementById('mobThrDown');
+  function bindTouchThrottle(btn, keyName, stepDelta) {
+    if (!btn) return;
+    const press = (e) => {
+      e.preventDefault();
+      keys[keyName] = true;
+      btn.classList.add('pressed');
+      ctrl.throttle = Math.max(0, Math.min(1, ctrl.throttle + stepDelta));
+      syncThrottleUI();
+    };
+    const release = () => {
+      keys[keyName] = false;
+      btn.classList.remove('pressed');
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+  }
+  bindTouchThrottle(mobThrUp, '__mobThrUp', 0.05);
+  bindTouchThrottle(mobThrDown, '__mobThrDown', -0.05);
+
   window.addEventListener('blur', () => {
     Object.keys(keys).forEach(k => keys[k] = false);
+    if (mobThrUp) mobThrUp.classList.remove('pressed');
+    if (mobThrDown) mobThrDown.classList.remove('pressed');
     setStarter(false);
+    activePointers.clear();
     dragMode = 0;
+    pinchDist = 0;
+  });
+
+  // Phone Optimized Mode: auto-detection + manual override toggle
+  const btnMobileToggle = document.getElementById('btnMobileToggle');
+  let mobileManualOverride = null;
+  function detectMobileMode() {
+    return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+  }
+  function updateMobileToggleUI(isMobile) {
+    document.body.classList.toggle('mobile-mode', isMobile);
+    if (btnMobileToggle) {
+      btnMobileToggle.textContent = isMobile ? '💻 Desktop' : '📱 Phone';
+      btnMobileToggle.classList.toggle('active', isMobile);
+    }
+  }
+  function applyMobileMode(isMobile, dispatchResize) {
+    updateMobileToggleUI(isMobile);
+    if (dispatchResize) {
+      window.dispatchEvent(new Event('resize'));
+      requestAnimationFrame(handleResize);
+    }
+  }
+  if (btnMobileToggle) {
+    btnMobileToggle.addEventListener('click', () => {
+      const next = !document.body.classList.contains('mobile-mode');
+      mobileManualOverride = next;
+      applyMobileMode(next, true);
+    });
+  }
+  window.addEventListener('resize', () => {
+    if (mobileManualOverride === null) {
+      const shouldBeMobile = detectMobileMode();
+      if (document.body.classList.contains('mobile-mode') !== shouldBeMobile) {
+        updateMobileToggleUI(shouldBeMobile);
+        requestAnimationFrame(handleResize);
+      }
+    }
   });
 
   syncAllControls();
   initEngine(true);
+  applyMobileMode(detectMobileMode(), false);
   handleResize();
 
   // =========================================================================
@@ -3374,15 +3717,13 @@
     const dtReal = Math.min(0.033, (ts - lastTs) / 1000);
     lastTs = ts;
 
-    if (keys['KeyW'] || keys['ArrowUp']) {
+    if (keys['KeyW'] || keys['ArrowUp'] || keys['__mobThrUp']) {
       ctrl.throttle = Math.min(1, ctrl.throttle + dtReal * 0.7);
-      document.getElementById('slThrottle').value = Math.round(ctrl.throttle * 100);
-      document.getElementById('valThrottle').textContent = `${Math.round(ctrl.throttle * 100)}%`;
+      syncThrottleUI();
     }
-    if (keys['KeyS'] || keys['ArrowDown']) {
+    if (keys['KeyS'] || keys['ArrowDown'] || keys['__mobThrDown']) {
       ctrl.throttle = Math.max(0, ctrl.throttle - dtReal * 0.7);
-      document.getElementById('slThrottle').value = Math.round(ctrl.throttle * 100);
-      document.getElementById('valThrottle').textContent = `${Math.round(ctrl.throttle * 100)}%`;
+      syncThrottleUI();
     }
 
     if (!ctrl.paused) {

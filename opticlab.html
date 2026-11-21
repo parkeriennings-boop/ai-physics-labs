@@ -611,6 +611,140 @@
     vertical-align: middle;
     margin-right: 4px;
   }
+
+  /* PHONE OPTIMIZED MODE */
+  html.mobile-mode, body.mobile-mode {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100dvh;
+    width: 100%;
+  }
+  body.mobile-mode .app {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+  }
+  body.mobile-mode .topbar {
+    height: auto;
+    min-height: 48px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    padding: 6px 8px;
+    gap: 8px;
+  }
+  body.mobile-mode .topbar::-webkit-scrollbar { display: none; }
+  body.mobile-mode .brand {
+    min-width: auto;
+    flex-shrink: 0;
+  }
+  body.mobile-mode .brand-sub {
+    display: none;
+  }
+  body.mobile-mode .hud-strip {
+    flex-shrink: 0;
+    overflow-x: visible;
+    gap: 5px;
+  }
+  body.mobile-mode .hud-pill {
+    min-width: auto;
+    padding: 3px 7px;
+    white-space: nowrap;
+  }
+  body.mobile-mode .top-actions {
+    flex-shrink: 0;
+    gap: 5px;
+  }
+  body.mobile-mode .workspace {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+    padding: 8px;
+    gap: 10px;
+  }
+  body.mobile-mode .bench-wrap {
+    order: 1;
+    flex: none;
+    width: 100%;
+    height: 55dvh;
+    min-height: 320px;
+    max-height: 520px;
+    touch-action: none;
+  }
+  body.mobile-mode #benchCanvas {
+    touch-action: none;
+  }
+  body.mobile-mode .sidebar {
+    width: 100%;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+  body.mobile-mode .sidebar:first-of-type {
+    order: 2;
+  }
+  body.mobile-mode .sidebar:last-of-type {
+    order: 3;
+  }
+  body.mobile-mode .bench-overlay-tl {
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    gap: 4px;
+  }
+  body.mobile-mode .bench-badge {
+    padding: 3px 6px;
+    font-size: 9.5px;
+  }
+  body.mobile-mode .bench-overlay-bl {
+    bottom: 6px;
+    left: 6px;
+    right: 6px;
+  }
+  body.mobile-mode .hint-bar {
+    padding: 3px 7px;
+    font-size: 9.5px;
+    line-height: 1.25;
+  }
+  body.mobile-mode .btn,
+  body.mobile-mode select.ctrl-select,
+  body.mobile-mode .preset-btn,
+  body.mobile-mode .chip,
+  body.mobile-mode .light-pill {
+    min-height: 36px;
+  }
+  body.mobile-mode .palette-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  body.mobile-mode .palette-item {
+    min-height: 44px;
+    padding: 6px 4px;
+  }
+  body.mobile-mode .switch {
+    width: 44px;
+    height: 24px;
+  }
+  body.mobile-mode .switch::after {
+    width: 18px;
+    height: 18px;
+    top: 2px;
+    left: 2px;
+  }
+  body.mobile-mode .switch.on::after {
+    transform: translateX(20px);
+  }
+  body.mobile-mode input[type="range"] {
+    height: 10px;
+  }
+  body.mobile-mode input[type="range"]::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
 </style>
 </head>
 <body>
@@ -666,6 +800,7 @@
       <button class="btn sm" id="btnToggleNormals" title="Toggle Surface Normal & Incidence Vectors">Normals: OFF</button>
       <button class="btn sm" id="btnResetPreset">Reset Preset</button>
       <button class="btn sm danger" id="btnClearBench">Clear</button>
+      <button class="btn sm" id="btnMobileToggle" title="Toggle Phone Optimized Mode">📱 Phone</button>
     </div>
   </header>
 
@@ -2635,10 +2770,23 @@
   let dragMode = null; // 'move_el' | 'rot_el' | 'move_light' | 'rot_light'
   let dragTarget = null;
   let dragOffset = { x: 0, y: 0 };
+  const viewCam = { zoom: 1, panX: 0, panY: 0 };
+  let isPinching = false;
+
+  function resetViewCam() {
+    viewCam.zoom = 1;
+    viewCam.panX = 0;
+    viewCam.panY = 0;
+  }
 
   function getCanvasPos(ev) {
     const rect = benchCanvas.getBoundingClientRect();
-    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+    const sx = ev.clientX - rect.left;
+    const sy = ev.clientY - rect.top;
+    return {
+      x: (sx - viewCam.panX) / viewCam.zoom,
+      y: (sy - viewCam.panY) / viewCam.zoom
+    };
   }
 
   function getSelectedLight() {
@@ -2649,7 +2797,9 @@
   }
 
   benchCanvas.addEventListener('pointerdown', (ev) => {
+    if (isPinching) return;
     const p = getCanvasPos(ev);
+    const touchPad = (ev.pointerType === 'touch' || document.body.classList.contains('mobile-mode')) ? 10 : 0;
 
     // Check selected rotation handle first
     if (state.selectedId && state.selectedId.startsWith('light_')) {
@@ -2657,7 +2807,7 @@
       if (l) {
         const hx = l.x + Math.cos(l.angle) * 38;
         const hy = l.y + Math.sin(l.angle) * 38;
-        if (Math.hypot(p.x - hx, p.y - hy) <= 13) {
+        if (Math.hypot(p.x - hx, p.y - hy) <= (13 + touchPad) / viewCam.zoom) {
           dragMode = 'rot_light';
           dragTarget = l;
           benchCanvas.setPointerCapture(ev.pointerId);
@@ -2670,7 +2820,7 @@
         const ringR = Math.max(36, Math.min(64, el.size * 0.44));
         const hx = el.x + Math.cos(el.angle) * ringR;
         const hy = el.y + Math.sin(el.angle) * ringR;
-        if (Math.hypot(p.x - hx, p.y - hy) <= 13) {
+        if (Math.hypot(p.x - hx, p.y - hy) <= (13 + touchPad) / viewCam.zoom) {
           dragMode = 'rot_el';
           dragTarget = el;
           benchCanvas.setPointerCapture(ev.pointerId);
@@ -2682,7 +2832,7 @@
     // Check Light Sources (top-most first)
     for (let i = state.lights.length - 1; i >= 0; i--) {
       const l = state.lights[i];
-      if (Math.hypot(p.x - l.x, p.y - l.y) <= 26) {
+      if (Math.hypot(p.x - l.x, p.y - l.y) <= (26 + touchPad) / viewCam.zoom) {
         state.selectedId = l.id;
         dragMode = 'move_light';
         dragTarget = l;
@@ -2716,7 +2866,7 @@
   });
 
   benchCanvas.addEventListener('pointermove', (ev) => {
-    if (!dragMode || !dragTarget) return;
+    if (isPinching || !dragMode || !dragTarget) return;
     const p = getCanvasPos(ev);
     if (dragMode === 'move_light') {
       dragTarget.x = Math.max(24, Math.min(state.benchW - 24, p.x - dragOffset.x));
@@ -2957,7 +3107,7 @@
       syncGlobalToggles();
     });
 
-    document.getElementById('btnResetPreset').addEventListener('click', () => loadPreset(state.activePreset));
+    document.getElementById('btnResetPreset').addEventListener('click', () => { resetViewCam(); loadPreset(state.activePreset); });
     document.getElementById('btnClearBench').addEventListener('click', () => {
       state.elements = [];
       state.selectedId = state.lights[0] ? state.lights[0].id : null;
@@ -3252,6 +3402,12 @@
     });
     document.getElementById('challengeScore').textContent = `${solvedCount}/${CHALLENGES.length}`;
 
+    ctx.save();
+    ctx.fillStyle = '#06090f';
+    ctx.fillRect(0, 0, state.benchW, state.benchH);
+    ctx.translate(viewCam.panX, viewCam.panY);
+    ctx.scale(viewCam.zoom, viewCam.zoom);
+
     drawOpticalBenchGrid(state.benchW, state.benchH);
     renderWavefrontField(ctx, state.benchW, state.benchH);
     drawRays(res.segments);
@@ -3265,10 +3421,139 @@
       const l = state.lights[i];
       drawLightSource(l, state.selectedId === l.id, i);
     }
+    ctx.restore();
     renderScope();
 
     requestAnimationFrame(frame);
   }
+
+
+  // =========================================================================
+  // 12. PHONE OPTIMIZED MODE & TOUCH / PINCH-ZOOM BRIDGE
+  // =========================================================================
+  (function initMobileMode() {
+    const btnMobile = document.getElementById('btnMobileToggle');
+    let mobileOverride = null;
+
+    function isAutoMobile() {
+      return window.innerWidth <= 860 ||
+        (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+    }
+
+    function applyMobileMode(emitResize = true) {
+      const enabled = mobileOverride !== null ? mobileOverride : isAutoMobile();
+      const changed = document.body.classList.contains('mobile-mode') !== enabled;
+      document.body.classList.toggle('mobile-mode', enabled);
+      document.documentElement.classList.toggle('mobile-mode', enabled);
+      if (btnMobile) {
+        btnMobile.textContent = enabled ? '💻 Desktop' : '📱 Phone';
+        btnMobile.classList.toggle('active', enabled);
+      }
+      if (emitResize && changed) {
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
+    if (btnMobile) {
+      btnMobile.addEventListener('click', () => {
+        mobileOverride = !document.body.classList.contains('mobile-mode');
+        applyMobileMode(true);
+      });
+    }
+
+    let resizeSyncLock = false;
+    window.addEventListener('resize', () => {
+      if (resizeSyncLock) return;
+      if (mobileOverride === null) {
+        const enabled = isAutoMobile();
+        if (document.body.classList.contains('mobile-mode') !== enabled) {
+          resizeSyncLock = true;
+          applyMobileMode(false);
+          resizeSyncLock = false;
+        }
+      }
+    });
+
+    applyMobileMode(false);
+
+    // Desktop wheel zoom on benchCanvas
+    benchCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = benchCanvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const wx = (sx - viewCam.panX) / viewCam.zoom;
+      const wy = (sy - viewCam.panY) / viewCam.zoom;
+      const factor = e.deltaY < 0 ? 1.1 : 0.91;
+      viewCam.zoom = Math.max(0.5, Math.min(3.0, viewCam.zoom * factor));
+      viewCam.panX = sx - wx * viewCam.zoom;
+      viewCam.panY = sy - wy * viewCam.zoom;
+    }, { passive: false });
+
+    // Touch-to-mouse/pointer + two-finger pinch-zoom & pan bridge on benchCanvas
+    let pinchPrevDist = 0;
+    let pinchPrevMid = { x: 0, y: 0 };
+    let fallbackTouchDrag = false;
+    const hasPointerEvents = typeof window.PointerEvent !== 'undefined';
+
+    benchCanvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length >= 2) {
+        isPinching = true;
+        dragMode = null;
+        dragTarget = null;
+        fallbackTouchDrag = false;
+        const t0 = e.touches[0], t1 = e.touches[1];
+        pinchPrevDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+        pinchPrevMid = { x: (t0.clientX + t1.clientX) * 0.5, y: (t0.clientY + t1.clientY) * 0.5 };
+      } else if (!hasPointerEvents && e.touches.length === 1 && !isPinching) {
+        const t = e.touches[0];
+        fallbackTouchDrag = true;
+        benchCanvas.dispatchEvent(new MouseEvent('pointerdown', {
+          bubbles: true, cancelable: true, clientX: t.clientX, clientY: t.clientY, button: 0, buttons: 1
+        }));
+      }
+    }, { passive: false });
+
+    benchCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (isPinching && e.touches.length >= 2) {
+        const t0 = e.touches[0], t1 = e.touches[1];
+        const curDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+        const curMid = { x: (t0.clientX + t1.clientX) * 0.5, y: (t0.clientY + t1.clientY) * 0.5 };
+        const rect = benchCanvas.getBoundingClientRect();
+        const prevSx = pinchPrevMid.x - rect.left;
+        const prevSy = pinchPrevMid.y - rect.top;
+        const curSx = curMid.x - rect.left;
+        const curSy = curMid.y - rect.top;
+        const wx = (prevSx - viewCam.panX) / viewCam.zoom;
+        const wy = (prevSy - viewCam.panY) / viewCam.zoom;
+        const scale = curDist / Math.max(1, pinchPrevDist);
+        viewCam.zoom = Math.max(0.5, Math.min(3.0, viewCam.zoom * scale));
+        viewCam.panX = curSx - wx * viewCam.zoom;
+        viewCam.panY = curSy - wy * viewCam.zoom;
+        pinchPrevDist = curDist;
+        pinchPrevMid = curMid;
+      } else if (!hasPointerEvents && fallbackTouchDrag && e.touches.length === 1) {
+        const t = e.touches[0];
+        benchCanvas.dispatchEvent(new MouseEvent('pointermove', {
+          bubbles: true, cancelable: true, clientX: t.clientX, clientY: t.clientY, button: 0, buttons: 1
+        }));
+      }
+    }, { passive: false });
+
+    function handleTouchEnd(e) {
+      if (e.touches.length === 0) {
+        if (!hasPointerEvents && fallbackTouchDrag) {
+          benchCanvas.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, buttons: 0 }));
+          fallbackTouchDrag = false;
+        }
+        isPinching = false;
+      }
+    }
+    benchCanvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    benchCanvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+  })();
 
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();

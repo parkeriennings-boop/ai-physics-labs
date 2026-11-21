@@ -864,6 +864,39 @@
 #glTutModal .tut-btn-fly { border-color: rgba(52,211,153,0.65); background: linear-gradient(135deg, #10b981, #34d399); color: #041b13; }
 @media (max-width: 560px) { #glTutModal .tut-chips { grid-template-columns: 1fr; } }
 
+
+  /* === PHONE OPTIMIZED MODE === */
+  body.mobile-mode { height: auto !important; min-height: 100dvh; overflow-y: auto !important; overflow-x: hidden; }
+  body.mobile-mode #app { height: auto !important; min-height: 100dvh; overflow: visible !important; }
+  body.mobile-mode .topbar { height: auto !important; flex-wrap: wrap; padding: 8px 10px; gap: 8px; }
+  body.mobile-mode .brand-sub { display: none !important; }
+  body.mobile-mode .brand-badge { display: none !important; }
+  body.mobile-mode .nav-tabs { order: 3; width: 100%; justify-content: center; }
+  body.mobile-mode .nav-tab { flex: 1; justify-content: center; min-height: 38px; font-size: 12.5px; padding: 6px 8px; }
+  body.mobile-mode .topbar-right { margin-left: auto; gap: 6px; flex-wrap: wrap; }
+  body.mobile-mode .hide-sm { display: none !important; }
+  body.mobile-mode .view-container { overflow: visible !important; height: auto !important; flex: none; }
+  body.mobile-mode #view-winglab.active { display: flex !important; flex-direction: column !important; height: auto !important; gap: 10px; padding: 8px; }
+  body.mobile-mode .builder-center { order: 1; width: 100% !important; min-width: 0; }
+  body.mobile-mode #builderStage { height: 50dvh !important; min-height: 300px; max-height: 440px; touch-action: none; }
+  body.mobile-mode .builder-left { order: 2; width: 100% !important; max-height: 48dvh; }
+  body.mobile-mode .builder-right { order: 3; width: 100% !important; height: auto !important; }
+  body.mobile-mode .stage-toolbar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 6px; padding: 6px 8px; }
+  body.mobile-mode .tool-group { flex-wrap: nowrap; flex-shrink: 0; }
+  body.mobile-mode .stage-hint { display: none !important; }
+  body.mobile-mode #view-arena.active { display: flex !important; flex-direction: column !important; height: auto !important; gap: 10px; padding: 8px; }
+  body.mobile-mode .arena-stage-wrap, body.mobile-mode .arena-main { order: 1; width: 100% !important; }
+  body.mobile-mode #arenaStage, body.mobile-mode .arena-canvas-wrap, body.mobile-mode .canvas-stage { height: 54dvh !important; min-height: 320px; max-height: 500px; touch-action: none; }
+  body.mobile-mode .arena-sidebar { order: 2; width: 100% !important; height: auto !important; }
+  body.mobile-mode .hud-overlay { top: 6px; left: 6px; right: 6px; gap: 4px; }
+  body.mobile-mode .hud-chip { padding: 4px 6px; }
+  body.mobile-mode .hud-chip-label { font-size: 8.5px; }
+  body.mobile-mode .hud-chip-val { font-size: 11.5px; }
+  body.mobile-mode .arena-legend { display: none !important; }
+  body.mobile-mode .manual-pad { bottom: 10px; left: 8px; right: 8px; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  body.mobile-mode .manual-pad .btn { min-height: 44px; padding: 8px 12px; font-size: 12.5px; touch-action: none; }
+  body.mobile-mode .btn, body.mobile-mode .cat-btn, body.mobile-mode select { min-height: 36px; }
+
 </style>
 </head>
 <body>
@@ -889,6 +922,7 @@
 
     <div class="topbar-right">
       <button class="btn-tut-open" id="btnTutorial" title="Open Interactive Tutorial">❓ Tutorial</button>
+      <button class="btn btn-sm" id="btnMobileToggle" title="Toggle Phone/Desktop Layout">📱 Phone</button>
       <div class="pill-stat hide-sm">Parts <strong id="topPartCount">0</strong></div>
       <div class="pill-stat emerald hide-sm">L/D <strong id="topGlideRatio">0.0</strong></div>
       <div class="pill-stat amber">Gen <strong id="topGenCount">1</strong></div>
@@ -3908,6 +3942,29 @@
   });
   if (!hasSeen()) setTimeout(() => openModal(0), 220);
 })();
+
+
+  // === PHONE OPTIMIZED MODE ===
+  (function initGliderMobileMode() {
+    let mobileOverride = null;
+    function detectPhone() {
+      return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
+    }
+    function applyMobileMode() {
+      const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+      document.body.classList.toggle('mobile-mode', isMob);
+      const btn = document.getElementById('btnMobileToggle');
+      if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
+      window.dispatchEvent(new Event('resize'));
+    }
+    const mobBtn = document.getElementById('btnMobileToggle');
+    if (mobBtn) mobBtn.addEventListener('click', () => {
+      mobileOverride = !document.body.classList.contains('mobile-mode');
+      applyMobileMode();
+    });
+    window.addEventListener('resize', applyMobileMode);
+    applyMobileMode();
+  })();
 
 </script>
 </body>
