@@ -47,6 +47,7 @@
     -webkit-font-smoothing: antialiased;
     user-select: none;
   }
+  input, textarea, select { user-select: text; -webkit-user-select: text; }
 
   body::before {
     content: "";
@@ -1451,7 +1452,7 @@
     {"id": "helium_pod", "name": "Helium Buoyancy Pod", "cat": "sensors", "icon": "\ud83c\udf88", "color": "#f472b6", "desc": "Internal lift-gas bladder reducing effective weight for floaty glides.", "mass": 0.12, "lift": 0.62, "drag": 0.018, "pitchTorque": 0, "stability": 0.22, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": null, "shape": "block"},
     {"id": "aoa_vane", "name": "Stall-Guard AoA Vane", "cat": "sensors", "icon": "\ud83e\udded", "color": "#4ade80", "desc": "Active angle-of-attack probe granting +4.0\u00b0 stall margin.", "mass": 0.18, "lift": 0, "drag": 0.005, "pitchTorque": 0.14, "stability": 0.28, "stallBonus": 4.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "pitot", "shape": "sensor"},
     {"id": "ocelli_eye", "name": "Horizon Ocelli Sensor", "cat": "sensors", "icon": "\ud83d\udd06", "color": "#fbbf24", "desc": "Insect horizon-lock optics that damp sudden pitch tumbles.", "mass": 0.14, "lift": 0, "drag": 0.004, "pitchTorque": 0.12, "stability": 0.55, "stallBonus": 1.0, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
-    {"id": "drop_tank", "name": "Aero Belly Tank", "cat": "sensors", "icon": "\ud83d\udee2", "color": "#64748b", "desc": "Streamlined fuel reserve adding +20s burn time to any propulsion.", "mass": 0.75, "lift": 0.04, "drag": 0.01, "pitchTorque": 0, "stability": 0.14, "stallBonus": 0, "thrust": 0.5, "fuelTime": 25, "brakeDrag": 0, "sensor": null, "shape": "block"},
+    {"id": "drop_tank", "name": "Aero Belly Tank", "cat": "sensors", "icon": "\ud83d\udee2", "color": "#64748b", "desc": "Streamlined fuel reserve adding +25s burn time to any propulsion.", "mass": 0.75, "lift": 0.04, "drag": 0.01, "pitchTorque": 0, "stability": 0.14, "stallBonus": 0, "thrust": 0.5, "fuelTime": 25, "brakeDrag": 0, "sensor": null, "shape": "block"},
     {"id": "ring_beacon", "name": "Ring-Lock GPS Pod", "cat": "sensors", "icon": "\ud83d\udef0", "color": "#22c55e", "desc": "Aerial target tracker feeding crisp ring vector guidance to the NN.", "mass": 0.2, "lift": 0, "drag": 0.006, "pitchTorque": 0.1, "stability": 0.2, "stallBonus": 0.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "thermal", "shape": "sensor"},
     {"id": "radar_dome", "name": "Storm Weather Radar", "cat": "sensors", "icon": "\ud83c\udf10", "color": "#818cf8", "desc": "Predicts wind shear gusts and stabilizes attitude in turbulence.", "mass": 0.38, "lift": 0, "drag": 0.009, "pitchTorque": 0.15, "stability": 0.62, "stallBonus": 1.5, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "wind", "shape": "sensor"},
     {"id": "imu_6axis", "name": "6-Axis Racing IMU", "cat": "sensors", "icon": "\ud83d\udcf2", "color": "#38bdf8", "desc": "Ultra-fast gyro & accelerometer suite for buttery smooth control.", "mass": 0.16, "lift": 0, "drag": 0.004, "pitchTorque": 0.22, "stability": 0.58, "stallBonus": 1.2, "thrust": 0, "fuelTime": 0, "brakeDrag": 0, "sensor": "gyro", "shape": "sensor"},
@@ -1737,6 +1738,78 @@
   };
 
   /* =========================================================================
+   * 4B. SAFE UTILITIES: roundRect FALLBACK, STORAGE & BLUEPRINT VALIDATION
+   * ========================================================================= */
+  const STATE_STORAGE_KEY = 'gliderlab_state_v1';
+
+  function safeRoundRect(ctx, x, y, w, h, r) {
+    if (typeof ctx.roundRect === 'function') {
+      safeRoundRect(ctx, x, y, w, h, r);
+      return;
+    }
+    const rad = Math.max(0, Math.min(r || 0, Math.abs(w) * 0.5, Math.abs(h) * 0.5));
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  }
+
+  function sanitizeBlueprint(list) {
+    if (!Array.isArray(list)) return [];
+    const seen = Object.create(null);
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item || typeof item !== 'object' || !PART_BY_ID[item.id]) continue;
+      const gx = Math.max(-7, Math.min(7, Math.round(Number(item.gx) || 0)));
+      const gy = Math.max(-4, Math.min(4, Math.round(Number(item.gy) || 0)));
+      const key = gx + ',' + gy;
+      if (seen[key]) continue;
+      seen[key] = true;
+      out.push({ gx, gy, id: item.id });
+    }
+    return out;
+  }
+
+  function saveAppState() {
+    try {
+      const payload = {
+        blueprint: state.blueprint,
+        activePresetId: state.activePresetId,
+        mapId: state.mapId,
+        populationSize: state.populationSize,
+        simSpeed: state.simSpeed,
+        episodeDuration: state.episodeDuration,
+        showVectors: state.showVectors
+      };
+      localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function loadAppState() {
+    try {
+      const raw = localStorage.getItem(STATE_STORAGE_KEY);
+      if (!raw) return false;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return false;
+      if (d.mapId && MAP_BY_ID[d.mapId]) state.mapId = d.mapId;
+      if (Number.isFinite(d.populationSize)) state.populationSize = Math.max(1, Math.min(1000, Math.round(d.populationSize)));
+      if (Number.isFinite(d.simSpeed)) state.simSpeed = Math.max(0.05, Math.min(500, d.simSpeed));
+      if (Number.isFinite(d.episodeDuration)) state.episodeDuration = Math.max(5, Math.min(300, Math.round(d.episodeDuration)));
+      if (typeof d.showVectors === 'boolean') state.showVectors = d.showVectors;
+      const cleanBp = sanitizeBlueprint(d.blueprint);
+      if (cleanBp.length > 0) {
+        state.blueprint = cleanBp;
+        state.activePresetId = (d.activePresetId && PRESETS.some(function(p) { return p.id === d.activePresetId; })) ? d.activePresetId : null;
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /* =========================================================================
    * 5. AERODYNAMICS COMPUTATION FROM BLUEPRINT
    * ========================================================================= */
   function computeAeroSpecs(blueprint) {
@@ -1938,19 +2011,21 @@
     return child;
   }
 
-  const _nnHiddenBuf = new Float32Array(16);
+  let _nnHiddenBuf = new Float32Array(16);
   const _nnOutBuf = new Float32Array(3);
 
   function forwardBrain(brain, inp) {
     const h = brain.h;
+    if (_nnHiddenBuf.length < h) _nnHiddenBuf = new Float32Array(h);
     const w1 = brain.w1, b1 = brain.b1, w2 = brain.w2, b2 = brain.b2;
     for (let j = 0; j < h; j++) {
       let sum = b1[j];
       const base = j * NN_INPUTS;
       for (let i = 0; i < NN_INPUTS; i++) {
-        sum += w1[base + i] * inp[i];
+        const iv = inp[i];
+        sum += w1[base + i] * (Number.isFinite(iv) ? iv : 0);
       }
-      _nnHiddenBuf[j] = Math.tanh(sum);
+      _nnHiddenBuf[j] = Math.tanh(Number.isFinite(sum) ? sum : 0);
     }
     for (let k = 0; k < NN_OUTPUTS; k++) {
       let sum = b2[k];
@@ -1958,7 +2033,7 @@
       for (let j = 0; j < h; j++) {
         sum += w2[base + j] * _nnHiddenBuf[j];
       }
-      _nnOutBuf[k] = Math.tanh(sum);
+      _nnOutBuf[k] = Math.tanh(Number.isFinite(sum) ? sum : 0);
     }
     return _nnOutBuf;
   }
@@ -2073,14 +2148,14 @@
     const thermals = state.thermals;
     for (let i = 0; i < thermals.length; i++) {
       const th = thermals[i];
-      const halfW = th.width * 0.55;
+      const halfW = Math.max(1, th.width * 0.55);
       const dx = th.x - x;
       if (dx > halfW) break;
       if (dx < -halfW) continue;
       if (y >= th.baseY - 20 && y <= th.topY) {
         const adx = dx < 0 ? -dx : dx;
-        const horiz = Math.cos((adx / halfW) * 1.5707963);
-        const altFade = Math.min(1, (th.topY - y) / 70);
+        const horiz = Math.max(0, Math.cos((adx / halfW) * 1.5707963));
+        const altFade = Math.max(0, Math.min(1, (th.topY - y) / 70));
         const pulse = 0.88 + 0.12 * Math.sin(t * 2.2 + th.phase);
         const liftUp = th.strength * horiz * altFade * pulse;
         wy += liftUp;
@@ -2157,6 +2232,7 @@
     state.episodeTime = 0;
     state.simAccum = 0;
     state.gliders = [];
+    state.burstParticles.length = 0;
 
     const elites = state.eliteBrains;
     const mutRate = state.aero.hasNeuralCore ? 0.14 : 0.20;
@@ -2199,28 +2275,31 @@
 
     for (let i = 0; i < state.gliders.length; i++) {
       const g = state.gliders[i];
-      sumFit += g.fitness;
-      if (g.fitness > bestFit) {
-        bestFit = g.fitness;
-        bestDist = Math.max(0, g.maxX - 40);
-        bestRings = g.ringsCollected;
+      const fit = Number.isFinite(g.fitness) ? g.fitness : 0;
+      g.fitness = fit;
+      sumFit += fit;
+      if (fit > bestFit) {
+        bestFit = fit;
+        bestDist = Number.isFinite(g.maxX) ? Math.max(0, g.maxX - 40) : 0;
+        bestRings = g.ringsCollected || 0;
       }
     }
+    if (!Number.isFinite(bestFit)) bestFit = 0;
 
-    const avgFit = sumFit / state.gliders.length;
+    const avgFit = state.gliders.length > 0 ? (sumFit / state.gliders.length) : 0;
     if (bestFit > state.bestFitnessAllTime) state.bestFitnessAllTime = bestFit;
 
     state.history.push({
       gen: state.generation,
       bestFit: Math.max(0, bestFit),
-      avgFit: Math.max(0, avgFit),
+      avgFit: Math.max(0, Number.isFinite(avgFit) ? avgFit : 0),
       bestDist,
       bestRings
     });
     if (state.history.length > 80) state.history.shift();
 
     // Sort descending and pick top elites (safe for populationSize === 1!)
-    const sorted = state.gliders.slice().sort(function(a, b) { return b.fitness - a.fitness; });
+    const sorted = state.gliders.slice().sort(function(a, b) { return (b.fitness || 0) - (a.fitness || 0); });
     const eliteCount = Math.min(sorted.length, Math.max(1, Math.min(10, Math.ceil(sorted.length * 0.18))));
     state.eliteBrains = [];
     for (let i = 0; i < eliteCount; i++) {
@@ -2285,7 +2364,7 @@
 
     // Nearest upcoming ring (O(1) amortized using nextRingIdx)
     const rings = state.rings;
-    while (g.nextRingIdx < rings.length && (g.ringMask[g.nextRingIdx] || rings[g.nextRingIdx].x < g.x - 45)) {
+    while (g.nextRingIdx < rings.length && ((g.nextRingIdx < g.ringMask.length && g.ringMask[g.nextRingIdx]) || rings[g.nextRingIdx].x < g.x - 45)) {
       g.nextRingIdx++;
     }
     let nearRingDx = 1.0, nearRingDy = 0;
@@ -2439,7 +2518,7 @@
 
     // Collectible Aerial Target Rings (fast window check around nextRingIdx)
     const rStart = Math.max(0, g.nextRingIdx - 1);
-    const rEnd = Math.min(rings.length, g.nextRingIdx + 3);
+    const rEnd = Math.min(rings.length, g.ringMask.length, g.nextRingIdx + 3);
     for (let i = rStart; i < rEnd; i++) {
       if (g.ringMask[i]) continue;
       const r = rings[i];
@@ -2472,6 +2551,11 @@
       g.y = Math.max(g.y, postGroundY + 6);
       g.alive = false;
       g.crashed = true;
+      g.vx = 0;
+      g.vy = 0;
+      g.omega = 0;
+      g.thrustActive = 0;
+      g.stalling = false;
     }
 
     // Fitness function: rewards distance, aerial rings, soaring airtime, and thermal altitude
@@ -2570,8 +2654,10 @@
       const air = sampleAirflow(p.x, p.y, state.simClock, map);
       p.x += (air.wx * 9 - 14) * pDt;
       p.y += (air.wy * 11) * pDt;
-      if (p.x < state.camera.x - 750) p.x = state.camera.x + 750;
-      if (p.x > state.camera.x + 750) p.x = state.camera.x - 750;
+      const dxCam = p.x - state.camera.x;
+      if (dxCam < -750 || dxCam > 750) {
+        p.x = state.camera.x + ((((dxCam + 750) % 1500) + 1500) % 1500) - 750;
+      }
       if (p.y > 700) p.y = 60;
       if (p.y < 30) p.y = 620;
     }
@@ -2596,12 +2682,14 @@
   function getFocusGlider() {
     if (state.gliders.length === 0) return null;
     if (state.manualOverride) return state.gliders[0];
-    let best = null;
+    let bestAlive = null;
+    let bestAny = state.gliders[0];
     for (let i = 0; i < state.gliders.length; i++) {
       const g = state.gliders[i];
-      if (g.alive && (!best || g.fitness > best.fitness)) best = g;
+      if (g.fitness > bestAny.fitness) bestAny = g;
+      if (g.alive && (!bestAlive || g.fitness > bestAlive.fitness)) bestAlive = g;
     }
-    return best || state.gliders[0];
+    return bestAlive || bestAny;
   }
 
   /* =========================================================================
@@ -2684,7 +2772,7 @@
       ctx.stroke();
     } else if (part.shape === 'rocket' || part.shape === 'fan' || part.shape === 'prop' || part.shape === 'rubber' || part.shape === 'ion') {
       ctx.beginPath();
-      ctx.roundRect(-s * 0.85, -s * 0.42, s * 1.7, s * 0.84, 5);
+      safeRoundRect(ctx, -s * 0.85, -s * 0.42, s * 1.7, s * 0.84, 5);
       ctx.fill();
       ctx.stroke();
       // Exhaust nozzle on left
@@ -2716,7 +2804,7 @@
       ctx.stroke();
     } else if (part.shape === 'airbrake') {
       ctx.beginPath();
-      ctx.roundRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.3, 4);
+      safeRoundRect(ctx, -s * 0.75, -s * 0.65, s * 1.5, s * 1.3, 4);
       ctx.fill();
       ctx.stroke();
       ctx.strokeStyle = '#06090f';
@@ -2728,7 +2816,7 @@
     } else {
       // Sensor / Core / Block
       ctx.beginPath();
-      ctx.roundRect(-s * 0.68, -s * 0.68, s * 1.36, s * 1.36, 6);
+      safeRoundRect(ctx, -s * 0.68, -s * 0.68, s * 1.36, s * 1.36, 6);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = 'rgba(6, 9, 15, 0.7)';
@@ -2742,6 +2830,7 @@
   function renderBuilder() {
     if (state.activeTab !== 'winglab') return;
     const { w, h, dpr } = resizeCanvasDPR(builderCanvas);
+    if (w < 2 || h < 2) return;
     const ctx = builderCtx;
     ctx.save();
     ctx.scale(dpr, dpr);
@@ -2777,7 +2866,7 @@
         ctx.strokeStyle = (gx === 0 || gy === 0) ? 'rgba(56, 189, 248, 0.22)' : 'rgba(148, 163, 184, 0.10)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
+        safeRoundRect(ctx, px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
         ctx.fill();
         ctx.stroke();
       }
@@ -2830,7 +2919,7 @@
         ctx.fillStyle = 'rgba(251, 113, 133, 0.16)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
+        safeRoundRect(ctx, px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
         ctx.fill();
         ctx.stroke();
       } else {
@@ -2841,7 +2930,7 @@
         ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
         ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.roundRect(px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
+        safeRoundRect(ctx, px - cell * 0.46, py - cell * 0.46, cell * 0.92, cell * 0.92, 6);
         ctx.stroke();
       }
       ctx.restore();
@@ -2940,8 +3029,9 @@
     }
   });
   window.addEventListener('mouseup', function() { builderDragMode = null; });
+  window.addEventListener('blur', function() { builderDragMode = null; hoverCell = null; });
   builderCanvas.addEventListener('touchstart', function(e) {
-    if (!e.touches || e.touches.length === 0) return;
+    if (!e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     const t = e.touches[0];
     const cell = screenToGrid(t.clientX, t.clientY);
@@ -2949,14 +3039,15 @@
     if (cell) placeOrRemoveAt(cell.gx, cell.gy, false);
   }, { passive: false });
   builderCanvas.addEventListener('touchmove', function(e) {
-    if (!e.touches || e.touches.length === 0) return;
+    if (!e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     const t = e.touches[0];
     const cell = screenToGrid(t.clientX, t.clientY);
     hoverCell = cell;
     if (cell) placeOrRemoveAt(cell.gx, cell.gy, false);
   }, { passive: false });
-  builderCanvas.addEventListener('touchend', function() { hoverCell = null; });
+  builderCanvas.addEventListener('touchend', function() { hoverCell = null; builderDragMode = null; });
+  builderCanvas.addEventListener('touchcancel', function() { hoverCell = null; builderDragMode = null; });
   builderCanvas.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
   /* =========================================================================
@@ -2975,9 +3066,11 @@
   function renderArena() {
     if (state.activeTab !== 'arena') return;
     const { w, h, dpr } = resizeCanvasDPR(arenaCanvas);
+    if (w < 2 || h < 2) return;
     const ctx = arenaCtx;
     const map = MAP_BY_ID[state.mapId];
     const scale = Math.min(w, h) / 480;
+    if (scale < 1e-4) return;
 
     ctx.save();
     ctx.scale(dpr, dpr);
@@ -3033,11 +3126,13 @@
       ctx.strokeStyle = 'rgba(52, 211, 153, 0.45)';
       ctx.lineWidth = 1.6;
       const colH = posBot.sy - posTop.sy;
+      if (colH <= 1) continue;
       const count = 6;
       for (let k = 0; k < count; k++) {
-        const frac = ((state.simClock * 0.45 + k / count + th.phase) % 1);
+        const rawFrac = state.simClock * 0.45 + k / count + th.phase;
+        const frac = ((rawFrac % 1) + 1) % 1;
         const cy = posBot.sy - frac * colH;
-        const alpha = Math.sin(frac * Math.PI) * 0.65;
+        const alpha = Math.max(0, Math.sin(frac * Math.PI) * 0.65);
         ctx.strokeStyle = 'rgba(52, 211, 153, ' + alpha.toFixed(2) + ')';
         ctx.beginPath();
         ctx.moveTo(posTop.sx - colW * 0.24, cy + 7);
@@ -3222,7 +3317,7 @@
         const ly = (bp.gy - aero.comY) * partUnit;
         ctx.fillStyle = g.stalling ? '#fb7185' : p.color;
         ctx.beginPath();
-        ctx.roundRect(lx - partUnit * 0.52, ly - partUnit * 0.42, partUnit * 1.04, partUnit * 0.84, 2);
+        safeRoundRect(ctx, lx - partUnit * 0.52, ly - partUnit * 0.42, partUnit * 1.04, partUnit * 0.84, 2);
         ctx.fill();
       }
       ctx.strokeStyle = '#ffffff';
@@ -3245,8 +3340,9 @@
   }
 
   function drawForceArrow(ctx, x, y, dx, dy, color) {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
     const len = Math.hypot(dx, dy);
-    if (len < 4) return;
+    if (!Number.isFinite(len) || len < 4) return;
     const clamped = Math.min(75, len);
     const ex = x + (dx / len) * clamped;
     const ey = y + (dy / len) * clamped;
@@ -3310,9 +3406,10 @@
 
     let maxVal = 100;
     for (let i = 0; i < hist.length; i++) {
-      if (hist[i].bestFit > maxVal) maxVal = hist[i].bestFit;
+      const bf = Number.isFinite(hist[i].bestFit) ? hist[i].bestFit : 0;
+      if (bf > maxVal) maxVal = bf;
     }
-    maxVal = Math.ceil(maxVal * 1.12);
+    maxVal = Math.max(10, Math.ceil(maxVal * 1.12));
 
     // Y-axis labels
     ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
@@ -3326,8 +3423,9 @@
     const plotSeries = function(key, color, fillGrad) {
       ctx.beginPath();
       for (let i = 0; i < hist.length; i++) {
+        const val = Number.isFinite(hist[i][key]) ? Math.max(0, hist[i][key]) : 0;
         const x = padL + (hist.length === 1 ? cw * 0.5 : (i / (hist.length - 1)) * cw);
-        const y = padT + ch - (hist[i][key] / maxVal) * ch;
+        const y = Math.max(padT, Math.min(padT + ch, padT + ch - (val / maxVal) * ch));
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.strokeStyle = color;
@@ -3511,6 +3609,7 @@
 
     renderPresetsList();
     updateTopCounters();
+    saveAppState();
   }
 
   function updateTopCounters() {
@@ -3538,6 +3637,24 @@
     }
   }
 
+  const _hudEls = {
+    alive: document.getElementById('hudAlive'),
+    timer: document.getElementById('hudTimer'),
+    prog: document.getElementById('episodeProgressFill'),
+    speed: document.getElementById('hudSpeed'),
+    alt: document.getElementById('hudAlt'),
+    aoa: document.getElementById('hudAoA'),
+    ld: document.getElementById('hudLD'),
+    dist: document.getElementById('hudDist'),
+    rings: document.getElementById('hudRings'),
+    thermal: document.getElementById('hudThermal'),
+    stall: document.getElementById('hudStallBadge')
+  };
+  function fmtHud(v, dec) {
+    if (!Number.isFinite(v)) return (0).toFixed(dec);
+    return (Math.abs(v) < 1e-4 ? 0 : v).toFixed(dec);
+  }
+
   function updateArenaHUD(focus) {
     // Throttle HUD DOM writes to ~15Hz (every 65ms) to avoid 60Hz DOM thrashing
     const now = performance.now();
@@ -3548,27 +3665,28 @@
     for (let i = 0; i < state.gliders.length; i++) {
       if (state.gliders[i].alive) alive++;
     }
-    const rem = Math.max(0, state.episodeDuration - state.episodeTime);
-    document.getElementById('hudAlive').textContent = alive + ' / ' + state.gliders.length;
-    document.getElementById('hudTimer').textContent = rem.toFixed(1) + 's';
-    document.getElementById('episodeProgressFill').style.width =
-      Math.min(100, (state.episodeTime / state.episodeDuration) * 100) + '%';
+    const epDur = Math.max(1, state.episodeDuration);
+    const rem = Math.max(0, epDur - state.episodeTime);
+    if (_hudEls.alive) _hudEls.alive.textContent = alive + ' / ' + state.gliders.length;
+    if (_hudEls.timer) _hudEls.timer.textContent = fmtHud(rem, 1) + 's';
+    if (_hudEls.prog) _hudEls.prog.style.width = Math.min(100, Math.max(0, (state.episodeTime / epDur) * 100)) + '%';
 
     if (!focus) return;
-    const speed = Math.hypot(focus.vx, focus.vy);
-    const groundY = terrainHeightAt(focus.x);
-    const alt = Math.max(0, focus.y - groundY);
-    document.getElementById('hudSpeed').textContent = speed.toFixed(1) + ' m/s';
-    document.getElementById('hudAlt').textContent = Math.round(alt) + ' m';
-    document.getElementById('hudAoA').textContent = focus.aoaDeg.toFixed(1) + '°';
-    document.getElementById('hudLD').textContent = focus.liveLD.toFixed(1);
-    document.getElementById('hudDist').textContent = Math.round(Math.max(0, focus.maxX - 40)) + ' m';
-    document.getElementById('hudRings').textContent = focus.ringsCollected + ' / ' + state.rings.length;
-    document.getElementById('hudThermal').textContent = (focus.thermalLift >= 0 ? '+' : '') + focus.thermalLift.toFixed(1);
+    const map = MAP_BY_ID[state.mapId];
+    const air = focus.alive ? sampleAirflow(focus.x, focus.y, state.simClock, map) : { wx: 0, wy: 0 };
+    const airspeed = focus.alive ? Math.hypot(focus.vx - air.wx, focus.vy - air.wy) : 0;
+    const groundY = terrainHeightAt(focus.x, map);
+    const alt = Math.max(0, (Number.isFinite(focus.y) ? focus.y : groundY) - groundY);
+    if (_hudEls.speed) _hudEls.speed.textContent = fmtHud(airspeed, 1) + ' m/s';
+    if (_hudEls.alt) _hudEls.alt.textContent = Math.round(alt) + ' m';
+    if (_hudEls.aoa) _hudEls.aoa.textContent = fmtHud(focus.aoaDeg, 1) + '°';
+    if (_hudEls.ld) _hudEls.ld.textContent = fmtHud(focus.liveLD, 1);
+    if (_hudEls.dist) _hudEls.dist.textContent = Math.round(Math.max(0, (Number.isFinite(focus.maxX) ? focus.maxX : 40) - 40)) + ' m';
+    if (_hudEls.rings) _hudEls.rings.textContent = focus.ringsCollected + ' / ' + state.rings.length;
+    const thVal = Number.isFinite(focus.thermalLift) ? focus.thermalLift : 0;
+    if (_hudEls.thermal) _hudEls.thermal.textContent = (thVal >= 0 ? '+' : '') + fmtHud(thVal, 1);
 
-    const stallBadge = document.getElementById('hudStallBadge');
-    if (focus.stalling && focus.alive) stallBadge.classList.add('visible');
-    else stallBadge.classList.remove('visible');
+    if (_hudEls.stall) _hudEls.stall.classList.toggle('visible', !!(focus.stalling && focus.alive));
   }
 
   /* =========================================================================
@@ -3589,12 +3707,13 @@
       if (state.gliders.length === 0 || state.blueprintDirty) {
         spawnGeneration(true);
       }
-      setTimeout(function() {
+      requestAnimationFrame(function() {
         resizeCanvasDPR(arenaCanvas, true);
+        resizeCanvasDPR(chartCanvas, true);
         drawLearningCurve();
-      }, 20);
+      });
     } else {
-      setTimeout(function() { resizeCanvasDPR(builderCanvas, true); }, 20);
+      requestAnimationFrame(function() { resizeCanvasDPR(builderCanvas, true); });
     }
   }
 
@@ -3611,6 +3730,7 @@
   document.getElementById('catTabs').addEventListener('click', function(e) {
     const btn = e.target.closest('.cat-btn');
     if (!btn) return;
+    if (_psi && _psi.value) _psi.value = '';
     state.activeCat = btn.dataset.cat;
     const all = document.querySelectorAll('.cat-btn');
     for (let i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === btn);
@@ -3647,16 +3767,17 @@
     const dx = Math.round((minX + maxX) / 2);
     const dy = Math.round((minY + maxY) / 2);
     for (let i = 0; i < state.blueprint.length; i++) {
-      state.blueprint[i].gx -= dx;
-      state.blueprint[i].gy -= dy;
+      state.blueprint[i].gx = Math.max(-7, Math.min(7, state.blueprint[i].gx - dx));
+      state.blueprint[i].gy = Math.max(-4, Math.min(4, state.blueprint[i].gy - dy));
     }
     state.blueprintDirty = true;
     recomputeAndRefreshBuilder();
   });
 
   // Population slider & quick pills (1 to 200)
-  function setPopulation(val) {
-    const n = Math.max(1, Math.min(1000, Math.round(val)));
+  function setPopulation(val, skipSpawn) {
+    const raw = Number.isFinite(val) ? val : state.populationSize;
+    const n = Math.max(1, Math.min(1000, Math.round(raw)));
     state.populationSize = n;
     document.getElementById('sliderPop').value = n;
     document.getElementById('popValLabel').textContent = n + (n === 1 ? ' glider' : ' gliders');
@@ -3664,7 +3785,8 @@
     for (let i = 0; i < pills.length; i++) {
       pills[i].classList.toggle('active-toggle', Number(pills[i].dataset.pop) === n);
     }
-    spawnGeneration(false);
+    saveAppState();
+    if (!skipSpawn) spawnGeneration(false);
   }
   document.getElementById('sliderPop').addEventListener('input', function() { setPopulation(Number(this.value)); });
   document.querySelectorAll('.pop-pill').forEach(function(btn) {
@@ -3684,13 +3806,16 @@
     return Math.round((Math.log10(clamped / 0.05) / 4) * 100);
   }
   function setSimSpeed(spd) {
-    state.simSpeed = Math.max(0.05, Math.min(500, spd));
+    const raw = Number.isFinite(spd) ? spd : 1.0;
+    state.simSpeed = Math.max(0.05, Math.min(500, raw));
     document.getElementById('sliderSpeed').value = speedToSlider(state.simSpeed);
     document.getElementById('speedValLabel').textContent = (state.simSpeed < 1 ? state.simSpeed.toFixed(2) : (state.simSpeed < 10 ? state.simSpeed.toFixed(1) : Math.round(state.simSpeed))) + 'x';
+    const tol = Math.max(0.01, state.simSpeed * 0.02);
     const pills = document.querySelectorAll('.spd-pill');
     for (let i = 0; i < pills.length; i++) {
-      pills[i].classList.toggle('active-toggle', Math.abs(Number(pills[i].dataset.spd) - state.simSpeed) < 0.05);
+      pills[i].classList.toggle('active-toggle', Math.abs(Number(pills[i].dataset.spd) - state.simSpeed) < tol);
     }
+    saveAppState();
   }
   document.getElementById('sliderSpeed').addEventListener('input', function() {
     setSimSpeed(sliderToSpeed(Number(this.value)));
@@ -3701,13 +3826,15 @@
 
   // Episode Timer controls
   function setEpisodeDuration(sec) {
-    state.episodeDuration = Math.max(5, Math.min(300, Math.round(sec)));
+    const raw = Number.isFinite(sec) ? sec : 30;
+    state.episodeDuration = Math.max(5, Math.min(300, Math.round(raw)));
     document.getElementById('sliderEpTime').value = state.episodeDuration;
     document.getElementById('epTimeValLabel').textContent = state.episodeDuration + 's';
     const pills = document.querySelectorAll('.ep-pill');
     for (let i = 0; i < pills.length; i++) {
       pills[i].classList.toggle('active-toggle', Number(pills[i].dataset.ep) === state.episodeDuration);
     }
+    saveAppState();
   }
   document.getElementById('sliderEpTime').addEventListener('input', function() { setEpisodeDuration(Number(this.value)); });
   document.querySelectorAll('.ep-pill').forEach(function(btn) {
@@ -3733,6 +3860,7 @@
   });
   document.getElementById('btnManualToggle').addEventListener('click', function() {
     state.manualOverride = !state.manualOverride;
+    if (!state.manualOverride) resetAllKeys();
     this.textContent = state.manualOverride ? 'ON (Manual Pilot)' : 'Off (Neural AI)';
     this.classList.toggle('active-toggle', state.manualOverride);
     document.getElementById('manualPad').classList.toggle('visible', state.manualOverride);
@@ -3760,6 +3888,7 @@
     if (!state.manualOverride || state.gliders.length === 0) return;
     const b = state.gliders[0].brain || createBrain(state.aero.hiddenNodes);
     state.gliders[0] = createGlider(b, 0);
+    if (state.populationSize === 1) state.episodeTime = 0;
     state.camera.x = state.gliders[0].x;
     state.camera.y = state.gliders[0].y;
   }
@@ -3774,16 +3903,33 @@
   }
   window.addEventListener('blur', resetAllKeys);
 
-  // Keyboard controls for Manual Pitch Override (guarded against search inputs & tutorial modal)
+  // Keyboard controls for Manual Pitch Override (guarded against modifiers, search inputs & tutorial modal)
   window.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const activeEl = document.activeElement;
-    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) return;
     const tutModal = document.getElementById('glTutModal');
     if (tutModal && tutModal.classList.contains('tut-open')) return;
 
     if (e.code === 'ArrowUp' || e.code === 'KeyW') { state.keys.up = true; if (state.manualOverride) e.preventDefault(); }
     if (e.code === 'ArrowDown' || e.code === 'KeyS') { state.keys.down = true; if (state.manualOverride) e.preventDefault(); }
-    if (e.code === 'Space') { state.keys.boost = true; if (state.manualOverride) e.preventDefault(); }
+    if (e.code === 'Space') {
+      if (state.manualOverride) {
+        if (activeEl && activeEl.tagName === 'BUTTON') activeEl.blur();
+        state.keys.boost = true;
+        e.preventDefault();
+      } else if (state.activeTab === 'arena') {
+        if (activeEl && activeEl.tagName === 'BUTTON') activeEl.blur();
+        e.preventDefault();
+        state.paused = !state.paused;
+        document.getElementById('btnPausePlay').textContent = state.paused ? '▶ Resume' : '⏸ Pause';
+      }
+    }
+    if (e.code === 'KeyP' && state.activeTab === 'arena') {
+      e.preventDefault();
+      state.paused = !state.paused;
+      document.getElementById('btnPausePlay').textContent = state.paused ? '▶ Resume' : '⏸ Pause';
+    }
     if (e.code === 'KeyB') { state.keys.brake = true; }
     if (e.code === 'KeyR' && state.manualOverride && state.activeTab === 'arena') {
       e.preventDefault();
@@ -3808,38 +3954,76 @@
     }
   }
   window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', function() { requestAnimationFrame(handleResize); });
+  let _ro = null;
   if (typeof ResizeObserver !== 'undefined') {
-    const ro = new ResizeObserver(handleResize);
-    ro.observe(document.getElementById('builderStage'));
-    ro.observe(document.getElementById('arenaStage'));
-    ro.observe(document.getElementById('chartWrap'));
+    _ro = new ResizeObserver(handleResize);
+    _ro.observe(document.getElementById('builderStage'));
+    _ro.observe(document.getElementById('arenaStage'));
+    _ro.observe(document.getElementById('chartWrap'));
   }
 
   /* =========================================================================
    * 15. INITIALIZATION & MAIN ANIMATION LOOP
    * ========================================================================= */
   updateDynamicCatalogLabels();
-  loadPreset('thermal_soarer');
+  const restored = loadAppState();
+  if (restored) {
+    recomputeAndRefreshBuilder();
+  } else {
+    loadPreset('thermal_soarer');
+  }
+  const selPartObj = PART_BY_ID[state.selectedPartId];
+  if (selPartObj) document.getElementById('selectedPartBadge').textContent = selPartObj.name;
+  const activeMapObj = MAP_BY_ID[state.mapId];
+  if (activeMapObj) document.getElementById('activeMapLabel').textContent = activeMapObj.name;
+  document.getElementById('btnVectorsToggle').textContent = state.showVectors ? 'On' : 'Off';
+  document.getElementById('btnVectorsToggle').classList.toggle('active-toggle', state.showVectors);
+
   renderPartsPalette();
   renderMapGrid();
-  setSimSpeed(1.0);
-  setEpisodeDuration(30);
+  setPopulation(state.populationSize, true);
+  setSimSpeed(state.simSpeed);
+  setEpisodeDuration(state.episodeDuration);
   spawnGeneration(true);
 
   let lastFrameTime = performance.now();
+  let rafId = 0;
   function mainLoop(now) {
-    const realDt = Math.min(0.05, Math.max(0.001, (now - lastFrameTime) / 1000));
+    rafId = 0;
+    if (document.hidden) return;
+    const rawDt = (now - lastFrameTime) / 1000;
+    const realDt = Number.isFinite(rawDt) ? Math.min(0.05, Math.max(0, rawDt)) : 0;
     lastFrameTime = now;
 
     if (state.activeTab === 'winglab') {
       renderBuilder();
     } else {
-      stepSimulation(realDt);
+      if (realDt > 0) stepSimulation(realDt);
       renderArena();
     }
-    requestAnimationFrame(mainLoop);
+    rafId = requestAnimationFrame(mainLoop);
   }
-  requestAnimationFrame(mainLoop);
+  function startLoop() {
+    if (!rafId && !document.hidden) {
+      lastFrameTime = performance.now();
+      rafId = requestAnimationFrame(mainLoop);
+    }
+  }
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      resetAllKeys();
+      builderDragMode = null;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    } else {
+      startLoop();
+    }
+  });
+  window.addEventListener('pagehide', function() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    if (_ro) { _ro.disconnect(); _ro = null; }
+  });
+  startLoop();
 })();
 </script>
 
@@ -3946,24 +4130,38 @@
 
   // === PHONE OPTIMIZED MODE ===
   (function initGliderMobileMode() {
+    const MOB_KEY = 'gliderlab_mobile_override_v1';
     let mobileOverride = null;
+    let applying = false;
+    try {
+      const saved = localStorage.getItem(MOB_KEY);
+      if (saved === '1') mobileOverride = true;
+      else if (saved === '0') mobileOverride = false;
+    } catch (_) {}
     function detectPhone() {
       return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
     }
-    function applyMobileMode() {
+    function applyMobileMode(fromResize) {
+      if (applying) return;
+      applying = true;
       const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
+      const changed = document.body.classList.contains('mobile-mode') !== isMob;
       document.body.classList.toggle('mobile-mode', isMob);
       const btn = document.getElementById('btnMobileToggle');
       if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
-      window.dispatchEvent(new Event('resize'));
+      if (!fromResize && changed) {
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
+      applying = false;
     }
     const mobBtn = document.getElementById('btnMobileToggle');
     if (mobBtn) mobBtn.addEventListener('click', () => {
       mobileOverride = !document.body.classList.contains('mobile-mode');
-      applyMobileMode();
+      try { localStorage.setItem(MOB_KEY, mobileOverride ? '1' : '0'); } catch (_) {}
+      applyMobileMode(false);
     });
-    window.addEventListener('resize', applyMobileMode);
-    applyMobileMode();
+    window.addEventListener('resize', () => applyMobileMode(true));
+    applyMobileMode(false);
   })();
 
 </script>

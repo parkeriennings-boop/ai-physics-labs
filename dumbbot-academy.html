@@ -44,7 +44,7 @@
   .tut-dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; }
   .tut-dot.active { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
   #canvas-wrap { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 50%, #0c1424 0%, #070b12 100%); }
-  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
   #hud { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; pointer-events: none; flex-wrap: wrap; }
   .pill { background: rgba(13,20,34,0.86); backdrop-filter: blur(10px); border: 1px solid rgba(56,189,248,0.22); padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
   .pill b { color: var(--accent); }
@@ -117,10 +117,14 @@
   body.mobile-mode #topbar .controls { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-bottom: 2px; }
   body.mobile-mode #topbar .controls > * { flex-shrink: 0; }
   body.mobile-mode #canvas-wrap { flex: none; width: 100%; height: 55dvh; min-height: 320px; max-height: 500px; touch-action: none; }
-  body.mobile-mode #sidebar { width: 100%; height: auto; max-height: none; border-left: none; border-top: 1px solid var(--border); overflow: visible; }
+  body.mobile-mode #sidebar { width: 100%; height: auto; max-height: none; border-left: none; border-top: 1px solid var(--border); overflow: visible; padding-bottom: 112px; }
+  body.mobile-mode #part-list { max-height: 46vh; }
   body.mobile-mode #hud { top: 6px; left: 6px; right: 6px; gap: 4px; flex-wrap: wrap; }
   body.mobile-mode #hud .pill { font-size: 10.5px; padding: 4px 8px; }
-  body.mobile-mode #flyBrainViz { max-width: 165px; padding: 6px 8px; font-size: 10px; bottom: 72px; right: 6px; }
+  body.mobile-mode #flyBrainViz { left: auto; right: 6px; width: 168px; max-width: 168px; padding: 6px 8px; font-size: 10px; bottom: 72px; }
+  body.mobile-mode #flyBrainViz svg { width: 100%; height: auto; }
+  body.mobile-mode #mlLabPanel { top: 44px; left: 6px; width: min(274px, calc(100% - 12px)); max-height: calc(100% - 104px); }
+  body.mobile-mode #toastMsg { left: 50%; max-width: calc(100vw - 24px); text-align: center; }
   body.mobile-mode #inspector { max-width: 170px; font-size: 10.5px; padding: 6px 8px; }
   body.mobile-mode .floating-field-tools {
     left: 50% !important; width: calc(100vw - 16px); min-width: 0 !important; max-width: 520px;
@@ -283,8 +287,8 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
       <div class="s-row"><span>Mutation</span><input type="range" id="sMut" min="0.02" max="0.50" step="0.02" value="0.16" oninput="mlConfig.mutRate=parseFloat(this.value);document.getElementById('vMut').textContent=Math.round(this.value*100)+'%'"><b id="vMut">16%</b></div>
       <div class="s-row"><span>Elitism</span><input type="range" id="sElite" min="5" max="30" step="5" value="10" oninput="mlConfig.elitism=parseInt(this.value,10)/100;document.getElementById('vElite').textContent=this.value+'%'"><b id="vElite">10%</b></div>
       <div class="s-row"><span>Gen Secs</span><input type="range" id="sGenSec" min="10" max="120" step="5" value="30" oninput="mlConfig.genDuration=parseInt(this.value,10);document.getElementById('vGenSec').textContent=this.value+'s'"><b id="vGenSec">30s</b></div>
-      <div class="s-row"><span>Wheel Grip</span><input type="range" id="sGrip" min="0.4" max="1.6" step="0.1" value="1.0" oninput="physConfig.grip=parseFloat(this.value);document.getElementById('vGrip').textContent=this.value+'x'"><b id="vGrip">1.0x</b></div>
-      <div class="s-row"><span>Wall Bounce</span><input type="range" id="sBounce" min="0.2" max="1.4" step="0.1" value="0.7" oninput="physConfig.bounce=parseFloat(this.value);document.getElementById('vBounce').textContent=this.value+'x'"><b id="vBounce">0.7x</b></div>
+      <div class="s-row"><span>Wheel Grip</span><input type="range" id="sGrip" min="0.4" max="1.6" step="0.1" value="1.0" oninput="physConfig.grip=parseFloat(this.value)||1;document.getElementById('vGrip').textContent=physConfig.grip.toFixed(1)+'x'"><b id="vGrip">1.0x</b></div>
+      <div class="s-row"><span>Wall Bounce</span><input type="range" id="sBounce" min="0.2" max="1.4" step="0.1" value="0.7" oninput="physConfig.bounce=parseFloat(this.value)||0.7;document.getElementById('vBounce').textContent=physConfig.bounce.toFixed(1)+'x'"><b id="vBounce">0.7x</b></div>
       <div class="s-row">
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkShowGhosts" checked onchange="mlConfig.showGhosts=this.checked"><span>Ghosts</span></label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="chkWhiskers" checked onchange="mlConfig.showWhiskers=this.checked"><span>5-Ray LiDAR</span></label>
@@ -303,9 +307,9 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
       </div>
       <div style="display:flex;gap:4px;align-items:center;">
         <span style="font-size:10px;color:#94a3b8;font-weight:700;">Hall of Fame:</span>
-        <button onclick="brainSlotAction(0)" id="btnSlot0" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S1</button>
-        <button onclick="brainSlotAction(1)" id="btnSlot1" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S2</button>
-        <button onclick="brainSlotAction(2)" id="btnSlot2" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S3</button>
+        <button onclick="brainSlotAction(0,event)" id="btnSlot0" title="Click to save/load · Shift+Click to overwrite" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S1</button>
+        <button onclick="brainSlotAction(1,event)" id="btnSlot1" title="Click to save/load · Shift+Click to overwrite" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S2</button>
+        <button onclick="brainSlotAction(2,event)" id="btnSlot2" title="Click to save/load · Shift+Click to overwrite" style="flex:1;padding:3px 4px;font-size:10px;justify-content:center;">💾 S3</button>
       </div>
       <div>
         <div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;display:flex;justify-content:space-between;"><span>Deep MLP (10 → 12 → 8 → 4)</span><span id="mlAdoptedBadge" style="color:#64748b">Not Adopted</span></div>
@@ -410,10 +414,38 @@ body.mobile-mode #tutCard { width: 100% !important; max-width: 100% !important; 
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-let W, H;
-function resize() { W = canvas.width = canvas.parentElement.clientWidth; H = canvas.height = canvas.parentElement.clientHeight; }
+let W = 0, H = 0, canvasDpr = 1;
+function resize() {
+  const parent = canvas.parentElement;
+  const cw = parent ? parent.clientWidth : 0;
+  const ch = parent ? parent.clientHeight : 0;
+  W = Math.max(0, cw);
+  H = Math.max(0, ch);
+  canvasDpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.max(1, Math.round(W * canvasDpr));
+  canvas.height = Math.max(1, Math.round(H * canvasDpr));
+  ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
+}
 window.addEventListener('resize', resize);
 resize();
+
+function safeStorageGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function safeStorageSet(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+function fmtInt(v) {
+  if (!Number.isFinite(v)) return '0';
+  const r = Math.round(v);
+  return String(r === 0 ? 0 : r);
+}
+function fmt2(v) {
+  if (!Number.isFinite(v)) return '0.00';
+  return (Math.abs(v) < 0.005 ? 0 : v).toFixed(2);
+}
+const CORE_BRAIN_IDS = new Set([0, 370, 378, 390, 392, 393, 395, 398, 399, 440, 450, 451, 453, 454, 459]);
+function isCoreBrain(t) { return CORE_BRAIN_IDS.has(t); }
+const VALID_FIELDS = new Set(['slalom','maze','gauntlet','soccer','targets','survival','darwin','sandbox','twin','pinball','fortress','crossfire','spiral']);
 
 // 48 Distinct Robot Parts with 3 Knowledge Levels
 const PARTS = [
@@ -930,7 +962,13 @@ let garageBrain = { wGoal: 0.1, wAvoid: 0.1, wWander: 0.7, wSpin: 0.25, iq: 0 };
 // Field Simulation State
 const FIELD_W = 1320, FIELD_H = 820;
 let fNodes = [], fWelds = [], goals = [], hazards = [], walls = [], crates = [], targets = [], lasers = [], fx = [], fBrains = {};
-let nextGid = 1;
+let nextGid = 1, nextGoalId = 1;
+const MAX_FX = 120;
+function pushFx(item) {
+  if (!item || !Number.isFinite(item.x) || !Number.isFinite(item.y)) return;
+  if (fx.length >= MAX_FX) fx.shift();
+  fx.push(item);
+}
 
 const UI_TXT = {
   noob: { badge:'Arcade', bots:'Bots', iq:'Top IQ' },
@@ -939,12 +977,18 @@ const UI_TXT = {
 };
 
 function setKnowledge(lvl) {
+  if (!UI_TXT[lvl]) lvl = 'student';
   knowledge = lvl;
-  document.getElementById('knowSel').value = lvl;
-  document.getElementById('knowBadge').textContent = UI_TXT[lvl].badge;
-  document.getElementById('lblBots').textContent = UI_TXT[lvl].bots;
-  document.getElementById('lblIQ').textContent = UI_TXT[lvl].iq;
+  const sel = document.getElementById('knowSel');
+  if (sel) sel.value = lvl;
+  const badge = document.getElementById('knowBadge');
+  if (badge) badge.textContent = UI_TXT[lvl].badge;
+  const lblBots = document.getElementById('lblBots');
+  if (lblBots) lblBots.textContent = UI_TXT[lvl].bots;
+  const lblIQ = document.getElementById('lblIQ');
+  if (lblIQ) lblIQ.textContent = UI_TXT[lvl].iq;
   renderParts();
+  if (typeof updateInspector === 'function') updateInspector();
 }
 
 function getPartCat(p) {

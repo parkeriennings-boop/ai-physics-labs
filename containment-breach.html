@@ -30,7 +30,7 @@
     font-family: var(--font); font-size: 13px;
   }
   #gameCanvas {
-    display: block; width: 100vw; height: 100vh; cursor: crosshair;
+    display: block; width: 100vw; height: 100vh; cursor: crosshair; touch-action: none;
   }
 
   /* Top Bar */
@@ -40,8 +40,10 @@
     border: 1px solid var(--panel-border); border-radius: var(--radius);
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 12px; gap: 10px; z-index: 20;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
     box-shadow: 0 8px 24px rgba(0,0,0,0.32);
   }
+  #topBar::-webkit-scrollbar { display: none; }
   .brand {
     display: flex; align-items: center; gap: 8px; font-weight: 800;
     letter-spacing: 0.4px; font-size: 14px; white-space: nowrap;
@@ -210,6 +212,7 @@
     background: rgba(15, 23, 42, 0.85); border: 1px solid var(--panel-border);
     border-radius: 8px; padding: 5px 12px; font-size: 11px; color: #cbd5e1;
     z-index: 10; pointer-events: none; white-space: nowrap;
+    max-width: calc(100vw - 540px); overflow: hidden; text-overflow: ellipsis;
   }
 
   /* Quick Dock Toggles */
@@ -271,7 +274,7 @@
 
   /* Glassmorphic Touch D-Pad + Action Pad (Possess Mode) */
   #touchPadCB {
-    display: none; position: fixed; left: 10px; right: 10px; bottom: 72px; z-index: 28;
+    display: none; position: fixed; left: 10px; right: 10px; bottom: 88px; z-index: 28;
     justify-content: space-between; align-items: flex-end; pointer-events: none;
   }
   body.mobile-mode.possess-active #touchPadCB { display: flex; }
@@ -694,6 +697,19 @@
   // =========================================================================
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d', { alpha: false });
+  let viewW = window.innerWidth || 1;
+  let viewH = window.innerHeight || 1;
+  let dpr = 1;
+
+  const MAX_UNITS = 750;
+  const MAX_BULLETS = 420;
+  const MAX_SOUND_RINGS = 80;
+  const MAX_FIRES = 40;
+  const MAX_ALARMS = 12;
+  const MAX_SUPPLIES = 24;
+  const MAX_CURE_CLOUDS = 16;
+  const MAX_EXTRACT_ZONES = 12;
+  let unitCapWarnTime = -10;
 
   let nextId = 1;
   const rules = {
@@ -732,6 +748,7 @@
     cureClouds: [],
     fires: [],
     extractZones: [],
+    pendingExplosions: [],
     possessedId: null,
     hoveredStruct: null,
     hoveredUnit: null
@@ -746,7 +763,9 @@
 
   const input = {
     mouseX: 0, mouseY: 0,
-    worldX: 0, worldY: 0,
+    worldX: WORLD_W / 2, worldY: WORLD_H / 2,
+    hasPointer: false,
+    usingTouchAim: false,
     leftDown: false,
     rightDown: false,
     midDown: false,
@@ -755,6 +774,7 @@
     camStartX: 0, camStartY: 0,
     keys: new Set(),
     lastPaintX: -999, lastPaintY: -999,
+    lastDragX: -999, lastDragY: -999,
     paintTimer: 0
   };
 
@@ -768,8 +788,8 @@
     spatialUnits.clear();
     for (let i = 0; i < state.units.length; i++) {
       const u = state.units[i];
-      const cx = (u.x / HASH_CELL) | 0;
-      const cy = (u.y / HASH_CELL) | 0;
+      const cx = Math.floor(u.x / HASH_CELL);
+      const cy = Math.floor(u.y / HASH_CELL);
       const k = hashKey(cx, cy);
       let arr = spatialUnits.get(k);
       if (!arr) { arr = []; spatialUnits.set(k, arr); }
@@ -781,10 +801,11 @@
     spatialStructs.clear();
     for (let i = 0; i < state.structures.length; i++) {
       const s = state.structures[i];
-      const minX = ((s.x - s.w / 2) / HASH_CELL) | 0;
-      const maxX = ((s.x + s.w / 2) / HASH_CELL) | 0;
-      const minY = ((s.y - s.h / 2) / HASH_CELL) | 0;
-      const maxY = ((s.y + s.h / 2) / HASH_CELL) | 0;
+      if (s.destroyed) continue;
+      const minX = Math.floor((s.x - s.w / 2) / HASH_CELL);
+      const maxX = Math.floor((s.x + s.w / 2) / HASH_CELL);
+      const minY = Math.floor((s.y - s.h / 2) / HASH_CELL);
+      const maxY = Math.floor((s.y + s.h / 2) / HASH_CELL);
       for (let cy = minY; cy <= maxY; cy++) {
         for (let cx = minX; cx <= maxX; cx++) {
           const k = hashKey(cx, cy);
@@ -798,10 +819,10 @@
 
   function queryUnits(x, y, r, out) {
     out.length = 0;
-    const minX = ((x - r) / HASH_CELL) | 0;
-    const maxX = ((x + r) / HASH_CELL) | 0;
-    const minY = ((y - r) / HASH_CELL) | 0;
-    const maxY = ((y + r) / HASH_CELL) | 0;
+    const minX = Math.floor((x - r) / HASH_CELL);
+    const maxX = Math.floor((x + r) / HASH_CELL);
+    const minY = Math.floor((y - r) / HASH_CELL);
+    const maxY = Math.floor((y + r) / HASH_CELL);
     const r2 = r * r;
     for (let cy = minY; cy <= maxY; cy++) {
       for (let cx = minX; cx <= maxX; cx++) {
@@ -819,10 +840,10 @@
 
   function queryStructs(x, y, r, out) {
     out.length = 0;
-    const minX = ((x - r) / HASH_CELL) | 0;
-    const maxX = ((x + r) / HASH_CELL) | 0;
-    const minY = ((y - r) / HASH_CELL) | 0;
-    const maxY = ((y + r) / HASH_CELL) | 0;
+    const minX = Math.floor((x - r) / HASH_CELL);
+    const maxX = Math.floor((x + r) / HASH_CELL);
+    const minY = Math.floor((y - r) / HASH_CELL);
+    const maxY = Math.floor((y + r) / HASH_CELL);
     const seen = new Set();
     for (let cy = minY; cy <= maxY; cy++) {
       for (let cx = minX; cx <= maxX; cx++) {
@@ -830,7 +851,7 @@
         if (!arr) continue;
         for (let i = 0; i < arr.length; i++) {
           const s = arr[i];
-          if (!seen.has(s.id)) {
+          if (!s.destroyed && !seen.has(s.id)) {
             seen.add(s.id);
             out.push(s);
           }
@@ -842,16 +863,19 @@
 
   const _tmpUnits = [];
   const _tmpStructs = [];
+  const _tmpSpawnStructs = [];
 
   // =========================================================================
   // LOGGING & FEED
   // =========================================================================
   const feedEl = document.getElementById('eventFeed');
   function logEvent(msg, type = '') {
+    if (!feedEl) return;
     const div = document.createElement('div');
     div.className = 'feed-item ' + type;
-    const mins = Math.floor(state.time / 60);
-    const secs = Math.floor(state.time % 60).toString().padStart(2, '0');
+    const safeTime = Math.max(0, Number.isFinite(state.time) ? state.time : 0);
+    const mins = Math.floor(safeTime / 60);
+    const secs = Math.floor(safeTime % 60).toString().padStart(2, '0');
     div.textContent = `[${mins}:${secs}] ${msg}`;
     feedEl.prepend(div);
     while (feedEl.children.length > 28) feedEl.removeChild(feedEl.lastChild);
@@ -864,19 +888,24 @@
   function dist2(x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1; return dx * dx + dy * dy; }
   function screenToWorld(sx, sy) {
     const r = canvas.getBoundingClientRect();
+    const rw = r.width > 0 ? r.width : (viewW || 1);
+    const rh = r.height > 0 ? r.height : (viewH || 1);
+    const lx = ((sx - r.left) / rw) * viewW;
+    const ly = ((sy - r.top) / rh) * viewH;
+    const z = cam.zoom > 0 ? cam.zoom : 1;
     return {
-      x: ((sx - r.left) - canvas.width / 2) / cam.zoom + cam.x,
-      y: ((sy - r.top) - canvas.height / 2) / cam.zoom + cam.y
+      x: (lx - viewW / 2) / z + cam.x,
+      y: (ly - viewH / 2) / z + cam.y
     };
   }
   function worldToScreen(wx, wy) {
     return {
-      x: (wx - cam.x) * cam.zoom + canvas.width / 2,
-      y: (wy - cam.y) * cam.zoom + canvas.height / 2
+      x: (wx - cam.x) * cam.zoom + viewW / 2,
+      y: (wy - cam.y) * cam.zoom + viewH / 2
     };
   }
 
-  function segmentIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+  function segmentRectHitT(x1, y1, x2, y2, rx, ry, rw, rh) {
     const left = rx - rw / 2, right = rx + rw / 2;
     const top = ry - rh / 2, bottom = ry + rh / 2;
     let t0 = 0, t1 = 1;
@@ -885,35 +914,74 @@
     const q = [x1 - left, right - x1, y1 - top, bottom - y1];
     for (let i = 0; i < 4; i++) {
       if (p[i] === 0) {
-        if (q[i] < 0) return false;
+        if (q[i] < 0) return -1;
       } else {
         const t = q[i] / p[i];
         if (p[i] < 0) {
-          if (t > t1) return false;
+          if (t > t1) return -1;
           if (t > t0) t0 = t;
         } else {
-          if (t < t0) return false;
+          if (t < t0) return -1;
           if (t < t1) t1 = t;
         }
       }
     }
-    return true;
+    return t0;
+  }
+
+  function segmentIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+    return segmentRectHitT(x1, y1, x2, y2, rx, ry, rw, rh) >= 0;
+  }
+
+  function segmentCircleHitT(x1, y1, x2, y2, cx, cy, r) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const fx = x1 - cx, fy = y1 - cy;
+    const c = fx * fx + fy * fy - r * r;
+    if (c <= 0) return 0;
+    const a = dx * dx + dy * dy;
+    if (a < 1e-8) return -1;
+    const b = 2 * (fx * dx + fy * dy);
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) return -1;
+    const t = (-b - Math.sqrt(disc)) / (2 * a);
+    return (t >= 0 && t <= 1) ? t : -1;
   }
 
   function hasLineOfSight(x1, y1, x2, y2, checkBullets = false) {
     const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
     const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-    const cMinX = (minX / HASH_CELL) | 0, cMaxX = (maxX / HASH_CELL) | 0;
-    const cMinY = (minY / HASH_CELL) | 0, cMaxY = (maxY / HASH_CELL) | 0;
+    const cMinX = Math.floor(minX / HASH_CELL), cMaxX = Math.floor(maxX / HASH_CELL);
+    const cMinY = Math.floor(minY / HASH_CELL), cMaxY = Math.floor(maxY / HASH_CELL);
     for (let cy = cMinY; cy <= cMaxY; cy++) {
       for (let cx = cMinX; cx <= cMaxX; cx++) {
         const arr = spatialStructs.get(hashKey(cx, cy));
         if (!arr) continue;
         for (let i = 0; i < arr.length; i++) {
           const s = arr[i];
+          if (s.destroyed) continue;
           if (s.isDoor && s.doorState === 'open') continue;
           const blocks = checkBullets ? s.blocksBullets : s.blocksSight;
           if (!blocks) continue;
+          if (segmentIntersectsRect(x1, y1, x2, y2, s.x, s.y, s.w, s.h)) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function hasUnobstructedPath(x1, y1, x2, y2) {
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const cMinX = Math.floor(minX / HASH_CELL), cMaxX = Math.floor(maxX / HASH_CELL);
+    const cMinY = Math.floor(minY / HASH_CELL), cMaxY = Math.floor(maxY / HASH_CELL);
+    for (let cy = cMinY; cy <= cMaxY; cy++) {
+      for (let cx = cMinX; cx <= cMaxX; cx++) {
+        const arr = spatialStructs.get(hashKey(cx, cy));
+        if (!arr) continue;
+        for (let i = 0; i < arr.length; i++) {
+          const s = arr[i];
+          if (s.destroyed || !s.blocksMove) continue;
+          if (s.isDoor && s.doorState === 'open') continue;
           if (segmentIntersectsRect(x1, y1, x2, y2, s.x, s.y, s.w, s.h)) return false;
         }
       }
@@ -937,21 +1005,32 @@
   function addStructure(type, x, y, opts = {}) {
     const def = STRUCT_DEFS[type];
     if (!def) return null;
-    // Prevent exact overlap on same tile/position
-    for (let i = 0; i < state.structures.length; i++) {
+    const cx = clamp(x, def.w / 2, WORLD_W - def.w / 2);
+    const cy = clamp(y, def.h / 2, WORLD_H - def.h / 2);
+    // Check overlap after clamping to world bounds; replace all heavily overlapping different-type structures
+    let removedAny = false;
+    for (let i = state.structures.length - 1; i >= 0; i--) {
       const ex = state.structures[i];
-      if (Math.abs(ex.x - x) < 14 && Math.abs(ex.y - y) < 14) {
-        if (ex.type === type) return ex;
-        // Replace existing structure if building over it
+      const sameTolX = Math.max(12, Math.min(ex.w, def.w) * 0.45);
+      const sameTolY = Math.max(12, Math.min(ex.h, def.h) * 0.45);
+      const repTolX = Math.max(14, (ex.w + def.w) * 0.35);
+      const repTolY = Math.max(14, (ex.h + def.h) * 0.35);
+      if (ex.type === type && Math.abs(ex.x - cx) < sameTolX && Math.abs(ex.y - cy) < sameTolY) {
+        if (removedAny) rebuildSpatialStructs();
+        return ex;
+      }
+      if (Math.abs(ex.x - cx) < repTolX && Math.abs(ex.y - cy) < repTolY) {
+        ex.destroyed = true;
+        if (state.hoveredStruct === ex) state.hoveredStruct = null;
         state.structures.splice(i, 1);
-        break;
+        removedAny = true;
       }
     }
     const s = {
       id: nextId++,
       type,
-      x: clamp(x, 16, WORLD_W - 16),
-      y: clamp(y, 16, WORLD_H - 16),
+      x: cx,
+      y: cy,
       w: def.w,
       h: def.h,
       hp: def.hp,
@@ -965,6 +1044,7 @@
       explosive: !!def.explosive,
       isDoor: !!def.isDoor,
       doorState: opts.doorState || 'closed', // 'open' | 'closed' | 'locked' | 'barricaded'
+      autoCloseTimer: 0,
       isTurret: !!def.isTurret,
       isLight: !!def.isLight,
       angle: opts.angle || 0,
@@ -972,7 +1052,9 @@
       maxAmmo: def.maxAmmo || 0,
       fireCd: 0,
       shoveCount: 0,
-      hitFlash: 0
+      prevShoveCount: 0,
+      hitFlash: 0,
+      destroyed: false
     };
     if (s.doorState === 'barricaded') {
       s.maxHp = Math.round(def.hp * 1.5);
@@ -983,35 +1065,78 @@
     return s;
   }
 
+  function isBlockedBySolidStructure(x, y, r) {
+    const near = queryStructs(x, y, 48 + r, _tmpSpawnStructs);
+    for (let i = 0; i < near.length; i++) {
+      const s = near[i];
+      if (s.destroyed || !s.blocksMove) continue;
+      if (s.isDoor && s.doorState === 'open') continue;
+      const closestX = clamp(x, s.x - s.w / 2, s.x + s.w / 2);
+      const closestY = clamp(y, s.y - s.h / 2, s.y + s.h / 2);
+      const dx = x - closestX, dy = y - closestY;
+      if (dx * dx + dy * dy < r * r) return true;
+    }
+    return false;
+  }
+
+  function findFreeSpawnPos(x, y, r) {
+    const bx = clamp(x, 16, WORLD_W - 16);
+    const by = clamp(y, 16, WORLD_H - 16);
+    if (!state.structures.length || !isBlockedBySolidStructure(bx, by, r)) {
+      return { x: bx, y: by };
+    }
+    const radii = [18, 32, 48];
+    for (let ri = 0; ri < radii.length; ri++) {
+      const dist = radii[ri];
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        const tx = clamp(bx + Math.cos(a) * dist, 16, WORLD_W - 16);
+        const ty = clamp(by + Math.sin(a) * dist, 16, WORLD_H - 16);
+        if (!isBlockedBySolidStructure(tx, ty, r)) return { x: tx, y: ty };
+      }
+    }
+    return { x: bx, y: by };
+  }
+
   function spawnUnit(kind, x, y) {
     const isHuman = !!HUMAN_DEFS[kind];
     const isCarrier = kind === 'carrier';
     const def = isHuman ? HUMAN_DEFS[kind] : ZOMBIE_DEFS[kind];
     if (!def) return null;
+    if (state.units.length >= MAX_UNITS) {
+      if (state.time - unitCapWarnTime > 3) {
+        unitCapWarnTime = state.time;
+        logEvent(`Unit limit (${MAX_UNITS}) reached!`, 'warn');
+      }
+      return null;
+    }
 
+    const pos = findFreeSpawnPos(x, y, def.radius);
+    const zMaxHp = Math.max(1, Math.round(def.hp * rules.zHp));
     const u = {
       id: nextId++,
       faction: isHuman ? 'human' : 'zombie',
       kind,
-      x: clamp(x, 16, WORLD_W - 16),
-      y: clamp(y, 16, WORLD_H - 16),
+      x: pos.x,
+      y: pos.y,
       vx: 0, vy: 0,
       angle: Math.random() * Math.PI * 2,
       radius: def.radius,
-      hp: isHuman ? def.hp : Math.round(def.hp * rules.zHp),
-      maxHp: isHuman ? def.hp : Math.round(def.hp * rules.zHp),
+      hp: isHuman ? def.hp : zMaxHp,
+      maxHp: isHuman ? def.hp : zMaxHp,
       baseSpeed: def.speed,
       ammo: def.ammo || 0,
       maxAmmo: def.maxAmmo || 0,
       fireCd: Math.random() * 0.25,
       atkCd: 0,
+      lootCd: 0,
       hitFlash: 0,
       // Infection / Carrier state
       infected: isCarrier,
       incubTimer: isCarrier ? (rules.incubation * (0.6 + Math.random() * 0.8)) : 0,
       disguised: isCarrier,
       // AI memory
-      targetX: x, targetY: y,
+      targetX: pos.x, targetY: pos.y,
       investigateTimer: 0,
       wanderTimer: Math.random() * 2,
       armed: isHuman && kind !== 'civilian',
@@ -1024,28 +1149,35 @@
       u.baseSpeed = HUMAN_DEFS.civilian.speed;
       u.hp = HUMAN_DEFS.civilian.hp;
       u.maxHp = HUMAN_DEFS.civilian.hp;
+      u.radius = HUMAN_DEFS.civilian.radius;
     }
     state.units.push(u);
     return u;
   }
 
   function addSoundRing(x, y, radius, color = '#38bdf8') {
-    state.soundRings.push({ x, y, r: 8, maxR: radius, alpha: 0.75, color });
+    const safeR = Math.max(12, radius || 12);
+    state.soundRings.push({ x, y, r: 8, maxR: safeR, alpha: 0.75, color });
+    if (state.soundRings.length > MAX_SOUND_RINGS) {
+      state.soundRings.splice(0, state.soundRings.length - MAX_SOUND_RINGS);
+    }
     if (rules.soundSens <= 0) return;
-    const effR = radius * rules.soundSens;
+    const effR = safeR * rules.soundSens;
     const effR2 = effR * effR;
     for (let i = 0; i < state.units.length; i++) {
       const u = state.units[i];
-      if (u.faction !== 'zombie') continue;
+      if (u.faction !== 'zombie' || u.hp <= 0) continue;
       if (dist2(u.x, u.y, x, y) <= effR2) {
-        u.targetX = x + (Math.random() - 0.5) * 40;
-        u.targetY = y + (Math.random() - 0.5) * 40;
+        u.targetX = clamp(x + (Math.random() - 0.5) * 40, 20, WORLD_W - 20);
+        u.targetY = clamp(y + (Math.random() - 0.5) * 40, 20, WORLD_H - 20);
         u.investigateTimer = 7 + Math.random() * 4;
       }
     }
   }
 
   function spawnParticles(x, y, color, count, speed = 90, life = 0.45, size = 3) {
+    const safeLife = Math.max(0.05, life || 0.45);
+    const safeSize = Math.max(0.8, size || 3);
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = speed * (0.3 + Math.random() * 0.85);
@@ -1054,51 +1186,66 @@
         vx: Math.cos(a) * sp,
         vy: Math.sin(a) * sp,
         color,
-        life: life * (0.6 + Math.random() * 0.6),
-        maxLife: life,
-        size: size * (0.7 + Math.random() * 0.6)
+        life: safeLife * (0.6 + Math.random() * 0.6),
+        maxLife: safeLife,
+        size: safeSize * (0.7 + Math.random() * 0.6)
       });
     }
     if (state.particles.length > 900) state.particles.splice(0, state.particles.length - 900);
   }
 
   function addDecal(x, y, color, radius) {
-    state.decals.push({ x, y, color, r: radius });
+    state.decals.push({ x, y, color, r: Math.max(1, radius || 1) });
     if (state.decals.length > 350) state.decals.shift();
   }
 
+  function addFire(x, y, r = 28, life = 12, spreadCd = 1.5) {
+    if (state.fires.length >= MAX_FIRES) {
+      state.fires.shift();
+    }
+    state.fires.push({ x, y, r: Math.max(8, r), life, spreadCd });
+  }
+
   function triggerExplosion(x, y, radius = 120, dmg = 190) {
+    const safeRadius = Math.max(1, radius);
     spawnParticles(x, y, '#f97316', 28, 220, 0.55, 6);
     spawnParticles(x, y, '#fef08a', 16, 150, 0.35, 5);
     spawnParticles(x, y, '#334155', 14, 90, 0.9, 8);
     addDecal(x, y, 'rgba(30,41,59,0.55)', 36);
     addSoundRing(x, y, 480, '#f97316');
-    state.fires.push({ x, y, r: 28, life: 12, spreadCd: 1.5 });
+    addFire(x, y, 28, 12, 1.5);
 
     // Damage units
-    const r2 = radius * radius;
+    const r2 = safeRadius * safeRadius;
     for (let i = 0; i < state.units.length; i++) {
       const u = state.units[i];
+      if (u.hp <= 0) continue;
       const d2 = dist2(x, y, u.x, u.y);
       if (d2 <= r2) {
-        const falloff = 1 - Math.sqrt(d2) / radius;
+        const d = Math.sqrt(d2);
+        const falloff = clamp(1 - d / safeRadius, 0, 1);
         u.hp -= dmg * (0.35 + 0.65 * falloff);
         u.hitFlash = 0.25;
-        const a = Math.atan2(u.y - y, u.x - x);
+        const a = d > 0.01 ? Math.atan2(u.y - y, u.x - x) : (u.id * 2.39996);
         u.vx += Math.cos(a) * 240 * falloff;
         u.vy += Math.sin(a) * 240 * falloff;
       }
     }
-    // Damage structures & chain-react barrels
+    // Damage structures & queue sim-time chain-reaction barrels
     const chainBarrels = [];
     for (let i = state.structures.length - 1; i >= 0; i--) {
       const s = state.structures[i];
-      const d2 = dist2(x, y, s.x, s.y);
-      if (d2 <= r2 && d2 > 4) {
-        const falloff = 1 - Math.sqrt(d2) / radius;
+      if (s.destroyed) continue;
+      const cx = clamp(x, s.x - s.w / 2, s.x + s.w / 2);
+      const cy = clamp(y, s.y - s.h / 2, s.y + s.h / 2);
+      const d2 = dist2(x, y, cx, cy);
+      if (d2 <= r2) {
+        const falloff = clamp(1 - Math.sqrt(d2) / safeRadius, 0, 1);
         s.hp -= dmg * 0.9 * (0.3 + 0.7 * falloff);
         s.hitFlash = 0.2;
         if (s.explosive && s.hp <= 0) {
+          s.destroyed = true;
+          if (state.hoveredStruct === s) state.hoveredStruct = null;
           chainBarrels.push({ x: s.x, y: s.y });
           state.structures.splice(i, 1);
         } else if (s.hp <= 0) {
@@ -1110,14 +1257,16 @@
       rebuildSpatialStructs();
       logEvent(`Chain-reaction fuel blast (${chainBarrels.length + 1} barrels)!`, 'warn');
       for (const b of chainBarrels) {
-        setTimeout(() => triggerExplosion(b.x, b.y, radius, dmg), 90);
+        state.pendingExplosions.push({ x: b.x, y: b.y, radius: safeRadius, dmg, delay: 0.09 });
       }
     }
   }
 
   function destroyStructure(index) {
     const s = state.structures[index];
-    if (!s) return;
+    if (!s || s.destroyed) return;
+    s.destroyed = true;
+    if (state.hoveredStruct === s) state.hoveredStruct = null;
     state.structures.splice(index, 1);
     rebuildSpatialStructs();
     if (s.type === 'wall_glass') {
@@ -1132,7 +1281,8 @@
       triggerExplosion(s.x, s.y);
     } else if (s.blocksMove) {
       state.breachCount++;
-      logEvent(`${STRUCT_DEFS[s.type].name} breached!`, 'alert');
+      const def = STRUCT_DEFS[s.type];
+      logEvent(`${def ? def.name : 'Structure'} breached!`, 'alert');
     }
   }
 
@@ -1152,28 +1302,43 @@
     state.cureClouds = [];
     state.fires = [];
     state.extractZones = [];
+    state.pendingExplosions = [];
+    state.hoveredStruct = null;
+    state.hoveredUnit = null;
     state.extractedCount = 0;
     state.breachCount = 0;
     state.time = 0;
+    input.leftDown = false;
+    input.rightDown = false;
+    input.midDown = false;
+    input.panning = false;
+    input.lastPaintX = -999; input.lastPaintY = -999;
+    input.lastDragX = -999; input.lastDragY = -999;
     exitPossess();
     rebuildSpatialStructs();
     rebuildSpatialUnits();
   }
 
   function placeWallLine(c0, r0, c1, r1, type, opts = {}) {
-    const dc = Math.sign(c1 - c0), dr = Math.sign(r1 - r0);
-    let c = c0, r = r0;
-    while (true) {
+    const steps = Math.max(Math.abs(c1 - c0), Math.abs(r1 - r0));
+    if (steps === 0) {
+      addStructure(type, c0 * TILE + TILE / 2, r0 * TILE + TILE / 2, opts);
+      return;
+    }
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const c = Math.round(c0 + (c1 - c0) * t);
+      const r = Math.round(r0 + (r1 - r0) * t);
       addStructure(type, c * TILE + TILE / 2, r * TILE + TILE / 2, opts);
-      if (c === c1 && r === r1) break;
-      c += dc; r += dr;
     }
   }
 
   function loadMap(name) {
     clearWorld();
     state.currentMap = name;
-    feedEl.innerHTML = '';
+    const mapSel = document.getElementById('mapSelect');
+    if (mapSel && mapSel.value !== name) mapSel.value = name;
+    if (feedEl) feedEl.innerHTML = '';
 
     if (name === 'blank') {
       // Clean grass canvas with subtle central road intersection
@@ -1345,44 +1510,101 @@
     resetCamera();
     rebuildSpatialStructs();
     rebuildSpatialUnits();
+    updateTelemetry();
   }
 
   function resetCamera() {
     cam.x = WORLD_W / 2;
     cam.y = WORLD_H / 2;
     const isMob = document.body.classList.contains('mobile-mode');
-    const padX = isMob ? 24 : 540;
+    let padX = 24;
+    if (!isMob) {
+      const leftDock = document.getElementById('leftDock');
+      const rightDock = document.getElementById('rightDock');
+      padX = 36 + (leftDock && !leftDock.classList.contains('collapsed') ? 256 : 0)
+                + (rightDock && !rightDock.classList.contains('collapsed') ? 264 : 0);
+    }
     const padY = isMob ? 24 : 90;
-    const zx = Math.max(120, canvas.width - padX) / WORLD_W;
-    const zy = Math.max(120, canvas.height - padY) / WORLD_H;
+    const zx = Math.max(120, viewW - padX) / WORLD_W;
+    const zy = Math.max(120, viewH - padY) / WORLD_H;
     cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.18, 0.25, 1.1);
   }
 
   // =========================================================================
   // POSSESS MODE
   // =========================================================================
+  const DEFAULT_HINT_TEXT = 'Left-Click/Drag: Place or Paint · Right-Drag / WASD: Pan · Scroll: Zoom · Space: Pause · Click Door in Door Mode to Lock/Barricade';
+
+  function releaseTouchControls() {
+    input.leftDown = false;
+    input.keys.delete('Space');
+    input.keys.delete('KeyW');
+    input.keys.delete('KeyA');
+    input.keys.delete('KeyS');
+    input.keys.delete('KeyD');
+    input.usingTouchAim = false;
+    document.querySelectorAll('#touchPadCB .touch-key.pressed').forEach(el => el.classList.remove('pressed'));
+  }
+
+  function getUnitLabel(unit) {
+    if (unit.faction === 'human') {
+      if (unit.disguised) return 'STEALTH CARRIER (DISGUISED)';
+      const def = HUMAN_DEFS[unit.kind] || HUMAN_DEFS.civilian;
+      return def.name.toUpperCase();
+    }
+    const def = ZOMBIE_DEFS[unit.kind] || ZOMBIE_DEFS.walker;
+    return def.name.toUpperCase();
+  }
+
+  function updatePossessHud(p) {
+    if (!p) return;
+    const pct = p.maxHp > 0 ? clamp((p.hp / p.maxHp) * 100, 0, 100) : 0;
+    const bar = document.getElementById('possessHpBar');
+    if (bar) {
+      bar.style.width = pct + '%';
+      bar.style.background = pct > 50 ? '#22c55e' : pct > 25 ? '#f59e0b' : '#ef4444';
+    }
+    const aw = document.getElementById('possessAmmoWrap');
+    if (aw) {
+      if (p.faction === 'human' && p.armed && p.maxAmmo > 0 && p.maxAmmo < 900) {
+        aw.style.display = 'block';
+        const txt = document.getElementById('possessAmmoTxt');
+        if (txt) txt.textContent = rules.ammoLimits ? `${Math.floor(p.ammo)}/${p.maxAmmo}` : '∞';
+      } else {
+        aw.style.display = 'none';
+      }
+    }
+  }
+
   function enterPossess(unit) {
+    if (!unit || unit.hp <= 0) return;
     state.possessedId = unit.id;
     state.mode = 'possess';
+    input.leftDown = false;
     updateModeButtons();
-    const label = unit.faction === 'human'
-      ? (unit.disguised ? 'STEALTH CARRIER (DISGUISED)' : HUMAN_DEFS[unit.kind].name.toUpperCase())
-      : ZOMBIE_DEFS[unit.kind].name.toUpperCase();
+    const label = getUnitLabel(unit);
     document.getElementById('possessTitle').textContent = `POSSESSING: ${label}`;
     document.getElementById('possessKeys').textContent = unit.faction === 'human'
       ? 'WASD Move · Mouse Aim & Fire · E Door/Loot · R Reload · ESC Exit'
       : 'WASD Move · Mouse Aim · Left-Click Bite/Smash · ESC Exit';
     document.getElementById('possessBanner').classList.add('show');
     document.getElementById('hintBar').style.display = 'none';
+    updatePossessHud(unit);
     logEvent(`Possessed ${label}.`, 'good');
   }
 
   function exitPossess() {
     state.possessedId = null;
     state.mode = 'director';
+    state.hoveredUnit = null;
+    releaseTouchControls();
     updateModeButtons();
     document.getElementById('possessBanner').classList.remove('show');
-    document.getElementById('hintBar').style.display = 'block';
+    const hint = document.getElementById('hintBar');
+    if (hint) {
+      hint.textContent = DEFAULT_HINT_TEXT;
+      hint.style.display = 'block';
+    }
   }
 
   function getPossessedUnit() {
@@ -1397,7 +1619,8 @@
   // COMBAT & INTERACTION HELPERS
   // =========================================================================
   function fireWeapon(shooter, tx, ty, isTurret = false) {
-    const angle = Math.atan2(ty - shooter.y, tx - shooter.x);
+    const dx = tx - shooter.x, dy = ty - shooter.y;
+    const angle = (dx * dx + dy * dy > 1) ? Math.atan2(dy, dx) : (shooter.angle || 0);
     let dmg = 20, speed = 780, spread = 0.06, noise = 240, pierce = false, color = '#fef08a';
     if (isTurret) {
       dmg = 24; speed = 860; spread = 0.05; noise = 270; color = '#38bdf8';
@@ -1412,19 +1635,23 @@
     const muzzleX = shooter.x + Math.cos(a) * 14;
     const muzzleY = shooter.y + Math.sin(a) * 14;
 
+    // Start projectile at shooter center so point-blank zombies & thin wall corners cannot be bypassed
     state.bullets.push({
-      x: muzzleX, y: muzzleY,
-      px: muzzleX, py: muzzleY,
+      x: shooter.x, y: shooter.y,
+      px: shooter.x, py: shooter.y,
       vx: Math.cos(a) * speed,
       vy: Math.sin(a) * speed,
       dmg, pierce, color,
-      life: 0.7,
+      life: 0.72,
       ownerId: shooter.id,
       hitIds: new Set()
     });
+    if (state.bullets.length > MAX_BULLETS) {
+      state.bullets.splice(0, state.bullets.length - MAX_BULLETS);
+    }
     spawnParticles(muzzleX, muzzleY, color, 4, 110, 0.12, 2.8);
-    if (rules.ammoLimits && shooter.ammo > 0 && shooter.maxAmmo < 900) {
-      shooter.ammo--;
+    if (rules.ammoLimits && shooter.maxAmmo < 900) {
+      shooter.ammo = Math.max(0, shooter.ammo - 1);
     }
     addSoundRing(shooter.x, shooter.y, noise, '#fbbf24');
   }
@@ -1433,10 +1660,14 @@
     u.faction = 'zombie';
     u.infected = false;
     u.disguised = false;
+    u.armed = false;
+    u.ammo = 0;
+    u.maxAmmo = 0;
+    u.investigateTimer = 0;
     u.kind = (u.kind === 'carrier') ? (Math.random() < 0.35 ? 'sprinter' : 'walker') : 'walker';
-    const def = ZOMBIE_DEFS[u.kind];
+    const def = ZOMBIE_DEFS[u.kind] || ZOMBIE_DEFS.walker;
     u.baseSpeed = def.speed;
-    u.maxHp = Math.round(def.hp * rules.zHp);
+    u.maxHp = Math.max(1, Math.round(def.hp * rules.zHp));
     u.hp = u.maxHp;
     u.radius = def.radius;
     spawnParticles(u.x, u.y, '#84cc16', 16, 100, 0.5, 4);
@@ -1444,36 +1675,69 @@
     if (state.possessedId === u.id) {
       document.getElementById('possessTitle').textContent = `TURNED INTO: ${def.name.toUpperCase()}`;
       document.getElementById('possessKeys').textContent = 'WASD Move · Left-Click Bite/Smash · ESC Exit';
+      updatePossessHud(u);
     }
   }
 
   function cycleDoorState(s) {
     const order = ['open', 'closed', 'locked', 'barricaded'];
     const idx = (order.indexOf(s.doorState) + 1) % order.length;
+    const oldMax = s.maxHp > 0 ? s.maxHp : STRUCT_DEFS[s.type].hp;
+    const hpRatio = clamp(s.hp / oldMax, 0, 1);
     s.doorState = order[idx];
+    s.autoCloseTimer = 0;
     const baseHp = STRUCT_DEFS[s.type].hp;
-    if (s.doorState === 'barricaded') {
-      s.maxHp = Math.round(baseHp * 1.5);
-      s.hp = Math.min(s.maxHp, s.hp + 150);
-    } else {
-      s.maxHp = baseHp;
-      s.hp = Math.min(s.hp, s.maxHp);
-    }
+    s.maxHp = s.doorState === 'barricaded' ? Math.round(baseHp * 1.5) : baseHp;
+    s.hp = s.hp > 0 ? Math.max(1, Math.round(hpRatio * s.maxHp)) : 0;
     logEvent(`Door set to ${s.doorState.toUpperCase()}.`);
   }
 
   // =========================================================================
   // SIMULATION TICK
   // =========================================================================
+  const _bulletHits = [];
+
   function stepSim(dt) {
     state.time += dt;
     rebuildSpatialUnits();
 
-    // Reset shove counters on structures
+    // 0. Process sim-time queued chain-reaction explosions (respects pause, reset, and simSpeed)
+    for (let i = state.pendingExplosions.length - 1; i >= 0; i--) {
+      const pe = state.pendingExplosions[i];
+      pe.delay -= dt;
+      if (pe.delay <= 0) {
+        state.pendingExplosions.splice(i, 1);
+        triggerExplosion(pe.x, pe.y, pe.radius, pe.dmg);
+      }
+    }
+
+    // Update structure timers & preserve previous-tick shove pressure for order-independent shoving
     for (let i = 0; i < state.structures.length; i++) {
       const s = state.structures[i];
+      s.prevShoveCount = s.shoveCount;
       s.shoveCount = 0;
       if (s.hitFlash > 0) s.hitFlash -= dt;
+      if (s.isDoor && s.doorState === 'open' && s.autoCloseTimer > 0) {
+        s.autoCloseTimer -= dt;
+        if (s.autoCloseTimer <= 0) {
+          const nearDoorU = queryUnits(s.x, s.y, Math.max(s.w, s.h) * 0.65 + 14, _tmpUnits);
+          let occupied = false;
+          for (let j = 0; j < nearDoorU.length; j++) {
+            const ou = nearDoorU[j];
+            if (ou.hp <= 0) continue;
+            if (Math.abs(ou.x - s.x) < s.w / 2 + ou.radius + 2 && Math.abs(ou.y - s.y) < s.h / 2 + ou.radius + 2) {
+              occupied = true;
+              break;
+            }
+          }
+          if (occupied) {
+            s.autoCloseTimer = 0.35;
+          } else {
+            s.doorState = 'closed';
+            s.autoCloseTimer = 0;
+          }
+        }
+      }
     }
 
     // 1. Update Alarms
@@ -1496,9 +1760,17 @@
       const near = queryUnits(c.x, c.y, c.r, _tmpUnits);
       for (let j = 0; j < near.length; j++) {
         const u = near[j];
+        if (u.hp <= 0) continue;
         if (u.infected) {
           u.infected = false;
-          u.disguised = false;
+          if (u.disguised || u.kind === 'carrier') {
+            u.disguised = false;
+            u.kind = 'civilian';
+            if (state.possessedId === u.id) {
+              document.getElementById('possessTitle').textContent = 'CURED: CIVILIAN';
+              updatePossessHud(u);
+            }
+          }
           spawnParticles(u.x, u.y, '#10b981', 8, 70, 0.4, 3);
         } else if (u.faction === 'zombie') {
           u.hp -= 28 * dt;
@@ -1506,11 +1778,22 @@
             // Revert zombie back to civilian!
             u.faction = 'human';
             u.kind = 'civilian';
+            u.infected = false;
+            u.disguised = false;
+            u.armed = false;
+            u.ammo = 0;
+            u.maxAmmo = 0;
+            u.investigateTimer = 0;
             u.baseSpeed = HUMAN_DEFS.civilian.speed;
-            u.hp = 60; u.maxHp = 70;
+            u.hp = 60; u.maxHp = HUMAN_DEFS.civilian.hp;
             u.radius = HUMAN_DEFS.civilian.radius;
             spawnParticles(u.x, u.y, '#34d399', 12, 90, 0.5, 4);
             logEvent('Experimental cure reverted a zombie!', 'good');
+            if (state.possessedId === u.id) {
+              document.getElementById('possessTitle').textContent = 'CURED: CIVILIAN';
+              document.getElementById('possessKeys').textContent = 'WASD Move · Mouse Aim & Fire · E Door/Loot · R Reload · ESC Exit';
+              updatePossessHud(u);
+            }
           }
         }
       }
@@ -1522,17 +1805,19 @@
       const f = state.fires[i];
       f.life -= dt;
       f.spreadCd -= dt;
-      if (Math.random() < 0.35) {
+      if (Math.random() < 21 * dt) {
         spawnParticles(f.x + (Math.random() - 0.5) * f.r, f.y + (Math.random() - 0.5) * f.r, Math.random() < 0.5 ? '#f97316' : '#facc15', 1, 35, 0.35, 4);
       }
       const nearU = queryUnits(f.x, f.y, f.r + 10, _tmpUnits);
       for (let j = 0; j < nearU.length; j++) {
+        if (nearU[j].hp <= 0) continue;
         nearU[j].hp -= 26 * dt;
         nearU[j].burnTimer = 2.0;
       }
       const nearS = queryStructs(f.x, f.y, f.r + 16, _tmpStructs);
       for (let j = 0; j < nearS.length; j++) {
         const s = nearS[j];
+        if (s.destroyed) continue;
         if (s.flammable && dist2(f.x, f.y, s.x, s.y) < (f.r + 22) ** 2) {
           s.hp -= 22 * dt;
           if (s.hp <= 0) {
@@ -1545,8 +1830,9 @@
         f.spreadCd = 2.4;
         for (let j = 0; j < nearS.length; j++) {
           const s = nearS[j];
+          if (s.destroyed) continue;
           if (s.flammable && dist2(f.x, f.y, s.x, s.y) < 72 * 72 && Math.random() < 0.45) {
-            state.fires.push({ x: s.x, y: s.y, r: 22, life: 9, spreadCd: 2.2 });
+            addFire(s.x, s.y, 22, 9, 2.2);
             break;
           }
         }
@@ -1557,14 +1843,14 @@
     // 4. Update Turrets
     for (let i = 0; i < state.structures.length; i++) {
       const s = state.structures[i];
-      if (!s.isTurret) continue;
+      if (!s.isTurret || s.destroyed) continue;
       if (s.fireCd > 0) s.fireCd -= dt;
-      if (s.fireCd <= 0 && (!rules.ammoLimits || s.ammo > 0)) {
+      if (s.fireCd <= 0 && (!rules.ammoLimits || s.ammo >= 1)) {
         const near = queryUnits(s.x, s.y, 310, _tmpUnits);
         let best = null, bestD2 = 310 * 310;
         for (let j = 0; j < near.length; j++) {
           const u = near[j];
-          if (u.faction !== 'zombie') continue;
+          if (u.faction !== 'zombie' || u.hp <= 0) continue;
           const d2 = dist2(s.x, s.y, u.x, u.y);
           if (d2 < bestD2 && hasLineOfSight(s.x, s.y, u.x, u.y, true)) {
             bestD2 = d2; best = u;
@@ -1580,16 +1866,31 @@
 
     // 5. Update Units (AI + Possessed + Physics)
     const possessed = getPossessedUnit();
+    const velBlend = 1 - Math.exp(-12 * dt);
     for (let i = state.units.length - 1; i >= 0; i--) {
       const u = state.units[i];
       if (u.hitFlash > 0) u.hitFlash -= dt;
       if (u.fireCd > 0) u.fireCd -= dt;
       if (u.atkCd > 0) u.atkCd -= dt;
+      if (u.lootCd > 0) u.lootCd -= dt;
 
-      if (u.burnTimer > 0) {
+      if (u.burnTimer > 0 && u.hp > 0) {
         u.burnTimer -= dt;
         u.hp -= 10 * dt;
-        if (Math.random() < 0.2) spawnParticles(u.x, u.y, '#f97316', 1, 25, 0.25, 3);
+        if (Math.random() < 12 * dt) spawnParticles(u.x, u.y, '#f97316', 1, 25, 0.25, 3);
+      }
+
+      // Death check BEFORE incubation so corpses cannot resurrect at full zombie HP
+      if (u.hp <= 0) {
+        addDecal(u.x, u.y, u.faction === 'zombie' ? 'rgba(101,163,13,0.45)' : 'rgba(220,38,38,0.45)', u.radius * 1.15);
+        spawnParticles(u.x, u.y, u.faction === 'zombie' ? '#84cc16' : '#ef4444', 10, 80, 0.45, 3.2);
+        if (state.hoveredUnit === u) state.hoveredUnit = null;
+        if (state.possessedId === u.id) {
+          logEvent('Your possessed unit was killed!', 'alert');
+          exitPossess();
+        }
+        state.units.splice(i, 1);
+        continue;
       }
 
       // Incubation timer
@@ -1600,18 +1901,6 @@
         }
       }
 
-      // Death check
-      if (u.hp <= 0) {
-        addDecal(u.x, u.y, u.faction === 'zombie' ? 'rgba(101,163,13,0.45)' : 'rgba(220,38,38,0.45)', u.radius * 1.15);
-        spawnParticles(u.x, u.y, u.faction === 'zombie' ? '#84cc16' : '#ef4444', 10, 80, 0.45, 3.2);
-        if (state.possessedId === u.id) {
-          logEvent('Your possessed unit was killed!', 'alert');
-          exitPossess();
-        }
-        state.units.splice(i, 1);
-        continue;
-      }
-
       // Extraction check for humans
       if (u.faction === 'human' && !u.disguised && state.extractZones.length > 0) {
         let extracted = false;
@@ -1620,6 +1909,7 @@
           if (dist2(u.x, u.y, ez.x, ez.y) < ez.r * ez.r) {
             state.extractedCount++;
             spawnParticles(u.x, u.y, '#22c55e', 14, 90, 0.55, 4);
+            if (state.hoveredUnit === u) state.hoveredUnit = null;
             if (state.possessedId === u.id) {
               logEvent('You reached extraction! Safe!', 'good');
               exitPossess();
@@ -1637,10 +1927,11 @@
       let moveSpeed = u.faction === 'zombie' ? u.baseSpeed * rules.zSpeed : u.baseSpeed;
 
       // Check barbed wire slowdown for zombies
-      const nearS = queryStructs(u.x, u.y, 44, _tmpStructs);
+      const wireStructs = queryStructs(u.x, u.y, 44, _tmpStructs);
       if (u.faction === 'zombie') {
-        for (let sIdx = 0; sIdx < nearS.length; sIdx++) {
-          const s = nearS[sIdx];
+        for (let sIdx = 0; sIdx < wireStructs.length; sIdx++) {
+          const s = wireStructs[sIdx];
+          if (s.destroyed) continue;
           if (s.slowsZombies && Math.abs(u.x - s.x) < s.w / 2 + u.radius && Math.abs(u.y - s.y) < s.h / 2 + u.radius) {
             moveSpeed *= 0.35;
             u.hp -= 6 * dt;
@@ -1650,7 +1941,7 @@
       }
 
       if (possessed && u.id === possessed.id) {
-        // Direct WASD + Mouse control
+        // Direct WASD + Mouse/Touch control
         let ix = 0, iy = 0;
         if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) iy -= 1;
         if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) iy += 1;
@@ -1660,29 +1951,49 @@
           const len = Math.hypot(ix, iy);
           desiredVx = (ix / len) * moveSpeed * 1.15;
           desiredVy = (iy / len) * moveSpeed * 1.15;
+          // On touch D-pad without canvas drag aim, face & aim in movement direction
+          if (input.usingTouchAim && !cbTouchActive) {
+            u.angle = Math.atan2(iy, ix);
+            input.worldX = u.x + Math.cos(u.angle) * 160;
+            input.worldY = u.y + Math.sin(u.angle) * 160;
+          }
         }
-        u.angle = Math.atan2(input.worldY - u.y, input.worldX - u.x);
+        if (!input.usingTouchAim || cbTouchActive) {
+          if (dist2(u.x, u.y, input.worldX, input.worldY) > 4) {
+            u.angle = Math.atan2(input.worldY - u.y, input.worldX - u.x);
+          }
+        }
 
         if (input.leftDown || input.keys.has('Space')) {
           if (u.faction === 'human') {
-            const def = HUMAN_DEFS[u.kind] || HUMAN_DEFS.survivor;
+            const def = HUMAN_DEFS[u.kind] || HUMAN_DEFS.civilian;
             if (u.fireCd <= 0) {
-              if (def.melee || (rules.ammoLimits && u.ammo <= 0) || !u.armed) {
-                // Melee strike / bash
+              if (def.melee || (rules.ammoLimits && u.ammo < 1) || !u.armed) {
+                // Melee strike / bash (proper bash dmg for out-of-ammo ranged units + obstruction check)
+                const bashDmg = def.melee ? def.dmg : (u.kind === 'civilian' ? 10 : 14);
+                const bashCd = def.melee ? def.fireRate : 0.55;
                 const nearZ = queryUnits(u.x, u.y, 42, _tmpUnits);
+                let hitAny = false;
                 for (let j = 0; j < nearZ.length; j++) {
                   const z = nearZ[j];
-                  if (z.faction === 'zombie') {
-                    z.hp -= (def.dmg || 16);
-                    z.hitFlash = 0.15;
-                    const a = Math.atan2(z.y - u.y, z.x - u.x);
-                    const kb = def.knockback || 90;
-                    z.vx += Math.cos(a) * kb; z.vy += Math.sin(a) * kb;
-                  }
+                  if (z.faction !== 'zombie' || z.hp <= 0) continue;
+                  if (!hasUnobstructedPath(u.x, u.y, z.x, z.y)) continue;
+                  z.hp -= bashDmg;
+                  z.hitFlash = 0.15;
+                  const a = Math.atan2(z.y - u.y, z.x - u.x);
+                  const kb = def.knockback || 90;
+                  z.vx += Math.cos(a) * kb; z.vy += Math.sin(a) * kb;
+                  spawnParticles(z.x, z.y, '#93c5fd', 5, 70, 0.22, 2.5);
+                  hitAny = true;
                 }
-                u.fireCd = def.fireRate || 0.5;
+                if (!hitAny) {
+                  spawnParticles(u.x + Math.cos(u.angle) * 16, u.y + Math.sin(u.angle) * 16, '#cbd5e1', 3, 55, 0.15, 2);
+                }
+                u.fireCd = bashCd;
               } else {
-                fireWeapon(u, input.worldX, input.worldY, false);
+                const aimX = dist2(u.x, u.y, input.worldX, input.worldY) > 4 ? input.worldX : (u.x + Math.cos(u.angle) * 160);
+                const aimY = dist2(u.x, u.y, input.worldX, input.worldY) > 4 ? input.worldY : (u.y + Math.sin(u.angle) * 160);
+                fireWeapon(u, aimX, aimY, false);
                 u.fireCd = def.fireRate;
               }
             }
@@ -1694,7 +2005,7 @@
               let bit = false;
               for (let j = 0; j < nearH.length; j++) {
                 const h = nearH[j];
-                if (h.faction === 'human') {
+                if (h.faction === 'human' && h.hp > 0 && hasUnobstructedPath(u.x, u.y, h.x, h.y)) {
                   h.hp -= def.dmg;
                   h.hitFlash = 0.2;
                   if (!h.infected) { h.infected = true; h.incubTimer = rules.incubation; }
@@ -1703,12 +2014,17 @@
                 }
               }
               if (!bit) {
-                for (let j = 0; j < nearS.length; j++) {
-                  const s = nearS[j];
-                  if (s.blocksMove && dist2(u.x, u.y, s.x, s.y) < (s.w * 0.7 + u.radius + 12) ** 2) {
+                const smashReach2 = (u.radius + 16) * (u.radius + 16);
+                for (let j = 0; j < wireStructs.length; j++) {
+                  const s = wireStructs[j];
+                  if (s.destroyed || !s.blocksMove) continue;
+                  if (s.isDoor && s.doorState === 'open') continue;
+                  const cx = clamp(u.x, s.x - s.w / 2, s.x + s.w / 2);
+                  const cy = clamp(u.y, s.y - s.h / 2, s.y + s.h / 2);
+                  if (dist2(u.x, u.y, cx, cy) <= smashReach2) {
                     s.hp -= def.structDmg;
                     s.hitFlash = 0.18;
-                    spawnParticles(s.x, s.y, '#cbd5e1', 5, 60, 0.25, 2.5);
+                    spawnParticles(cx, cy, '#cbd5e1', 5, 60, 0.25, 2.5);
                     if (s.hp <= 0) {
                       const idx = state.structures.indexOf(s);
                       if (idx >= 0) destroyStructure(idx);
@@ -1732,20 +2048,25 @@
 
         for (let j = 0; j < near.length; j++) {
           const o = near[j];
-          if (o.id === u.id) continue;
+          if (o.id === u.id || o.hp <= 0) continue;
           const d2 = dist2(u.x, u.y, o.x, o.y);
           if (o.faction === 'zombie' && d2 < nearestZD2) {
             if (hasLineOfSight(u.x, u.y, o.x, o.y, false)) {
               nearestZD2 = d2; nearestZ = o;
             }
           } else if (u.kind === 'medic' && o.faction === 'human' && (o.hp < o.maxHp || (o.infected && !o.disguised)) && d2 < nearestWD2) {
-            nearestWD2 = d2; nearestWounded = o;
+            if (hasUnobstructedPath(u.x, u.y, o.x, o.y)) {
+              nearestWD2 = d2; nearestWounded = o;
+            }
           }
         }
 
-        // Check nearby supply crates for gear/ammo
+        // Check nearby supply crates for gear/ammo/healing (disguised carriers & low-courage full-HP civilians skip)
+        const wantsWeapon = !u.armed && !u.disguised && rules.courage >= 0.25;
+        const wantsAmmo = u.armed && u.maxAmmo > 0 && u.maxAmmo < 900 && u.ammo < u.maxAmmo * 0.5;
+        const wantsHeal = u.hp < u.maxHp * 0.7;
         let supplyTarget = null;
-        if (state.supplies.length > 0 && (!u.armed || u.ammo < u.maxAmmo * 0.5 || u.hp < u.maxHp * 0.7)) {
+        if (state.supplies.length > 0 && u.lootCd <= 0 && (wantsWeapon || wantsAmmo || wantsHeal)) {
           let bestSD2 = 280 * 280;
           for (let s = 0; s < state.supplies.length; s++) {
             const cr = state.supplies[s];
@@ -1760,16 +2081,21 @@
           desiredVy = Math.sin(a) * moveSpeed;
           u.angle = a;
           if (dist2(u.x, u.y, supplyTarget.x, supplyTarget.y) < 26 * 26) {
-            if (!u.armed && rules.courage >= 0.25) {
+            if (wantsWeapon) {
               u.armed = true;
               u.kind = 'survivor';
+              u.maxHp = HUMAN_DEFS.survivor.hp;
+              u.hp = Math.min(u.maxHp, u.hp + 30);
+              u.baseSpeed = HUMAN_DEFS.survivor.speed;
+              u.radius = HUMAN_DEFS.survivor.radius;
               u.maxAmmo = HUMAN_DEFS.survivor.maxAmmo;
               u.ammo = u.maxAmmo;
               logEvent('Civilian grabbed weapons from Supply Drop!', 'good');
             } else {
-              u.ammo = u.maxAmmo;
+              if (u.armed && u.maxAmmo > 0 && u.maxAmmo < 900) u.ammo = u.maxAmmo;
               u.hp = Math.min(u.maxHp, u.hp + 45);
             }
+            u.lootCd = 1.2;
             supplyTarget.uses--;
             spawnParticles(u.x, u.y, '#38bdf8', 8, 60, 0.35, 3);
             if (supplyTarget.uses <= 0) {
@@ -1777,7 +2103,7 @@
               if (sIdx >= 0) state.supplies.splice(sIdx, 1);
             }
           }
-        } else if (u.kind === 'medic' && nearestWounded) {
+        } else if (u.kind === 'medic' && nearestWounded && (!nearestZ || nearestZD2 > 60 * 60)) {
           const a = Math.atan2(nearestWounded.y - u.y, nearestWounded.x - u.x);
           u.angle = a;
           if (nearestWD2 > 28 * 28) {
@@ -1789,7 +2115,7 @@
               nearestWounded.infected = false;
               spawnParticles(nearestWounded.x, nearestWounded.y, '#10b981', 10, 60, 0.4, 3);
               logEvent('Medic cured an early zombie bite!', 'good');
-            } else if (Math.random() < 0.15) {
+            } else if (Math.random() < 9 * dt) {
               spawnParticles(nearestWounded.x, nearestWounded.y, '#ec4899', 1, 30, 0.3, 3);
             }
           }
@@ -1798,11 +2124,12 @@
           let repTarget = null, repD2 = 260 * 260;
           for (let j = 0; j < state.structures.length; j++) {
             const s = state.structures[j];
-            if (!s.repairable) continue;
-            const needsRepair = s.hp < s.maxHp * 0.95;
-            const needsAmmo = s.isTurret && rules.ammoLimits && s.ammo < s.maxAmmo * 0.6;
-            if (!needsRepair && !needsAmmo) continue;
+            if (s.destroyed || !s.repairable) continue;
             const d2 = dist2(u.x, u.y, s.x, s.y);
+            const needsRepair = s.hp < s.maxHp * 0.95;
+            const ammoThresh = d2 <= 42 * 42 ? 0.98 : 0.6;
+            const needsAmmo = s.isTurret && rules.ammoLimits && s.ammo < s.maxAmmo * ammoThresh;
+            if (!needsRepair && !needsAmmo) continue;
             if (d2 < repD2) { repD2 = d2; repTarget = s; }
           }
           if (repTarget && (!nearestZ || nearestZD2 > 75 * 75)) {
@@ -1814,7 +2141,7 @@
             } else {
               repTarget.hp = Math.min(repTarget.maxHp, repTarget.hp + def.repairRate * dt);
               if (repTarget.isTurret) repTarget.ammo = Math.min(repTarget.maxAmmo, repTarget.ammo + 18 * dt);
-              if (Math.random() < 0.2) spawnParticles(repTarget.x, repTarget.y, '#facc15', 1, 50, 0.25, 2.5);
+              if (Math.random() < 12 * dt) spawnParticles(repTarget.x, repTarget.y, '#facc15', 1, 50, 0.25, 2.5);
             }
           } else if (nearestZ) {
             handleCombatAI(u, def, nearestZ, nearestZD2, moveSpeed, dt, (vx, vy) => { desiredVx = vx; desiredVy = vy; });
@@ -1823,13 +2150,13 @@
           }
         } else if (nearestZ) {
           if (!u.armed) {
-            // Civilian: flee or bravely fight if courage high
-            if (rules.courage > 0.72 && nearestZD2 < 65 * 65) {
+            // Civilian: flee or bravely fight if courage high (disguised carriers never punch fellow zombies)
+            if (!u.disguised && rules.courage > 0.72 && nearestZD2 < 65 * 65) {
               const a = Math.atan2(nearestZ.y - u.y, nearestZ.x - u.x);
               u.angle = a;
               desiredVx = Math.cos(a) * moveSpeed * 0.85;
               desiredVy = Math.sin(a) * moveSpeed * 0.85;
-              if (nearestZD2 < 24 * 24 && u.fireCd <= 0) {
+              if (nearestZD2 < 24 * 24 && u.fireCd <= 0 && hasUnobstructedPath(u.x, u.y, nearestZ.x, nearestZ.y)) {
                 nearestZ.hp -= 10; nearestZ.hitFlash = 0.12; u.fireCd = 0.7;
               }
             } else {
@@ -1842,10 +2169,16 @@
             handleCombatAI(u, def, nearestZ, nearestZD2, moveSpeed, dt, (vx, vy) => { desiredVx = vx; desiredVy = vy; });
           }
         } else {
-          // Move toward extraction zone if one exists!
+          // Move toward nearest extraction zone if any exist!
           if (!u.disguised && state.extractZones.length > 0) {
-            const ez = state.extractZones[0];
-            const a = Math.atan2(ez.y - u.y, ez.x - u.x);
+            let bestEz = state.extractZones[0];
+            let bestEzD2 = dist2(u.x, u.y, bestEz.x, bestEz.y);
+            for (let z = 1; z < state.extractZones.length; z++) {
+              const ez = state.extractZones[z];
+              const d2 = dist2(u.x, u.y, ez.x, ez.y);
+              if (d2 < bestEzD2) { bestEzD2 = d2; bestEz = ez; }
+            }
+            const a = Math.atan2(bestEz.y - u.y, bestEz.x - u.x);
             u.angle = a;
             desiredVx = Math.cos(a) * moveSpeed * 0.82;
             desiredVy = Math.sin(a) * moveSpeed * 0.82;
@@ -1860,7 +2193,7 @@
         let targetH = null, targetHD2 = 290 * 290;
         for (let j = 0; j < near.length; j++) {
           const o = near[j];
-          if (o.faction !== 'human' || o.disguised) continue;
+          if (o.faction !== 'human' || o.disguised || o.hp <= 0) continue;
           const d2 = dist2(u.x, u.y, o.x, o.y);
           if (d2 < targetHD2) {
             targetHD2 = d2; targetH = o;
@@ -1873,9 +2206,9 @@
           desiredVx = Math.cos(a) * moveSpeed;
           desiredVy = Math.sin(a) * moveSpeed;
 
-          // Bite check
+          // Bite check (requires unobstructed path — cannot bite through solid walls/doors!)
           const reach = u.radius + targetH.radius + 7;
-          if (targetHD2 <= reach * reach && u.atkCd <= 0) {
+          if (targetHD2 <= reach * reach && u.atkCd <= 0 && hasUnobstructedPath(u.x, u.y, targetH.x, targetH.y)) {
             targetH.hp -= def.dmg;
             targetH.hitFlash = 0.2;
             spawnParticles(targetH.x, targetH.y, '#ef4444', 5, 65, 0.28, 2.8);
@@ -1897,7 +2230,7 @@
             u.investigateTimer = 0;
           }
         } else {
-          // Drift slowly toward center of map / nearest human
+          // Drift slowly toward center of map / wander
           u.wanderTimer -= dt;
           if (u.wanderTimer <= 0) {
             u.wanderTimer = 1.8 + Math.random() * 2.5;
@@ -1908,60 +2241,98 @@
         }
       }
 
-      // Smooth velocity integration + knockback decay
-      u.vx = u.vx * 0.8 + desiredVx * 0.2;
-      u.vy = u.vy * 0.8 + desiredVy * 0.2;
+      // Frame-rate independent smooth velocity integration + knockback decay
+      u.vx += (desiredVx - u.vx) * velBlend;
+      u.vy += (desiredVy - u.vy) * velBlend;
 
-      // Unit-to-unit soft separation
-      const sepNear = queryUnits(u.x, u.y, 26, _tmpUnits);
+      // Unit-to-unit soft separation (handles coincident units & clamps max crowd force to prevent wall tunneling)
+      const sepNear = queryUnits(u.x, u.y, 28, _tmpUnits);
+      let sepX = 0, sepY = 0;
       for (let j = 0; j < sepNear.length; j++) {
         const o = sepNear[j];
-        if (o.id === u.id) continue;
+        if (o.id === u.id || o.hp <= 0) continue;
         const dx = u.x - o.x, dy = u.y - o.y;
         const minD = u.radius + o.radius;
         const d2 = dx * dx + dy * dy;
-        if (d2 > 0.01 && d2 < minD * minD) {
-          const d = Math.sqrt(d2);
-          const push = (minD - d) * 14;
-          u.vx += (dx / d) * push;
-          u.vy += (dy / d) * push;
+        if (d2 < minD * minD) {
+          if (d2 > 0.01) {
+            const d = Math.sqrt(d2);
+            const push = (minD - d) * 14;
+            sepX += (dx / d) * push;
+            sepY += (dy / d) * push;
+          } else {
+            // Deterministic fallback angle separates identically stacked units cleanly
+            const ang = ((u.id * 2.399963 + o.id * 1.17) % (Math.PI * 2));
+            sepX += Math.cos(ang) * minD * 10;
+            sepY += Math.sin(ang) * minD * 10;
+          }
         }
+      }
+      const sepMag = Math.hypot(sepX, sepY);
+      if (sepMag > 220) {
+        const sScale = 220 / sepMag;
+        sepX *= sScale; sepY *= sScale;
+      }
+      u.vx += sepX * Math.min(1, dt * 30);
+      u.vy += sepY * Math.min(1, dt * 30);
+      const speedMag = Math.hypot(u.vx, u.vy);
+      if (speedMag > 420) {
+        const vScale = 420 / speedMag;
+        u.vx *= vScale; u.vy *= vScale;
       }
 
       // Apply movement
       u.x = clamp(u.x + u.vx * dt, 14, WORLD_W - 14);
       u.y = clamp(u.y + u.vy * dt, 14, WORLD_H - 14);
 
-      // Structure collisions & Zombie Barricade Shoving/Smashing
-      for (let j = 0; j < nearS.length; j++) {
-        const s = nearS[j];
-        if (!s.blocksMove) continue;
-        if (s.isDoor) {
-          if (s.doorState === 'open') continue;
-          if (s.doorState === 'closed' && u.faction === 'human') {
-            // Humans auto-open unlocked closed doors briefly
-            s.doorState = 'open';
-            continue;
-          }
-        }
+      // Re-query structures at post-move position for accurate collision & Barricade Shoving/Smashing
+      const colS = queryStructs(u.x, u.y, 48 + u.radius, _tmpStructs);
+      for (let j = 0; j < colS.length; j++) {
+        const s = colS[j];
+        if (s.destroyed || !s.blocksMove) continue;
+        if (s.isDoor && s.doorState === 'open') continue;
 
         const halfW = s.w / 2, halfH = s.h / 2;
         const closestX = clamp(u.x, s.x - halfW, s.x + halfW);
         const closestY = clamp(u.y, s.y - halfH, s.y + halfH);
         const dx = u.x - closestX, dy = u.y - closestY;
         const d2 = dx * dx + dy * dy;
+
+        // Humans auto-open unlocked closed doors ONLY when touching/entering them, with auto-close timer
+        if (s.isDoor && s.doorState === 'closed' && u.faction === 'human') {
+          if (d2 < (u.radius + 5) * (u.radius + 5)) {
+            s.doorState = 'open';
+            s.autoCloseTimer = 1.6;
+            continue;
+          }
+        }
+
         if (d2 < u.radius * u.radius) {
-          const d = Math.sqrt(d2) || 0.001;
-          const overlap = u.radius - d;
-          u.x += (dx / d) * overlap;
-          u.y += (dy / d) * overlap;
+          if (d2 > 1e-6) {
+            const d = Math.sqrt(d2);
+            const overlap = u.radius - d;
+            u.x += (dx / d) * overlap;
+            u.y += (dy / d) * overlap;
+          } else {
+            // Unit center is inside AABB — eject cleanly along shortest penetration axis
+            const penLeft = (u.x - (s.x - halfW));
+            const penRight = ((s.x + halfW) - u.x);
+            const penTop = (u.y - (s.y - halfH));
+            const penBottom = ((s.y + halfH) - u.y);
+            const minPen = Math.min(penLeft, penRight, penTop, penBottom);
+            if (minPen === penLeft) u.x = s.x - halfW - u.radius;
+            else if (minPen === penRight) u.x = s.x + halfW + u.radius;
+            else if (minPen === penTop) u.y = s.y - halfH - u.radius;
+            else u.y = s.y + halfH + u.radius;
+          }
 
           // Zombies attack & shove barricades/walls/doors!
           if (u.faction === 'zombie') {
             s.shoveCount++;
             if (u.atkCd <= 0) {
               const def = ZOMBIE_DEFS[u.kind] || ZOMBIE_DEFS.walker;
-              const crowdMult = 1 + Math.min(6, s.shoveCount - 1) * 0.22 * rules.shovePressure;
+              const effectiveCrowd = Math.max(s.shoveCount, s.prevShoveCount || 0);
+              const crowdMult = 1 + Math.min(6, Math.max(0, effectiveCrowd - 1)) * 0.22 * rules.shovePressure;
               const dmg = def.structDmg * crowdMult;
               s.hp -= dmg;
               s.hitFlash = 0.14;
@@ -1980,9 +2351,11 @@
           }
         }
       }
+      u.x = clamp(u.x, 14, WORLD_W - 14);
+      u.y = clamp(u.y, 14, WORLD_H - 14);
     }
 
-    // 6. Update Bullets
+    // 6. Update Bullets (Swept ray-vs-AABB & ray-vs-circle ordered along travel ray)
     for (let i = state.bullets.length - 1; i >= 0; i--) {
       const b = state.bullets[i];
       b.px = b.x; b.py = b.y;
@@ -1994,54 +2367,77 @@
         continue;
       }
 
-      // Check structure hit
-      let hitSolid = false;
-      const nearS = queryStructs(b.x, b.y, 38, _tmpStructs);
+      const segDx = b.x - b.px, segDy = b.y - b.py;
+      const midX = (b.px + b.x) * 0.5, midY = (b.py + b.y) * 0.5;
+      const halfSeg = Math.hypot(segDx, segDy) * 0.5;
+
+      // Find earliest blocking structure along segment
+      let bestS = null, tWall = 2;
+      const nearS = queryStructs(midX, midY, halfSeg + 38, _tmpStructs);
       for (let j = 0; j < nearS.length; j++) {
         const s = nearS[j];
-        if (!s.blocksBullets) continue;
+        if (s.destroyed || !s.blocksBullets) continue;
         if (s.isDoor && s.doorState === 'open') continue;
-        if (segmentIntersectsRect(b.px, b.py, b.x, b.y, s.x, s.y, s.w, s.h)) {
-          if (s.explosive || s.type === 'wall_glass') {
-            s.hp -= b.dmg;
-            s.hitFlash = 0.15;
-            if (s.hp <= 0) {
-              const idx = state.structures.indexOf(s);
-              if (idx >= 0) destroyStructure(idx);
-            }
-          }
-          spawnParticles(b.x, b.y, '#e2e8f0', 4, 70, 0.2, 2);
-          hitSolid = true;
-          break;
+        const t = segmentRectHitT(b.px, b.py, b.x, b.y, s.x, s.y, s.w, s.h);
+        if (t >= 0 && t < tWall) {
+          tWall = t;
+          bestS = s;
         }
       }
-      if (hitSolid) { state.bullets.splice(i, 1); continue; }
 
-      // Check zombie hit
-      const nearU = queryUnits(b.x, b.y, 24, _tmpUnits);
-      let consumed = false;
+      // Check zombies along segment UP TO wall hit tWall (prevents walls behind zombies eating hits!)
+      const maxT = bestS ? tWall : 1;
+      const nearU = queryUnits(midX, midY, halfSeg + 22, _tmpUnits);
+      _bulletHits.length = 0;
       for (let j = 0; j < nearU.length; j++) {
         const u = nearU[j];
-        if (u.faction !== 'zombie' || b.hitIds.has(u.id)) continue;
-        const r = u.radius + 3;
-        if (dist2(b.x, b.y, u.x, u.y) <= r * r) {
-          // Crawlers have a small dodge chance at range
-          if (u.kind === 'crawler' && Math.random() < 0.22) continue;
-          u.hp -= b.dmg;
-          u.hitFlash = 0.15;
-          b.hitIds.add(u.id);
-          spawnParticles(b.x, b.y, '#84cc16', 5, 80, 0.25, 2.6);
-          if (!b.pierce) { consumed = true; break; }
+        if (u.faction !== 'zombie' || u.hp <= 0 || b.hitIds.has(u.id)) continue;
+        const tHit = segmentCircleHitT(b.px, b.py, b.x, b.y, u.x, u.y, u.radius + 3);
+        if (tHit >= 0 && tHit <= maxT) {
+          _bulletHits.push({ u, t: tHit });
         }
       }
+      if (_bulletHits.length > 1) {
+        _bulletHits.sort((a, c) => a.t - c.t);
+      }
+
+      let consumed = false;
+      for (let j = 0; j < _bulletHits.length; j++) {
+        const { u, t } = _bulletHits[j];
+        if (u.hp <= 0) continue;
+        b.hitIds.add(u.id);
+        // Crawlers have a small dodge chance at range (recorded in hitIds so 1 bullet only rolls once)
+        if (u.kind === 'crawler' && Math.random() < 0.22) continue;
+        u.hp -= b.dmg;
+        u.hitFlash = 0.15;
+        spawnParticles(b.px + segDx * t, b.py + segDy * t, '#84cc16', 5, 80, 0.25, 2.6);
+        if (!b.pierce) { consumed = true; break; }
+      }
+
+      if (!consumed && bestS && !bestS.destroyed) {
+        const hitX = b.px + segDx * tWall;
+        const hitY = b.py + segDy * tWall;
+        if (bestS.explosive || bestS.type === 'wall_glass') {
+          bestS.hp -= b.dmg;
+          bestS.hitFlash = 0.15;
+          if (bestS.hp <= 0) {
+            const idx = state.structures.indexOf(bestS);
+            if (idx >= 0) destroyStructure(idx);
+          }
+        }
+        spawnParticles(hitX, hitY, '#e2e8f0', 4, 70, 0.2, 2);
+        consumed = true;
+      }
+
       if (consumed) state.bullets.splice(i, 1);
     }
 
-    // 7. Update Particles & Sound Rings
+    // 7. Update Particles & Sound Rings (frame-rate independent drag)
+    const pDrag = Math.pow(0.92, dt * 60);
     for (let i = state.particles.length - 1; i >= 0; i--) {
       const p = state.particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.vx *= 0.92; p.vy *= 0.92;
+      p.vx *= pDrag; p.vy *= pDrag;
       p.life -= dt;
       if (p.life <= 0) state.particles.splice(i, 1);
     }
@@ -2058,19 +2454,21 @@
     u.angle = a;
     const dist = Math.sqrt(d2);
 
-    if (def.melee || (rules.ammoLimits && u.ammo <= 0)) {
-      // Riot guard or out-of-ammo survivor engages in melee
+    if (def.melee || (rules.ammoLimits && u.ammo < 1)) {
+      // Riot guard or out-of-ammo ranged defender engages in melee
       if (dist > 26) {
         setVel(Math.cos(a) * moveSpeed, Math.sin(a) * moveSpeed);
       }
-      if (dist <= 34 && u.fireCd <= 0) {
-        target.hp -= def.dmg;
+      if (dist <= 34 && u.fireCd <= 0 && hasUnobstructedPath(u.x, u.y, target.x, target.y)) {
+        const meleeDmg = def.melee ? def.dmg : 14;
+        const meleeCd = def.melee ? def.fireRate : 0.6;
+        target.hp -= meleeDmg;
         target.hitFlash = 0.16;
         const kb = def.knockback || 85;
         target.vx += Math.cos(a) * kb;
         target.vy += Math.sin(a) * kb;
         spawnParticles(target.x, target.y, '#93c5fd', 5, 70, 0.22, 2.5);
-        u.fireCd = def.fireRate;
+        u.fireCd = meleeCd;
       }
     } else {
       // Ranged kiting / holding position

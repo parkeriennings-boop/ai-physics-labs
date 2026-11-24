@@ -235,7 +235,7 @@
     text-align: center;
   }
 
-  html:has(body.mobile-mode), body.mobile-mode {
+  html.mobile-mode, html:has(body.mobile-mode), body.mobile-mode {
     overflow-y: auto;
     overflow-x: hidden;
     height: auto;
@@ -1061,7 +1061,7 @@
     if (build.cycleMode === 'steam') return dispVolume() * 0.085;
     if (build.cycleMode === 'stirling') return dispVolume() * 0.14;
     if (build.cycleMode === 'rotary') return dispVolume() / 9.0;
-    return dispVolume() / (build.cr - 1.0);
+    return dispVolume() / Math.max(0.05, build.cr - 1.0);
   }
   function recipMass() { return 0.42 * Math.pow(build.bore / 0.096, 2.2) * build.massScale; }
   function valveFlowMult() {
@@ -1095,19 +1095,25 @@
   function cvOfT(T) { return 718.0 + 0.185 * (Math.max(200, Math.min(3600, T)) - 300.0); }
   function gammaOfT(T) { const cv = cvOfT(T); return (cv + R_GAS) / cv; }
   function tempFromInternalEnergy(U, m) {
-    if (m <= 1e-12) return T_AMB;
+    if (!Number.isFinite(U) || !Number.isFinite(m) || m <= 1e-12) return T_AMB;
     const u = Math.max(1e4, U / m);
     const maxT = build.unrealistic ? 1e7 : 4200;
-    return Math.max(180, Math.min(maxT, (-662.5 + Math.sqrt(662.5 * 662.5 + 0.74 * u)) / 0.37));
+    const T = (-662.5 + Math.sqrt(662.5 * 662.5 + 0.37 * u)) / 0.185;
+    return Number.isFinite(T) ? Math.max(180, Math.min(maxT, T)) : T_AMB;
   }
-  function internalEnergyFromTemp(m, T) { return m * (662.5 * T + 0.185 * T * T); }
+  function internalEnergyFromTemp(m, T) {
+    const safeT = Number.isFinite(T) ? Math.max(180, T) : T_AMB;
+    const safeM = Number.isFinite(m) ? Math.max(0, m) : 0;
+    return safeM * (662.5 * safeT + 0.0925 * safeT * safeT);
+  }
 
   function orificeMassFlow(Aeff, P1, T1, P2, T2, gamma, Rconst = R_GAS) {
-    if (Aeff <= 1e-10) return 0;
+    if (!Number.isFinite(Aeff) || Aeff <= 1e-10 || !Number.isFinite(P1) || !Number.isFinite(P2) || !Number.isFinite(T1) || !Number.isFinite(T2) || !Number.isFinite(gamma) || gamma <= 1.001 || !Number.isFinite(Rconst) || Rconst <= 0) return 0;
     let sign = 1, Pu = P1, Tu = T1, Pd = P2;
     if (P2 > P1) { sign = -1; Pu = P2; Tu = T2; Pd = P1; }
+    Pu = Math.max(1.0, Pu); Pd = Math.max(0.0, Pd); Tu = Math.max(50.0, Tu);
     if (Pu - Pd < 0.5) return 0;
-    const pr = Math.max(0.001, Pd / Pu);
+    const pr = Math.max(0.001, Math.min(1.0, Pd / Pu));
     const prCrit = Math.pow(2.0 / (gamma + 1.0), gamma / (gamma - 1.0));
     let mdot;
     if (pr <= prCrit) {
@@ -1117,11 +1123,12 @@
       const term = Math.pow(pr, 2.0 / gamma) - Math.pow(pr, (gamma + 1.0) / gamma);
       mdot = Aeff * Pu * Math.sqrt((2.0 * gamma / (Rconst * Tu * (gamma - 1.0))) * Math.max(0, term));
     }
-    return sign * mdot;
+    return Number.isFinite(mdot) ? (sign * mdot) : 0;
   }
 
   function camLift(deg720, openDeg, closeDeg, maxLift) {
     const dur = (closeDeg - openDeg + 720) % 720;
+    if (!Number.isFinite(dur) || dur <= 1e-6 || !Number.isFinite(maxLift) || maxLift <= 0) return 0;
     const rel = (deg720 - openDeg + 720) % 720;
     if (rel >= dur) return 0;
     const s = Math.sin(Math.PI * (rel / dur));
@@ -1129,13 +1136,13 @@
   }
 
   function kinematics(thetaRad) {
-    const r = build.stroke * 0.5, L = conrodLen();
+    const r = Math.max(1e-6, build.stroke * 0.5), L = Math.max(r * 1.15, conrodLen());
     const st = Math.sin(thetaRad), ct = Math.cos(thetaRad);
     const rSin = r * st;
-    const s = Math.sqrt(Math.max(1e-12, L * L - rSin * rSin));
+    const s = Math.max(L * 1e-4, Math.sqrt(Math.max(0, L * L - rSin * rSin)));
     const yPin = r * ct + s;
-    const xDown = (r + L) - yPin;
-    const sinPhi = rSin / L, cosPhi = s / L;
+    const xDown = Math.max(0, (r + L) - yPin);
+    const sinPhi = rSin / L, cosPhi = Math.max(1e-4, s / L);
     const dxdt = r * st + (r * r * st * ct) / s;
     const d2xdt2 = r * ct + (r * r * (ct * ct - st * st)) / s + (Math.pow(r, 4) * st * st * ct * ct) / (s * s * s);
     return { yPin, xDown, sinPhi, cosPhi, tanPhi: sinPhi / cosPhi, dxdt, d2xdt2 };
@@ -1250,8 +1257,16 @@
   }
 
   function onGeometryChanged() {
+    if (eng && eng.cyls && eng.cyls.length && (build.layout === 'u' || build.layout === 'h')) {
+      const specs = generateCylinderSpecs();
+      const actualN = specs.length;
+      for (let i = 0; i < eng.cyls.length; i++) {
+        const sp = specs[actualN > 64 ? Math.floor((i * actualN) / 64) : i];
+        if (sp) { eng.cyls[i].xOff = sp.xOff || 0; eng.cyls[i].yOff = sp.yOff || 0; }
+      }
+    }
     updateSpecDisplay();
-    pvHistory = [];
+    pvHistory = []; ptHistory = [];
     if (typeof rebuild3DScene === 'function') rebuild3DScene(false);
   }
 
@@ -1260,7 +1275,7 @@
   // =========================================================================
   function crossedAngle(prevDeg, currDeg, targetDeg, period) {
     const step = (currDeg - prevDeg + period) % period;
-    if (step <= 0 || step >= 60) return false;
+    if (step <= 0 || step >= period * 0.45) return false;
     const dist = (targetDeg - prevDeg + period) % period;
     return dist <= step;
   }
@@ -1338,7 +1353,8 @@
     const cam = getActiveCam(rpmNow);
     eng.vtecActive = cam.vtecOn;
 
-    const dispScale = Math.max(0.25, (dispVolume() * N) / 0.00045);
+    const cs = eng.cylScale || 1, Ntot = N * cs;
+    const dispScale = Math.max(1e-4, (dispVolume() * Ntot) / 0.00045);
     const vManifold = Math.max(0.0010, 0.0012 * Math.pow(dispScale, 0.8));
     const vExhaust = Math.max(0.0015, 0.0018 * Math.pow(dispScale, 0.8));
     const maxThrottleArea = 0.0011 * Math.pow(dispScale, 0.78) * build.tbScale;
@@ -1372,14 +1388,14 @@
 
       if (c.lastDeg720 > 600 && deg720 < 120) {
         c.sparkFiredThisCycle = false; c.combActive = false;
-        const refAir = (P_ATM * dispVolume()) / (R_GAS * T_AMB);
+        const refAir = Math.max(1e-12, (P_ATM * dispVolume()) / (R_GAS * T_AMB));
         c.lastVE = Math.max(0, Math.min(280, (c.cycleIntakeMass / refAir) * 100));
         c.lastPeakP = c.cyclePeakP;
         c.cycleIntakeMass = 0; c.cyclePeakP = P_ATM;
       }
 
       const kin = kinematics(cylTheta);
-      const V = Vc + Ap * kin.xDown, vPiston = kin.dxdt * eng.omega, dVdt = Ap * vPiston;
+      const V = Math.max(1e-12, Vc + Ap * kin.xDown), vPiston = kin.dxdt * eng.omega, dVdt = Ap * vPiston;
       let mTot = Math.max(1e-9, c.mAir + c.mFuel + c.mBurned);
       const T = tempFromInternalEnergy(c.U, mTot), P = (mTot * R_GAS * T) / V;
       const gamma = gammaOfT(T), cp = cvOfT(T) + R_GAS;
@@ -1391,9 +1407,9 @@
 
       const mdotIn = orificeMassFlow(aIn, eng.Pman, eng.Tman, P, T, 0.5 * (1.4 + gamma));
       const mdotEx = orificeMassFlow(aEx, P, T, eng.Pexh, eng.Texh, gamma);
-      sumMdotIn += mdotIn; sumMdotEx += mdotEx;
-
-      const dmIn = mdotIn * dt, dmEx = mdotEx * dt;
+      const dmIn = Math.max(-0.45 * mTot, mdotIn * dt);
+      const dmEx = Math.min(0.45 * mTot, mdotEx * dt);
+      sumMdotIn += dmIn / Math.max(1e-9, dt); sumMdotEx += dmEx / Math.max(1e-9, dt);
       let dU_flow = 0;
 
       if (dmIn >= 0) {
@@ -1466,8 +1482,8 @@
         if (dmK > 1e-8) { c.mFuel -= dmK; c.mAir -= dmK * fuel.stoich; c.mBurned += dmK * (1.0 + fuel.stoich); dQ_comb += dmK * fuel.lhv * 0.90; c.knockTimer = 0.28; }
       }
 
-      const xClear = Vc / Ap, Awall = 2.0 * Ap + Math.PI * build.bore * (kin.xDown + xClear);
-      const hConv = 125.0 * Math.pow(build.bore, -0.2) * Math.pow(Math.max(0.2, P / 1e5), 0.8) * Math.pow(T, -0.53) * Math.pow(2.28 * (Math.abs(vPiston) + 1.8), 0.8);
+      const xClear = Vc / Math.max(1e-10, Ap), Awall = 2.0 * Ap + Math.PI * build.bore * (kin.xDown + xClear);
+      const hConv = 125.0 * Math.pow(Math.max(1e-4, build.bore), -0.2) * Math.pow(Math.max(0.2, P / 1e5), 0.8) * Math.pow(Math.max(180, T), -0.53) * Math.pow(2.28 * (Math.abs(vPiston) + 1.8), 0.8);
       const dQ_wall = hConv * Awall * (T - c.Twall) * dt;
       c.Twall = Math.max(298, Math.min(560, c.Twall + (dQ_wall - 22.0 * (c.Twall - 305.0) * dt) / 3200.0));
 
@@ -1492,19 +1508,18 @@
       if (c.knockTimer > 0) c.knockTimer = Math.max(0, c.knockTimer - dt);
     }
 
-    const cs = eng.cylScale || 1;
     sumMdotIn *= cs; sumMdotEx *= cs; sumTauGas *= cs; sumIrecip *= cs; sumTauInertial *= cs; sumTauFricPiston *= cs;
     const maxP = build.unrealistic ? 1e9 : 450000;
     const maxPex = build.unrealistic ? 1e9 : 360000;
-    eng.Pman = Math.max(15000, Math.min(maxP, eng.Pman + (R_GAS * eng.Tman / vManifold) * (mdotThr - sumMdotIn) * dt));
+    eng.Pman = Math.max(15000, Math.min(maxP, eng.Pman + (R_GAS * eng.Tman / Math.max(1e-6, vManifold)) * (mdotThr - sumMdotIn) * dt));
     const mdotTail = orificeMassFlow(tailpipeArea, eng.Pexh, eng.Texh, P_ATM, T_AMB, 1.33);
-    eng.Pexh = Math.max(85000, Math.min(maxPex, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
+    eng.Pexh = Math.max(85000, Math.min(maxPex, eng.Pexh + (R_GAS * eng.Texh / Math.max(1e-6, vExhaust)) * (sumMdotEx - mdotTail) * dt));
 
-    const tauBearing = (1.1 + 0.40 * N + (0.006 + 0.0024 * N) * Math.abs(eng.omega) + 0.000014 * N * eng.omega * eng.omega) * signW;
+    const tauBearing = (1.1 + 0.40 * Ntot + (0.006 + 0.0024 * Ntot) * Math.abs(eng.omega) + 0.000014 * Ntot * eng.omega * eng.omega) * signW;
     const tauTotalFric = sumTauFricPiston + tauBearing + tauSupercharger * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.045 * Math.abs(eng.omega) + 0.00014 * eng.omega * eng.omega)) * signW : 0;
 
-    const I_eff = build.I_flywheel + sumIrecip;
+    const I_eff = Math.max(1e-6, build.I_flywheel + sumIrecip);
     let tauStarter = 0;
     if (ctrl.starter && eng.omega < 68.0) {
       tauStarter = isBigUnrealistic()
@@ -1512,8 +1527,9 @@
         : starterStall * (1.0 - Math.max(-0.5, eng.omega) / 68.0);
     }
     const tauNet = sumTauGas + sumTauInertial + tauStarter - tauTotalFric - tauLoad;
+    const maxW = build.unrealistic ? 1e6 : 25000;
     eng.alpha = tauNet / I_eff;
-    eng.omega += eng.alpha * dt;
+    eng.omega = Math.max(-maxW, Math.min(maxW, eng.omega + eng.alpha * dt));
     eng.theta += eng.omega * dt;
 
     eng.instTauGas = sumTauGas; eng.instTauInert = sumTauInertial;
@@ -1526,9 +1542,9 @@
   // 4C. 2-STROKE GAS SOLVER
   // =========================================================================
   function physicsSubstepIC2(dt) {
-    const N = eng.cyls.length, fuel = FUELS[build.fuelKey];
+    const N = eng.cyls.length, cs = eng.cylScale || 1, Ntot = N * cs, fuel = FUELS[build.fuelKey] || FUELS.gas93;
     const Ap = pistonArea(), Vc = clearanceVolume(), mRec = recipMass();
-    const dispScale = Math.max(0.25, (dispVolume() * N) / 0.00045);
+    const dispScale = Math.max(1e-4, (dispVolume() * Ntot) / 0.00045);
     const vExhaust = Math.max(0.0015, 0.0018 * Math.pow(dispScale, 0.8));
     const tailpipeArea = 0.00080 * Math.pow(dispScale, 0.82);
     const rpmNow = eng.omega * 60 / (2 * Math.PI);
@@ -1542,7 +1558,7 @@
       eng.cycleTorqueSum = 0; eng.cycleSamples = 0;
     }
 
-    const thrFrac = Math.max(0, Math.min(1, ctrl.throttle));
+    const thrFrac = Math.max(0, build.unrealistic ? Math.min(1000, ctrl.throttle) : Math.min(1, ctrl.throttle));
     const scavengeP = eng.Pboost * (1.02 + (0.04 * ctrl.idleBypass + 0.34 * Math.pow(thrFrac, 1.5)) * Math.min(1.2, Math.abs(eng.omega) / 250 + 0.25));
     const scavengeT = eng.Tboost + 15;
     eng.Pman = scavengeP;
@@ -1560,23 +1576,24 @@
 
       if (c.lastDeg720 > 260 && deg360 < 100) {
         c.sparkFiredThisCycle = false; c.combActive = false;
-        c.lastVE = Math.max(0, Math.min(240, (c.cycleIntakeMass / ((P_ATM * dispVolume()) / (R_GAS * T_AMB))) * 100));
+        c.lastVE = Math.max(0, Math.min(240, (c.cycleIntakeMass / Math.max(1e-12, (P_ATM * dispVolume()) / (R_GAS * T_AMB))) * 100));
         c.lastPeakP = c.cyclePeakP; c.cycleIntakeMass = 0; c.cyclePeakP = P_ATM;
       }
 
       const kin = kinematics(cylTheta);
-      const V = Vc + Ap * kin.xDown, vPiston = kin.dxdt * eng.omega, dVdt = Ap * vPiston;
+      const V = Math.max(1e-12, Vc + Ap * kin.xDown), vPiston = kin.dxdt * eng.omega, dVdt = Ap * vPiston;
       let mTot = Math.max(1e-9, c.mAir + c.mFuel + c.mBurned);
       const T = tempFromInternalEnergy(c.U, mTot), P = (mTot * R_GAS * T) / V;
       const gamma = gammaOfT(T), cp = cvOfT(T) + R_GAS;
 
-      const xFrac = kin.xDown / build.stroke;
+      const xFrac = kin.xDown / Math.max(1e-6, build.stroke);
       const aEx = Ap * 0.24 * Math.max(0, (xFrac - 0.60) / 0.40);
       const aTr = Ap * 0.20 * build.tbScale * Math.max(0, (xFrac - 0.72) / 0.28) * (0.04 + 0.14 * ctrl.idleBypass + 0.86 * Math.pow(thrFrac, 1.8));
       const mdotIn = orificeMassFlow(aTr, scavengeP, scavengeT, P, T, 1.38);
       const mdotEx = orificeMassFlow(aEx, P, T, eng.Pexh, eng.Texh, gamma);
-      sumMdotIn += mdotIn; sumMdotEx += mdotEx;
-      const dmIn = mdotIn * dt, dmEx = mdotEx * dt;
+      const dmIn = Math.max(-0.45 * mTot, mdotIn * dt);
+      const dmEx = Math.min(0.45 * mTot, mdotEx * dt);
+      sumMdotIn += dmIn / Math.max(1e-9, dt); sumMdotEx += dmEx / Math.max(1e-9, dt);
       let dU_flow = 0;
 
       if (dmIn >= 0) {
@@ -1624,8 +1641,8 @@
         if (dmK > 1e-8) { c.mFuel -= dmK; c.mAir -= dmK * fuel.stoich; c.mBurned += dmK * (1.0 + fuel.stoich); dQ_comb += dmK * fuel.lhv * 0.88; c.knockTimer = 0.28; }
       }
 
-      const Awall = 2.0 * Ap + Math.PI * build.bore * (kin.xDown + Vc / Ap);
-      const hConv = 125.0 * Math.pow(build.bore, -0.2) * Math.pow(Math.max(0.2, P / 1e5), 0.8) * Math.pow(T, -0.53) * Math.pow(2.28 * (Math.abs(vPiston) + 1.8), 0.8);
+      const Awall = 2.0 * Ap + Math.PI * build.bore * (kin.xDown + Vc / Math.max(1e-10, Ap));
+      const hConv = 125.0 * Math.pow(Math.max(1e-4, build.bore), -0.2) * Math.pow(Math.max(0.2, P / 1e5), 0.8) * Math.pow(Math.max(180, T), -0.53) * Math.pow(2.28 * (Math.abs(vPiston) + 1.8), 0.8);
       const dQ_wall = hConv * Awall * (T - c.Twall) * dt;
       c.Twall = Math.max(298, Math.min(560, c.Twall + (dQ_wall - 22.0 * (c.Twall - 305.0) * dt) / 3200.0));
       c.U = Math.max(1e-3, c.U + dQ_comb - dQ_wall - P * dVdt * dt + dU_flow);
@@ -1647,16 +1664,15 @@
       if (c.knockTimer > 0) c.knockTimer = Math.max(0, c.knockTimer - dt);
     }
 
-    const cs = eng.cylScale || 1;
     sumMdotIn *= cs; sumMdotEx *= cs; sumTauGas *= cs; sumIrecip *= cs; sumTauInertial *= cs; sumTauFricPiston *= cs;
     eng.mdotThr = Math.max(0, sumMdotIn);
     const mdotTail = orificeMassFlow(tailpipeArea, eng.Pexh, eng.Texh, P_ATM, T_AMB, 1.33);
-    eng.Pexh = Math.max(85000, Math.min(build.unrealistic ? 1e9 : 360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
+    eng.Pexh = Math.max(85000, Math.min(build.unrealistic ? 1e9 : 360000, eng.Pexh + (R_GAS * eng.Texh / Math.max(1e-6, vExhaust)) * (sumMdotEx - mdotTail) * dt));
 
-    const tauBearing = (0.9 + 0.35 * N + (0.005 + 0.002 * N) * Math.abs(eng.omega) + 0.000014 * N * eng.omega * eng.omega) * signW;
+    const tauBearing = (0.9 + 0.35 * Ntot + (0.005 + 0.002 * Ntot) * Math.abs(eng.omega) + 0.000014 * Ntot * eng.omega * eng.omega) * signW;
     const tauTotalFric = sumTauFricPiston + tauBearing + tauSupercharger * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.055 * Math.abs(eng.omega) + 0.00018 * eng.omega * eng.omega)) * signW : 0;
-    const I_eff = build.I_flywheel + sumIrecip;
+    const I_eff = Math.max(1e-6, build.I_flywheel + sumIrecip);
     let tauStarter = 0;
     if (ctrl.starter && eng.omega < 68.0) {
       tauStarter = isBigUnrealistic()
@@ -1664,7 +1680,8 @@
         : starterStall * (1.0 - Math.max(-0.5, eng.omega) / 68.0);
     }
     const tauNet = sumTauGas + sumTauInertial + tauStarter - tauTotalFric - tauLoad;
-    eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
+    const maxW = build.unrealistic ? 1e6 : 25000;
+    eng.alpha = tauNet / I_eff; eng.omega = Math.max(-maxW, Math.min(maxW, eng.omega + eng.alpha * dt)); eng.theta += eng.omega * dt;
     eng.instTauGas = sumTauGas; eng.instTauInert = sumTauInertial; eng.instTauFric = tauTotalFric; eng.instTauNet = tauNet; eng.instIeff = I_eff;
     eng.cycleTorqueSum += (sumTauGas - tauTotalFric); eng.cycleSamples++; eng.lastMasterDeg = masterDeg;
     decayStoppedTelemetry(dt);
@@ -1674,9 +1691,9 @@
   // 4D. WANKEL ROTARY ENGINE SOLVER (TRUE EPITROCHOID 360° FIRING PER ROTOR!)
   // =========================================================================
   function physicsSubstepRotary(dt) {
-    const N = eng.cyls.length, fuel = FUELS[build.fuelKey];
+    const N = eng.cyls.length, cs = eng.cylScale || 1, Ntot = N * cs, fuel = FUELS[build.fuelKey] || FUELS.gas93;
     const Vd = dispVolume(), Vc = clearanceVolume();
-    const dispScale = Math.max(0.3, (Vd * N) / 0.00065);
+    const dispScale = Math.max(1e-4, (Vd * Ntot) / 0.00065);
     const vExhaust = Math.max(0.0018, 0.0020 * Math.pow(dispScale, 0.8));
     const tailpipeArea = 0.00095 * Math.pow(dispScale, 0.82);
     const rpmNow = eng.omega * 60 / (2 * Math.PI);
@@ -1690,7 +1707,7 @@
       eng.cycleTorqueSum = 0; eng.cycleSamples = 0;
     }
 
-    const thrFrac = Math.max(0, Math.min(1, ctrl.throttle));
+    const thrFrac = Math.max(0, build.unrealistic ? Math.min(1000, ctrl.throttle) : Math.min(1, ctrl.throttle));
     const portFlowMult = 0.78 + build.porting * 0.16;
     const maxThrottleArea = 0.0014 * Math.pow(dispScale, 0.8) * build.tbScale * portFlowMult;
     const aThr = maxThrottleArea * (0.002 + 0.026 * ctrl.idleBypass + 0.972 * Math.pow(thrFrac, 2.1));
@@ -1712,12 +1729,12 @@
 
       if (c.lastDeg720 > 260 && deg360 < 100) {
         c.sparkFiredThisCycle = false; c.combActive = false;
-        c.lastVE = Math.max(0, Math.min(240, (c.cycleIntakeMass / ((P_ATM * Vd) / (R_GAS * T_AMB))) * 100));
+        c.lastVE = Math.max(0, Math.min(240, (c.cycleIntakeMass / Math.max(1e-12, (P_ATM * Vd) / (R_GAS * T_AMB))) * 100));
         c.lastPeakP = c.cyclePeakP; c.cycleIntakeMass = 0; c.cyclePeakP = P_ATM;
       }
 
       // Exact sinusoidal epitrochoid chamber volume law: V(θ) = Vc + Vd * (1 - cos(θ))/2
-      const V = Vc + Vd * 0.5 * (1.0 - Math.cos(shaftTheta));
+      const V = Math.max(1e-12, Vc + Vd * 0.5 * (1.0 - Math.cos(shaftTheta)));
       const dVdTheta = Vd * 0.5 * Math.sin(shaftTheta);
       const dVdt = dVdTheta * eng.omega;
 
@@ -1726,14 +1743,14 @@
       const gamma = gammaOfT(T), cp = cvOfT(T) + R_GAS;
 
       // Peripheral/side intake & exhaust ports (tuned so intake closes before deep compression)
-      const exOpen = (deg360 > 115 && deg360 < exClose) ? Math.sin(Math.PI * (deg360 - 115) / (exClose - 115)) : 0;
-      const inOpen = (deg360 > 142 && deg360 < inClose) ? Math.sin(Math.PI * (deg360 - 142) / (inClose - 142)) : 0;
+      const exOpen = (deg360 > 115 && deg360 < exClose) ? Math.sin(Math.PI * (deg360 - 115) / Math.max(1, exClose - 115)) : 0;
+      const inOpen = (deg360 > 142 && deg360 < inClose) ? Math.sin(Math.PI * (deg360 - 142) / Math.max(1, inClose - 142)) : 0;
       const aPort = (Vd / 0.00065) * 0.00085 * portFlowMult;
       const mdotIn = orificeMassFlow(aPort * inOpen, eng.Pman, eng.Tman, P, T, 1.38);
       const mdotEx = orificeMassFlow(aPort * 1.15 * exOpen, P, T, eng.Pexh, eng.Texh, gamma);
-      sumMdotIn += mdotIn; sumMdotEx += mdotEx;
-
-      const dmIn = mdotIn * dt, dmEx = mdotEx * dt;
+      const dmIn = Math.max(-0.45 * mTot, mdotIn * dt);
+      const dmEx = Math.min(0.45 * mTot, mdotEx * dt);
+      sumMdotIn += dmIn / Math.max(1e-9, dt); sumMdotEx += dmEx / Math.max(1e-9, dt);
       let dU_flow = 0;
       if (dmIn >= 0) {
         const fRatio = limActive ? 0.0 : (1.0 / (targetAFR + 1.0));
@@ -1793,23 +1810,23 @@
       if (c.knockTimer > 0) c.knockTimer = Math.max(0, c.knockTimer - dt);
     }
 
-    const cs = eng.cylScale || 1;
     sumMdotIn *= cs; sumMdotEx *= cs; sumTauGas *= cs;
-    eng.Pman = Math.max(15000, Math.min(build.unrealistic ? 1e9 : 420000, eng.Pman + (R_GAS * eng.Tman / (0.0018 * dispScale)) * (mdotThr - sumMdotIn) * dt));
+    eng.Pman = Math.max(15000, Math.min(build.unrealistic ? 1e9 : 420000, eng.Pman + (R_GAS * eng.Tman / Math.max(1e-6, 0.0018 * dispScale)) * (mdotThr - sumMdotIn) * dt));
     const mdotTail = orificeMassFlow(tailpipeArea, eng.Pexh, eng.Texh, P_ATM, T_AMB, 1.33);
-    eng.Pexh = Math.max(85000, Math.min(build.unrealistic ? 1e9 : 360000, eng.Pexh + (R_GAS * eng.Texh / vExhaust) * (sumMdotEx - mdotTail) * dt));
+    eng.Pexh = Math.max(85000, Math.min(build.unrealistic ? 1e9 : 360000, eng.Pexh + (R_GAS * eng.Texh / Math.max(1e-6, vExhaust)) * (sumMdotEx - mdotTail) * dt));
 
-    const tauFric = (1.1 * N + 0.0045 * N * Math.abs(eng.omega) + 0.000010 * N * eng.omega * eng.omega) * signW + tauSC * signW;
+    const tauFric = (1.1 * Ntot + 0.0045 * Ntot * Math.abs(eng.omega) + 0.000010 * Ntot * eng.omega * eng.omega) * signW + tauSC * signW;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.055 * Math.abs(eng.omega) + 0.00016 * eng.omega * eng.omega)) * signW : 0;
     // Zero reciprocating mass -> pure rotational inertia I_eff (rotaries rev like crazy!)
-    const I_eff = 0.014 + 0.006 * N;
+    const I_eff = Math.max(1e-6, 0.014 + 0.006 * Ntot);
     const tauStarter = (ctrl.starter && eng.omega < 75)
       ? (isBigUnrealistic()
         ? (Math.max(0, 75 - eng.omega) * I_eff * 20.0 + Math.abs(tauFric) + Math.abs(tauLoad) + Math.abs(sumTauGas) + 1e6)
-        : (95.0 * dispScale * (1 - eng.omega / 75)))
+        : (95.0 * dispScale * (1 - Math.max(-0.5, eng.omega) / 75)))
       : 0;
     const tauNet = sumTauGas + tauStarter - tauFric - tauLoad;
-    eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
+    const maxW = build.unrealistic ? 1e6 : 25000;
+    eng.alpha = tauNet / I_eff; eng.omega = Math.max(-maxW, Math.min(maxW, eng.omega + eng.alpha * dt)); eng.theta += eng.omega * dt;
     eng.instTauGas = sumTauGas; eng.instTauInert = 0; eng.instTauFric = tauFric; eng.instTauNet = tauNet; eng.instIeff = I_eff;
     eng.cycleTorqueSum += (sumTauGas - tauFric); eng.cycleSamples++; eng.lastMasterDeg = masterDeg;
     decayStoppedTelemetry(dt);
@@ -1819,11 +1836,12 @@
   // 4E. STEAM ENGINE SOLVER
   // =========================================================================
   function physicsSubstepSteam(dt) {
-    const N = eng.cyls.length, Ap = pistonArea(), Vc = clearanceVolume(), mRec = recipMass();
-    const dispScale = Math.max(0.25, (dispVolume() * N) / 0.00045);
+    const N = eng.cyls.length, cs = eng.cylScale || 1, Ntot = N * cs, Ap = pistonArea(), Vc = clearanceVolume(), mRec = recipMass();
+    const dispScale = Math.max(1e-4, (dispVolume() * Ntot) / 0.00045);
     const pBoiler = P_ATM + build.boilerBar * 1e5, tBoiler = boilerTempK(), pExhTarget = Math.max(12000, build.condenserBar * 1e5);
     const vChest = Math.max(0.0025, 0.003 * Math.pow(dispScale, 0.85));
-    const regOpen = ctrl.throttle <= 0.005 ? 0 : (0.025 * ctrl.idleBypass + 0.975 * Math.pow(Math.max(0, Math.min(1, ctrl.throttle)), 1.8));
+    const thrFrac = Math.max(0, build.unrealistic ? Math.min(1000, ctrl.throttle) : Math.min(1, ctrl.throttle));
+    const regOpen = thrFrac <= 0.005 ? 0 : (0.025 * ctrl.idleBypass + 0.975 * Math.pow(thrFrac, 1.8));
     const aReg = 0.0014 * Math.pow(dispScale, 0.80) * regOpen;
     const mdotReg = orificeMassFlow(aReg, pBoiler, tBoiler, eng.Pman, eng.Tman, GAMMA_STEAM, R_STEAM);
     eng.mdotThr = mdotReg; eng.vtecActive = false;
@@ -1845,7 +1863,7 @@
       const deg360 = ((cylTheta * 180 / Math.PI) % 360 + 360) % 360; c.deg720 = deg360;
       if ((eng.omega >= 0 && c.lastDeg720 > 280 && deg360 < 80) || (eng.omega < 0 && c.lastDeg720 < 80 && deg360 > 280)) { c.lastPeakP = c.cyclePeakP; c.cyclePeakP = P_ATM; }
 
-      const kin = kinematics(cylTheta), V1 = Vc + Ap * kin.xDown, V2 = Vc + Ap * (build.stroke - kin.xDown);
+      const kin = kinematics(cylTheta), V1 = Math.max(1e-12, Vc + Ap * kin.xDown), V2 = Math.max(1e-12, Vc + Ap * Math.max(0, build.stroke - kin.xDown));
       const vPiston = kin.dxdt * eng.omega, dV1dt = Ap * vPiston, dV2dt = -dV1dt;
 
       let adm1 = 0, exh1 = 0, adm2 = 0, exh2 = 0;
@@ -1871,7 +1889,9 @@
       const dQ1 = 18.0 * (T1 - c.Twall) * dt;
       c.mAir = Math.max(1e-8, c.mAir + (mdotIn1 - mdotEx1) * dt);
       c.U = Math.max(1e-3, c.U - P1 * dV1dt * dt + dU1 - dQ1);
-      c.T = Math.max(290, Math.min(1200, c.U / (c.mAir * CV_STEAM))); c.P = (c.mAir * R_STEAM * c.T) / V1; c.V = V1;
+      c.T = Math.max(290, Math.min(1200, c.U / (c.mAir * CV_STEAM)));
+      c.U = c.mAir * CV_STEAM * c.T;
+      c.P = (c.mAir * R_STEAM * c.T) / V1; c.V = V1;
       if (c.P > c.cyclePeakP) c.cyclePeakP = c.P;
 
       let P2 = P_ATM, mdotIn2 = 0, mdotEx2 = 0, dQ2 = 0;
@@ -1884,7 +1904,9 @@
         dQ2 = 18.0 * (T2 - c.Twall) * dt;
         c.m2 = Math.max(1e-8, c.m2 + (mdotIn2 - mdotEx2) * dt);
         c.U2 = Math.max(1e-3, c.U2 - P2 * dV2dt * dt + dU2 - dQ2);
-        c.T2 = Math.max(290, Math.min(1200, c.U2 / (c.m2 * CV_STEAM))); P2 = (c.m2 * R_STEAM * c.T2) / V2;
+        c.T2 = Math.max(290, Math.min(1200, c.U2 / (c.m2 * CV_STEAM)));
+        c.U2 = c.m2 * CV_STEAM * c.T2;
+        P2 = (c.m2 * R_STEAM * c.T2) / V2;
         c.P2 = P2; c.V2 = V2;
       } else {
         c.P2 = P_ATM; c.V2 = V2;
@@ -1901,12 +1923,13 @@
       c.liftIn = adm1 * build.maxLiftIn; c.liftEx = exh1 * build.maxLiftEx; c.fGas = fGas; c.fSide = fSide; c.fRod = fRod; c.tauGas = tauGas; c.lastDeg720 = deg360;
     }
 
-    eng.Pman = Math.max(pExhTarget, Math.min(pBoiler * 1.05, eng.Pman + (R_STEAM * eng.Tman / vChest) * (mdotReg - sumMdotIn) * dt));
+    sumMdotIn *= cs; sumTauGas *= cs; sumIrecip *= cs; sumTauInertial *= cs; sumTauFricPiston *= cs;
+    eng.Pman = Math.max(pExhTarget, Math.min(pBoiler * 1.05, eng.Pman + (R_STEAM * eng.Tman / Math.max(1e-6, vChest)) * (mdotReg - sumMdotIn) * dt));
     eng.Tman += (tBoiler - eng.Tman) * Math.min(1, dt * 8);
-    const tauBearing = (1.0 + 0.35 * N + (0.008 + 0.003 * N) * Math.abs(eng.omega) + 0.00003 * N * eng.omega * eng.omega) * signW;
+    const tauBearing = (1.0 + 0.35 * Ntot + (0.008 + 0.003 * Ntot) * Math.abs(eng.omega) + 0.00003 * Ntot * eng.omega * eng.omega) * signW;
     const tauTotalFric = sumTauFricPiston + tauBearing;
     const tauLoad = ctrl.load > 0 ? (ctrl.load * dispScale * (0.07 * Math.abs(eng.omega) + 0.00025 * eng.omega * eng.omega)) * signW : 0;
-    const I_eff = build.I_flywheel + sumIrecip;
+    const I_eff = Math.max(1e-6, build.I_flywheel + sumIrecip);
     const dirS = build.cutoff >= 0 ? 1 : -1;
     const tauStarter = ctrl.starter
       ? (isBigUnrealistic()
@@ -1914,7 +1937,8 @@
         : (dirS * 85.0 * Math.pow(dispScale, 0.55)))
       : 0;
     const tauNet = sumTauGas + sumTauInertial + tauStarter - tauTotalFric - tauLoad;
-    eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
+    const maxW = build.unrealistic ? 1e6 : 25000;
+    eng.alpha = tauNet / I_eff; eng.omega = Math.max(-maxW, Math.min(maxW, eng.omega + eng.alpha * dt)); eng.theta += eng.omega * dt;
     eng.instTauGas = sumTauGas; eng.instTauInert = sumTauInertial; eng.instTauFric = tauTotalFric; eng.instTauNet = tauNet; eng.instIeff = I_eff;
     eng.cycleTorqueSum += (sumTauGas - tauTotalFric); eng.cycleSamples++; eng.lastMasterDeg = masterDeg; eng.limiterLatched = false;
     decayStoppedTelemetry(dt);
@@ -1936,19 +1960,19 @@
     const kinC = kinematics(eng.theta - cCold.fireOffset * Math.PI / 180);
     const Vh = Vc + Ap * kinH.xDown, Vcold = Vc + Ap * kinC.xDown, Vr = dispVolume() * 0.42;
     const heatEff = 0.25 + 0.75 * Math.min(1, ctrl.idleBypass * 0.6 + ctrl.throttle);
-    const Tc = Math.max(200, build.tCold);
-    const Th = Math.max(Tc + 10, Tc + Math.max(0, build.tHot - Tc) * heatEff);
-    const Tr = (Th - Tc) / Math.max(0.05, Math.log(Math.max(1.01, Th / Tc)));
-    const pCharge = build.sChargeBar * 1e5, Vmean = Vc + dispVolume() * 0.5;
+    const Tc = Math.max(100, build.tCold);
+    const Th = build.tHot > Tc ? (Tc + (build.tHot - Tc) * heatEff) : Tc;
+    const Tr = Th > Tc + 0.5 ? ((Th - Tc) / Math.max(1e-4, Math.log(Th / Tc))) : Tc;
+    const pCharge = Math.max(1000, build.sChargeBar * 1e5), Vmean = Vc + dispVolume() * 0.5;
     const mTotal = pCharge * (Vmean / Th + Vr / Tr + Vmean / Tc) / gas.R;
-    const P = (mTotal * gas.R) / (Vh / Th + Vr / Tr + Vcold / Tc);
+    const P = (mTotal * gas.R) / Math.max(1e-12, Vh / Th + Vr / Tr + Vcold / Tc);
     const dP_regen = 1200 * gas.visc * (1.15 - build.sRegen * 0.6) * (Math.abs(eng.omega) / 120);
     const P_hot = P - dP_regen * Math.tanh(kinH.dxdt * eng.omega * 15);
     const P_cold = P - dP_regen * Math.tanh(kinC.dxdt * eng.omega * 15);
 
     const fHot = (P_hot - pCharge) * Ap, fCold = (P_cold - pCharge) * Ap;
     const tauGas = fHot * kinH.dxdt + fCold * kinC.dxdt;
-    const I_eff = build.I_flywheel + mRec * (kinH.dxdt * kinH.dxdt + kinC.dxdt * kinC.dxdt);
+    const I_eff = Math.max(1e-6, build.I_flywheel + mRec * (kinH.dxdt * kinH.dxdt + kinC.dxdt * kinC.dxdt));
     const tauInertial = -mRec * (kinH.dxdt * kinH.d2xdt2 + kinC.dxdt * kinC.d2xdt2) * eng.omega * eng.omega;
     const signW = Math.tanh(eng.omega * 0.6);
     const tauFric = (0.45 + 0.012 * gas.visc * Math.abs(eng.omega) + 0.00004 * gas.visc * eng.omega * eng.omega) * signW;
@@ -1960,7 +1984,8 @@
       : 0;
 
     const tauNet = tauGas + tauInertial + tauStarter - tauFric - tauLoad;
-    eng.alpha = tauNet / I_eff; eng.omega += eng.alpha * dt; eng.theta += eng.omega * dt;
+    const maxW = build.unrealistic ? 1e6 : 25000;
+    eng.alpha = tauNet / I_eff; eng.omega = Math.max(-maxW, Math.min(maxW, eng.omega + eng.alpha * dt)); eng.theta += eng.omega * dt;
     cHot.P = P_hot; cHot.T = Th; cHot.V = Vh; cHot.fGas = fHot; cHot.tauGas = fHot * kinH.dxdt; cHot.fRod = fHot / kinH.cosPhi; cHot.fSide = fHot * kinH.tanPhi; cHot.deg720 = masterDeg;
     cCold.P = P_cold; cCold.T = Tc; cCold.V = Vcold; cCold.fGas = fCold; cCold.tauGas = fCold * kinC.dxdt; cCold.fRod = fCold / kinC.cosPhi; cCold.fSide = fCold * kinC.tanPhi; cCold.deg720 = (masterDeg + 270) % 360;
     if (P_hot > cHot.cyclePeakP) cHot.cyclePeakP = P_hot;
@@ -1983,10 +2008,11 @@
     const coreArea = fanArea / (1.0 + build.bpr);
     const bypassArea = fanArea - coreArea;
 
-    const maxOmegaN1 = (4000 * 2 * Math.PI / 60) * (1.8 / Math.max(0.5, build.fanDia));
+    const safeFanDia = Math.max(0.01, build.fanDia);
+    const maxOmegaN1 = (4000 * 2 * Math.PI / 60) * (1.8 / Math.max(0.5, safeFanDia));
     const maxOmegaN2 = 14000 * 2 * Math.PI / 60;
-    const I_N1 = 6.0 * Math.pow(build.fanDia / 1.8, 3.0);
-    const I_N2 = 2.4 * Math.pow(build.fanDia / 1.8, 2.0);
+    const I_N1 = Math.max(1e-4, 6.0 * Math.pow(safeFanDia / 1.8, 3.0));
+    const I_N2 = Math.max(1e-4, 2.4 * Math.pow(safeFanDia / 1.8, 2.0));
 
     const n1 = Math.max(0, Math.min(1.15, j.omegaN1 / maxOmegaN1));
     const n2 = Math.max(0, Math.min(1.15, j.omegaN2 / maxOmegaN2));
@@ -2015,23 +2041,24 @@
     const targetN2 = lit ? (0.56 + 0.44 * Math.pow(thrustCmd, 0.9)) : 0;
 
     // Physical combustor temperature T4 rises with fuel flow (capped cleanly at maxTit!)
-    const fuelSched = lit ? Math.max(0.05, Math.min(1.15, thrustCmd + 1.8 * (targetN2 - n2))) : 0;
-    const T4 = lit ? (T3 + (build.maxTit - T3) * Math.min(1.0, 0.28 + 0.72 * fuelSched)) : T3;
-    const mdotFuel = lit ? (mdotCore * cpGas * Math.max(0, T4 - T3) / (43.2e6 * 0.98)) : 0;
+    const dTcombMax = Math.max(0, build.maxTit - T3);
+    const fuelSched = (lit && dTcombMax > 1) ? Math.max(0.05, Math.min(1.15, thrustCmd + 1.8 * (targetN2 - n2))) : 0;
+    const T4 = (lit && dTcombMax > 1) ? (T3 + dTcombMax * Math.min(1.0, 0.28 + 0.72 * fuelSched)) : T3;
+    const mdotFuel = (lit && dTcombMax > 1) ? (mdotCore * cpGas * Math.max(0, T4 - T3) / (43.2e6 * 0.98)) : 0;
 
     // Aerodynamic compressor torque (grows smoothly as n^2) vs Turbine torque (matched at design point!)
-    const pwrHPC = mdotCore * cpAir * (T3 - T25);
+    const pwrHPC = mdotCore * cpAir * Math.max(0, T3 - T25);
     const tauHPC = pwrHPC / Math.max(60.0, j.omegaN2);
     const T25_des = T_AMB * (1.0 + (Math.pow(designFanPR, (gAir - 1) / gAir) - 1.0) / etaC);
     const T3_des = T25_des * (1.0 + (Math.pow(designCorePR, (gAir - 1) / gAir) - 1.0) / etaC);
-    const designTauHPC = (rhoAmb * coreArea * 175.0 * cpAir * (T3_des - T25_des)) / maxOmegaN2;
-    const tauHPT = lit ? (designTauHPC * (0.20 + 0.95 * fuelSched) * Math.max(0.15, (T4 - T3) / Math.max(200, build.maxTit - T3)) * (1.35 - 0.35 * n2)) : 0;
+    const designTauHPC = Math.max(1e-3, (rhoAmb * coreArea * 175.0 * cpAir * Math.max(1, T3_des - T25_des)) / maxOmegaN2);
+    const tauHPT = (lit && dTcombMax > 1) ? (designTauHPC * (0.20 + 0.95 * fuelSched) * Math.max(0.15, (T4 - T3) / Math.max(200, dTcombMax)) * (1.35 - 0.35 * n2)) : 0;
+    const tauFric2 = designTauHPC * (0.04 * n2 + 0.12 * n2 * n2);
     const tauStarterN2 = (ctrl.starter && n2 < (isBigUnrealistic() ? 0.45 : 0.25))
       ? (isBigUnrealistic()
         ? (I_N2 * 500.0 + tauHPC + tauFric2 + 1e6)
         : (designTauHPC * 0.45 * (1 - n2 / 0.25)))
       : 0;
-    const tauFric2 = designTauHPC * (0.04 * n2 + 0.12 * n2 * n2);
 
     j.tauCoreNet = tauHPT + tauStarterN2 - tauHPC - tauFric2;
     j.alphaN2 = j.tauCoreNet / I_N2;
@@ -2077,8 +2104,39 @@
     else if (build.cycleMode === 'steam') physicsSubstepSteam(dt);
     else if (build.cycleMode === 'stirling') physicsSubstepStirling(dt);
     else if (build.cycleMode === 'turbofan') physicsSubstepTurbofan(dt);
-    if (!Number.isFinite(eng.omega) || !Number.isFinite(eng.theta)) {
+    if (!Number.isFinite(eng.omega) || !Number.isFinite(eng.theta) || !Number.isFinite(eng.alpha)) {
       eng.omega = 0; eng.alpha = 0; eng.theta = 0.25;
+    }
+    if (!Number.isFinite(eng.Pman)) eng.Pman = P_ATM;
+    if (!Number.isFinite(eng.Tman)) eng.Tman = T_AMB;
+    if (!Number.isFinite(eng.Pexh)) eng.Pexh = P_ATM;
+    if (!Number.isFinite(eng.Texh)) eng.Texh = T_AMB;
+    if (!Number.isFinite(eng.Pboost)) eng.Pboost = P_ATM;
+    if (!Number.isFinite(eng.Tboost)) eng.Tboost = T_AMB;
+    if (!Number.isFinite(eng.turboSpool)) eng.turboSpool = 0;
+    if (!Number.isFinite(eng.avgTorque)) eng.avgTorque = 0;
+    if (!Number.isFinite(eng.avgPowerW)) eng.avgPowerW = 0;
+    if (build.cycleMode === 'turbofan') {
+      const j = eng.jet;
+      if (!Number.isFinite(j.omegaN1) || !Number.isFinite(j.omegaN2) || !Number.isFinite(j.thrustTotalN)) {
+        j.omegaN1 = 0; j.omegaN2 = 0; j.alphaN1 = 0; j.alphaN2 = 0; j.n1Pct = 0; j.n2Pct = 0;
+        j.P2 = P_ATM; j.T25 = T_AMB; j.P3 = P_ATM; j.T3 = T_AMB; j.T4 = T_AMB; j.T5 = T_AMB;
+        j.thrustCoreN = 0; j.thrustBypassN = 0; j.thrustTotalN = 0;
+      }
+    } else {
+      for (let i = 0; i < eng.cyls.length; i++) {
+        const c = eng.cyls[i];
+        if (!Number.isFinite(c.P) || !Number.isFinite(c.T) || !Number.isFinite(c.U) || !Number.isFinite(c.mAir)) {
+          const Vsafe = Math.max(1e-12, Number.isFinite(c.V) ? c.V : clearanceVolume());
+          const isSt = build.cycleMode === 'steam';
+          const R0 = isSt ? R_STEAM : R_GAS, T0 = isSt ? 380.0 : T_AMB;
+          const m0 = Math.max(1e-8, (P_ATM * Vsafe) / (R0 * T0));
+          c.mAir = m0; c.mFuel = 0; c.mBurned = 0; c.T = T0; c.P = P_ATM; c.V = Vsafe;
+          c.U = isSt ? (m0 * CV_STEAM * T0) : internalEnergyFromTemp(m0, T0);
+          c.Twall = isSt ? 410.0 : 305.0; c.combActive = false;
+          if (isSt) { c.m2 = m0; c.T2 = T0; c.P2 = P_ATM; c.U2 = m0 * CV_STEAM * T0; }
+        }
+      }
     }
   }
 
@@ -2141,18 +2199,26 @@
           if (!ctrl.audioOn || ctrl.paused || !eng || build.volume <= 0.001) { out.fill(0); return; }
           const dtA = (1.0 / sr) * ctrl.timeScale, mode = build.cycleMode;
 
+          if (!Number.isFinite(pipeDamp) || !Number.isFinite(lp1) || !Number.isFinite(lp2) || !Number.isFinite(subLP) || !Number.isFinite(hpOut) || !Number.isFinite(prevOut) || !Number.isFinite(noiseLP1) || !Number.isFinite(noiseLP2) || !Number.isFinite(smoothTheta)) {
+            resetAudioState();
+          }
+
           if (mode === 'turbofan') {
-            const j = eng.jet, n1 = j.n1Pct / 100, n2 = j.n2Pct / 100;
+            const j = eng.jet;
+            const n1 = Math.max(0, Math.min(1.5, (Number.isFinite(j.n1Pct) ? j.n1Pct : 0) / 100));
+            const n2 = Math.max(0, Math.min(1.5, (Number.isFinite(j.n2Pct) ? j.n2Pct : 0) / 100));
             const abBoost = (build.afterburner && ctrl.throttle > 0.5 && n2 > 0.2) ? 1.55 : 1.0;
             const amp = Math.min(1.3, (n1 * 0.75 + n2 * 0.35) * abBoost);
+            const k1 = Math.min(0.85, 0.04 + 0.06 * n1), k2 = Math.min(0.85, 0.03 + 0.04 * n2);
             for (let s = 0; s < out.length; s++) {
               const w = Math.random() * 2 - 1;
-              noiseLP1 += (w - noiseLP1) * (0.04 + 0.06 * n1);
-              noiseLP2 += (noiseLP1 - noiseLP2) * (0.03 + 0.04 * n2);
+              noiseLP1 += (w - noiseLP1) * k1;
+              noiseLP2 += (noiseLP1 - noiseLP2) * k2;
               subLP += (noiseLP2 - subLP) * 0.012;
               const roar = (noiseLP2 * 1.4 + subLP * 2.2) * amp;
               hpOut = 0.995 * (hpOut + roar - prevOut); prevOut = roar;
-              out[s] = Math.tanh(hpOut * 1.8) * 0.50 * build.volume;
+              const sample = Math.tanh(hpOut * 1.8) * 0.50 * Math.min(1, build.volume);
+              out[s] = Number.isFinite(sample) ? sample : 0;
             }
             return;
           }
@@ -2236,19 +2302,30 @@
             lp1 += (wave - lp1) * alphaLP; lp2 += (lp1 - lp2) * alphaLP; subLP += (wave - subLP) * 0.025;
             const mixed = (lp2 * 1.25 + subLP * 0.95) * Math.min(1.0, omegaAbs / 12.0 + (ctrl.starter ? 0.22 : 0));
             hpOut = 0.995 * (hpOut + mixed - prevOut); prevOut = mixed;
-            out[s] = Math.tanh(hpOut * 1.5) * 0.55 * build.volume;
+            const sample = Math.tanh(hpOut * 1.5) * 0.55 * Math.min(1, build.volume);
+            out[s] = Number.isFinite(sample) ? sample : 0;
           }
         };
         audioNode.connect(audioCtx.destination);
       } catch (_) {
+        if (audioNode) { try { audioNode.disconnect(); } catch (__) {} audioNode = null; }
+        if (audioCtx) { try { audioCtx.close(); } catch (__) {} audioCtx = null; }
         ctrl.audioOn = false;
+        document.getElementById('audioBtn').textContent = 'Audio: OFF';
+        document.getElementById('audioBtn').classList.remove('active');
         return;
       }
     }
     ctrl.audioOn = !ctrl.audioOn;
+    if (!ctrl.audioOn) resetAudioState();
     if (audioCtx) {
-      if (ctrl.audioOn && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-      else if (!ctrl.audioOn && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
+      if (ctrl.audioOn && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {
+          ctrl.audioOn = false;
+          document.getElementById('audioBtn').textContent = 'Audio: OFF';
+          document.getElementById('audioBtn').classList.remove('active');
+        });
+      } else if (!ctrl.audioOn && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
     }
     document.getElementById('audioBtn').textContent = ctrl.audioOn ? 'Audio: ON' : 'Audio: OFF';
     document.getElementById('audioBtn').classList.toggle('active', ctrl.audioOn);
@@ -2262,23 +2339,38 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
   viewport.appendChild(renderer.domElement);
+  let webglContextLost = false;
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    webglContextLost = true;
+  }, false);
+  renderer.domElement.addEventListener('webglcontextrestored', () => {
+    webglContextLost = false;
+    handleResize();
+    if (eng) rebuild3DScene(false);
+  }, false);
 
   const scene = new THREE.Scene();
   const perspCam = new THREE.PerspectiveCamera(40, 1, 0.02, 50000);
   const orthoCam = new THREE.OrthographicCamera(-0.25, 0.25, 0.25, -0.25, 0.02, 50000);
   let activeCam = perspCam, isOrtho = false;
   const camState = { yaw: 0.65, pitch: 0.24, dist: 0.60, target: new THREE.Vector3(0, 0.10, 0), orthoZoom: 0.22 };
+  const tmpCamPos = new THREE.Vector3(), tmpVec = new THREE.Vector3();
 
   function updateCameraTransform() {
     const w = Math.max(1, viewport.clientWidth), h = Math.max(1, viewport.clientHeight), aspect = w / h;
     const cp = Math.cos(camState.pitch), sp = Math.sin(camState.pitch), cy = Math.cos(camState.yaw), sy = Math.sin(camState.yaw);
-    const pos = new THREE.Vector3(camState.target.x + camState.dist * cp * sy, camState.target.y + camState.dist * sp, camState.target.z + camState.dist * cp * cy);
+    tmpCamPos.set(camState.target.x + camState.dist * cp * sy, camState.target.y + camState.dist * sp, camState.target.z + camState.dist * cp * cy);
     if (isOrtho) {
-      const halfH = camState.orthoZoom;
+      const halfH = Math.max(1e-4, camState.orthoZoom);
+      orthoCam.near = Math.max(1e-5, Math.min(0.02, camState.dist * 0.005));
+      orthoCam.far = Math.max(50000, camState.dist * 20);
       orthoCam.left = -halfH * aspect; orthoCam.right = halfH * aspect; orthoCam.top = halfH; orthoCam.bottom = -halfH;
-      orthoCam.position.copy(pos); orthoCam.lookAt(camState.target); orthoCam.updateProjectionMatrix(); activeCam = orthoCam;
+      orthoCam.position.copy(tmpCamPos); orthoCam.lookAt(camState.target); orthoCam.updateProjectionMatrix(); activeCam = orthoCam;
     } else {
-      perspCam.aspect = aspect; perspCam.position.copy(pos); perspCam.lookAt(camState.target); perspCam.updateProjectionMatrix(); activeCam = perspCam;
+      perspCam.near = Math.max(1e-5, Math.min(0.02, camState.dist * 0.005));
+      perspCam.far = Math.max(50000, camState.dist * 20);
+      perspCam.aspect = aspect; perspCam.position.copy(tmpCamPos); perspCam.lookAt(camState.target); perspCam.updateProjectionMatrix(); activeCam = perspCam;
     }
   }
 
@@ -2328,6 +2420,9 @@
           }
         });
       }
+      if (typeof obj.dispose === 'function' && obj !== root) {
+        try { obj.dispose(); } catch (_) {}
+      }
     });
   }
 
@@ -2352,7 +2447,7 @@
 
   // ---- 3D WANKEL ROTARY BUILDER ----
   function buildRotary3D(resetCamera) {
-    const N = build.rotors, R = build.rotorR, e = R / 7.0, W = build.rotorW;
+    const N = Math.max(1, eng.cyls.length), R = build.rotorR, e = R / 7.0, W = build.rotorW;
     const sp = W + 0.032, zCenter = ((N - 1) * sp) * 0.5;
     grid.position.y = -(R + e + 0.12);
     if (resetCamera) {
@@ -2542,12 +2637,14 @@
     const ringGeo = !lowPoly ? new THREE.TorusGeometry(boreR - 0.0005, 0.0012, 5, segs) : null;
     const wristGeo = new THREE.CylinderGeometry(0.006, 0.006, boreR * 1.55, 8);
     const rodBeamGeo = new THREE.BoxGeometry(0.009, L, 0.008);
-    const rodBigGeo = new THREE.CylinderGeometry(0.013, 0.013, 0.011, 10);
-    const valveStemGeo = new THREE.CylinderGeometry(0.0025, 0.0025, 0.045, 6);
-    const valveInHeadGeo = new THREE.CylinderGeometry(dIn * 0.32, dIn * 0.44, 0.0035, 10);
-    const valveExHeadGeo = new THREE.CylinderGeometry(dEx * 0.32, dEx * 0.44, 0.0035, 10);
-    const plugGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.020, 6);
-    const sparkGeo = new THREE.SphereGeometry(0.008, 6, 6);
+    const needValves = !ultraPoly && !isStirling && !is2S;
+    const needSpark = build.cycleMode === 'ic4' || build.cycleMode === 'ic2';
+    const rodBigGeo = !ultraPoly ? new THREE.CylinderGeometry(0.013, 0.013, 0.011, 10) : null;
+    const valveStemGeo = needValves ? new THREE.CylinderGeometry(0.0025, 0.0025, 0.045, 6) : null;
+    const valveInHeadGeo = needValves ? new THREE.CylinderGeometry(dIn * 0.32, dIn * 0.44, 0.0035, 10) : null;
+    const valveExHeadGeo = needValves ? new THREE.CylinderGeometry(dEx * 0.32, dEx * 0.44, 0.0035, 10) : null;
+    const plugGeo = (needSpark && !ultraPoly) ? new THREE.CylinderGeometry(0.004, 0.004, 0.020, 6) : null;
+    const sparkGeo = needSpark ? new THREE.SphereGeometry(0.008, 6, 6) : null;
 
     const crankOffsets = [];
     const seenOffsets = new Set();
@@ -2722,6 +2819,7 @@
     if (build.cycleMode === 'rotary' && rotaryRig) {
       rotaryRig.rotors3D.forEach((rm, i) => {
         const c = eng.cyls[i];
+        if (!c) return;
         const th = eng.theta - rm.phaseRad;
         rm.rotor.position.x = Math.cos(-th) * rm.e;
         rm.rotor.position.y = Math.sin(-th) * rm.e;
@@ -2740,6 +2838,7 @@
     let pIdx = 0;
     for (let i = 0; i < eng.cyls.length; i++) {
       const c = eng.cyls[i], m = cylMeshes[i];
+      if (!m) continue;
       const cylTheta = eng.theta - (c.fireOffset * Math.PI / 180), kin = kinematics(cylTheta);
       const pinAngWorld = eng.theta - (c.pinDeg * Math.PI / 180);
       const pinX = m.xOff + r * Math.sin(pinAngWorld), pinY = m.yOff + r * Math.cos(pinAngWorld);
@@ -2769,17 +2868,35 @@
       if (m.sparkMat) { m.sparkMat.opacity = c.sparkFlash; m.sparkOrb.scale.setScalar(0.5 + c.sparkFlash * 0.9); }
 
       if (ctrl.showVectors && m.arrowGas) {
-        const fgLen = Math.min(0.085, Math.sqrt(Math.abs(c.fGas)) * 0.00046);
-        m.arrowGas.visible = fgLen > 0.004; m.arrowGas.position.set(m.xOff + pistonTopY * sb, m.yOff + pistonTopY * cb, m.z);
-        const sgnG = c.fGas >= 0 ? -1 : 1; m.arrowGas.setDirection(new THREE.Vector3(sb * sgnG, cb * sgnG, 0).normalize()); m.arrowGas.setLength(Math.max(0.005, fgLen), 0.011, 0.006);
+        const fgLen = Math.min(0.085, Math.sqrt(Math.abs(c.fGas || 0)) * 0.00046);
+        m.arrowGas.visible = fgLen > 0.004;
+        if (m.arrowGas.visible) {
+          m.arrowGas.position.set(m.xOff + pistonTopY * sb, m.yOff + pistonTopY * cb, m.z);
+          const sgnG = c.fGas >= 0 ? -1 : 1;
+          tmpVec.set(sb * sgnG, cb * sgnG, 0).normalize();
+          m.arrowGas.setDirection(tmpVec);
+          m.arrowGas.setLength(fgLen, Math.min(0.011, fgLen * 0.45), Math.min(0.006, fgLen * 0.25));
+        }
 
-        const fsLen = Math.min(0.055, Math.sqrt(Math.abs(c.fSide)) * 0.00048);
-        m.arrowSide.visible = fsLen > 0.004; m.arrowSide.position.set(wristX, wristY, m.z);
-        const sgnS = c.fSide >= 0 ? 1 : -1; m.arrowSide.setDirection(new THREE.Vector3(cb * sgnS, -sb * sgnS, 0).normalize()); m.arrowSide.setLength(Math.max(0.005, fsLen), 0.010, 0.005);
+        const fsLen = Math.min(0.055, Math.sqrt(Math.abs(c.fSide || 0)) * 0.00048);
+        m.arrowSide.visible = fsLen > 0.004;
+        if (m.arrowSide.visible) {
+          m.arrowSide.position.set(wristX, wristY, m.z);
+          const sgnS = c.fSide >= 0 ? 1 : -1;
+          tmpVec.set(cb * sgnS, -sb * sgnS, 0).normalize();
+          m.arrowSide.setDirection(tmpVec);
+          m.arrowSide.setLength(fsLen, Math.min(0.010, fsLen * 0.45), Math.min(0.005, fsLen * 0.25));
+        }
 
-        const tLen = Math.min(0.070, Math.sqrt(Math.abs(c.tauGas)) * 0.0040);
-        m.arrowTau.visible = tLen > 0.004; m.arrowTau.position.set(pinX, pinY, m.z);
-        const sgnT = c.tauGas >= 0 ? 1 : -1; m.arrowTau.setDirection(new THREE.Vector3(Math.cos(pinAngWorld) * sgnT, -Math.sin(pinAngWorld) * sgnT, 0).normalize()); m.arrowTau.setLength(Math.max(0.005, tLen), 0.011, 0.006);
+        const tLen = Math.min(0.070, Math.sqrt(Math.abs(c.tauGas || 0)) * 0.0040);
+        m.arrowTau.visible = tLen > 0.004;
+        if (m.arrowTau.visible) {
+          m.arrowTau.position.set(pinX, pinY, m.z);
+          const sgnT = c.tauGas >= 0 ? 1 : -1;
+          tmpVec.set(Math.cos(pinAngWorld) * sgnT, -Math.sin(pinAngWorld) * sgnT, 0).normalize();
+          m.arrowTau.setDirection(tmpVec);
+          m.arrowTau.setLength(tLen, Math.min(0.011, tLen * 0.45), Math.min(0.006, tLen * 0.25));
+        }
       }
 
       if (ctrl.showParticles && particleMesh) {
@@ -2812,6 +2929,7 @@
 
   function getPinchMetrics() {
     const pts = Array.from(activePointers.values());
+    if (pts.length < 2) return null;
     const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
     return { dist: Math.hypot(dx, dy), mx: (pts[0].x + pts[1].x) * 0.5, my: (pts[0].y + pts[1].y) * 0.5 };
   }
@@ -2822,10 +2940,10 @@
     if (activePointers.size === 1) {
       dragMode = (e.button === 2 || e.shiftKey) ? 2 : 1;
       lastX = e.clientX; lastY = e.clientY;
-    } else if (activePointers.size === 2) {
+    } else if (activePointers.size >= 2) {
       dragMode = 3;
       const pm = getPinchMetrics();
-      pinchDist = Math.max(1, pm.dist); pinchMidX = pm.mx; pinchMidY = pm.my;
+      if (pm) { pinchDist = Math.max(1, pm.dist); pinchMidX = pm.mx; pinchMidY = pm.my; }
     }
     try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
   });
@@ -2834,6 +2952,7 @@
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (activePointers.size >= 2) {
       const pm = getPinchMetrics();
+      if (!pm) return;
       const d = Math.max(1, pm.dist);
       if (pinchDist > 0) applyZoomFactor(pinchDist / d);
       const dx = pm.mx - pinchMidX, dy = pm.my - pinchMidY;
@@ -2853,10 +2972,14 @@
   });
   function releaseViewportPointer(e) {
     activePointers.delete(e.pointerId);
-    if (activePointers.size === 1) {
+    try { if (viewport.hasPointerCapture(e.pointerId)) viewport.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (activePointers.size >= 2) {
+      const pm = getPinchMetrics();
+      if (pm) { pinchDist = Math.max(1, pm.dist); pinchMidX = pm.mx; pinchMidY = pm.my; }
+    } else if (activePointers.size === 1) {
       const rem = activePointers.values().next().value;
       dragMode = 1; lastX = rem.x; lastY = rem.y; pinchDist = 0;
-    } else if (activePointers.size === 0) {
+    } else {
       dragMode = 0; pinchDist = 0;
     }
   }
@@ -2879,12 +3002,33 @@
 
   function setCameraPreset(preset) {
     document.querySelectorAll('[data-cam]').forEach(b => b.classList.toggle('on', b.dataset.cam === preset));
-    const isJet = build.cycleMode === 'turbofan', isCentered = isJet || build.cycleMode === 'rotary' || build.layout === 'radial' || build.layout === 'boxer' || build.layout === 'x' || build.layout === 'h';
-    const maxSlot = eng.cyls.length ? Math.max(...eng.cyls.map(c => c.zSlot)) : 0;
-    const baseDist = isJet ? (build.fanDia * 1.4) : Math.max(0.62, (maxSlot + 1) * 0.16 + (isCentered ? 0.60 : 0.36));
-    camState.target.set(0, isCentered ? 0.0 : (build.inverted ? -0.11 : 0.11), 0);
+    const isJet = build.cycleMode === 'turbofan', isRotary = build.cycleMode === 'rotary';
+    const isRadial = build.layout === 'radial' && build.cycleMode !== 'stirling';
+    const isCentered = isJet || isRotary || isRadial || (build.cycleMode !== 'stirling' && (build.layout === 'boxer' || build.layout === 'x' || build.layout === 'h'));
+    const isInverted = !isJet && !isRotary && build.inverted && (build.layout === 'inline' || build.layout === 'v' || build.layout === 'u');
+    let baseDist, orthoZ, targetY = 0;
+    if (isJet) {
+      const fanR = build.fanDia * 0.25, len = fanR * 3.8;
+      baseDist = Math.max(0.05, len * 1.45);
+      orthoZ = Math.max(0.02, fanR * 1.8);
+    } else if (isRotary) {
+      const N = Math.max(1, eng ? eng.cyls.length : build.rotors), sp = build.rotorW + 0.032;
+      baseDist = Math.max(0.05, (N * sp + build.rotorR * 3.2) * 1.35);
+      orthoZ = Math.max(0.02, build.rotorR * 2.2);
+    } else {
+      const r = build.stroke * 0.5, L = conrodLen(), xClear = clearanceVolume() / Math.max(1e-10, pistonArea());
+      const cylHeadY = r + L + Math.max(0.014, build.bore * 0.20) + xClear;
+      const maxSlot = (eng && eng.cyls.length) ? Math.max(...eng.cyls.map(c => c.zSlot)) : 0;
+      const hasPaired = eng && eng.cyls.some(c => c.zSub !== 0);
+      const slotSpacing = isRadial ? (build.bore * 1.18 + 0.025) : (build.bore + (hasPaired ? 0.036 : 0.022));
+      const span = Math.max((maxSlot + 1) * slotSpacing + build.bore * 1.4, isCentered ? (cylHeadY * 2.15) : (cylHeadY * 1.35));
+      baseDist = Math.max(build.unrealistic ? 0.005 : 0.58, span * 1.38 + (isCentered ? cylHeadY * 0.6 : cylHeadY * 0.3));
+      orthoZ = Math.max(build.unrealistic ? 0.002 : 0.22, span * 0.45);
+      targetY = isCentered ? 0.0 : (isInverted ? -cylHeadY * 0.44 : cylHeadY * 0.44);
+    }
+    camState.target.set(0, targetY, 0);
     if (preset === 'iso') { isOrtho = false; camState.yaw = 0.65; camState.pitch = 0.24; camState.dist = baseDist; }
-    else if (preset === 'cutaway2d') { isOrtho = true; camState.yaw = 0.0; camState.pitch = 0.0; camState.orthoZoom = isJet ? (build.fanDia * 0.48) : (isCentered ? 0.36 : 0.26); }
+    else if (preset === 'cutaway2d') { isOrtho = true; camState.yaw = 0.0; camState.pitch = 0.0; camState.dist = baseDist; camState.orthoZoom = orthoZ; }
     else if (preset === 'side') { isOrtho = false; camState.yaw = Math.PI * 0.5; camState.pitch = 0.10; camState.dist = baseDist * 1.1; }
     else if (preset === 'top') { isOrtho = false; camState.yaw = 0.0; camState.pitch = 1.24; camState.dist = baseDist * 1.1; }
     updateCameraTransform();
@@ -2896,12 +3040,15 @@
 
   function handleResize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setSize(viewport.clientWidth, viewport.clientHeight, false); updateCameraTransform();
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(Math.max(1, viewport.clientWidth), Math.max(1, viewport.clientHeight), false);
+    updateCameraTransform();
     [pvCanvas, ptCanvas].forEach(c => { const r = c.getBoundingClientRect(); c.width = Math.max(1, Math.floor(r.width * dpr)); c.height = Math.max(1, Math.floor(r.height * dpr)); });
   }
   window.addEventListener('resize', handleResize);
 
   function renderCharts() {
+    if (!eng) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (build.cycleMode === 'turbofan') {
       const j = eng.jet;
@@ -2909,6 +3056,7 @@
         const W = pvCanvas.width / dpr, H = pvCanvas.height / dpr;
         pvCtx.save(); pvCtx.scale(dpr, dpr); pvCtx.clearRect(0, 0, W, H);
         const padL = 38, padR = 14, padT = 24, padB = 22, plotW = W - padL - padR, plotH = H - padT - padB;
+        if (plotW <= 4 || plotH <= 4) { pvCtx.restore(); return; }
         const pEgtBar = 1.013 + Math.max(0, (j.P3 / 1e5) - 1.013) * 0.14;
         const stations = [
           { lbl: 'AMB', p: 1.01, t: T_AMB },
@@ -2941,7 +3089,7 @@
         const W = ptCanvas.width / dpr, H = ptCanvas.height / dpr;
         ptCtx.save(); ptCtx.scale(dpr, dpr); ptCtx.clearRect(0, 0, W, H);
         const padL = 44, padR = 12, padT = 24, padB = 20, plotW = W - padL - padR, plotH = H - padT - padB;
-        if (j.history.length > 1) {
+        if (plotW > 4 && plotH > 4 && j.history.length > 1) {
           const maxT = Math.max(40, ...j.history.map(h => Number.isFinite(h.kN) ? h.kN : 0)) * 1.15;
           ptCtx.strokeStyle = '#c084fc'; ptCtx.lineWidth = 2; ptCtx.beginPath();
           j.history.forEach((h, idx) => {
@@ -2958,71 +3106,90 @@
       return;
     }
 
-    const selC = eng.cyls[ctrl.selectedCyl] || eng.cyls[0], cyc360 = is360Cycle(), maxDeg = cyc360 ? 360 : 720;
-    const pMaxBar = Math.max(build.cycleMode === 'steam' ? (build.boilerBar + 3) : 15, (selC.lastPeakP / 1e5) * 1.15, (selC.P / 1e5) * 1.1);
+    const selC = eng.cyls[ctrl.selectedCyl] || eng.cyls[0];
+    if (!selC) return;
+    const cyc360 = is360Cycle(), maxDeg = cyc360 ? 360 : 720;
+    const safePeakBar = Number.isFinite(selC.lastPeakP) ? (selC.lastPeakP / 1e5) : 1;
+    const safeCurBar = Number.isFinite(selC.P) ? (selC.P / 1e5) : 1;
+    const pMaxBar = Math.max(1, build.cycleMode === 'steam' ? (build.boilerBar + 3) : 15, safePeakBar * 1.15, safeCurBar * 1.1);
     const pDispMult = build.imperial ? 14.5038 : 1.0;
     const pUnitLbl = build.imperial ? 'psi' : 'b';
+    const fmtVolAxis = (cc) => {
+      if (build.imperial) {
+        const ci = cc / 16.3871;
+        return ci < 0.1 ? `${ci.toExponential(1)}in³` : `${ci.toFixed(1)}in³`;
+      }
+      return cc < 0.1 ? `${cc.toExponential(1)}cc` : (cc < 10 ? `${cc.toFixed(2)}cc` : `${cc.toFixed(0)}cc`);
+    };
     {
       const W = pvCanvas.width / dpr, H = pvCanvas.height / dpr;
       pvCtx.save(); pvCtx.scale(dpr, dpr); pvCtx.clearRect(0, 0, W, H);
       const padL = build.imperial ? 40 : 34, padR = 12, padT = 22, padB = 20, plotW = W - padL - padR, plotH = H - padT - padB;
-      const vMin = clearanceVolume() * 1e6, vMax = (clearanceVolume() + dispVolume()) * 1e6;
-      pvCtx.strokeStyle = '#1b263b'; pvCtx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const y = padT + (plotH * i) / 4;
-        pvCtx.beginPath(); pvCtx.moveTo(padL, y); pvCtx.lineTo(W - padR, y); pvCtx.stroke();
-        pvCtx.fillStyle = '#64748b'; pvCtx.font = '10px ui-monospace, monospace';
-        pvCtx.fillText((((pMaxBar * pDispMult) * (4 - i)) / 4).toFixed(0), 4, y + 3);
-      }
-      if (pvHistory.length > 1) {
-        pvCtx.beginPath();
-        let started = false;
-        for (let i = 0; i < pvHistory.length; i++) {
-          const pt = pvHistory[i];
-          if (!Number.isFinite(pt.vCC) || !Number.isFinite(pt.pBar)) continue;
-          const x = padL + ((pt.vCC - vMin) / Math.max(1, vMax - vMin)) * plotW;
-          const y = padT + plotH - Math.max(0, Math.min(1, pt.pBar / pMaxBar)) * plotH;
-          if (!started) { pvCtx.moveTo(x, y); started = true; } else pvCtx.lineTo(x, y);
+      if (plotW > 4 && plotH > 4) {
+        const vMin = clearanceVolume() * 1e6, vMax = (clearanceVolume() + dispVolume()) * 1e6;
+        const vSpan = Math.max(1e-9, vMax - vMin);
+        pvCtx.strokeStyle = '#1b263b'; pvCtx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const y = padT + (plotH * i) / 4;
+          pvCtx.beginPath(); pvCtx.moveTo(padL, y); pvCtx.lineTo(W - padR, y); pvCtx.stroke();
+          pvCtx.fillStyle = '#64748b'; pvCtx.font = '10px ui-monospace, monospace';
+          pvCtx.fillText((((pMaxBar * pDispMult) * (4 - i)) / 4).toFixed(0), 4, y + 3);
         }
-        pvCtx.strokeStyle = build.cycleMode === 'steam' ? '#67e8f9' : (build.cycleMode === 'stirling' ? '#fb923c' : (build.cycleMode === 'rotary' ? '#f472b6' : '#38bdf8'));
-        pvCtx.lineWidth = 1.8; pvCtx.stroke();
-        const last = pvHistory[pvHistory.length - 1];
-        if (last && Number.isFinite(last.vCC) && Number.isFinite(last.pBar)) {
-          pvCtx.fillStyle = '#fb7185';
+        if (pvHistory.length > 1) {
           pvCtx.beginPath();
-          pvCtx.arc(padL + ((last.vCC - vMin) / Math.max(1, vMax - vMin)) * plotW, padT + plotH - Math.max(0, Math.min(1, last.pBar / pMaxBar)) * plotH, 3.5, 0, Math.PI * 2);
-          pvCtx.fill();
+          let started = false;
+          for (let i = 0; i < pvHistory.length; i++) {
+            const pt = pvHistory[i];
+            if (!Number.isFinite(pt.vCC) || !Number.isFinite(pt.pBar)) continue;
+            const xNorm = Math.max(0, Math.min(1, (pt.vCC - vMin) / vSpan));
+            const x = padL + xNorm * plotW;
+            const y = padT + plotH - Math.max(0, Math.min(1, pt.pBar / pMaxBar)) * plotH;
+            if (!started) { pvCtx.moveTo(x, y); started = true; } else pvCtx.lineTo(x, y);
+          }
+          pvCtx.strokeStyle = build.cycleMode === 'steam' ? '#67e8f9' : (build.cycleMode === 'stirling' ? '#fb923c' : (build.cycleMode === 'rotary' ? '#f472b6' : '#38bdf8'));
+          pvCtx.lineWidth = 1.8; pvCtx.stroke();
+          const last = pvHistory[pvHistory.length - 1];
+          if (last && Number.isFinite(last.vCC) && Number.isFinite(last.pBar)) {
+            const xLast = padL + Math.max(0, Math.min(1, (last.vCC - vMin) / vSpan)) * plotW;
+            const yLast = padT + plotH - Math.max(0, Math.min(1, last.pBar / pMaxBar)) * plotH;
+            pvCtx.fillStyle = '#fb7185';
+            pvCtx.beginPath();
+            pvCtx.arc(xLast, yLast, 3.5, 0, Math.PI * 2);
+            pvCtx.fill();
+          }
         }
+        pvCtx.fillStyle = '#64748b'; pvCtx.font = '10px ui-monospace, monospace';
+        pvCtx.fillText(fmtVolAxis(vMin), padL, H - 5); pvCtx.fillText(fmtVolAxis(vMax), W - padR - 46, H - 5);
       }
-      pvCtx.fillStyle = '#64748b'; pvCtx.font = '10px ui-monospace, monospace';
-      const vMinLbl = build.imperial ? `${(vMin / 16.3871).toFixed(1)}in³` : `${vMin.toFixed(0)}cc`;
-      const vMaxLbl = build.imperial ? `${(vMax / 16.3871).toFixed(1)}in³` : `${vMax.toFixed(0)}cc`;
-      pvCtx.fillText(vMinLbl, padL, H - 5); pvCtx.fillText(vMaxLbl, W - padR - 42, H - 5);
       pvCtx.restore();
     }
     {
       const W = ptCanvas.width / dpr, H = ptCanvas.height / dpr;
       ptCtx.save(); ptCtx.scale(dpr, dpr); ptCtx.clearRect(0, 0, W, H);
       const padL = build.imperial ? 42 : 34, padR = 12, padT = 22, padB = 20, plotW = W - padL - padR, plotH = H - padT - padB;
-      const bands = cyc360 ? [{ a:0, b:180, c:'rgba(56,189,248,0.07)', lbl:'EXPANSION' }, { a:180, b:360, c:'rgba(167,139,250,0.07)', lbl:'COMP / EXH' }]
-        : [{ a:0, b:180, c:'rgba(56,189,248,0.06)', lbl:'INT' }, { a:180, b:360, c:'rgba(251,191,36,0.06)', lbl:'CMP' }, { a:360, b:540, c:'rgba(251,113,133,0.07)', lbl:'PWR' }, { a:540, b:720, c:'rgba(167,139,250,0.06)', lbl:'EXH' }];
-      bands.forEach(b => { const x1 = padL + (b.a / maxDeg) * plotW, x2 = padL + (b.b / maxDeg) * plotW; ptCtx.fillStyle = b.c; ptCtx.fillRect(x1, padT, x2 - x1, plotH); ptCtx.fillStyle = '#64748b'; ptCtx.font = '10px ui-monospace, monospace'; ptCtx.fillText(b.lbl, x1 + 6, H - 5); });
-      if (ptHistory.length > 1) {
-        ptCtx.strokeStyle = build.cycleMode === 'steam' ? '#67e8f9' : '#fb7185'; ptCtx.lineWidth = 1.8; ptCtx.beginPath();
-        let prevDeg = null;
-        for (let i = 0; i < ptHistory.length; i++) {
-          const pt = ptHistory[i];
-          if (!Number.isFinite(pt.deg) || !Number.isFinite(pt.pBar)) continue;
-          const x = padL + (pt.deg / maxDeg) * plotW, y = padT + plotH - Math.max(0, Math.min(1, pt.pBar / pMaxBar)) * plotH;
-          if (prevDeg === null || Math.abs(pt.deg - prevDeg) > 100) ptCtx.moveTo(x, y); else ptCtx.lineTo(x, y);
-          prevDeg = pt.deg;
+      if (plotW > 4 && plotH > 4) {
+        const bands = cyc360 ? [{ a:0, b:180, c:'rgba(56,189,248,0.07)', lbl:'EXPANSION' }, { a:180, b:360, c:'rgba(167,139,250,0.07)', lbl:'COMP / EXH' }]
+          : [{ a:0, b:180, c:'rgba(56,189,248,0.06)', lbl:'INT' }, { a:180, b:360, c:'rgba(251,191,36,0.06)', lbl:'CMP' }, { a:360, b:540, c:'rgba(251,113,133,0.07)', lbl:'PWR' }, { a:540, b:720, c:'rgba(167,139,250,0.06)', lbl:'EXH' }];
+        bands.forEach(b => { const x1 = padL + (b.a / maxDeg) * plotW, x2 = padL + (b.b / maxDeg) * plotW; ptCtx.fillStyle = b.c; ptCtx.fillRect(x1, padT, x2 - x1, plotH); ptCtx.fillStyle = '#64748b'; ptCtx.font = '10px ui-monospace, monospace'; ptCtx.fillText(b.lbl, x1 + 6, H - 5); });
+        if (ptHistory.length > 1) {
+          ptCtx.strokeStyle = build.cycleMode === 'steam' ? '#67e8f9' : '#fb7185'; ptCtx.lineWidth = 1.8; ptCtx.beginPath();
+          let prevDeg = null;
+          for (let i = 0; i < ptHistory.length; i++) {
+            const pt = ptHistory[i];
+            if (!Number.isFinite(pt.deg) || !Number.isFinite(pt.pBar)) continue;
+            const dClamped = Math.max(0, Math.min(maxDeg, pt.deg));
+            const x = padL + (dClamped / maxDeg) * plotW, y = padT + plotH - Math.max(0, Math.min(1, pt.pBar / pMaxBar)) * plotH;
+            if (prevDeg === null || Math.abs(dClamped - prevDeg) > 100) ptCtx.moveTo(x, y); else ptCtx.lineTo(x, y);
+            prevDeg = dClamped;
+          }
+          ptCtx.stroke();
         }
-        ptCtx.stroke();
+        const curDeg = Math.max(0, Math.min(maxDeg, Number.isFinite(selC.deg720) ? selC.deg720 : 0));
+        const cxCur = padL + (curDeg / maxDeg) * plotW;
+        ptCtx.strokeStyle = 'rgba(226,232,240,0.4)'; ptCtx.lineWidth = 1; ptCtx.beginPath(); ptCtx.moveTo(cxCur, padT); ptCtx.lineTo(cxCur, padT + plotH); ptCtx.stroke();
+        ptCtx.fillStyle = '#64748b'; ptCtx.font = '10px ui-monospace, monospace';
+        ptCtx.fillText(`${(pMaxBar * pDispMult).toFixed(0)}${pUnitLbl}`, 3, padT + 8); ptCtx.fillText(`0${pUnitLbl}`, 12, padT + plotH);
       }
-      const cxCur = padL + ((Number.isFinite(selC.deg720) ? selC.deg720 : 0) / maxDeg) * plotW;
-      ptCtx.strokeStyle = 'rgba(226,232,240,0.4)'; ptCtx.lineWidth = 1; ptCtx.beginPath(); ptCtx.moveTo(cxCur, padT); ptCtx.lineTo(cxCur, padT + plotH); ptCtx.stroke();
-      ptCtx.fillStyle = '#64748b'; ptCtx.font = '10px ui-monospace, monospace';
-      ptCtx.fillText(`${(pMaxBar * pDispMult).toFixed(0)}${pUnitLbl}`, 3, padT + 8); ptCtx.fillText(`0${pUnitLbl}`, 12, padT + plotH);
       ptCtx.restore();
     }
   }
@@ -3030,16 +3197,17 @@
   // =========================================================================
   // 8. UNIT FORMATTERS & UI BINDINGS
   // =========================================================================
-  function fmtP(pa) { return build.imperial ? `${(pa / 6894.76).toFixed(1)} psi` : `${(pa / 1e5).toFixed(2)} bar`; }
-  function fmtMap(pa) { return build.imperial ? `${(pa / 6894.76).toFixed(1)} psi` : `${(pa / 1000).toFixed(1)} kPa`; }
-  function fmtT(k) { return build.imperial ? `${Math.round((k - 273.15) * 9 / 5 + 32)} °F` : `${Math.round(k)} K`; }
-  function fmtDeltaT(dk) { return build.imperial ? `${Math.round(dk * 9 / 5)} °F` : `${Math.round(dk)} K`; }
-  function fmtTrq(nm) { return build.imperial ? `${(nm * 0.73756).toFixed(1)} lb·ft` : `${nm.toFixed(1)} N·m`; }
-  function fmtThrust(n) { return build.imperial ? `${Math.round(n * 0.22481)} lbf` : `${(n / 1000).toFixed(1)} kN`; }
-  function fmtMm(v) { return v < 1 ? v.toFixed(3) : (v < 10 ? v.toFixed(1) : Math.round(v)); }
+  function fmtP(pa) { const v = Number.isFinite(pa) ? pa : 0; return build.imperial ? `${(v / 6894.76).toFixed(1)} psi` : `${(v / 1e5).toFixed(2)} bar`; }
+  function fmtMap(pa) { const v = Number.isFinite(pa) ? pa : 0; return build.imperial ? `${(v / 6894.76).toFixed(1)} psi` : `${(v / 1000).toFixed(1)} kPa`; }
+  function fmtT(k) { const v = Number.isFinite(k) ? k : T_AMB; return build.imperial ? `${Math.round((v - 273.15) * 9 / 5 + 32)} °F` : `${Math.round(v)} K`; }
+  function fmtDeltaT(dk) { const v = Number.isFinite(dk) ? dk : 0; return build.imperial ? `${Math.round(v * 9 / 5)} °F` : `${Math.round(v)} K`; }
+  function fmtTrq(nm) { const v = Number.isFinite(nm) ? nm : 0; return build.imperial ? `${(v * 0.73756).toFixed(1)} lb·ft` : `${v.toFixed(1)} N·m`; }
+  function fmtThrust(n) { const v = Number.isFinite(n) ? n : 0; return build.imperial ? `${Math.round(v * 0.22481)} lbf` : `${(v / 1000).toFixed(1)} kN`; }
+  function fmtMm(v) { const n = Number.isFinite(v) ? v : 0; return n < 1 ? n.toFixed(3) : (n < 10 ? n.toFixed(1) : Math.round(n)); }
   function fmtDisp(cc) {
-    if (build.imperial) return `${(cc / 16.3871).toFixed(1)} ci`;
-    return cc >= 1000 ? `${(cc / 1000).toFixed(2)} L` : `${Math.round(cc)} cc`;
+    const v = Number.isFinite(cc) ? cc : 0;
+    if (build.imperial) return `${(v / 16.3871).toFixed(1)} ci`;
+    return v >= 1000 ? `${(v / 1000).toFixed(2)} L` : (v < 1 ? `${v.toFixed(3)} cc` : `${Math.round(v)} cc`);
   }
 
   function updateSpecDisplay() {
@@ -3060,7 +3228,7 @@
     document.getElementById('spLbl2').textContent = mode === 'rotary' ? 'Rotors' : 'Cylinders';
     document.getElementById('spCyls').textContent = mode === 'rotary' ? `${N}-Rotor` : (mode === 'stirling' ? 'Alpha 2-Cyl' : (build.layout === 'radial' ? `${build.numCyl}×${build.radialRows} (${N})` : `${N} Cyl`));
     document.getElementById('spLbl3').textContent = mode === 'rotary' ? 'Porting' : 'Bore / Stroke';
-    document.getElementById('spRatio').textContent = mode === 'rotary' ? (PORTING_NAMES[build.porting] || `Port Lv.${build.porting}`) : (build.bore / build.stroke).toFixed(2);
+    document.getElementById('spRatio').textContent = mode === 'rotary' ? (PORTING_NAMES[build.porting] || `Port Lv.${build.porting}`) : (build.bore / Math.max(1e-6, build.stroke)).toFixed(2);
 
     const modeNames = { ic4: '4S GAS', ic2: '2S GAS', diesel: 'DIESEL', rotary: 'WANKEL', steam: 'STEAM', stirling: 'STIRLING' };
     const invTxt = (build.inverted && (build.layout === 'inline' || build.layout === 'v' || build.layout === 'u')) ? ' INV' : '';
@@ -3144,40 +3312,6 @@
     else if (L === 'w') { slCyl.dataset.normMin = 3; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 3; slCyl.min = 3; slCyl.max = 30 * cylMult; slCyl.step = 3; build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(build.numCyl / 3) * 3)); document.getElementById('lblCylSlider').textContent = `Cylinders (3–${30 * cylMult}, 3-Bank)`; }
     else if (L === 'x' || L === 'h') { slCyl.dataset.normMin = 4; slCyl.dataset.normMax = 28; slCyl.dataset.normStep = 4; slCyl.min = 4; slCyl.max = 28 * cylMult; slCyl.step = 4; build.numCyl = Math.max(4, Math.min(28 * cylMult, Math.round(build.numCyl / 4) * 4)); document.getElementById('lblCylSlider').textContent = `Cylinders (4–${28 * cylMult}, 4-Bank)`; }
     else { slCyl.dataset.normMin = 1; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 1; slCyl.min = 1; slCyl.max = 30 * cylMult; slCyl.step = 1; build.numCyl = Math.max(1, Math.min(30 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders (1–${30 * cylMult})`; }
-    slCyl.value = build.numCyl;
-    document.getElementById('valCylCount').textContent = L === 'radial' ? `${build.numCyl}/row` : `${build.numCyl} Cyl`;
-    document.getElementById('rowRadialRows').classList.toggle('hidden', L !== 'radial');
-    document.getElementById('slRadialRows').value = build.radialRows;
-    document.getElementById('valRadialRows').textContent = `${build.radialRows} Row${build.radialRows > 1 ? 's' : ''} (${totalCylCount()} total)`;
-    document.getElementById('rowVAngle').classList.toggle('hidden', !(L === 'v' || L === 'w'));
-    document.getElementById('slVAngle').value = build.vAngle; document.getElementById('valVAngle').textContent = `${build.vAngle}°`;
-
-    const canInvert = L === 'inline' || L === 'v' || L === 'u';
-    const canCrank = !is360Cycle() && (L === 'v' || (L === 'inline' && build.numCyl === 2));
-    document.getElementById('rowOrientCrank').classList.toggle('hidden', !canInvert && !canCrank);
-    document.getElementById('btnUpright').classList.toggle('hidden', !canInvert);
-    document.getElementById('btnInverted').classList.toggle('hidden', !canInvert);
-    document.getElementById('btnUpright').classList.toggle('active', !build.inverted);
-    document.getElementById('btnInverted').classList.toggle('active', build.inverted);
-    document.getElementById('btnCrankEven').classList.toggle('hidden', !canCrank);
-    document.getElementById('btnCrankShared').classList.toggle('hidden', !canCrank);
-    document.getElementById('btnCrankEven').classList.toggle('active', build.crankType === 'even');
-    document.getElementById('btnCrankShared').classList.toggle('active', build.crankType === 'shared');
-
-    document.querySelectorAll('#valvetrainChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.vt === build.valvetrain));
-    document.querySelectorAll('#valvesChoices .choice-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.valves, 10) === build.valvesPerCyl));
-    document.querySelectorAll('#vtecChoices .choice-btn').forEach(b => b.classList.toggle('active', (b.dataset.vtec === '1') === build.vtecEnabled));
-    document.getElementById('rowVtecRpm').classList.toggle('hidden', !build.vtecEnabled);
-    document.getElementById('slVtecRpm').value = build.vtecRpm; document.getElementById('valVtecRpm').textContent = `${build.vtecRpm} RPM`;
-
-    document.querySelectorAll('#aspChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.asp === build.aspiration));
-    document.getElementById('rowBoost').classList.toggle('hidden', build.aspiration === 'na');
-    document.querySelectorAll('#fuelChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.fuel === build.fuelKey));
-    document.querySelectorAll('#steamActionChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.sact === build.steamAction));
-    document.querySelectorAll('#stirlingGasChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.sgas === build.stirlingGas));
-    document.querySelectorAll('#abChoices .choice-btn').forEach(b => b.classList.toggle('active', (b.dataset.ab === '1') === build.afterburner));
-    document.querySelectorAll('#exhaustChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.exh === build.exhaustMode));
-
     const INT_SLIDERS = new Set(['slCylCount', 'slRadialRows', 'slRotors', 'slPorting']);
     const SAFE_ONE_SLIDERS = new Set(['slCr', 'slOpr']);
     document.querySelectorAll('input[type="range"]').forEach(sl => {
@@ -3205,6 +3339,40 @@
         sl.step = nStep;
       }
     });
+
+    slCyl.value = build.numCyl;
+    document.getElementById('valCylCount').textContent = L === 'radial' ? `${build.numCyl}/row` : `${build.numCyl} Cyl`;
+    document.getElementById('rowRadialRows').classList.toggle('hidden', L !== 'radial');
+    document.getElementById('slRadialRows').value = build.radialRows;
+    document.getElementById('valRadialRows').textContent = `${build.radialRows} Row${build.radialRows > 1 ? 's' : ''} (${totalCylCount()} total)`;
+    document.getElementById('rowVAngle').classList.toggle('hidden', !(L === 'v' || L === 'w'));
+    document.getElementById('slVAngle').value = build.vAngle; document.getElementById('valVAngle').textContent = `${build.vAngle}°`;
+
+    const canInvert = L === 'inline' || L === 'v' || L === 'u';
+    const canCrank = !is360Cycle() && (L === 'v' || (L === 'inline' && build.numCyl === 2));
+    document.getElementById('rowOrientCrank').classList.toggle('hidden', !canInvert && !canCrank);
+    document.getElementById('btnUpright').classList.toggle('hidden', !canInvert);
+    document.getElementById('btnInverted').classList.toggle('hidden', !canInvert);
+    document.getElementById('btnUpright').classList.toggle('active', !build.inverted);
+    document.getElementById('btnInverted').classList.toggle('active', build.inverted);
+    document.getElementById('btnCrankEven').classList.toggle('hidden', !canCrank);
+    document.getElementById('btnCrankShared').classList.toggle('hidden', !canCrank);
+    document.getElementById('btnCrankEven').classList.toggle('active', build.crankType === 'even');
+    document.getElementById('btnCrankShared').classList.toggle('active', build.crankType === 'shared');
+
+    document.querySelectorAll('#valvetrainChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.vt === build.valvetrain));
+    document.querySelectorAll('#valvesChoices .choice-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.valves, 10) === build.valvesPerCyl));
+    document.querySelectorAll('#vtecChoices .choice-btn').forEach(b => b.classList.toggle('active', (b.dataset.vtec === '1') === build.vtecEnabled));
+    document.getElementById('rowVtecRpm').classList.toggle('hidden', !build.vtecEnabled);
+    document.getElementById('slVtecRpm').value = build.vtecRpm; document.getElementById('valVtecRpm').textContent = `${Math.round(build.vtecRpm)} RPM`;
+
+    document.querySelectorAll('#aspChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.asp === build.aspiration));
+    document.getElementById('rowBoost').classList.toggle('hidden', build.aspiration === 'na');
+    document.querySelectorAll('#fuelChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.fuel === build.fuelKey));
+    document.querySelectorAll('#steamActionChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.sact === build.steamAction));
+    document.querySelectorAll('#stirlingGasChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.sgas === build.stirlingGas));
+    document.querySelectorAll('#abChoices .choice-btn').forEach(b => b.classList.toggle('active', (b.dataset.ab === '1') === build.afterburner));
+    document.querySelectorAll('#exhaustChoices .choice-btn').forEach(b => b.classList.toggle('active', b.dataset.exh === build.exhaustMode));
 
     const boreMm = build.bore * 1000;
     document.getElementById('slBore').value = boreMm; document.getElementById('valBore').textContent = `${fmtMm(boreMm)} mm`;
@@ -3248,9 +3416,16 @@
     document.getElementById('slFanDia').value = build.fanDia; document.getElementById('valFanDia').textContent = build.imperial ? `${(build.fanDia * 39.3701).toFixed(1)} in` : `${build.fanDia.toFixed(2)} m`;
     document.getElementById('slMaxTit').value = build.maxTit; document.getElementById('valMaxTit').textContent = fmtT(build.maxTit);
 
+    const thrPct = Math.round(ctrl.throttle * 100);
+    document.getElementById('slThrottle').value = thrPct; document.getElementById('valThrottle').textContent = `${thrPct}%`;
+    if (mobThrValEl) mobThrValEl.textContent = `${thrPct}%`;
+    const loadPct = Math.round(ctrl.load * 100);
+    document.getElementById('slLoad').value = loadPct; document.getElementById('valLoad').textContent = `${loadPct}%`;
+    const idlePct = Math.round(ctrl.idleBypass * 100);
+    document.getElementById('slIdle').value = idlePct; document.getElementById('valIdle').textContent = `${idlePct}%`;
     document.getElementById('slTiming').value = ctrl.sparkAdvance; document.getElementById('valTiming').textContent = `${Math.round(ctrl.sparkAdvance)}° BTDC`;
     document.getElementById('slLambda').value = ctrl.lambdaTarget;
-    document.getElementById('slRevLim').value = ctrl.revLimiter; document.getElementById('valRevLim').textContent = `${ctrl.revLimiter} RPM`;
+    document.getElementById('slRevLim').value = ctrl.revLimiter; document.getElementById('valRevLim').textContent = `${Math.round(ctrl.revLimiter)} RPM`;
     updateSpecDisplay();
   }
 
@@ -3262,7 +3437,7 @@
     if (N <= 12) {
       eng.cyls.forEach((c, idx) => {
         const chip = document.createElement('button');
-        chip.className = 'cyl-chip' + (idx === ctrl.selectedCyl ? ' selected' : '');
+        chip.className = 'cyl-chip' + (idx === ctrl.selectedCyl ? ' selected' : '') + (!c.sparkEnabled ? ' dead' : '');
         chip.id = `cylChip_${idx}`;
         chip.textContent = c.role === 'hot' ? 'HOT' : (c.role === 'cold' ? 'COLD' : `${build.cycleMode==='rotary'?'R':'C'}${idx + 1}`);
         chip.addEventListener('click', () => {
@@ -3273,23 +3448,26 @@
         badges.appendChild(chip);
       });
     } else {
+      const unitLbl = build.cycleMode === 'rotary' ? 'Rotor' : 'Cyl';
       const wrap = document.createElement('div'); wrap.className = 'cyl-stepper';
-      wrap.innerHTML = `<button id="prevCylBtn">◀</button><span id="lblCylStep">Cyl ${ctrl.selectedCyl + 1}/${N}</span><button id="nextCylBtn">▶</button>`;
+      wrap.innerHTML = `<button id="prevCylBtn">◀</button><span id="lblCylStep">${unitLbl} ${ctrl.selectedCyl + 1}/${N}</span><button id="nextCylBtn">▶</button>`;
       badges.appendChild(wrap);
       wrap.querySelector('#prevCylBtn').addEventListener('click', () => {
         ctrl.selectedCyl = (ctrl.selectedCyl - 1 + N) % N; pvHistory = []; ptHistory = [];
-        document.getElementById('lblCylStep').textContent = `Cyl ${ctrl.selectedCyl + 1}/${N}`;
+        document.getElementById('lblCylStep').textContent = `${unitLbl} ${ctrl.selectedCyl + 1}/${N}`;
         updateSpecDisplay(); updateHUD();
       });
       wrap.querySelector('#nextCylBtn').addEventListener('click', () => {
         ctrl.selectedCyl = (ctrl.selectedCyl + 1) % N; pvHistory = []; ptHistory = [];
-        document.getElementById('lblCylStep').textContent = `Cyl ${ctrl.selectedCyl + 1}/${N}`;
+        document.getElementById('lblCylStep').textContent = `${unitLbl} ${ctrl.selectedCyl + 1}/${N}`;
         updateSpecDisplay(); updateHUD();
       });
     }
     if ((isCombustionPiston() || build.cycleMode === 'rotary') && N > 1 && N <= 30) {
       eng.cyls.forEach((c, idx) => {
-        const sb = document.createElement('button'); sb.className = 'spark-btn'; sb.textContent = `${build.cycleMode==='rotary'?'R':'C'}${idx + 1}: ON`;
+        const sb = document.createElement('button');
+        sb.className = 'spark-btn' + (!c.sparkEnabled ? ' off' : '');
+        sb.textContent = `${build.cycleMode==='rotary'?'R':'C'}${idx + 1}: ${c.sparkEnabled ? 'ON' : 'OFF'}`;
         sb.addEventListener('click', () => {
           c.sparkEnabled = !c.sparkEnabled; sb.classList.toggle('off', !c.sparkEnabled);
           sb.textContent = `${build.cycleMode==='rotary'?'R':'C'}${idx + 1}: ${c.sparkEnabled ? 'ON' : 'OFF'}`;
@@ -3435,12 +3613,10 @@
   document.getElementById('bounceTestBtn').addEventListener('click', () => {
     if (build.cycleMode === 'turbofan') return;
     ctrl.ignition = false;
-    document.getElementById('ignBtn').classList.remove('on');
-    document.getElementById('ignBtn').textContent = 'IGNITION: OFF';
+    syncIgnitionUI();
     if (build.cycleMode === 'steam') {
       ctrl.throttle = 0;
-      document.getElementById('slThrottle').value = 0;
-      document.getElementById('valThrottle').textContent = '0%';
+      syncThrottleUI();
     }
     eng.theta = 2.8; eng.omega = 18.0;
   });
@@ -3462,17 +3638,30 @@
 
   document.querySelectorAll('#layoutChoices .choice-btn').forEach(btn => btn.addEventListener('click', () => {
     build.layout = btn.dataset.layout;
-    if (build.layout === 'radial') build.numCyl = Math.max(3, Math.min(18, build.numCyl < 3 ? 5 : build.numCyl));
-    else if (build.layout === 'w') build.numCyl = Math.max(3, Math.min(30, Math.round(Math.max(6, build.numCyl) / 3) * 3));
-    else if (build.layout === 'x' || build.layout === 'h') build.numCyl = Math.max(4, Math.min(28, Math.round(Math.max(8, build.numCyl) / 4) * 4));
-    else if (build.layout === 'vr') build.numCyl = Math.max(4, Math.min(30, Math.max(6, build.numCyl)));
-    else if (build.layout === 'v' || build.layout === 'boxer' || build.layout === 'u') build.numCyl = Math.max(2, Math.min(30, Math.round(Math.max(4, build.numCyl) / 2) * 2));
-    build.I_flywheel = Math.min(0.40, 0.024 + totalCylCount() * 0.005);
+    const cylMult = isBigUnrealistic() ? 1000 : 1;
+    if (build.layout === 'radial') build.numCyl = Math.max(3, Math.min(18 * cylMult, build.numCyl < 3 ? 5 : build.numCyl));
+    else if (build.layout === 'w') build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(Math.max(6, build.numCyl) / 3) * 3));
+    else if (build.layout === 'x' || build.layout === 'h') build.numCyl = Math.max(4, Math.min(28 * cylMult, Math.round(Math.max(8, build.numCyl) / 4) * 4));
+    else if (build.layout === 'vr') build.numCyl = Math.max(4, Math.min(30 * cylMult, Math.max(6, build.numCyl)));
+    else if (build.layout === 'v' || build.layout === 'boxer' || build.layout === 'u') build.numCyl = Math.max(2, Math.min(30 * cylMult, Math.round(Math.max(4, build.numCyl) / 2) * 2));
+    build.I_flywheel = Math.min(0.40 * cylMult, 0.024 + totalCylCount() * 0.005);
     syncAllControls(); initEngine(true);
   }));
 
-  document.getElementById('slCylCount').addEventListener('input', (e) => { build.numCyl = parseInt(e.target.value, 10); build.I_flywheel = Math.min(0.40, 0.024 + totalCylCount() * 0.005); syncAllControls(); initEngine(true); });
-  document.getElementById('slRadialRows').addEventListener('input', (e) => { build.radialRows = parseInt(e.target.value, 10); build.I_flywheel = Math.min(0.40, 0.024 + totalCylCount() * 0.004); syncAllControls(); initEngine(true); });
+  document.getElementById('slCylCount').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (!Number.isFinite(v)) return;
+    build.numCyl = v;
+    build.I_flywheel = Math.min(0.40 * (isBigUnrealistic() ? 1000 : 1), 0.024 + totalCylCount() * 0.005);
+    syncAllControls(); initEngine(true);
+  });
+  document.getElementById('slRadialRows').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (!Number.isFinite(v)) return;
+    build.radialRows = v;
+    build.I_flywheel = Math.min(0.40 * (isBigUnrealistic() ? 1000 : 1), 0.024 + totalCylCount() * 0.004);
+    syncAllControls(); initEngine(true);
+  });
 
   document.querySelectorAll('[data-inv]').forEach(b => b.addEventListener('click', () => { build.inverted = b.dataset.inv === '1'; syncAllControls(); rebuild3DScene(true); }));
   document.querySelectorAll('[data-crank]').forEach(b => b.addEventListener('click', () => { build.crankType = b.dataset.crank; syncAllControls(); initEngine(false); }));
@@ -3512,13 +3701,15 @@
     if (a.maxLiftIn) build.maxLiftEx = a.maxLiftIn * 0.93;
     ctrl.revLimiter = a.revLim || 7000;
     ctrl.sparkAdvance = 20;
+    ctrl.lambdaTarget = 0.96;
     ctrl.ignition = true;
+    clampToActiveRanges();
     syncAllControls(); initEngine(true);
   }));
 
   function bindSlider(id, valId, fn, fmt) {
     const sl = document.getElementById(id), vl = document.getElementById(valId);
-    sl.addEventListener('input', () => { const v = parseFloat(sl.value); fn(v); vl.textContent = fmt(v); });
+    sl.addEventListener('input', () => { const v = parseFloat(sl.value); if (!Number.isFinite(v)) return; fn(v); vl.textContent = fmt(v); });
   }
   bindSlider('slVAngle', 'valVAngle', v => { build.vAngle = v; initEngine(false); }, v => `${v.toFixed(0)}°`);
   bindSlider('slBore', 'valBore', v => { build.bore = v / 1000; onGeometryChanged(); }, v => `${fmtMm(v)} mm`);
@@ -3559,8 +3750,8 @@
     document.getElementById('slCutoff').value = pct; document.getElementById('valCutoff').textContent = txt;
     document.getElementById('slDriveCutoff').value = pct; document.getElementById('valDriveCutoff').textContent = txt;
   }
-  document.getElementById('slCutoff').addEventListener('input', e => setCutoffPct(parseInt(e.target.value, 10)));
-  document.getElementById('slDriveCutoff').addEventListener('input', e => setCutoffPct(parseInt(e.target.value, 10)));
+  document.getElementById('slCutoff').addEventListener('input', e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setCutoffPct(v); });
+  document.getElementById('slDriveCutoff').addEventListener('input', e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setCutoffPct(v); });
 
   function syncThrottleUI() {
     const pct = Math.round(ctrl.throttle * 100);
@@ -3573,36 +3764,54 @@
   bindSlider('slLoad', 'valLoad', v => ctrl.load = v / 100, v => `${v.toFixed(0)}%`);
   bindSlider('slIdle', 'valIdle', v => ctrl.idleBypass = v / 100, v => `${v.toFixed(0)}%`);
   bindSlider('slTiming', 'valTiming', v => ctrl.sparkAdvance = v, v => `${v.toFixed(0)}° BTDC`);
-  bindSlider('slLambda', 'valLambda', v => { ctrl.lambdaTarget = v; }, v => `${v.toFixed(2)} λ (${(v * FUELS[build.fuelKey].stoich).toFixed(1)}:1)`);
+  bindSlider('slLambda', 'valLambda', v => { ctrl.lambdaTarget = v; }, v => `${v.toFixed(2)} λ (${(v * (FUELS[build.fuelKey] || FUELS.gas93).stoich).toFixed(1)}:1)`);
   bindSlider('slRevLim', 'valRevLim', v => ctrl.revLimiter = v, v => `${v.toFixed(0)} RPM`);
 
   const starterBtn = document.getElementById('starterBtn');
   const mobStarterBtn = document.getElementById('mobStarterBtn');
-  function setStarter(on) {
-    ctrl.starter = on;
-    starterBtn.classList.toggle('cranking', on);
-    if (mobStarterBtn) mobStarterBtn.classList.toggle('cranking', on);
+  let keyStarter = false, starterPointerId = null;
+  function updateStarterState() {
+    ctrl.starter = keyStarter || starterPointerId !== null;
+    starterBtn.classList.toggle('cranking', ctrl.starter);
+    if (mobStarterBtn) mobStarterBtn.classList.toggle('cranking', ctrl.starter);
   }
-  starterBtn.addEventListener('pointerdown', () => setStarter(true));
-  if (mobStarterBtn) {
-    mobStarterBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); setStarter(true); });
-    mobStarterBtn.addEventListener('pointerleave', () => setStarter(false));
-    mobStarterBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  function bindStarterButton(btn) {
+    if (!btn) return;
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      starterPointerId = e.pointerId;
+      try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+      updateStarterState();
+    });
+    const endPointer = (e) => {
+      if (starterPointerId !== null && (e.pointerId === undefined || e.pointerId === starterPointerId)) {
+        try { if (e.pointerId !== undefined && btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        starterPointerId = null;
+        updateStarterState();
+      }
+    };
+    btn.addEventListener('pointerup', endPointer);
+    btn.addEventListener('pointercancel', endPointer);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
   }
-  window.addEventListener('pointerup', () => setStarter(false));
-  window.addEventListener('pointercancel', () => setStarter(false));
-  starterBtn.addEventListener('pointerleave', () => setStarter(false));
+  bindStarterButton(starterBtn);
+  bindStarterButton(mobStarterBtn);
+  window.addEventListener('pointerup', (e) => { if (e.pointerId === starterPointerId) { starterPointerId = null; updateStarterState(); } });
+  window.addEventListener('pointercancel', (e) => { if (e.pointerId === starterPointerId) { starterPointerId = null; updateStarterState(); } });
 
   const ignBtn = document.getElementById('ignBtn');
   const mobIgnBtn = document.getElementById('mobIgnBtn');
-  function toggleIgnition() {
-    ctrl.ignition = !ctrl.ignition;
+  function syncIgnitionUI() {
     ignBtn.classList.toggle('on', ctrl.ignition);
     ignBtn.textContent = build.cycleMode === 'turbofan' ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGNITION: ON' : 'IGNITION: OFF');
     if (mobIgnBtn) {
       mobIgnBtn.classList.toggle('on', ctrl.ignition);
       mobIgnBtn.textContent = build.cycleMode === 'turbofan' ? (ctrl.ignition ? 'FUEL: ON' : 'FUEL: CUT') : (ctrl.ignition ? 'IGN: ON' : 'IGN: OFF');
     }
+  }
+  function toggleIgnition() {
+    ctrl.ignition = !ctrl.ignition;
+    syncIgnitionUI();
   }
   ignBtn.addEventListener('click', toggleIgnition);
   if (mobIgnBtn) mobIgnBtn.addEventListener('click', toggleIgnition);
@@ -3619,36 +3828,61 @@
   document.getElementById('pillVectors').addEventListener('click', (e) => { ctrl.showVectors = !ctrl.showVectors; e.target.classList.toggle('on', ctrl.showVectors); });
 
   const keys = {};
-  function isTypingTarget(el) { return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'); }
+  function isTextInputTarget(el) {
+    if (!el) return false;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+    return el.tagName === 'INPUT' && el.type !== 'range' && el.type !== 'button' && el.type !== 'checkbox';
+  }
   window.addEventListener('keydown', (e) => {
-    if (isTypingTarget(document.activeElement)) return;
-    if (e.code === 'Space') { e.preventDefault(); setStarter(true); }
+    const active = document.activeElement;
+    if (isTextInputTarget(active)) return;
+    const isRange = active && active.tagName === 'INPUT' && active.type === 'range';
+    if (isRange && (e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight')) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (active && active.tagName === 'BUTTON') active.blur();
+      keyStarter = true;
+      updateStarterState();
+    }
     if (e.code === 'ArrowUp' || e.code === 'ArrowDown') e.preventDefault();
     keys[e.code] = true;
   });
   window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') { setStarter(false); }
+    if (e.code === 'Space') {
+      e.preventDefault();
+      keyStarter = false;
+      updateStarterState();
+    }
     keys[e.code] = false;
   });
   const mobThrUp = document.getElementById('mobThrUp');
   const mobThrDown = document.getElementById('mobThrDown');
+  const throttleTouchResetters = [];
   function bindTouchThrottle(btn, keyName, stepDelta) {
     if (!btn) return;
+    let activeId = null;
     const press = (e) => {
       e.preventDefault();
+      activeId = e.pointerId;
+      try { btn.setPointerCapture(e.pointerId); } catch (_) {}
       keys[keyName] = true;
       btn.classList.add('pressed');
-      ctrl.throttle = Math.max(0, Math.min(1, ctrl.throttle + stepDelta));
+      const maxThr = isBigUnrealistic() ? 1000 : 1;
+      ctrl.throttle = Math.max(0, Math.min(maxThr, ctrl.throttle + stepDelta));
       syncThrottleUI();
     };
-    const release = () => {
-      keys[keyName] = false;
-      btn.classList.remove('pressed');
+    const release = (e) => {
+      if (activeId !== null && (!e || e.pointerId === undefined || e.pointerId === activeId)) {
+        try { if (e && e.pointerId !== undefined && btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        activeId = null;
+        keys[keyName] = false;
+        btn.classList.remove('pressed');
+      }
     };
+    throttleTouchResetters.push(() => release(null));
     btn.addEventListener('pointerdown', press);
     btn.addEventListener('pointerup', release);
     btn.addEventListener('pointercancel', release);
-    btn.addEventListener('pointerleave', release);
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
@@ -3656,15 +3890,17 @@
   bindTouchThrottle(mobThrUp, '__mobThrUp', 0.05);
   bindTouchThrottle(mobThrDown, '__mobThrDown', -0.05);
 
-  window.addEventListener('blur', () => {
+  function releaseAllInputs() {
     Object.keys(keys).forEach(k => keys[k] = false);
-    if (mobThrUp) mobThrUp.classList.remove('pressed');
-    if (mobThrDown) mobThrDown.classList.remove('pressed');
-    setStarter(false);
+    throttleTouchResetters.forEach(fn => fn());
+    keyStarter = false;
+    starterPointerId = null;
+    updateStarterState();
     activePointers.clear();
     dragMode = 0;
     pinchDist = 0;
-  });
+  }
+  window.addEventListener('blur', releaseAllInputs);
 
   // Phone Optimized Mode: auto-detection + manual override toggle
   const btnMobileToggle = document.getElementById('btnMobileToggle');
@@ -3673,6 +3909,7 @@
     return window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 960);
   }
   function updateMobileToggleUI(isMobile) {
+    document.documentElement.classList.toggle('mobile-mode', isMobile);
     document.body.classList.toggle('mobile-mode', isMobile);
     if (btnMobileToggle) {
       btnMobileToggle.textContent = isMobile ? '💻 Desktop' : '📱 Phone';
@@ -3702,6 +3939,9 @@
       }
     }
   });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(handleResize, 120);
+  });
 
   syncAllControls();
   initEngine(true);
@@ -3711,14 +3951,33 @@
   // =========================================================================
   // 9. MAIN REAL-TIME LOOP
   // =========================================================================
-  let lastTs = performance.now(), uiAccum = 0, jetHistAccum = 0;
+  let lastTs = performance.now(), uiAccum = 0, jetHistAccum = 0, rafId = 0;
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      releaseAllInputs();
+      if (audioCtx && ctrl.audioOn && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
+    } else {
+      lastTs = performance.now();
+      if (audioCtx && ctrl.audioOn && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    releaseAllInputs();
+    if (audioNode) { try { audioNode.disconnect(); } catch (_) {} audioNode = null; }
+    if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
+    if (engineRoot) { disposeObject3D(engineRoot); scene.remove(engineRoot); engineRoot = null; }
+    try { renderer.dispose(); } catch (_) {}
+  });
 
   function frame(ts) {
-    const dtReal = Math.min(0.033, (ts - lastTs) / 1000);
+    const dtReal = Math.max(0, Math.min(0.033, (ts - lastTs) / 1000));
     lastTs = ts;
 
+    const maxThr = isBigUnrealistic() ? 1000 : 1;
     if (keys['KeyW'] || keys['ArrowUp'] || keys['__mobThrUp']) {
-      ctrl.throttle = Math.min(1, ctrl.throttle + dtReal * 0.7);
+      ctrl.throttle = Math.min(maxThr, ctrl.throttle + dtReal * 0.7);
       syncThrottleUI();
     }
     if (keys['KeyS'] || keys['ArrowDown'] || keys['__mobThrDown']) {
@@ -3726,7 +3985,7 @@
       syncThrottleUI();
     }
 
-    if (!ctrl.paused) {
+    if (!ctrl.paused && dtReal > 0) {
       const dtSim = dtReal * ctrl.timeScale;
       const N = Math.max(1, eng.cyls.length);
       const targetSubDt = build.cycleMode === 'turbofan' ? 0.002 : (N <= 4 ? 0.00010 : (N <= 12 ? 0.00016 : (N <= 32 ? 0.00024 : 0.00038)));
@@ -3738,33 +3997,38 @@
         physicsSubstep(subDt);
         if (build.cycleMode !== 'turbofan' && s % Math.max(1, Math.floor(steps / 6)) === 0) {
           const sel = eng.cyls[ctrl.selectedCyl] || eng.cyls[0];
-          pvHistory.push({ vCC: sel.V * 1e6, pBar: sel.P / 1e5 });
-          if (pvHistory.length > MAX_PV) pvHistory.shift();
-          ptHistory.push({ deg: sel.deg720, pBar: sel.P / 1e5 });
-          if (ptHistory.length > MAX_PT) ptHistory.shift();
+          if (sel && Number.isFinite(sel.V) && Number.isFinite(sel.P) && Number.isFinite(sel.deg720)) {
+            pvHistory.push({ vCC: sel.V * 1e6, pBar: sel.P / 1e5 });
+            if (pvHistory.length > MAX_PV) pvHistory.shift();
+            ptHistory.push({ deg: sel.deg720, pBar: sel.P / 1e5 });
+            if (ptHistory.length > MAX_PT) ptHistory.shift();
+          }
         }
       }
       if (build.cycleMode === 'turbofan') {
         jetHistAccum += dtReal;
         if (jetHistAccum >= 0.03) {
           jetHistAccum = 0;
-          eng.jet.history.push({ kN: eng.jet.thrustTotalN / 1000 });
+          const kN = Number.isFinite(eng.jet.thrustTotalN) ? (eng.jet.thrustTotalN / 1000) : 0;
+          eng.jet.history.push({ kN });
           if (eng.jet.history.length > 180) eng.jet.history.shift();
         }
       }
       updateParticles3D(dtSim);
     }
 
-    sync3DFromPhysics();
-    renderer.render(scene, activeCam);
+    if (!webglContextLost) {
+      sync3DFromPhysics();
+      renderer.render(scene, activeCam);
+    }
     renderCharts();
 
     uiAccum += dtReal;
     if (uiAccum >= 0.05) { updateHUD(); uiAccum = 0; }
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
   }
 
-  requestAnimationFrame(frame);
+  rafId = requestAnimationFrame(frame);
 })();
 </script>
 </body>

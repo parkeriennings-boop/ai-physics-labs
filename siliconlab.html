@@ -1,0 +1,3242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SiliconLab — Gate-Level CPU Lithography & GPU Fractal Studio</title>
+<style>
+  :root {
+    --bg: #05080e;
+    --panel: #0a0f18;
+    --panel2: #0f1623;
+    --panel3: #141e30;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --muted: #7e93b0;
+    --accent: #38bdf8;
+    --gold: #f59e0b;
+    --green: #34d399;
+    --magenta: #e879f9;
+    --danger: #f87171;
+    --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+    user-select: none;
+  }
+  #app {
+    display: grid;
+    grid-template-rows: 54px 1fr;
+    grid-template-columns: 1fr 384px;
+    width: 100vw; height: 100vh; height: 100dvh;
+  }
+
+  /* Header */
+  header {
+    grid-column: 1 / -1;
+    background: linear-gradient(180deg, #101828 0%, #090e17 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; gap: 10px; z-index: 30;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    font-weight: 800; font-size: 14.5px; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .brand-chip {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 11px; color: #fff;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.42);
+  }
+  .brand small { color: var(--muted); font-weight: 500; font-size: 10.5px; font-family: var(--mono); }
+
+  /* Mode Switcher: CPU Lithography vs GPU Fractal */
+  .mode-tabs {
+    display: flex; align-items: center; gap: 4px;
+    background: #060910; padding: 3px; border-radius: 9px;
+    border: 1px solid var(--border);
+  }
+  .mode-tab {
+    padding: 5px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 700;
+    color: var(--muted); background: transparent; border: 1px solid transparent;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active {
+    background: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.55);
+    color: #fff; box-shadow: 0 0 12px rgba(56, 189, 248, 0.22);
+  }
+  .m-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  .controls { display: flex; align-items: center; gap: 5px; }
+  button {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 9px; font-size: 11.5px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans);
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  button:hover { background: #192436; border-color: #365075; }
+  button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
+  button.primary:hover { background: #0369a1; }
+  button.active { background: rgba(56,189,248,0.18); border-color: var(--accent); color: var(--accent); }
+  button.gold-active { background: rgba(245,158,11,0.18); border-color: var(--gold); color: var(--gold); }
+  button.danger-active { background: rgba(248,113,113,0.2); border-color: var(--danger); color: var(--danger); }
+  .divider { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+  .speed-wrap { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  input[type="range"] { accent-color: var(--accent); width: 78px; cursor: pointer; }
+
+  /* Main Column: Viewport + 5-Channel Oscilloscope */
+  #mainCol {
+    display: grid; grid-template-rows: 1fr 82px;
+    overflow: hidden; position: relative;
+  }
+  #viewport {
+    position: relative; overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, #0b1220 0%, #04060a 100%);
+    cursor: grab;
+  }
+  #viewport.tool-cut, #viewport.tool-vdd { cursor: crosshair; }
+  #viewport:active { cursor: grabbing; }
+  #dieCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  #scopeBar {
+    background: #05080e; border-top: 1px solid var(--border);
+    display: flex; align-items: stretch;
+  }
+  #scopeLabels {
+    width: 106px; border-right: 1px solid var(--border);
+    padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between;
+    font-family: var(--mono); font-size: 9px; font-weight: 700; background: #080c14;
+  }
+  #scopeCanvas { flex: 1; display: block; width: 100%; height: 100%; }
+
+  /* Overlays */
+  .overlay-top-left {
+    position: absolute; top: 10px; left: 10px;
+    display: flex; flex-direction: column; gap: 6px; pointer-events: none;
+  }
+  .overlay-row { display: flex; gap: 5px; flex-wrap: wrap; pointer-events: auto; }
+  .chip-btn {
+    padding: 4px 8px; font-size: 10.5px; border-radius: 999px;
+    background: rgba(10, 15, 24, 0.9); backdrop-filter: blur(8px);
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(10, 15, 24, 0.92); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; pointer-events: auto;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.paused { background: var(--gold); box-shadow: none; }
+  .dot.halted { background: var(--danger); box-shadow: none; }
+
+  /* GPU Live Fractal Screen Dock */
+  #gpuDock {
+    position: absolute; bottom: 12px; right: 12px;
+    background: rgba(8, 12, 20, 0.95); border: 1px solid #2b4568;
+    border-radius: 10px; padding: 8px; box-shadow: 0 12px 32px rgba(0,0,0,0.72);
+    display: none; z-index: 18;
+  }
+  #gpuDock.visible { display: block; }
+  #gpuDock .dock-head {
+    font-family: var(--mono); font-size: 9.5px; color: var(--accent);
+    margin-bottom: 5px; display: flex; justify-content: space-between; gap: 10px;
+  }
+  #gpuScreen {
+    width: 192px; height: 192px; background: #000;
+    border: 1px solid var(--border); border-radius: 6px; display: block;
+    image-rendering: pixelated;
+  }
+
+  /* Guided Lesson Banner */
+  #lessonBanner {
+    position: absolute; bottom: 12px; left: 12px; right: 12px; max-width: 640px;
+    background: rgba(10, 15, 24, 0.95); border: 1px solid #2b4466;
+    border-radius: 10px; padding: 11px 14px; backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65); display: none; z-index: 15;
+  }
+  #lessonBanner.visible { display: block; }
+  .lesson-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .lesson-badge { font-family: var(--mono); font-size: 10px; text-transform: uppercase; color: var(--accent); letter-spacing: 0.8px; }
+  .lesson-title { font-size: 13.5px; font-weight: 700; margin-bottom: 4px; }
+  .lesson-body { font-size: 12px; color: #cbd5e1; line-height: 1.45; margin-bottom: 9px; }
+  .lesson-actions { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+
+  /* Probe Tooltip */
+  #probeTooltip {
+    position: absolute; pointer-events: none;
+    background: rgba(7, 10, 16, 0.96); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 8px 10px; font-size: 11px; max-width: 280px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.72); display: none; z-index: 40;
+  }
+  #probeTooltip .p-name {
+    font-family: var(--mono); font-weight: 700; color: var(--accent);
+    display: flex; justify-content: space-between; gap: 10px; margin-bottom: 3px;
+  }
+  #probeTooltip .p-val-hi { color: var(--gold); }
+  #probeTooltip .p-val-lo { color: var(--muted); }
+  #probeTooltip .p-desc { color: #cbd5e1; line-height: 1.38; }
+  #probeTooltip .p-meta { color: var(--muted); font-family: var(--mono); font-size: 9.5px; margin-top: 4px; }
+
+  /* CMOS Modal */
+  #cmosModal {
+    position: absolute; top: 12px; right: 12px; width: 290px;
+    background: rgba(9, 14, 23, 0.97); border: 1px solid var(--magenta);
+    border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75); display: none; z-index: 35;
+  }
+  #cmosModal.visible { display: block; }
+  .cmos-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .cmos-title { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--magenta); }
+  #cmosCanvas { width: 100%; height: 170px; background: #05080e; border: 1px solid var(--border); border-radius: 6px; display: block; margin-bottom: 6px; }
+  .cmos-note { font-size: 10.5px; color: #cbd5e1; line-height: 1.4; }
+
+  /* Sidebar */
+  aside {
+    background: var(--panel); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .tabs {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--border); background: var(--panel2);
+  }
+  .tab {
+    padding: 10px 4px; font-size: 11.5px; font-weight: 700;
+    text-align: center; color: var(--muted); cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--panel); }
+  .tab-pane {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: none; flex-direction: column; gap: 11px;
+  }
+  .tab-pane.active { display: flex; }
+
+  .section-card {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 12px;
+  }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 9px; gap: 8px;
+  }
+  .section-title {
+    font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.75px; color: var(--muted);
+  }
+  .section-badge {
+    font-family: var(--mono); font-size: 9.5px; color: var(--accent);
+    background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+  }
+
+  .preset-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .era-btn {
+    text-align: left; padding: 7px 9px; border-radius: 8px;
+    background: #070b13; border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 2px; white-space: normal;
+  }
+  .era-btn:hover { border-color: var(--accent); background: #0d1624; }
+  .era-btn .e-name { font-size: 11.5px; font-weight: 700; color: #f8fafc; }
+  .era-btn .e-sub { font-size: 9.5px; font-family: var(--mono); color: var(--muted); }
+
+  .bit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .bit-tile {
+    padding: 6px 2px; border-radius: 7px; text-align: center;
+    background: #070b13; border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+  }
+  .bit-tile .b-num { font-family: var(--mono); font-size: 11.5px; font-weight: 800; color: #cbd5e1; }
+  .bit-tile .b-max { font-family: var(--mono); font-size: 8.5px; color: var(--muted); }
+  .bit-tile.active {
+    background: rgba(56, 189, 248, 0.16); border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.22);
+  }
+  .bit-tile.active .b-num { color: #fff; }
+  .bit-tile.active .b-max { color: var(--accent); }
+
+  /* Fixed Arch Cards: never clip or overflow */
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .arch-card {
+    padding: 8px 9px; border-radius: 8px; text-align: left;
+    background: #070b13; border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+    white-space: normal; overflow: hidden; min-width: 0;
+  }
+  .arch-card.active { background: rgba(52, 211, 153, 0.14); border-color: var(--green); }
+  .arch-card .a-title { font-size: 11px; font-weight: 700; color: #f8fafc; line-height: 1.2; }
+  .arch-card .a-desc { font-size: 9.5px; color: var(--muted); line-height: 1.3; }
+
+  .swatch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .swatch-btn {
+    padding: 6px 4px; border-radius: 8px; text-align: center;
+    background: #070b13; border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .swatch-btn.active { border-color: #fff; background: #141e30; }
+  .swatch-dots { display: flex; gap: 3px; }
+  .swatch-dots span { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .swatch-btn small { font-size: 9.5px; color: #cbd5e1; font-weight: 600; }
+
+  .switch-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 9px; background: #070b13; border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 6px; cursor: pointer; gap: 8px;
+  }
+  .switch-row:last-of-type { margin-bottom: 0; }
+  .switch-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .switch-info strong { font-size: 11.5px; color: #f1f5f9; }
+  .switch-info small { font-size: 9.5px; color: var(--muted); }
+  .pill-switch { position: relative; width: 34px; height: 19px; flex-shrink: 0; }
+  .pill-switch input { opacity: 0; width: 0; height: 0; }
+  .pill-slider {
+    position: absolute; inset: 0; background: #1e293b; border-radius: 999px;
+    border: 1px solid #334155; transition: 0.16s;
+  }
+  .pill-slider::before {
+    content: ""; position: absolute; width: 13px; height: 13px; left: 2px; top: 2px;
+    background: #94a3b8; border-radius: 50%; transition: 0.16s;
+  }
+  .pill-switch input:checked + .pill-slider { background: rgba(56,189,248,0.28); border-color: var(--accent); }
+  .pill-switch input:checked + .pill-slider::before { transform: translateX(15px); background: var(--accent); }
+
+  input[type="text"], select {
+    width: 100%; background: #070b13; color: var(--text);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 7px 9px; font-size: 11.5px; font-family: var(--sans);
+    outline: none; user-select: text;
+  }
+  input[type="text"]:focus, select:focus { border-color: var(--accent); }
+
+  .fab-btn {
+    width: 100%; padding: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.3px;
+    background: linear-gradient(135deg, #0284c7, #6366f1);
+    border: 1px solid #38bdf8; color: #fff; border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(56, 189, 248, 0.3); margin-top: 9px;
+  }
+  .fab-btn:hover { filter: brightness(1.1); }
+  .fab-btn.dirty {
+    background: linear-gradient(135deg, #d97706, #ea580c);
+    border-color: #fbbf24; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.38);
+  }
+
+  .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .reg-box {
+    background: #070b12; border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 8px; font-family: var(--mono); min-width: 0;
+  }
+  .reg-label { font-size: 9.5px; color: var(--muted); display: flex; justify-content: space-between; }
+  .reg-val { font-size: 13.5px; font-weight: 700; color: var(--text); margin-top: 2px; word-break: break-all; }
+  .reg-bits { font-size: 8.5px; color: var(--accent); margin-top: 3px; word-break: break-all; line-height: 1.3; }
+
+  .out-display { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .seven-seg {
+    flex: 1; background: #04070b; border: 1px solid #1f2d40;
+    border-radius: 7px; padding: 8px; text-align: center; font-family: var(--mono); min-width: 0;
+  }
+  .seven-seg .big {
+    font-size: 22px; font-weight: 800; color: var(--gold);
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.45); line-height: 1.15; word-break: break-all;
+  }
+  .seven-seg .sub { font-size: 9.5px; color: var(--muted); margin-top: 3px; }
+  #miniPixelCanvas {
+    width: 74px; height: 74px; background: #04070b;
+    border: 1px solid #1f2d40; border-radius: 7px; image-rendering: pixelated; flex-shrink: 0;
+  }
+
+  .metric-row {
+    display: flex; justify-content: space-between; font-size: 11px; gap: 8px;
+    padding: 3.5px 0; border-bottom: 1px solid rgba(30,42,61,0.5);
+  }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-row span:last-child { font-family: var(--mono); color: var(--accent); text-align: right; }
+
+  #asmEditor {
+    width: 100%; height: 210px; background: #05080e; color: #e2e8f0;
+    border: 1px solid var(--border); border-radius: 7px; padding: 8px;
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.45;
+    resize: vertical; user-select: text; outline: none;
+  }
+  .asm-err { color: var(--danger); font-family: var(--mono); font-size: 10.5px; margin-top: 6px; }
+  .asm-ok { color: var(--green); font-family: var(--mono); font-size: 10.5px; margin-top: 6px; }
+  .isa-table { width: 100%; border-collapse: collapse; font-size: 10.5px; font-family: var(--mono); }
+  .isa-table td { padding: 3px 4px; border-bottom: 1px solid rgba(30,42,61,0.55); }
+  .isa-table td:first-child { color: var(--accent); font-weight: 700; width: 64px; }
+  .isa-table td:last-child { color: #cbd5e1; font-family: var(--sans); }
+
+  /* Responsive & Phone Optimized Mode */
+  body.phone-mode #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 48dvh 1fr;
+  }
+  body.phone-mode header {
+    flex-wrap: wrap; padding: 6px 8px; gap: 6px;
+  }
+  body.phone-mode .brand small { display: none; }
+  body.phone-mode .controls {
+    width: 100%; overflow-x: auto; padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  body.phone-mode .controls::-webkit-scrollbar { display: none; }
+  body.phone-mode button { padding: 7px 10px; font-size: 12px; min-height: 32px; }
+  body.phone-mode #mainCol { grid-template-rows: 1fr 60px; }
+  body.phone-mode #scopeLabels { width: 82px; font-size: 8px; padding: 3px 5px; }
+  body.phone-mode aside {
+    border-left: none; border-top: 1px solid var(--border); min-height: 0;
+  }
+  body.phone-mode .overlay-top-left { top: 6px; left: 6px; max-width: calc(100% - 12px); }
+  body.phone-mode .chip-btn { padding: 4px 7px; font-size: 10px; min-height: 26px; }
+  body.phone-mode #gpuScreen { width: 112px; height: 112px; }
+  body.phone-mode #cmosModal {
+    top: 8px; right: 8px; left: 8px; width: auto; max-width: 320px;
+  }
+  body.phone-mode #lessonBanner { left: 8px; right: 8px; bottom: 8px; padding: 9px 11px; }
+  @media (max-width: 900px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: auto 48dvh 1fr; }
+    header { flex-wrap: wrap; padding: 6px 8px; gap: 6px; }
+    .brand small { display: none; }
+    .controls { width: 100%; overflow-x: auto; padding-bottom: 2px; }
+    aside { border-left: none; border-top: 1px solid var(--border); min-height: 0; }
+    #mainCol { grid-template-rows: 1fr 60px; }
+    #gpuScreen { width: 120px; height: 120px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="brand-chip">Si</div>
+      SiliconLab <small id="headerChipTag">8-Bit · Ripple · 180 nm</small>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="cpu"><span class="m-dot" style="background:#38bdf8"></span>CPU Lithography</button>
+      <button class="mode-tab" data-mode="gpu"><span class="m-dot" style="background:#34d399"></span>GPU Fractal Engine</button>
+    </div>
+
+    <div class="controls">
+      <button id="btnRun" class="primary" title="Shortcut: Space">Run</button>
+      <button id="btnStepWave" title="Propagate one gate delay wave (Shortcut: S)">Gate Step</button>
+      <button id="btnStepPhase" title="Advance one micro-cycle phase">Phase Step</button>
+      <button id="btnStepInstr" title="Execute one full instruction">Instr Step</button>
+      <button id="btnReset" title="Shortcut: R">Reset</button>
+      <div class="divider"></div>
+      <div class="speed-wrap">
+        <span>Clk</span>
+        <input id="speedSlider" type="range" min="0" max="100" value="40" />
+        <span id="speedLabel" style="min-width:48px">6 Hz</span>
+      </div>
+      <div class="divider"></div>
+      <button id="btnWaveMode" class="gold-active">Ripple: ON</button>
+      <button id="btnSound" title="Toggle subtle WebAudio chip synth">Sound: OFF</button>
+      <button id="btnPhoneMode" title="Toggle Phone Optimized Mode">Phone</button>
+      <button id="btnTour">Tour</button>
+    </div>
+  </header>
+
+  <div id="mainCol">
+    <div id="viewport">
+      <canvas id="dieCanvas"></canvas>
+
+      <div class="overlay-top-left">
+        <div class="overlay-row">
+          <div class="status-pill">
+            <span id="statusDot" class="dot paused"></span>
+            <span id="statusPhase">T0 FETCH</span>
+            <span style="color:var(--muted)">|</span>
+            <span id="statusInstr" style="color:var(--gold)">LDI 127</span>
+            <span style="color:var(--muted)">|</span>
+            <span id="statusGates">0 waves</span>
+          </div>
+        </div>
+        <div class="overlay-row" id="cpuCamRow">
+          <button class="chip-btn" data-cam="full">Full Die (F)</button>
+          <button class="chip-btn" data-cam="alu">Zoom ALU</button>
+          <button class="chip-btn" data-cam="pla">Zoom PLA</button>
+          <button class="chip-btn" data-cam="regs">Zoom Regs</button>
+          <button class="chip-btn" data-cam="ram">Zoom RAM</button>
+        </div>
+        <div class="overlay-row">
+          <button class="chip-btn active" id="layerM2">Metal 2</button>
+          <button class="chip-btn active" id="layerM1">Metal 1</button>
+          <button class="chip-btn active" id="layerPoly">Polysilicon</button>
+          <button class="chip-btn active" id="layerBloom">Neon Bloom</button>
+          <button class="chip-btn active" id="layerPhotons">Photons</button>
+          <button class="chip-btn" id="layerHeat">Thermal</button>
+          <div class="divider" style="height:16px;align-self:center"></div>
+          <button class="chip-btn active" id="toolProbe">Probe</button>
+          <button class="chip-btn" id="toolCut">Laser Cut (0)</button>
+          <button class="chip-btn" id="toolVdd">Short VDD (1)</button>
+          <button class="chip-btn" id="toolRepair" style="display:none;border-color:var(--danger);color:var(--danger)">Repair (0)</button>
+        </div>
+      </div>
+
+      <!-- Live GPU Fractal Framebuffer Dock -->
+      <div id="gpuDock">
+        <div class="dock-head">
+          <span id="gpuDockTitle">LIVE GPU FRACTAL (64×64)</span>
+          <span id="gpuDockFrame" style="color:var(--green)">F0</span>
+        </div>
+        <canvas id="gpuScreen" width="64" height="64"></canvas>
+      </div>
+
+      <div id="cmosModal">
+        <div class="cmos-head">
+          <span class="cmos-title" id="cmosTitle">CMOS X-Ray</span>
+          <button id="btnCloseCmos" style="padding:2px 7px;font-size:11px;">×</button>
+        </div>
+        <canvas id="cmosCanvas" width="260" height="170"></canvas>
+        <div class="cmos-note" id="cmosNote"></div>
+      </div>
+
+      <div id="lessonBanner">
+        <div class="lesson-head">
+          <span class="lesson-badge" id="lessonBadge">Lesson 1 of 4</span>
+          <button id="btnCloseLesson" style="padding:2px 7px;font-size:11px;">Hide</button>
+        </div>
+        <div class="lesson-title" id="lessonTitle">Welcome to Real Silicon</div>
+        <div class="lesson-body" id="lessonBody"></div>
+        <div class="lesson-actions">
+          <button id="btnLessonAction" class="primary">Demo This Now</button>
+          <div style="display:flex;gap:6px;">
+            <button id="btnLessonPrev">Prev</button>
+            <button id="btnLessonNext">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="probeTooltip">
+        <div class="p-name">
+          <span id="probeName">BUS_0</span>
+          <span id="probeVal" class="p-val-hi">HIGH (1)</span>
+        </div>
+        <div class="p-desc" id="probeDesc"></div>
+        <div class="p-meta" id="probeMeta"></div>
+      </div>
+    </div>
+
+    <!-- Live 5-Channel Oscilloscope -->
+    <div id="scopeBar">
+      <div id="scopeLabels">
+        <div style="color:#38bdf8">CH1: CLK</div>
+        <div style="color:#f59e0b">CH2: BUS_0</div>
+        <div style="color:#34d399">CH3: CARRY</div>
+        <div style="color:#e879f9">CH4: ZERO</div>
+        <div style="color:#fb7185">CH5: GPU/SM</div>
+      </div>
+      <canvas id="scopeCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Right Sidebar -->
+  <aside>
+    <div class="tabs">
+      <div class="tab active" data-tab="fab">Chip Builder</div>
+      <div class="tab" data-tab="live">Live State</div>
+      <div class="tab" data-tab="code">Programs</div>
+    </div>
+
+    <!-- Tab 1: Chip Builder -->
+    <div class="tab-pane active" id="tab-fab">
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">Quick Silicon Templates</span>
+          <span class="section-badge">1-CLICK FAB</span>
+        </div>
+        <div class="preset-pills">
+          <button class="era-btn" data-era="4004"><span class="e-name">1971 Micro-4</span><span class="e-sub">4-Bit · Ripple · 10 µm</span></button>
+          <button class="era-btn" data-era="6502"><span class="e-name">1980 Classic-8</span><span class="e-sub">8-Bit · Ripple · 1 µm</span></button>
+          <button class="era-btn" data-era="16bit"><span class="e-name">1995 Pro-16</span><span class="e-sub">16-Bit · CLA · 180 nm</span></button>
+          <button class="era-btn" data-era="64bit"><span class="e-name">2026 Hyper-64</span><span class="e-sub">64-Bit · CLA · 2 nm</span></button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">CPU Bit-Width (12 Options)</span>
+          <span class="section-badge" id="bitRangeBadge">0 – 255</span>
+        </div>
+        <div class="bit-grid" id="cfgBitsGroup">
+          <button class="bit-tile" data-bits="1"><span class="b-num">1-Bit</span><span class="b-max">max 1</span></button>
+          <button class="bit-tile" data-bits="2"><span class="b-num">2-Bit</span><span class="b-max">max 3</span></button>
+          <button class="bit-tile" data-bits="4"><span class="b-num">4-Bit</span><span class="b-max">max 15</span></button>
+          <button class="bit-tile" data-bits="6"><span class="b-num">6-Bit</span><span class="b-max">max 63</span></button>
+          <button class="bit-tile active" data-bits="8"><span class="b-num">8-Bit</span><span class="b-max">max 255</span></button>
+          <button class="bit-tile" data-bits="12"><span class="b-num">12-Bit</span><span class="b-max">max 4K</span></button>
+          <button class="bit-tile" data-bits="16"><span class="b-num">16-Bit</span><span class="b-max">max 65K</span></button>
+          <button class="bit-tile" data-bits="20"><span class="b-num">20-Bit</span><span class="b-max">max 1M</span></button>
+          <button class="bit-tile" data-bits="24"><span class="b-num">24-Bit</span><span class="b-max">max 16M</span></button>
+          <button class="bit-tile" data-bits="32"><span class="b-num">32-Bit</span><span class="b-max">max 4.2B</span></button>
+          <button class="bit-tile" data-bits="48"><span class="b-num">48-Bit</span><span class="b-max">max 281T</span></button>
+          <button class="bit-tile" data-bits="64"><span class="b-num">64-Bit</span><span class="b-max">max 18Q</span></button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">ALU Adder & Lithography</span>
+        </div>
+        <div class="arch-grid" id="cfgAdderGroup" style="margin-bottom:9px;">
+          <button class="arch-card active" data-adder="ripple">
+            <span class="a-title">Ripple-Carry</span>
+            <span class="a-desc">Serial C0→CN wire. Fewer gates, visible wave.</span>
+          </button>
+          <button class="arch-card" data-adder="cla">
+            <span class="a-title">Carry-Lookahead</span>
+            <span class="a-desc">Parallel CLA strip. ~4× faster carry settle.</span>
+          </button>
+        </div>
+        <select id="cfgNode" style="margin-bottom:8px;">
+          <option value="10um">10 µm (1971 · 5.0V · 180 ns/gate)</option>
+          <option value="1um">1 µm (1985 · 5.0V · 12 ns/gate)</option>
+          <option value="180nm" selected>180 nm (1999 · 1.8V · 0.65 ns/gate)</option>
+          <option value="7nm">7 nm FinFET (0.85V · 18 ps/gate)</option>
+          <option value="2nm">2 nm GAA Nanosheet (0.65V · 4 ps/gate)</option>
+        </select>
+        <input type="text" id="cfgName" value="SILICONLAB-8X" maxlength="22" placeholder="Laser-etched die name..." />
+      </div>
+
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">Wafer Palette & Modules</span>
+        </div>
+        <div class="swatch-grid" id="cfgThemeGroup" style="margin-bottom:9px;">
+          <button class="swatch-btn active" data-theme="silicon"><div class="swatch-dots"><span style="background:#38bdf8"></span><span style="background:#fbbf24"></span></div><small>Silicon</small></button>
+          <button class="swatch-btn" data-theme="ceramic"><div class="swatch-dots"><span style="background:#fde047"></span><span style="background:#fb923c"></span></div><small>Gold 71</small></button>
+          <button class="swatch-btn" data-theme="emerald"><div class="swatch-dots"><span style="background:#34d399"></span><span style="background:#a3e635"></span></div><small>Emerald</small></button>
+          <button class="swatch-btn" data-theme="euv"><div class="swatch-dots"><span style="background:#c084fc"></span><span style="background:#f472b6"></span></div><small>EUV UV</small></button>
+        </div>
+
+        <label class="switch-row">
+          <div class="switch-info"><strong>Hardware Barrel Shifter</strong><small>Adds SHL shift-mux gates & carry-out</small></div>
+          <span class="pill-switch"><input type="checkbox" id="cfgShifter" checked /><span class="pill-slider"></span></span>
+        </label>
+        <label class="switch-row">
+          <div class="switch-info"><strong>Expanded 32-Byte SRAM</strong><small>Doubles on-die RAM bank capacity</small></div>
+          <span class="pill-switch"><input type="checkbox" id="cfgBigRam" /><span class="pill-slider"></span></span>
+        </label>
+        <label class="switch-row">
+          <div class="switch-info"><strong>8×8 Pixel Display Matrix</strong><small>Memory-mapped LEDs on RAM 8–15</small></div>
+          <span class="pill-switch"><input type="checkbox" id="cfgDisplay" checked /><span class="pill-slider"></span></span>
+        </label>
+
+        <button id="btnFabChip" class="fab-btn">Fabricate Custom Silicon Die</button>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">Synthesized Die Specs</span>
+          <span class="section-badge" id="fabStatusBadge">SYNCED</span>
+        </div>
+        <div class="metric-row"><span>Physical Logic Gates</span><span id="fabGates">0</span></div>
+        <div class="metric-row"><span>Est. CMOS Transistors</span><span id="fabTransistors">0</span></div>
+        <div class="metric-row"><span>Lithography Wires</span><span id="fabWires">0</span></div>
+        <div class="metric-row"><span>Critical Path (ALU)</span><span id="fabCritPath">0 ns</span></div>
+        <div class="metric-row"><span>Supply Voltage / Power</span><span id="fabPower">1.8V · 0 mW</span></div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Live State -->
+    <div class="tab-pane" id="tab-live">
+      <div class="section-card">
+        <div class="section-head"><span class="section-title">Output & 8×8 Pixel Display</span></div>
+        <div class="out-display">
+          <div class="seven-seg">
+            <div class="big" id="outDec">0</div>
+            <div class="sub" id="outHex">0x00</div>
+          </div>
+          <canvas id="miniPixelCanvas" width="8" height="8"></canvas>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head"><span class="section-title">Registers & Flags</span></div>
+        <div class="reg-grid">
+          <div class="reg-box"><div class="reg-label"><span>Reg A</span><span id="regAHex">0x00</span></div><div class="reg-val" id="regADec">0</div><div class="reg-bits" id="regABits">0000 0000</div></div>
+          <div class="reg-box"><div class="reg-label"><span>Reg B</span><span id="regBHex">0x00</span></div><div class="reg-val" id="regBDec">0</div><div class="reg-bits" id="regBBits">0000 0000</div></div>
+          <div class="reg-box"><div class="reg-label"><span>Data Bus</span><span id="busHex">0x00</span></div><div class="reg-val" id="busDec">0</div><div class="reg-bits" id="busBits">0000 0000</div></div>
+          <div class="reg-box"><div class="reg-label"><span>PC / Flags</span><span id="flagsText">Z:0 C:0</span></div><div class="reg-val" id="pcVal">00</div><div class="reg-bits" id="pcBits">000000</div></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head"><span class="section-title">Active Control Wires (PLA)</span></div>
+        <div id="activeCtrlList" style="display:flex;flex-wrap:wrap;gap:5px;min-height:22px;font-family:var(--mono);font-size:10.5px;"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head"><span class="section-title">Live Silicon Telemetry</span></div>
+        <div class="metric-row"><span>Gate Evaluations</span><span id="statGateEvals">0</span></div>
+        <div class="metric-row"><span>Wire Voltage Flips</span><span id="statFlips">0</span></div>
+        <div class="metric-row"><span>Clock Cycles</span><span id="statCycles">0</span></div>
+        <div class="metric-row"><span>GPU FP32 Operations</span><span id="statGpuFlops">0</span></div>
+        <div class="metric-row"><span>Injected Wire Faults</span><span id="statFaults">0</span></div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Programs (CPU Assembly + GPU Fractal Shader) -->
+    <div class="tab-pane" id="tab-code">
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">GPU Fractal & Shader Engine</span>
+          <span class="section-badge" id="gpuSimdBadge" style="color:var(--green);border-color:rgba(52,211,153,0.35)">SIMD 32-SM</span>
+        </div>
+        <select id="gpuShaderSelect" style="margin-bottom:8px;">
+          <option value="mandelbrot">1. Mandelbrot Deep Zoom Fractal</option>
+          <option value="julia">2. Orbiting Julia Set Fractal</option>
+          <option value="raymarch">3. Raymarched 3D Neon Sphere</option>
+          <option value="plasma">4. Procedural Plasma Interferometer</option>
+          <option value="cube">5. 3D Rotating Wireframe Cube</option>
+        </select>
+        <div class="arch-grid" id="gpuSmGroup">
+          <button class="arch-card" data-sms="16"><span class="a-title">16 SMs</span><span class="a-desc">128 FP32 Lanes</span></button>
+          <button class="arch-card active" data-sms="32"><span class="a-title">32 SMs</span><span class="a-desc">256 FP32 Lanes</span></button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-title">CPU Assembly ROM</span>
+          <span class="section-badge">LABELS OK</span>
+        </div>
+        <select id="presetSelect" style="margin-bottom:8px;">
+          <option value="ripple">1. Carry-Ripple Showcase (127+1 & 255+1)</option>
+          <option value="fib">2. Fibonacci Sequence (scales to 64-Bit!)</option>
+          <option value="pixel">3. 8×8 Pixel Art + XOR Morph</option>
+          <option value="mul">4. Multiply 7 × 6 = 42 (Loop + SUB + JZ)</option>
+          <option value="shifter">5. Hardware Shifter Wave (SHL Demo)</option>
+        </select>
+        <textarea id="asmEditor" spellcheck="false"></textarea>
+        <button id="btnAssemble" class="primary" style="width:100%;margin-top:8px;">Assemble & Flash ROM</button>
+        <div id="asmStatus"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-head"><span class="section-title">ISA Reference (supports labels like LOOP:)</span></div>
+        <table class="isa-table">
+          <tr><td>LDI n</td><td>Load constant n (dec/0xhex) into A</td></tr>
+          <tr><td>LDA a</td><td>Load RAM[a] into A</td></tr>
+          <tr><td>STA a</td><td>Store A into RAM[a] (8–15 = Screen)</td></tr>
+          <tr><td>MOVB</td><td>Copy A into B</td></tr>
+          <tr><td>ADD/SUB</td><td>A = A ± B (Gate-Level Adder)</td></tr>
+          <tr><td>ADDI n</td><td>B = n, then A = A + B</td></tr>
+          <tr><td>AND/XOR</td><td>Bitwise gate operations on A, B</td></tr>
+          <tr><td>SHL</td><td>A = A &lt;&lt; 1 (sets C to shifted-out MSB)</td></tr>
+          <tr><td>JMP/JZ/JC</td><td>Jump to line # or label (e.g. JMP LOOP)</td></tr>
+          <tr><td>OUT/HLT</td><td>Latch A to display / Halt clock</td></tr>
+        </table>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // =========================================================================
+  // 1. CONSTANTS, NODES, THEMES & ERA TEMPLATES
+  // =========================================================================
+  const PROCESS_NODES = {
+    '10um':  { label: '10 µm',  year: 1971, voltage: 5.0,  gateDelayNs: 180,   wireScale: 1.32, powerFactor: 18.0 },
+    '1um':   { label: '1 µm',   year: 1985, voltage: 5.0,  gateDelayNs: 12,    wireScale: 1.15, powerFactor: 6.5 },
+    '180nm': { label: '180 nm', year: 1999, voltage: 1.8,  gateDelayNs: 0.65,  wireScale: 1.0,  powerFactor: 1.2 },
+    '7nm':   { label: '7 nm',   year: 2018, voltage: 0.85, gateDelayNs: 0.018, wireScale: 0.86, powerFactor: 0.14 },
+    '2nm':   { label: '2 nm',   year: 2026, voltage: 0.65, gateDelayNs: 0.004, wireScale: 0.74, powerFactor: 0.04 }
+  };
+
+  const WAFER_THEMES = {
+    silicon: {
+      substrate: '#080d16', sheen1: 'rgba(56,189,248,0.065)', sheen2: 'rgba(139,92,246,0.055)',
+      grid: 'rgba(56,189,248,0.035)',
+      busHi: '#fbbf24', busLo: '#302512', m1Hi: '#38bdf8', m1Lo: '#13253a',
+      polyHi: '#e879f9', polyLo: '#2b1636', claHi: '#34d399', claLo: '#102920',
+      pixelOn: '#38bdf8', outColor: '#fbbf24'
+    },
+    ceramic: {
+      substrate: '#130f09', sheen1: 'rgba(245,158,11,0.07)', sheen2: 'rgba(251,146,60,0.05)',
+      grid: 'rgba(245,158,11,0.045)',
+      busHi: '#fde047', busLo: '#382c0e', m1Hi: '#fb923c', m1Lo: '#331c0e',
+      polyHi: '#f472b6', polyLo: '#301524', claHi: '#facc15', claLo: '#30270e',
+      pixelOn: '#fb923c', outColor: '#fde047'
+    },
+    emerald: {
+      substrate: '#06130d', sheen1: 'rgba(52,211,153,0.07)', sheen2: 'rgba(34,211,238,0.05)',
+      grid: 'rgba(52,211,153,0.04)',
+      busHi: '#fde047', busLo: '#292b10', m1Hi: '#34d399', m1Lo: '#0f2b1f',
+      polyHi: '#38bdf8', polyLo: '#102436', claHi: '#a3e635', claLo: '#1c2b0e',
+      pixelOn: '#34d399', outColor: '#a3e635'
+    },
+    euv: {
+      substrate: '#0d0717', sheen1: 'rgba(192,132,252,0.07)', sheen2: 'rgba(244,114,182,0.05)',
+      grid: 'rgba(192,132,252,0.045)',
+      busHi: '#f472b6', busLo: '#301326', m1Hi: '#c084fc', m1Lo: '#221336',
+      polyHi: '#22d3ee', polyLo: '#0e2630', claHi: '#facc15', claLo: '#2e2410',
+      pixelOn: '#e879f9', outColor: '#22d3ee'
+    }
+  };
+
+  const ERA_TEMPLATES = {
+    '4004':  { name: 'MICRO-4004',  bits: 4,  adder: 'ripple', node: '10um',  theme: 'ceramic', shifter: false, bigRam: false, display: true },
+    '6502':  { name: 'CLASSIC-6502',bits: 8,  adder: 'ripple', node: '1um',   theme: 'silicon', shifter: true,  bigRam: false, display: true },
+    '16bit': { name: 'PRO-16 CLA',  bits: 16, adder: 'cla',    node: '180nm', theme: 'emerald', shifter: true,  bigRam: true,  display: true },
+    '64bit': { name: 'HYPER-64 GAA',bits: 64, adder: 'cla',    node: '2nm',   theme: 'euv',     shifter: true,  bigRam: true,  display: true }
+  };
+
+  const VALID_BITS = [1, 2, 4, 6, 8, 12, 16, 20, 24, 32, 48, 64];
+  const VALID_SHADERS = ['mandelbrot', 'julia', 'raymarch', 'plasma', 'cube'];
+  const STORAGE_KEY = 'siliconlab_state_v2';
+
+  function formatBitsNibbles(val, bits) {
+    const bCount = Math.max(1, Math.min(64, Number(bits) || 8));
+    let u = 0n;
+    try { u = BigInt(val); } catch (_) { u = 0n; }
+    const mask = (1n << BigInt(bCount)) - 1n;
+    const s = (u & mask).toString(2).padStart(bCount, '0');
+    return s.replace(/\B(?=(\d{4})+(?!\d))/g, ' ');
+  }
+
+  function safeRoundRect(c, x, y, w, h, r) {
+    if (typeof c.roundRect === 'function') {
+      safeRoundRect(c, x, y, w, h, r);
+      return;
+    }
+    const rad = Math.max(0, Math.min(r, w / 2, h / 2));
+    c.moveTo(x + rad, y);
+    c.lineTo(x + w - rad, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + rad);
+    c.lineTo(x + w, y + h - rad);
+    c.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+    c.lineTo(x + rad, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - rad);
+    c.lineTo(x, y + rad);
+    c.quadraticCurveTo(x, y, x + rad, y);
+    c.closePath();
+  }
+
+  // Safe WebAudio Chip Synth with strict lifecycle management
+  const SiliconAudio = {
+    ctx: null,
+    enabled: false,
+    lastBeepMs: 0,
+    ensureContext() {
+      if (!this.enabled) return null;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!this.ctx) {
+        try { this.ctx = new AC(); } catch (_) { return null; }
+      }
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      return this.ctx;
+    },
+    beep(freq = 640, dur = 0.025, gainVal = 0.025, type = 'sine') {
+      if (!this.enabled || document.hidden) return;
+      const nowMs = performance.now();
+      if (nowMs - this.lastBeepMs < 35) return;
+      this.lastBeepMs = nowMs;
+      const ac = this.ensureContext();
+      if (!ac || ac.state !== 'running') return;
+      try {
+        const t0 = ac.currentTime;
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(Math.max(60, Math.min(4000, freq)), t0);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(gainVal, t0 + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.onended = () => {
+          try { osc.disconnect(); g.disconnect(); } catch (_) {}
+        };
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.01);
+      } catch (_) {}
+    },
+    suspend() {
+      if (this.ctx && this.ctx.state === 'running') {
+        this.ctx.suspend().catch(() => {});
+      }
+    },
+    close() {
+      if (this.ctx) {
+        const c = this.ctx;
+        this.ctx = null;
+        try { c.close().catch(() => {}); } catch (_) {}
+      }
+    }
+  };
+
+  // =========================================================================
+  // 2. REAL GATE-LEVEL NETLIST ENGINE
+  // =========================================================================
+  class Netlist {
+    constructor() {
+      this.nets = [];
+      this.gates = [];
+      this.totalFlips = 0;
+      this.totalGateEvals = 0;
+    }
+    addNet(name, layer, desc, segments = [], vias = []) {
+      const id = this.nets.length;
+      this.nets.push({ id, name, layer, desc, val: 0, nextVal: 0, fault: null, faultPt: null, pulse: 0, heat: 0, toggles: 0, segments, vias });
+      return id;
+    }
+    setNet(id, val) {
+      const n = this.nets[id];
+      if (!n) return false;
+      const v = n.fault !== null ? n.fault : (val ? 1 : 0);
+      n.nextVal = v;
+      if (n.val !== v) {
+        n.val = v;
+        n.pulse = 1.0; n.heat = Math.min(1, n.heat + 0.16);
+        n.toggles++; this.totalFlips++;
+        return true;
+      }
+      return false;
+    }
+    addGate(type, inputs, out, x, y, w, h, label, block, desc) {
+      const g = { id: this.gates.length, type, inputs, out, x, y, w, h, label, block, desc, heat: 0, pulse: 0 };
+      this.gates.push(g);
+      return g;
+    }
+    evalGate(g) {
+      const n = this.nets;
+      const a = (g.inputs.length > 0 && n[g.inputs[0]]) ? n[g.inputs[0]].val : 0;
+      const b = (g.inputs.length > 1 && n[g.inputs[1]]) ? n[g.inputs[1]].val : 0;
+      const c = (g.inputs.length > 2 && n[g.inputs[2]]) ? n[g.inputs[2]].val : 0;
+      switch (g.type) {
+        case 'NOT':  return a ? 0 : 1;
+        case 'AND':  return (a & b) ? 1 : 0;
+        case 'OR':   return (a | b) ? 1 : 0;
+        case 'XOR':  return (a ^ b) ? 1 : 0;
+        case 'NAND': return (a & b) ? 0 : 1;
+        case 'NOR':  return (a | b) ? 0 : 1;
+        case 'MUX2': return c ? b : a;
+        default:     return 0;
+      }
+    }
+    stepWave() {
+      let changed = 0;
+      const nets = this.nets, gates = this.gates;
+      for (let i = 0; i < gates.length; i++) {
+        const g = gates[i];
+        const outVal = this.evalGate(g);
+        this.totalGateEvals++;
+        const net = nets[g.out];
+        net.nextVal = net.fault !== null ? net.fault : outVal;
+      }
+      for (let i = 0; i < gates.length; i++) {
+        const g = gates[i], net = nets[g.out];
+        if (net.val !== net.nextVal) {
+          net.val = net.nextVal;
+          net.pulse = 1.0; net.heat = Math.min(1, net.heat + 0.16);
+          net.toggles++; g.pulse = 1.0; g.heat = Math.min(1, g.heat + 0.16);
+          this.totalFlips++; changed++;
+        }
+      }
+      return changed;
+    }
+    settle(maxWaves = 160) {
+      let waves = 0;
+      for (let w = 0; w < maxWaves; w++) {
+        const ch = this.stepWave();
+        waves++;
+        if (ch === 0) break;
+      }
+      return waves;
+    }
+    estimateTransistors(bits, ramSize) {
+      const tMap = { NOT: 2, NAND: 4, NOR: 4, AND: 6, OR: 6, XOR: 8, MUX2: 6 };
+      let total = 0;
+      for (const g of this.gates) total += (tMap[g.type] || 6);
+      total += (bits * 2 + 24) * 12 + ramSize * bits * 6;
+      return total;
+    }
+    decayVisuals(dt) {
+      if (!Number.isFinite(dt) || dt <= 0) return;
+      const pd = dt * 2.6, hd = dt * 0.18;
+      for (let i = 0; i < this.nets.length; i++) {
+        const n = this.nets[i];
+        if (n.pulse > 0) n.pulse = Math.max(0, n.pulse - pd);
+        if (n.heat > 0) n.heat = Math.max(0, n.heat - hd);
+      }
+      for (let i = 0; i < this.gates.length; i++) {
+        const g = this.gates[i];
+        if (g.pulse > 0) g.pulse = Math.max(0, g.pulse - pd);
+        if (g.heat > 0) g.heat = Math.max(0, g.heat - hd);
+      }
+    }
+  }
+
+  // =========================================================================
+  // 3. OPCODES & 2-PASS ASSEMBLER (SUPPORTS LABELS & HEX/DEC/BIN!)
+  // =========================================================================
+  const OPCODES = {
+    NOP: 0x0, LDI: 0x1, LDA: 0x2, STA: 0x3,
+    MOVB: 0x4, ADD: 0x5, SUB: 0x6, ADDI: 0x7,
+    AND: 0x8, XOR: 0x9, JMP: 0xA, JZ: 0xB,
+    JC: 0xC, OUT: 0xD, SHL: 0xE, HLT: 0xF
+  };
+
+  const PRESETS = {
+    ripple: `; Watch carry propagation across ALL bits!
+START:
+LDI 127
+OUT
+ADDI 1
+OUT
+LDI 255
+OUT
+ADDI 1
+OUT
+JMP START`,
+    fib: `; Classic Fibonacci Sequence (scales up to 2.97 Billion on 32-Bit!)
+START:
+LDI 0
+STA 0
+LDI 1
+STA 1
+OUT
+LOOP:
+LDA 0
+MOVB
+LDA 1
+ADD
+JC START
+OUT
+STA 2
+LDA 1
+STA 0
+LDA 2
+STA 1
+JMP LOOP`,
+    pixel: `; Draws a diamond to Display RAM (8..15), then XOR-morphs it live!
+LDI 1
+STA 0
+LDI 24
+STA 8
+LDI 60
+STA 9
+LDI 126
+STA 10
+LDI 255
+STA 11
+LDI 126
+STA 12
+LDI 60
+STA 13
+LDI 24
+STA 14
+MORPH:
+LDA 0
+MOVB
+LDA 8
+XOR
+STA 8
+OUT
+LDA 9
+XOR
+STA 9
+LDA 10
+XOR
+STA 10
+LDA 11
+XOR
+STA 11
+LDA 12
+XOR
+STA 12
+LDA 13
+XOR
+STA 13
+LDA 14
+XOR
+STA 14
+LDA 0
+ADDI 19
+STA 0
+JMP MORPH`,
+    mul: `; Multiply 7 x 6 = 42 using ADD, SUB, and Zero-Flag JZ
+LDI 7
+STA 0
+LDI 6
+STA 1
+LDI 0
+STA 2
+LOOP:
+LDA 2
+MOVB
+LDA 0
+ADD
+STA 2
+OUT
+LDI 1
+MOVB
+LDA 1
+SUB
+STA 1
+JZ DONE
+JMP LOOP
+DONE:
+HLT`,
+    shifter: `; Hardware Barrel Shifter Demo (SHL shifts bit-by-bit!)
+START:
+LDI 1
+OUT
+STA 8
+SHL
+OUT
+STA 9
+SHL
+OUT
+STA 10
+SHL
+OUT
+STA 11
+SHL
+OUT
+STA 12
+SHL
+OUT
+STA 13
+SHL
+OUT
+STA 14
+SHL
+OUT
+STA 15
+JMP START`
+  };
+
+  function getPresetCode(key, bits = 8) {
+    if (key === 'ripple') {
+      const b = Math.max(1, Math.min(64, Number(bits) || 8));
+      const fullMask = (1n << BigInt(b)) - 1n;
+      const halfMask = b > 1 ? ((1n << BigInt(b - 1)) - 1n) : 0n;
+      return `; Watch carry propagation across ALL ${b} bit${b > 1 ? 's' : ''}!
+START:
+LDI ${halfMask}
+OUT
+ADDI 1
+OUT
+LDI ${fullMask}
+OUT
+ADDI 1
+OUT
+JMP START`;
+    }
+    return PRESETS[key] || PRESETS.ripple;
+  }
+
+  const OPS_NEED_IMM = new Set(['LDI', 'LDA', 'STA', 'ADDI', 'JMP', 'JZ', 'JC']);
+  const OPS_JUMP = new Set(['JMP', 'JZ', 'JC']);
+  const OPS_RAM = new Set(['LDA', 'STA']);
+
+  function assemble(source, maxVal = 0xFFFFFFFFFFFFFFFFn, ramSize = 16) {
+    const maxBig = BigInt(maxVal);
+    const ramMaxBig = BigInt(Math.max(1, ramSize));
+    const rawLines = String(source || '').split(/\r?\n/);
+    const labels = new Map();
+    const cleaned = [];
+    const errors = [];
+
+    for (let i = 0; i < rawLines.length; i++) {
+      let line = rawLines[i].split(';')[0].trim();
+      if (!line) continue;
+      if (line.endsWith(':')) {
+        const lbl = line.slice(0, -1).trim().toUpperCase();
+        if (!lbl) { errors.push(`Line ${i + 1}: Empty label`); continue; }
+        labels.set(lbl, cleaned.length);
+        continue;
+      }
+      const colonIdx = line.indexOf(':');
+      if (colonIdx > 0) {
+        const lbl = line.slice(0, colonIdx).trim().toUpperCase();
+        if (lbl) labels.set(lbl, cleaned.length);
+        line = line.slice(colonIdx + 1).trim();
+        if (!line) continue;
+      }
+      cleaned.push({ line, lineNo: i + 1 });
+    }
+
+    if (cleaned.length > 64) {
+      errors.push(`Program has ${cleaned.length} instructions (max 64 ROM slots)`);
+    }
+
+    const rom = [];
+    for (const item of cleaned) {
+      if (rom.length >= 64) break;
+      const parts = item.line.split(/\s+/);
+      const mnem = parts[0].toUpperCase();
+      if (!(mnem in OPCODES)) { errors.push(`Line ${item.lineNo}: Unknown opcode "${parts[0]}"`); continue; }
+      const needsImm = OPS_NEED_IMM.has(mnem);
+      if (needsImm && parts.length < 2) {
+        errors.push(`Line ${item.lineNo}: "${mnem}" requires an operand`); continue;
+      }
+      if (!needsImm && parts.length > 1) {
+        errors.push(`Line ${item.lineNo}: "${mnem}" takes no operand`); continue;
+      }
+      if (needsImm && parts.length > 2) {
+        errors.push(`Line ${item.lineNo}: Unexpected extra token "${parts[2]}"`); continue;
+      }
+      let imm = 0n;
+      if (needsImm) {
+        const rawArg = parts[1];
+        const arg = rawArg.toUpperCase();
+        if (labels.has(arg)) {
+          imm = BigInt(labels.get(arg));
+        } else {
+          try {
+            imm = BigInt(rawArg);
+          } catch (e) {
+            errors.push(`Line ${item.lineNo}: Undefined label or invalid integer "${rawArg}"`); continue;
+          }
+        }
+        if (OPS_JUMP.has(mnem)) {
+          if (imm < 0n || imm >= 64n) {
+            errors.push(`Line ${item.lineNo}: Jump target ${imm} out of 0..63 ROM range`); continue;
+          }
+        } else if (OPS_RAM.has(mnem)) {
+          if (imm < 0n || imm >= ramMaxBig) {
+            errors.push(`Line ${item.lineNo}: RAM address ${imm} exceeds ${ramSize}-byte SRAM`); continue;
+          }
+        } else if (imm < 0n || imm > maxBig) {
+          errors.push(`Line ${item.lineNo}: Operand "${rawArg}" exceeds ${maxBig}-max CPU width`); continue;
+        }
+      }
+      rom.push({ op: OPCODES[mnem], imm, text: needsImm ? `${mnem} ${parts[1]}` : mnem });
+    }
+    if (rom.length === 0 && errors.length === 0) rom.push({ op: OPCODES.HLT, imm: 0n, text: 'HLT' });
+    return { rom, errors };
+  }
+
+  // =========================================================================
+  // 4. SINGLE-CORE CPU (ZERO OVERLAPPING GATES, ZERO OUT-OF-BOUNDS WIRES!)
+  // =========================================================================
+  const DIE_W = 1660, DIE_H = 1040;
+  const BLOCKS = [
+    { id: 'pc',   name: 'CLOCK & PROGRAM COUNTER (6-BIT)', x: 56,   y: 72,  w: 335, h: 245, color: '#38bdf8' },
+    { id: 'rom',  name: 'INSTRUCTION ROM (64×W) & IR',     x: 424,  y: 72,  w: 440, h: 245, color: '#60a5fa' },
+    { id: 'pla',  name: 'CONTROL MATRIX (PLA DECODER)',    x: 896,  y: 72,  w: 708, h: 245, color: '#e879f9' },
+    { id: 'bus',  name: 'METAL-2 COMMON DATA BUS',         x: 56,   y: 344, w: 1548, h: 126, color: '#f59e0b' },
+    { id: 'regs', name: 'REGISTER FILE (A, B & FLAGS)',    x: 56,   y: 498, w: 325, h: 484, color: '#34d399' },
+    { id: 'alu',  name: 'GATE-LEVEL ALU',                  x: 406,  y: 498, w: 786, h: 484, color: '#38bdf8' },
+    { id: 'ram',  name: 'SRAM & PERIPHERALS',              x: 1216, y: 498, w: 388, h: 484, color: '#f59e0b' }
+  ];
+
+  class SiliconCPU {
+    constructor(config) {
+      this.config = Object.assign({
+        name: 'SILICONLAB-8X', bits: 8, adder: 'ripple', node: '180nm',
+        theme: 'silicon', shifter: true, bigRam: false, display: true
+      }, config || {});
+
+      this.bits = this.config.bits;
+      this.mask = (1n << BigInt(this.bits)) - 1n;
+      this.ramSize = this.config.bigRam ? 32 : 16;
+
+      this.netlist = new Netlist();
+      this.rom = new Array(64).fill(null).map(() => ({ op: 0, imm: 0n, text: 'NOP' }));
+      this.ram = new BigUint64Array(this.ramSize);
+      this.outReg = 0n;
+
+      this.phase = 0; this.cycles = 0; this.halted = false;
+      this.lastWaves = 0; this.pendingWaves = false;
+      this.irAddr = 0;
+      this.maxSettleWaves = Math.max(200, this.bits * 4 + 32);
+
+      this.clkNet = 0; this.phaseNets = []; this.pcNets = []; this.pcIncNets = [];
+      this.irOpNets = []; this.irImmNets = []; this.busNets = [];
+      this.regANets = []; this.regBNets = [];
+      this.aluOutNets = []; this.aluCarryNets = [];
+      this.aluZeroNet = 0; this.flagZNet = 0; this.flagCNet = 0;
+      this.ctrlNets = {};
+
+      this.buildDie();
+    }
+
+    busY(b) {
+      const span = 88;
+      if (this.bits <= 1) return 371 + span * 0.5;
+      return 371 + b * (span / (this.bits - 1));
+    }
+
+    buildDie() {
+      const nl = this.netlist;
+      const B = this.bits;
+      const isCLA = this.config.adder === 'cla';
+      const aluBlk = BLOCKS.find(b => b.id === 'alu'); // x:406..1192 (w:786), y:498..982 (h:484)
+      const aluRows = B <= 12 ? 1 : (B <= 32 ? 2 : (B <= 48 ? 3 : 4));
+      const colsPerRow = Math.ceil(B / aluRows);
+      const aluX0 = aluBlk.x + 12; // 418
+      const aluW = aluBlk.w - 24;  // 762 (right edge 1180, strictly inside 1192!)
+      const sliceW = aluW / colsPerRow;
+
+      // --- A. B-Bit Metal-2 Common Data Bus ---
+      for (let b = 0; b < B; b++) {
+        const y = this.busY(b);
+        const col = b % colsPerRow;
+        const sx = aluX0 + col * sliceW + sliceW * 0.5;
+        this.busNets.push(nl.addNet(
+          `BUS_D${b}`, 'bus',
+          `Main ${B}-bit Data Bus bit ${b} (Metal 2).`,
+          [[76, y, 1584, y]], [[215, y], [sx, y], [1265, y]]
+        ));
+      }
+
+      // --- B. Clock & Phase Ring Counter ---
+      this.clkNet = nl.addNet(
+        'CLK', 'poly',
+        'Master Clock rail synchronizing latches across Fetch → Decode → Execute → Writeback.',
+        [[92, 120, 372, 120], [372, 120, 372, 142], [372, 142, 896, 142]],
+        [[372, 120], [896, 142]]
+      );
+      const phaseNames = ['T0_FETCH', 'T1_DECODE', 'T2_EXEC', 'T3_WRITE'];
+      const phaseDescs = [
+        'Phase T0 (Fetch): PC addresses ROM to fetch the next instruction.',
+        'Phase T1 (Decode): Control Matrix PLA lights up micro-op control wires.',
+        'Phase T2 (Execute): Signals propagate through the gate-level ALU onto the Bus.',
+        'Phase T3 (Writeback): Latches Data Bus into destination register/RAM and increments PC.'
+      ];
+      for (let p = 0; p < 4; p++) {
+        const y = 150 + p * 16;
+        this.phaseNets.push(nl.addNet(phaseNames[p], 'poly', phaseDescs[p], [[92, y, 920, y]], [[362, y]]));
+      }
+
+      // --- C. 6-Bit PC + Gate-Level Incrementer (BUG #10 FIXED: no dangling PC_C5!) ---
+      for (let i = 0; i < 6; i++) {
+        const x = 96 + i * 44;
+        this.pcNets.push(nl.addNet(`PC_${i}`, 'm1', `Program Counter bit ${i} (weight ${1 << i}).`,
+          [[x, 232, x, 212], [x, 212, 442, 132 + i * 16]], [[x, 212], [442, 132 + i * 16]]));
+      }
+      let pcCarry = null;
+      for (let i = 0; i < 6; i++) {
+        const gx = 88 + i * 44, gy = 264;
+        const incOut = nl.addNet(`PC_INC_${i}`, 'm1', `PC Incrementer output bit ${i}.`, [[gx + 14, gy + 18, gx + 14, gy + 30]]);
+        this.pcIncNets.push(incOut);
+        if (i === 0) {
+          nl.addGate('NOT', [this.pcNets[0]], incOut, gx, gy, 28, 17, 'NOT', 'pc', 'Inverts PC bit 0 (+1).');
+          pcCarry = this.pcNets[0];
+        } else {
+          nl.addGate('XOR', [this.pcNets[i], pcCarry], incOut, gx, gy, 28, 17, 'XOR', 'pc', `PC Half-Adder XOR bit ${i}.`);
+          if (i < 5) {
+            const nextC = nl.addNet(`PC_C${i}`, 'm1', `PC carry bit ${i} → ${i + 1}.`, [[gx + 28, gy + 28, gx + 44, gy + 28]]);
+            nl.addGate('AND', [this.pcNets[i], pcCarry], nextC, gx, gy + 21, 28, 15, 'AND', 'pc', `PC Half-Adder AND bit ${i}.`);
+            pcCarry = nextC;
+          }
+        }
+      }
+
+      // --- D. Instruction Register ---
+      for (let i = 0; i < 4; i++) {
+        const y = 115 + i * 24;
+        this.irOpNets.push(nl.addNet(`IR_OP_${i}`, 'poly', `Instruction Opcode bit ${i} → Control Matrix PLA.`,
+          [[790, y, 922 + i * 22, y], [922 + i * 22, y, 922 + i * 22, 304]], [[922 + i * 22, y]]));
+      }
+      const immCellStep = 348 / B;
+      const immCellW = Math.max(3, immCellStep - 2);
+      for (let i = 0; i < B; i++) {
+        const x = 492 + i * immCellStep + immCellW * 0.5;
+        const by = this.busY(i);
+        this.irImmNets.push(nl.addNet(`IR_IMM_${i}`, 'm1', `Instruction Operand bit ${i} → Bus bit ${i}.`, [[x, 296, x, by]], [[x, by]]));
+      }
+
+      // --- E. Control Matrix PLA Wires ---
+      const ctrlDefs = [
+        ['CTRL_BUS_IMM', 'Drives Instruction Immediate onto the Data Bus.'],
+        ['CTRL_BUS_RAM', 'Drives selected SRAM word onto the Data Bus.'],
+        ['CTRL_BUS_A',   'Drives Register A onto the Data Bus.'],
+        ['CTRL_BUS_ALU', 'Drives ALU result onto the Data Bus.'],
+        ['CTRL_A_IN',    'Latches Data Bus into Register A on clock edge.'],
+        ['CTRL_B_IN',    'Latches Data Bus into Register B on clock edge.'],
+        ['CTRL_RAM_WE',  'Write-enables SRAM at RAM[addr].'],
+        ['CTRL_OUT_IN',  'Latches Register A into the 7-Segment Output Display.'],
+        ['CTRL_ALU_SUB', '2\'s complement subtraction (XOR-inverts B + Cin=1).'],
+        ['CTRL_ALU_AND', 'Selects bitwise AND output from the ALU.'],
+        ['CTRL_ALU_XOR', 'Selects bitwise XOR output from the ALU.'],
+        ['CTRL_ALU_SHL', 'Selects Hardware Barrel Shifter (A << 1) in the ALU.'],
+        ['CTRL_JUMP',    'Loads PC from Instruction Operand instead of PC+1.']
+      ];
+      ctrlDefs.forEach(([name, desc], idx) => {
+        const y = 104 + idx * 15.5;
+        const segs = [[918, y, 1588, y]];
+        const vias = [[918, y]];
+        if (name === 'CTRL_ALU_SUB') { segs.push([1155, y, 1155, 518], [1155, 518, aluX0, 518]); vias.push([1155, y]); }
+        else if (name === 'CTRL_ALU_AND') { segs.push([1163, y, 1163, 525], [1163, 525, aluX0, 525]); vias.push([1163, y]); }
+        else if (name === 'CTRL_ALU_XOR') { segs.push([1171, y, 1171, 532], [1171, 532, aluX0, 532]); vias.push([1171, y]); }
+        else if (name === 'CTRL_ALU_SHL' && this.config.shifter) { segs.push([1179, y, 1179, 539], [1179, 539, aluX0, 539]); vias.push([1179, y]); }
+        this.ctrlNets[name] = nl.addNet(name, 'poly', desc, segs, vias);
+      });
+
+      // --- F. Register File (BUG #5 FIXED: wires route all the way into ALU!) ---
+      const regSpan = 162;
+      for (let b = 0; b < B; b++) {
+        const by = this.busY(b);
+        const yA = 544 + (b / Math.max(1, B - 1)) * regSpan;
+        const yB = 740 + (b / Math.max(1, B - 1)) * regSpan;
+        const bx = 84 + (b / Math.max(1, B - 1)) * 96;
+        this.regANets.push(nl.addNet(`REG_A_${b}`, 'm1', `Register A bit ${b} (2^${b}) → ALU Input A.`,
+          [[266, yA, 418, yA], [bx, yA, bx, by]], [[bx, by], [418, yA]]));
+        this.regBNets.push(nl.addNet(`REG_B_${b}`, 'm1', `Register B bit ${b} (2^${b}) → ALU Input B.`,
+          [[266, yB, 418, yB]], [[418, yB]]));
+      }
+
+      // --- G. ZERO-OVERLAP, ZERO-OVERFLOW GATE-LEVEL ALU (4/8/12/16/24/32-BIT!) ---
+      const subCtrl = this.ctrlNets['CTRL_ALU_SUB'];
+      const andCtrl = this.ctrlNets['CTRL_ALU_AND'];
+      const xorCtrl = this.ctrlNets['CTRL_ALU_XOR'];
+      const shlCtrl = this.ctrlNets['CTRL_ALU_SHL'];
+      const zeroConstNet = nl.addNet('GND_0', 'm1', 'Ground reference rail (0V) for Bit-0 Shifter.', []);
+
+      // Strictly partitioned vertical geometry inside ALU well for 1..64 bits (1..4 rows)!
+      const rowH = aluRows === 1 ? 340 : (aluRows === 2 ? 176 : (aluRows === 3 ? 116 : 86));
+      const topY0 = 554;
+      const colPad = 2;
+      const subColW = (sliceW - colPad * 3) / 2;
+      const gW = Math.max(8, Math.min(26, subColW));
+      const gH = aluRows === 1 ? 18 : (aluRows === 2 ? 12 : (aluRows === 3 ? 9 : 7));
+      const vStep = aluRows === 1 ? 30 : (aluRows === 2 ? 15 : (aluRows === 3 ? 11 : 8.5));
+
+      const sliceOrigin = (b) => {
+        const row = Math.floor(b / colsPerRow);
+        const col = b % colsPerRow;
+        const sx = aluX0 + col * sliceW;
+        const sy = topY0 + row * rowH;
+        const lx = sx + colPad;
+        const rx = sx + colPad * 2 + subColW;
+        return { row, col, sx, sy, lx, rx };
+      };
+
+      const gNets = [], pNets = [];
+
+      // Pass 1: B_eff, Propagate P, Generate G (all strictly non-overlapping!)
+      for (let b = 0; b < B; b++) {
+        const { sx, sy, lx, rx } = sliceOrigin(b);
+        const aNet = this.regANets[b], bNet = this.regBNets[b];
+
+        const bEff = nl.addNet(`ALU_BEFF_${b}`, 'm1', `ALU Bit ${b} B XOR SUB.`, [[rx + gW * 0.5, sy + gH, rx + gW * 0.5, sy + vStep]]);
+        nl.addGate('XOR', [bNet, subCtrl], bEff, rx, sy, gW, gH, 'X', 'alu', `Bit ${b} Subtractor Inverter XOR.`);
+
+        const sHalf = nl.addNet(`ALU_P_${b}`, 'm1', `ALU Bit ${b} Propagate / Half-Sum (A ⊕ B_eff).`, [[lx + gW * 0.5, sy + vStep + gH, lx + gW * 0.5, sy + vStep * 2]]);
+        nl.addGate('XOR', [aNet, bEff], sHalf, lx, sy + vStep, gW, gH, 'X', 'alu', `Bit ${b} Half-Sum XOR.`);
+        pNets.push(sHalf);
+
+        const gAnd = nl.addNet(`ALU_G_${b}`, 'm1', `ALU Bit ${b} Carry-Generate (A & B_eff).`, [[rx + gW * 0.5, sy + vStep + gH, rx + gW * 0.5, sy + vStep * 3]]);
+        nl.addGate('AND', [aNet, bEff], gAnd, rx, sy + vStep, gW, gH, '&', 'alu', `Bit ${b} Carry-Generate AND.`);
+        gNets.push(gAnd);
+      }
+
+      // Pass 2: Carry Network — ZERO OVERLAPS for BOTH Ripple-Carry AND CLA!
+      if (!isCLA) {
+        for (let b = 0; b < B; b++) {
+          const { row, sy, lx, rx } = sliceOrigin(b);
+          const cIn = (b === 0) ? subCtrl : this.aluCarryNets[b - 1];
+
+          const pAnd = nl.addNet(`ALU_PROP_${b}`, 'm1', `Bit ${b} Carry-Propagate (P & Cin).`, [[rx + gW * 0.5, sy + vStep * 2 + gH, rx + gW * 0.5, sy + vStep * 3]]);
+          nl.addGate('AND', [pNets[b], cIn], pAnd, rx, sy + vStep * 2, gW, gH, '&', 'alu', `Bit ${b} Carry-Propagate AND.`);
+
+          let carrySegs = [];
+          const cy = sy + vStep * 3 + gH * 0.5;
+          if (b < B - 1) {
+            const nxt = sliceOrigin(b + 1);
+            if (nxt.row === row) carrySegs = [[rx + gW, cy, nxt.lx, cy]];
+            else carrySegs = [[rx + gW * 0.5, cy, rx + gW * 0.5, sy + rowH - 8], [rx + gW * 0.5, sy + rowH - 8, aluX0 + 4, sy + rowH - 8], [aluX0 + 4, sy + rowH - 8, aluX0 + 4, nxt.sy + vStep * 2]];
+          } else {
+            carrySegs = [[rx + gW * 0.5, cy, rx + gW * 0.5, 926], [rx + gW * 0.5, 926, 315, 926]];
+          }
+          const cOut = nl.addNet(`ALU_CARRY_${b}`, 'm1',
+            `Ripple Carry-Out C${b}${b < B - 1 ? ` → Bit ${b + 1}` : ' → Carry Flag (C)'}.`,
+            carrySegs, [[rx + gW * 0.5, cy]]);
+          nl.addGate('OR', [gNets[b], pAnd], cOut, rx, sy + vStep * 3, gW, gH, 'C', 'alu', `Bit ${b} Ripple Carry-Out OR.`);
+          this.aluCarryNets.push(cOut);
+        }
+      } else {
+        // BUG #1 & #2 FIXED: Dedicated Non-Overlapping CLA Lookahead Strip inside each row!
+        // Every CLA gate gets its own unique non-overlapping cell inside [aluX0 .. aluX0 + aluW]!
+        let base = 0;
+        let groupCin = subCtrl;
+        while (base < B) {
+          const colsLeftOnRow = colsPerRow - (base % colsPerRow);
+          const groupBits = Math.min(4, B - base, colsLeftOnRow);
+          const { row, sx: gx0, sy: gy0 } = sliceOrigin(base);
+          const grpW = groupBits * sliceW;
+          const stripY = gy0 + vStep * 6 + (aluRows >= 3 ? 2 : 6);
+          const stripH = aluRows === 1 ? 112 : (aluRows === 2 ? 52 : (aluRows === 3 ? 32 : 22));
+
+          // Collect all CLA gates for this 4-bit group and lay them out in a clean 3-row non-overlapping grid!
+          const claGatesInGroup = [];
+          for (let k = 0; k < groupBits; k++) {
+            const b = base + k;
+            let accOr = gNets[b], pChain = pNets[b];
+            for (let j = b - 1; j >= base; j--) {
+              const term = nl.addNet(`CLA_T_${b}_${j}`, 'cla', `CLA Lookahead product P${b}..G${j}`, []);
+              claGatesInGroup.push({ type: 'AND', ins: [pChain, gNets[j]], out: term, lbl: 'CLA', desc: `CLA parallel AND term for C${b}.` });
+              const nextOr = nl.addNet(`CLA_O_${b}_${j}`, 'cla', `CLA Lookahead OR merge for C${b}`, []);
+              claGatesInGroup.push({ type: 'OR', ins: [accOr, term], out: nextOr, lbl: 'CLA', desc: `CLA parallel OR merge for C${b}.` });
+              accOr = nextOr;
+              const nextP = nl.addNet(`CLA_P_${b}_${j}`, 'cla', `CLA Group Propagate`, []);
+              claGatesInGroup.push({ type: 'AND', ins: [pChain, pNets[j]], out: nextP, lbl: 'CLA', desc: `CLA Group Propagate AND.` });
+              pChain = nextP;
+            }
+            const cinTerm = nl.addNet(`CLA_CIN_${b}`, 'cla', `CLA Group Cin term for C${b}`, []);
+            claGatesInGroup.push({ type: 'AND', ins: [pChain, groupCin], out: cinTerm, lbl: 'CLA', desc: `CLA parallel Cin term for C${b}.` });
+
+            const { rx } = sliceOrigin(b);
+            let carrySegs = [];
+            if (b < B - 1) {
+              const nxt = sliceOrigin(b + 1);
+              if (nxt.row === row) carrySegs = [[rx + gW * 0.5, stripY + 2, nxt.lx + gW * 0.5, stripY + 2]];
+              else carrySegs = [[rx + gW * 0.5, stripY + stripH - 4, aluX0 + 4, stripY + stripH - 4], [aluX0 + 4, stripY + stripH - 4, aluX0 + 4, nxt.sy + vStep * 2]];
+            } else {
+              carrySegs = [[rx + gW * 0.5, stripY + stripH - 4, rx + gW * 0.5, 926], [rx + gW * 0.5, 926, 315, 926]];
+            }
+            const cOut = nl.addNet(`ALU_CARRY_${b}`, 'cla', `Carry-Lookahead C${b} (parallel).`, carrySegs, [[rx + gW * 0.5, stripY + 2]]);
+            claGatesInGroup.push({ type: 'OR', ins: [accOr, cinTerm], out: cOut, lbl: 'C' + b, desc: `Carry-Lookahead Final C${b} OR.` });
+            this.aluCarryNets.push(cOut);
+          }
+
+          // Place all claGatesInGroup into a clean 3-row non-overlapping grid strictly within [gx0+2 .. gx0+grpW-2]!
+          const subRows = 3;
+          const perSubRow = Math.ceil(claGatesInGroup.length / subRows);
+          const pad = 2;
+          const cw = Math.min(64, (grpW - pad * (perSubRow + 1)) / perSubRow);
+          const ch = (stripH - pad * (subRows + 1)) / subRows;
+          claGatesInGroup.forEach((cg, idx) => {
+            const sr = Math.floor(idx / perSubRow);
+            const sc = idx % perSubRow;
+            const gx = gx0 + pad + sc * (cw + pad);
+            const gy = stripY + pad + sr * (ch + pad);
+            nl.addGate(cg.type, cg.ins, cg.out, gx, gy, Math.max(3, cw), Math.max(3.5, ch), cg.lbl, 'alu', cg.desc);
+          });
+          groupCin = this.aluCarryNets[base + groupBits - 1];
+          base += groupBits;
+        }
+      }
+
+      // Pass 3: Sum XOR, Bitwise AND, Mux1, Mux2, Optional Hardware Shifter (strictly non-overlapping!)
+      for (let b = 0; b < B; b++) {
+        const { sy, lx, rx } = sliceOrigin(b);
+        const aNet = this.regANets[b], bNet = this.regBNets[b];
+        const cIn = (b === 0) ? subCtrl : this.aluCarryNets[b - 1];
+
+        const sumNet = nl.addNet(`ALU_SUM_${b}`, 'm1', `ALU Bit ${b} Sum (P ⊕ Cin).`, [[lx + gW * 0.5, sy + vStep * 2 + gH, lx + gW * 0.5, sy + vStep * 4]]);
+        nl.addGate('XOR', [pNets[b], cIn], sumNet, lx, sy + vStep * 2, gW, gH, 'S', 'alu', `Bit ${b} Full-Adder Sum XOR.`);
+
+        const bitAnd = nl.addNet(`ALU_AND_${b}`, 'm1', `ALU Bit ${b} bitwise AND.`, []);
+        nl.addGate('AND', [aNet, bNet], bitAnd, lx, sy + vStep * 3, gW, gH, '&', 'alu', `Bit ${b} Bitwise AND.`);
+
+        const mux1 = nl.addNet(`ALU_M1_${b}`, 'm1', `Bit ${b} Sum/AND Mux.`, []);
+        nl.addGate('MUX2', [sumNet, bitAnd, andCtrl], mux1, lx, sy + vStep * 4, gW, gH, 'M', 'alu', `Bit ${b} Mux 1 (Sum vs AND).`);
+
+        const mux2Out = nl.addNet(`ALU_M2_${b}`, 'm1', `Bit ${b} XOR Mux.`, []);
+        nl.addGate('MUX2', [mux1, pNets[b], xorCtrl], mux2Out, rx, sy + vStep * 4, gW, gH, 'M', 'alu', `Bit ${b} Mux 2 (Arith vs XOR).`);
+
+        const by = this.busY(b);
+        let finalOut = mux2Out;
+        if (this.config.shifter) {
+          const shiftIn = b === 0 ? zeroConstNet : this.regANets[b - 1];
+          finalOut = nl.addNet(`ALU_OUT_${b}`, 'm1', `ALU Output bit ${b} (with Shifter) → Bus bit ${b}.`,
+            [[rx + gW * 0.5, sy + vStep * 5, rx + gW * 0.5, by]], [[rx + gW * 0.5, by]]);
+          nl.addGate('MUX2', [mux2Out, shiftIn, shlCtrl], finalOut, rx, sy + vStep * 5, gW, gH, '<<', 'alu', `Bit ${b} Hardware Shifter MUX.`);
+        } else {
+          nl.nets[mux2Out].name = `ALU_OUT_${b}`;
+          nl.nets[mux2Out].segments.push([rx + gW * 0.5, sy + vStep * 4, rx + gW * 0.5, by]);
+          nl.nets[mux2Out].vias.push([rx + gW * 0.5, by]);
+        }
+        this.aluOutNets.push(finalOut);
+      }
+
+      // --- H. BUG #3 FIXED: Zero-Overlap Zero-Flag NOR Tree strictly inside y: 932..976! ---
+      let level = [...this.aluOutNets];
+      const zTreeGates = [];
+      let lv = 0;
+      while (level.length > 2) {
+        const nextLevel = [];
+        for (let i = 0; i < level.length; i += 2) {
+          if (i + 1 < level.length) {
+            const outId = nl.addNet(`Z_OR_${lv}_${i}`, 'm1', `Zero-flag OR tree level ${lv}`, []);
+            zTreeGates.push({ type: 'OR', ins: [level[i], level[i + 1]], out: outId, lbl: 'OR', desc: 'Zero-flag OR tree gate.' });
+            nextLevel.push(outId);
+          } else nextLevel.push(level[i]);
+        }
+        level = nextLevel; lv++;
+      }
+      this.aluZeroNet = nl.addNet('ALU_ZERO_FLAG', 'm1',
+        `Zero Flag from ${B}-input ${B === 1 ? 'NOT' : 'NOR tree'} (1 only when all ${B} bits are 0).`,
+        [[aluX0 + aluW - 36, 964, 315, 964]], [[315, 964]]);
+      if (B === 1) {
+        zTreeGates.push({ type: 'NOT', ins: [level[0]], out: this.aluZeroNet, lbl: 'NOT', desc: '1-bit Zero-Flag NOT.' });
+      } else {
+        zTreeGates.push({ type: 'NOR', ins: [level[0], level[1]], out: this.aluZeroNet, lbl: 'NOR', desc: `Final ${B}-bit Zero-Flag NOR.` });
+      }
+
+      const zRows = zTreeGates.length > 32 ? 3 : (zTreeGates.length > 16 ? 2 : 1);
+      const zPerRow = Math.ceil(zTreeGates.length / zRows);
+      const zPad = zRows === 3 ? 2 : 3;
+      const zw = Math.min(34, (aluW - zPad * (zPerRow + 1)) / zPerRow);
+      const zh = zRows === 3 ? 11 : (zRows === 2 ? 15 : 19);
+      zTreeGates.forEach((zg, idx) => {
+        const zr = Math.floor(idx / zPerRow), zc = idx % zPerRow;
+        const gx = aluX0 + zPad + zc * (zw + zPad);
+        const gy = 934 + zr * (zh + (zRows === 3 ? 2 : 3));
+        nl.addGate(zg.type, zg.ins, zg.out, gx, gy, zw, zh, zg.lbl, 'alu', zg.desc);
+      });
+
+      this.flagZNet = nl.addNet('FLAG_Z', 'm1', 'Latched Zero Flag (JZ).', [[240, 964, 315, 964]]);
+      this.flagCNet = nl.addNet('FLAG_C', 'm1', 'Latched Carry Flag (JC).', [[240, 926, 315, 926]]);
+    }
+
+    readBits(arr) {
+      let v = 0n;
+      for (let i = 0; i < arr.length; i++) if (this.netlist.nets[arr[i]].val) v |= (1n << BigInt(i));
+      return v;
+    }
+    readInt(arr) { return Number(this.readBits(arr)); }
+    writeBits(arr, val) {
+      const u = BigInt(val);
+      for (let i = 0; i < arr.length; i++) this.netlist.setNet(arr[i], Number((u >> BigInt(i)) & 1n));
+    }
+    loadProgram(romArray) {
+      for (let i = 0; i < 64; i++) this.rom[i] = romArray[i] || { op: 0, imm: 0n, text: 'NOP' };
+      this.reset();
+    }
+    reset() {
+      this.ram.fill(0n); this.outReg = 0n; this.phase = 0; this.cycles = 0;
+      this.halted = false; this.pendingWaves = false; this.lastWaves = 0; this.irAddr = 0;
+      const nl = this.netlist;
+      for (const n of nl.nets) { n.val = n.fault !== null ? n.fault : 0; n.nextVal = n.val; n.pulse = 0; n.heat = 0; n.toggles = 0; }
+      for (const g of nl.gates) { g.pulse = 0; g.heat = 0; }
+      nl.totalFlips = 0; nl.totalGateEvals = 0;
+      this.applyPhase(0, false); nl.settle(this.maxSettleWaves);
+    }
+    clearControls() { for (const k in this.ctrlNets) this.netlist.setNet(this.ctrlNets[k], 0); }
+
+    applyPhase(phase, rippleMode) {
+      const nl = this.netlist;
+      this.phase = phase;
+      for (let p = 0; p < 4; p++) nl.setNet(this.phaseNets[p], p === phase ? 1 : 0);
+      nl.setNet(this.clkNet, (phase % 2 === 0) ? 1 : 0);
+
+      const pc = this.readInt(this.pcNets);
+      const slot = this.rom[pc & 63] || { op: 0, imm: 0n, text: 'NOP' };
+
+      if (phase === 0) {
+        this.clearControls();
+        this.writeBits(this.irOpNets, slot.op);
+        this.irAddr = Number(BigInt(slot.imm) & 63n);
+        const masked = BigInt(slot.imm) & this.mask;
+        this.writeBits(this.irImmNets, masked);
+        this.writeBits(this.busNets, masked);
+      } else if (phase === 1) {
+        this.clearControls();
+        const op = this.readInt(this.irOpNets);
+        const zFlag = nl.nets[this.flagZNet].val, cFlag = nl.nets[this.flagCNet].val;
+        const setC = (k) => nl.setNet(this.ctrlNets[k], 1);
+        switch (op) {
+          case OPCODES.LDI:  setC('CTRL_BUS_IMM'); setC('CTRL_A_IN'); break;
+          case OPCODES.LDA:  setC('CTRL_BUS_RAM'); setC('CTRL_A_IN'); break;
+          case OPCODES.STA:  setC('CTRL_BUS_A');   setC('CTRL_RAM_WE'); break;
+          case OPCODES.MOVB: setC('CTRL_BUS_A');   setC('CTRL_B_IN'); break;
+          case OPCODES.ADD:  setC('CTRL_BUS_ALU'); setC('CTRL_A_IN'); break;
+          case OPCODES.SUB:  setC('CTRL_ALU_SUB'); setC('CTRL_BUS_ALU'); setC('CTRL_A_IN'); break;
+          case OPCODES.ADDI: setC('CTRL_BUS_ALU'); setC('CTRL_A_IN'); break;
+          case OPCODES.AND:  setC('CTRL_ALU_AND'); setC('CTRL_BUS_ALU'); setC('CTRL_A_IN'); break;
+          case OPCODES.XOR:  setC('CTRL_ALU_XOR'); setC('CTRL_BUS_ALU'); setC('CTRL_A_IN'); break;
+          case OPCODES.SHL:  if (this.config.shifter) { setC('CTRL_ALU_SHL'); setC('CTRL_BUS_ALU'); setC('CTRL_A_IN'); } break;
+          case OPCODES.JMP:  setC('CTRL_JUMP'); break;
+          case OPCODES.JZ:   if (zFlag) setC('CTRL_JUMP'); break;
+          case OPCODES.JC:   if (cFlag) setC('CTRL_JUMP'); break;
+          case OPCODES.OUT:  setC('CTRL_BUS_A'); setC('CTRL_OUT_IN'); break;
+          case OPCODES.HLT:  this.halted = true; break;
+        }
+      } else if (phase === 2) {
+        if (this.readInt(this.irOpNets) === OPCODES.ADDI) {
+          this.writeBits(this.regBNets, this.readBits(this.irImmNets));
+        }
+        if (rippleMode) { this.pendingWaves = true; this.lastWaves = 0; }
+        else { this.lastWaves = nl.settle(this.maxSettleWaves); this.driveBusFromActiveSource(); }
+      } else if (phase === 3) {
+        nl.settle(this.maxSettleWaves);
+        this.driveBusFromActiveSource();
+        const busVal = this.readBits(this.busNets);
+        const op = this.readInt(this.irOpNets);
+        const ramIdx = this.irAddr & (this.ramSize - 1);
+        const msbBeforeShift = nl.nets[this.regANets[this.bits - 1]].val;
+
+        if (nl.nets[this.ctrlNets['CTRL_A_IN']].val) this.writeBits(this.regANets, busVal);
+        if (nl.nets[this.ctrlNets['CTRL_B_IN']].val) this.writeBits(this.regBNets, busVal);
+        if (nl.nets[this.ctrlNets['CTRL_RAM_WE']].val) this.ram[ramIdx] = busVal;
+        if (nl.nets[this.ctrlNets['CTRL_OUT_IN']].val) this.outReg = busVal;
+
+        const isArith = op === OPCODES.ADD || op === OPCODES.SUB || op === OPCODES.ADDI;
+        const isLogic = op === OPCODES.AND || op === OPCODES.XOR;
+        const isShift = op === OPCODES.SHL && this.config.shifter;
+        if (isArith || isLogic || isShift) {
+          nl.setNet(this.flagZNet, nl.nets[this.aluZeroNet].val);
+          const carryVal = isShift ? msbBeforeShift : (isLogic ? 0 : nl.nets[this.aluCarryNets[this.bits - 1]].val);
+          nl.setNet(this.flagCNet, carryVal);
+        }
+
+        if (nl.nets[this.ctrlNets['CTRL_JUMP']].val) this.writeBits(this.pcNets, this.irAddr & 63);
+        else if (!this.halted) this.writeBits(this.pcNets, this.readInt(this.pcIncNets));
+        this.cycles++;
+      }
+    }
+
+    driveBusFromActiveSource() {
+      const nl = this.netlist, imm = this.readBits(this.irImmNets), ramIdx = this.irAddr & (this.ramSize - 1);
+      if (nl.nets[this.ctrlNets['CTRL_BUS_IMM']].val) this.writeBits(this.busNets, imm);
+      else if (nl.nets[this.ctrlNets['CTRL_BUS_RAM']].val) this.writeBits(this.busNets, this.ram[ramIdx]);
+      else if (nl.nets[this.ctrlNets['CTRL_BUS_A']].val) this.writeBits(this.busNets, this.readBits(this.regANets));
+      else if (nl.nets[this.ctrlNets['CTRL_BUS_ALU']].val) this.writeBits(this.busNets, this.readBits(this.aluOutNets));
+    }
+
+    stepWave(rippleMode) {
+      if (this.halted) return;
+      if (this.phase === 2 && this.pendingWaves) {
+        const ch = this.netlist.stepWave();
+        this.lastWaves++;
+        this.driveBusFromActiveSource();
+        if (ch === 0 || this.lastWaves >= this.maxSettleWaves) this.pendingWaves = false;
+        return;
+      }
+      this.stepPhase(rippleMode);
+    }
+
+    stepPhase(rippleMode) {
+      if (this.halted) return;
+      if (this.phase === 2 && this.pendingWaves) {
+        this.lastWaves += this.netlist.settle(this.maxSettleWaves);
+        this.driveBusFromActiveSource();
+        this.pendingWaves = false;
+      }
+      this.applyPhase((this.phase + 1) % 4, rippleMode);
+    }
+
+    stepInstruction() {
+      if (this.halted) return;
+      let guard = 0;
+      do { this.stepPhase(false); guard++; } while (this.phase !== 0 && !this.halted && guard < 8);
+    }
+  }
+
+  // =========================================================================
+  // 5. GPU FRACTAL & SHADER CO-PROCESSOR ENGINE (16 / 32 SMs!)
+  // =========================================================================
+  const CUBE_VERTS_RAW = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+  const CUBE_EDGES = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+
+  class FractalGPU {
+    constructor(smCount = 32) {
+      this.smCount = smCount === 16 ? 16 : 32;
+      this.shader = 'mandelbrot';
+      this.sms = [];
+      this.fb = new Uint8ClampedArray(64 * 64 * 4);
+      this.scanRow = 0; this.frameCount = 0; this.totalFlops = 0; this.memPulse = 0;
+      this.fbDirty = true;
+      this._gpuCtx = null;
+      this._gpuImg = null;
+      this._cubeProj = new Float32Array(16);
+      this._pxOut = [0, 0, 0, 0];
+      this.buildSMs(this.smCount);
+    }
+    buildSMs(count) {
+      const safeCount = count === 16 ? 16 : 32;
+      this.smCount = safeCount;
+      this.sms = [];
+      const cols = safeCount === 16 ? 4 : 8;
+      const rows = safeCount / cols;
+      const startX = 195, startY = 125, areaW = 1270, areaH = 825;
+      const gapX = 16, gapY = 16, spineW = 120;
+      const halfCols = cols / 2, halfW = (areaW - spineW) / 2;
+      const smW = (halfW - gapX * (halfCols - 1)) / halfCols;
+      const smH = (areaH - gapY * (rows - 1)) / rows;
+      let id = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const isR = c >= halfCols, lc = isR ? c - halfCols : c;
+          const x = isR ? (startX + halfW + spineW + lc * (smW + gapX)) : (startX + lc * (smW + gapX));
+          const y = startY + r * (smH + gapY);
+          this.sms.push({ id: id++, x, y, w: smW, h: smH, load: 0, heat: 0, warp: 0, rgb: [56, 189, 248], lanes: new Float32Array(8) });
+        }
+      }
+    }
+    reset() {
+      this.fb.fill(0);
+      for (let i = 3; i < this.fb.length; i += 4) this.fb[i] = 255;
+      this.scanRow = 0; this.frameCount = 0; this.totalFlops = 0; this.memPulse = 0;
+      for (const sm of this.sms) {
+        sm.load = 0; sm.heat = 0; sm.warp = 0;
+        sm.rgb[0] = 56; sm.rgb[1] = 189; sm.rgb[2] = 248;
+        sm.lanes.fill(0);
+      }
+      this.fbDirty = true;
+      this.flushFramebuffer();
+    }
+    prepareCubeVerts(t) {
+      const a = t * 1.2, b = t * 0.85;
+      const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+      for (let i = 0; i < 8; i++) {
+        const x = CUBE_VERTS_RAW[i][0], y = CUBE_VERTS_RAW[i][1], z = CUBE_VERTS_RAW[i][2];
+        const x1 = x * ca - z * sa, z1 = x * sa + z * ca;
+        const y2 = y * cb - z1 * sb, z2 = y * sb + z1 * cb + 3.2;
+        const invZ = 1.6 / (Math.abs(z2) < 1e-4 ? 1e-4 : z2);
+        this._cubeProj[i * 2] = x1 * invZ;
+        this._cubeProj[i * 2 + 1] = y2 * invZ;
+      }
+    }
+    evalPixel(px, py, t) {
+      const safeT = Number.isFinite(t) ? t : 0;
+      const u = (px / 64) * 2 - 1, v = (py / 64) * 2 - 1;
+      const out = this._pxOut;
+      if (this.shader === 'mandelbrot') {
+        const tri = 4 - Math.abs(((safeT % 8) + 8) % 8 - 4);
+        const zoom = 1.2 + Math.pow(1.55, tri * 1.8);
+        const cx = -0.7436 + u / zoom, cy = 0.1318 + v / zoom;
+        let zx = 0, zy = 0, it = 0;
+        while (zx * zx + zy * zy < 4 && it < 28) { const nx = zx * zx - zy * zy + cx; zy = 2 * zx * zy + cy; zx = nx; it++; }
+        const f = it / 28;
+        out[0] = Math.floor(Math.sin(f * 5 + 0.5) * 127 + 128);
+        out[1] = Math.floor(Math.sin(f * 5 + 2.2) * 127 + 128);
+        out[2] = Math.floor(Math.sin(f * 5 + 4.1) * 127 + 128);
+        out[3] = f;
+        return out;
+      } else if (this.shader === 'julia') {
+        const cx = Math.cos(safeT * 0.7) * 0.7885, cy = Math.sin(safeT * 0.7) * 0.7885;
+        let zx = u * 1.35, zy = v * 1.35, it = 0;
+        while (zx * zx + zy * zy < 4 && it < 26) { const nx = zx * zx - zy * zy + cx; zy = 2 * zx * zy + cy; zx = nx; it++; }
+        const f = it / 26;
+        out[0] = Math.floor(f * 245);
+        out[1] = Math.floor(Math.pow(f, 0.6) * 180);
+        out[2] = Math.floor((1 - f * 0.5) * 255);
+        out[3] = f;
+        return out;
+      } else if (this.shader === 'raymarch') {
+        const d2 = u * u + v * v;
+        if (d2 < 0.56) {
+          const z = Math.sqrt(Math.max(0, 0.56 - d2));
+          const diff = Math.max(0.08, u * Math.cos(safeT * 1.3) + v * Math.sin(safeT * 1.3) + z * 0.7);
+          const spec = Math.pow(Math.min(1.2, diff), 10);
+          out[0] = Math.min(255, Math.floor(35 + diff * 120 + spec * 255));
+          out[1] = Math.min(255, Math.floor(150 * diff + spec * 220));
+          out[2] = Math.min(255, Math.floor(235 * diff + spec * 255));
+          out[3] = Math.min(1, 0.4 + diff * 0.6);
+          return out;
+        }
+        const ring = Math.sin(Math.sqrt(d2) * 18 - safeT * 4) * 0.5 + 0.5;
+        out[0] = Math.floor(15 + ring * 45);
+        out[1] = Math.floor(25 + ring * 65);
+        out[2] = Math.floor(55 + ring * 100);
+        out[3] = ring * 0.45;
+        return out;
+      } else if (this.shader === 'plasma') {
+        const val = Math.sin(u * 4 + safeT * 2) + Math.sin(v * 4 - safeT * 1.5) + Math.sin((u + v) * 3 + safeT);
+        out[0] = Math.floor((Math.sin(val * 1.3) * 0.5 + 0.5) * 255);
+        out[1] = Math.floor((Math.sin(val * 1.3 + 2.1) * 0.5 + 0.5) * 255);
+        out[2] = Math.floor((Math.sin(val * 1.3 + 4.2) * 0.5 + 0.5) * 255);
+        out[3] = Math.max(0, Math.min(1, (val + 3) / 6));
+        return out;
+      } else {
+        const vp = this._cubeProj;
+        let minD = 9;
+        for (let e = 0; e < 12; e++) {
+          const i = CUBE_EDGES[e][0] * 2, j = CUBE_EDGES[e][1] * 2;
+          const x1 = vp[i], y1 = vp[i + 1], x2 = vp[j], y2 = vp[j + 1];
+          const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+          const k = l2 > 1e-8 ? Math.max(0, Math.min(1, ((u - x1) * dx + (v - y1) * dy) / l2)) : 0;
+          const pxD = u - (x1 + k * dx), pyD = v - (y1 + k * dy);
+          const d = Math.sqrt(pxD * pxD + pyD * pyD);
+          if (d < minD) minD = d;
+        }
+        const g = Math.max(0, 1 - minD * 14);
+        out[0] = Math.floor(g * 120);
+        out[1] = Math.floor(g * 245);
+        out[2] = Math.floor(30 + g * 225);
+        out[3] = g;
+        return out;
+      }
+    }
+    stepCycle() {
+      const t = this.frameCount * 0.16 + this.scanRow * 0.002;
+      if (this.shader === 'cube') this.prepareCubeVerts(t);
+      const smLen = this.sms.length || 1;
+      for (let rr = 0; rr < 4; rr++) {
+        const y = (this.scanRow + rr) & 63;
+        for (let x = 0; x < 64; x++) {
+          const res = this.evalPixel(x, y, t);
+          const r = res[0], g = res[1], b = res[2], load = res[3];
+          const idx = (y * 64 + x) * 4;
+          this.fb[idx] = r; this.fb[idx + 1] = g; this.fb[idx + 2] = b; this.fb[idx + 3] = 255;
+          const sm = this.sms[((y >> 2) * 8 + (x >> 3)) % smLen];
+          if (sm) {
+            sm.load = Math.min(1, 0.32 + load * 0.75);
+            sm.heat = Math.min(1, sm.heat + load * 0.06);
+            sm.rgb[0] = r; sm.rgb[1] = g; sm.rgb[2] = b;
+            sm.warp = (this.frameCount + y) & 31; sm.lanes[x & 7] = load;
+          }
+          this.totalFlops += 28;
+        }
+      }
+      this.scanRow = (this.scanRow + 4) & 63;
+      if (this.scanRow === 0) this.frameCount++;
+      this.memPulse = 1.0;
+      this.fbDirty = true;
+    }
+    flushFramebuffer() {
+      if (!this.fbDirty) return;
+      if (!this._gpuCtx) {
+        const gEl = document.getElementById('gpuScreen');
+        if (!gEl || !gEl.getContext) return;
+        this._gpuCtx = gEl.getContext('2d');
+        this._gpuImg = this._gpuCtx.createImageData(64, 64);
+      }
+      this._gpuImg.data.set(this.fb);
+      this._gpuCtx.putImageData(this._gpuImg, 0, 0);
+      this.fbDirty = false;
+    }
+    decay(dt) {
+      if (!Number.isFinite(dt) || dt <= 0) return;
+      this.memPulse = Math.max(0, this.memPulse - dt * 2.8);
+      for (const sm of this.sms) { sm.load = Math.max(0.08, sm.load - dt * 1.4); sm.heat = Math.max(0, sm.heat - dt * 0.2); }
+    }
+  }
+
+  // =========================================================================
+  // 6. 5-CHANNEL OSCILLOSCOPE, RENDERER & INTERACTION
+  // =========================================================================
+  const SCOPE_LEN = 120;
+  const scopeBuf = Array.from({ length: 5 }, () => new Uint8Array(SCOPE_LEN));
+  const scopeColors = ['#38bdf8', '#f59e0b', '#34d399', '#e879f9', '#fb7185'];
+  const scopeCanvas = document.getElementById('scopeCanvas');
+  const scopeCtx = scopeCanvas ? scopeCanvas.getContext('2d') : null;
+  function clearScope() {
+    for (let i = 0; i < 5; i++) scopeBuf[i].fill(0);
+  }
+  function pushScope(c0, c1, c2, c3, c4) {
+    const vs = [c0, c1, c2, c3, c4];
+    for (let i = 0; i < 5; i++) { scopeBuf[i].copyWithin(0, 1); scopeBuf[i][SCOPE_LEN - 1] = vs[i] ? 1 : 0; }
+  }
+  function drawScope() {
+    if (!scopeCanvas || !scopeCtx) return;
+    const sc = scopeCanvas, sctx = scopeCtx;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = sc.clientWidth, h = sc.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    const tw = Math.max(1, Math.round(w * dpr)), th = Math.max(1, Math.round(h * dpr));
+    if (sc.width !== tw || sc.height !== th) {
+      sc.width = tw; sc.height = th;
+    }
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sctx.clearRect(0, 0, w, h);
+    sctx.strokeStyle = 'rgba(56,189,248,0.06)'; sctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 36) { sctx.beginPath(); sctx.moveTo(x, 0); sctx.lineTo(x, h); sctx.stroke(); }
+    const rowH = h / 5, dx = w / (SCOPE_LEN - 1);
+    for (let ch = 0; ch < 5; ch++) {
+      const yLo = ch * rowH + rowH * 0.78, yHi = ch * rowH + rowH * 0.22;
+      sctx.strokeStyle = scopeColors[ch]; sctx.lineWidth = 1.5;
+      sctx.beginPath();
+      for (let i = 0; i < SCOPE_LEN; i++) {
+        const x = i * dx, y = scopeBuf[ch][i] ? yHi : yLo;
+        if (i === 0) sctx.moveTo(x, y);
+        else { const py = scopeBuf[ch][i - 1] ? yHi : yLo; if (py !== y) sctx.lineTo(x, py); sctx.lineTo(x, y); }
+      }
+      sctx.stroke();
+    }
+  }
+
+  const chipConfig = { name: 'SILICONLAB-8X', bits: 8, adder: 'ripple', node: '180nm', theme: 'silicon', shifter: true, bigRam: false, display: true };
+  let pendingConfig = Object.assign({}, chipConfig);
+  let cpu = new SiliconCPU(chipConfig);
+  const gpu = new FractalGPU(32);
+
+  const canvas = document.getElementById('dieCanvas');
+  const ctx = canvas.getContext('2d');
+  const miniCtx = document.getElementById('miniPixelCanvas').getContext('2d');
+  const cmosCanvas = document.getElementById('cmosCanvas');
+  const cmosCtx = cmosCanvas.getContext('2d');
+
+  const cam = { x: DIE_W / 2, y: DIE_H / 2, zoom: 0.66, tx: DIE_W / 2, ty: DIE_H / 2, tzoom: 0.66 };
+  const layers = { m2: true, m1: true, poly: true, bloom: true, photons: true, heat: false };
+  let activeMode = 'cpu', running = false, rippleMode = true, speedHz = 6, accumTime = 0, globalTime = 0;
+  let activeTool = 'probe', hoveredNet = null, hoveredGate = null, selectedGate = null, fabSweep = 0;
+
+  function clampCam() {
+    if (!Number.isFinite(cam.zoom) || cam.zoom < 0.15) cam.zoom = 0.66;
+    if (!Number.isFinite(cam.tzoom) || cam.tzoom < 0.15) cam.tzoom = 0.66;
+    cam.zoom = Math.max(0.15, Math.min(5.0, cam.zoom));
+    cam.tzoom = Math.max(0.15, Math.min(5.0, cam.tzoom));
+    if (!Number.isFinite(cam.x)) cam.x = DIE_W / 2;
+    if (!Number.isFinite(cam.y)) cam.y = DIE_H / 2;
+    if (!Number.isFinite(cam.tx)) cam.tx = cam.x;
+    if (!Number.isFinite(cam.ty)) cam.ty = cam.y;
+  }
+
+  function setCameraPreset(preset) {
+    const vw = Math.max(120, canvas.clientWidth || 1000), vh = Math.max(120, canvas.clientHeight || 640);
+    if (preset === 'full') { cam.tx = DIE_W / 2; cam.ty = DIE_H / 2; cam.tzoom = Math.min(vw / (DIE_W + 60), vh / (DIE_H + 60)); }
+    else if (preset === 'alu') { cam.tx = 799; cam.ty = 740; cam.tzoom = Math.min(vw / 820, vh / 520); }
+    else if (preset === 'pla') { cam.tx = 1250; cam.ty = 195; cam.tzoom = Math.min(vw / 750, vh / 340); }
+    else if (preset === 'regs') { cam.tx = 220; cam.ty = 740; cam.tzoom = Math.min(vw / 440, vh / 520); }
+    else if (preset === 'ram') { cam.tx = 1410; cam.ty = 740; cam.tzoom = Math.min(vw / 460, vh / 520); }
+    clampCam();
+  }
+
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pw = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
+    const ph = canvas.parentElement ? canvas.parentElement.clientHeight : 0;
+    if (pw > 0 && ph > 0) {
+      canvas.width = Math.max(1, Math.round(pw * dpr));
+      canvas.height = Math.max(1, Math.round(ph * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    cmosCanvas.width = Math.max(1, Math.round(260 * dpr));
+    cmosCanvas.height = Math.max(1, Math.round(170 * dpr));
+    cmosCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (selectedGate) renderCmosCutaway();
+    clampCam();
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas(); setCameraPreset('full');
+  cam.x = cam.tx; cam.y = cam.ty; cam.zoom = cam.tzoom;
+
+  function screenToWorld(sx, sy) {
+    clampCam();
+    return { x: (sx - canvas.clientWidth / 2) / cam.zoom + cam.x, y: (sy - canvas.clientHeight / 2) / cam.zoom + cam.y };
+  }
+
+  function handleCanvasTap(mx, my) {
+    if (activeMode !== 'cpu') return;
+    updateProbe(mx, my);
+    const wp = screenToWorld(mx, my);
+    if (activeTool === 'cut' || activeTool === 'vdd') {
+      if (hoveredNet) {
+        const tf = activeTool === 'cut' ? 0 : 1;
+        if (hoveredNet.fault === tf) { hoveredNet.fault = null; hoveredNet.faultPt = null; }
+        else { hoveredNet.fault = tf; hoveredNet.faultPt = { x: wp.x, y: wp.y }; hoveredNet.val = tf; }
+        cpu.netlist.settle(cpu.maxSettleWaves); cpu.driveBusFromActiveSource();
+        SiliconAudio.beep(tf === 0 ? 220 : 880, 0.05, 0.035, 'sawtooth');
+        updateUI();
+      }
+      return;
+    }
+    if (hoveredGate) {
+      selectedGate = hoveredGate;
+      document.getElementById('cmosModal').classList.add('visible');
+      renderCmosCutaway();
+      SiliconAudio.beep(520, 0.03, 0.02, 'triangle');
+    }
+  }
+
+  let dragging = false, dragMoved = false, lastMX = 0, lastMY = 0;
+  let touchPinchDist = 0, lastTapMs = 0, touchMoved = false;
+  canvas.addEventListener('mousedown', (e) => { dragging = true; dragMoved = false; lastMX = e.clientX; lastMY = e.clientY; });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('blur', () => { dragging = false; touchPinchDist = 0; });
+  canvas.addEventListener('dblclick', () => setCameraPreset('full'));
+  canvas.addEventListener('mouseleave', () => { document.getElementById('probeTooltip').style.display = 'none'; hoveredNet = null; hoveredGate = null; });
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.deltaY === 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const before = screenToWorld(mx, my);
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    cam.tzoom = Math.max(0.2, Math.min(4.5, cam.tzoom * factor));
+    cam.zoom = cam.tzoom;
+    const after = screenToWorld(mx, my);
+    cam.x += before.x - after.x; cam.tx = cam.x;
+    cam.y += before.y - after.y; cam.ty = cam.y;
+    clampCam();
+  }, { passive: false });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    if (dragging) {
+      const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
+      if (Math.abs(dx) + Math.abs(dy) > 2) dragMoved = true;
+      clampCam();
+      cam.x -= dx / cam.zoom; cam.tx = cam.x; cam.y -= dy / cam.zoom; cam.ty = cam.y;
+      lastMX = e.clientX; lastMY = e.clientY; return;
+    }
+    if (activeMode === 'cpu') updateProbe(mx, my);
+    else document.getElementById('probeTooltip').style.display = 'none';
+  });
+
+  canvas.addEventListener('click', (e) => {
+    if (dragMoved || activeMode !== 'cpu') return;
+    const rect = canvas.getBoundingClientRect();
+    handleCanvasTap(e.clientX - rect.left, e.clientY - rect.top);
+  });
+
+  // Full Touch Support: 1-finger pan, 2-finger pinch-zoom, tap-to-probe/cut/CMOS, double-tap full-die
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      dragging = true; touchMoved = false; touchPinchDist = 0;
+      lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      dragging = false; touchMoved = true;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchPinchDist = Math.hypot(dx, dy) || 1;
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && dragging) {
+      e.preventDefault();
+      const t0 = e.touches[0];
+      const dx = t0.clientX - lastMX, dy = t0.clientY - lastMY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) touchMoved = true;
+      clampCam();
+      cam.x -= dx / cam.zoom; cam.tx = cam.x;
+      cam.y -= dy / cam.zoom; cam.ty = cam.y;
+      lastMX = t0.clientX; lastMY = t0.clientY;
+    } else if (e.touches.length === 2) {
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY) || 1;
+      if (touchPinchDist > 0) {
+        const rect = canvas.getBoundingClientRect();
+        const cx = (t0.clientX + t1.clientX) * 0.5 - rect.left;
+        const cy = (t0.clientY + t1.clientY) * 0.5 - rect.top;
+        const before = screenToWorld(cx, cy);
+        const factor = Math.max(0.7, Math.min(1.4, dist / touchPinchDist));
+        cam.tzoom = Math.max(0.2, Math.min(4.5, cam.tzoom * factor));
+        cam.zoom = cam.tzoom;
+        const after = screenToWorld(cx, cy);
+        cam.x += before.x - after.x; cam.tx = cam.x;
+        cam.y += before.y - after.y; cam.ty = cam.y;
+        clampCam();
+      }
+      touchPinchDist = dist;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) touchPinchDist = 0;
+    if (e.touches.length === 0) {
+      const wasDragging = dragging;
+      dragging = false;
+      if (wasDragging && !touchMoved && e.changedTouches.length === 1) {
+        const now = performance.now();
+        if (now - lastTapMs < 300) {
+          setCameraPreset('full');
+          lastTapMs = 0;
+        } else {
+          lastTapMs = now;
+          const t0 = e.changedTouches[0];
+          const rect = canvas.getBoundingClientRect();
+          handleCanvasTap(t0.clientX - rect.left, t0.clientY - rect.top);
+        }
+      }
+    }
+  }, { passive: true });
+
+  function distSeg(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+    if (!l2) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / l2));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  function updateProbe(mx, my) {
+    const wp = screenToWorld(mx, my), tip = document.getElementById('probeTooltip');
+    const node = PROCESS_NODES[chipConfig.node];
+    hoveredGate = null;
+    if (activeTool === 'probe') {
+      for (const g of cpu.netlist.gates) {
+        if (wp.x >= g.x - 2 && wp.x <= g.x + g.w + 2 && wp.y >= g.y - 2 && wp.y <= g.y + g.h + 2) { hoveredGate = g; break; }
+      }
+    }
+    const clampTip = () => {
+      tip.style.display = 'block';
+      const tw = Math.min(canvas.clientWidth - 20, tip.offsetWidth || 260);
+      const th = tip.offsetHeight || 90;
+      const maxX = Math.max(10, canvas.clientWidth - tw - 10);
+      const maxY = Math.max(10, canvas.clientHeight - th - 10);
+      const lx = Math.max(10, Math.min(maxX, mx + 14));
+      const ly = Math.max(10, Math.min(maxY, my + 14));
+      tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
+    };
+    if (hoveredGate) {
+      hoveredNet = cpu.netlist.nets[hoveredGate.out] || null;
+      const v = hoveredNet ? hoveredNet.val : 0;
+      const ins = hoveredGate.inputs.map(id => (cpu.netlist.nets[id] ? cpu.netlist.nets[id].val : 0)).join(', ');
+      document.getElementById('probeName').textContent = `${hoveredGate.type} (${hoveredNet.name})`;
+      const vEl = document.getElementById('probeVal');
+      vEl.textContent = v ? `OUT: 1 (${node.voltage}V)` : 'OUT: 0 (0V)';
+      vEl.className = v ? 'p-val-hi' : 'p-val-lo';
+      document.getElementById('probeDesc').textContent = hoveredGate.desc;
+      document.getElementById('probeMeta').textContent = `Inputs: [${ins}] · Click for CMOS X-Ray`;
+      clampTip(); return;
+    }
+
+    let best = null, bd = 8 / cam.zoom;
+    for (const n of cpu.netlist.nets) {
+      if (n.layer === 'bus' && !layers.m2) continue;
+      if ((n.layer === 'm1' || n.layer === 'cla') && !layers.m1) continue;
+      if (n.layer === 'poly' && !layers.poly) continue;
+      for (const s of n.segments) {
+        const d = distSeg(wp.x, wp.y, s[0], s[1], s[2], s[3]);
+        if (d < bd) { bd = d; best = n; }
+      }
+    }
+    hoveredNet = best;
+    if (hoveredNet) {
+      const fTag = hoveredNet.fault === 0 ? ' [CUT→0]' : (hoveredNet.fault === 1 ? ' [VDD→1]' : '');
+      document.getElementById('probeName').textContent = hoveredNet.name + fTag;
+      const vEl = document.getElementById('probeVal');
+      vEl.textContent = hoveredNet.val ? `HIGH (1 · ${node.voltage}V)` : 'LOW (0 · 0V)';
+      vEl.className = hoveredNet.val ? 'p-val-hi' : 'p-val-lo';
+      document.getElementById('probeDesc').textContent = hoveredNet.desc;
+      document.getElementById('probeMeta').textContent = activeTool === 'probe' ? `Layer: ${hoveredNet.layer.toUpperCase()} · Flips: ${hoveredNet.toggles}` : 'Click wire to inject/clear fault';
+      clampTip();
+    } else tip.style.display = 'none';
+  }
+
+  function heatColor(h) {
+    if (h < 0.02) return '#131d2e';
+    const r = Math.min(255, Math.floor(85 + h * 215));
+    const g = Math.min(255, Math.floor(h > 0.4 ? (h - 0.4) * 350 : h * 75));
+    const b = Math.max(20, Math.floor(160 - h * 150));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function wireColor(net, th) {
+    if (net.fault === 0) return '#ef4444';
+    if (net.fault === 1) return '#fde047';
+    if (layers.heat) return heatColor(net.heat);
+    const hi = net.val === 1;
+    if (net.layer === 'bus')  return hi ? th.busHi : th.busLo;
+    if (net.layer === 'poly') return hi ? th.polyHi : th.polyLo;
+    if (net.layer === 'cla')  return hi ? th.claHi : th.claLo;
+    return hi ? th.m1Hi : th.m1Lo;
+  }
+
+  function drawPhoton(x1, y1, x2, y2, col, off) {
+    if (!layers.photons || layers.heat) return;
+    const t = (((globalTime * 1.8 + off) % 1) + 1) % 1;
+    ctx.fillStyle = '#ffffff'; ctx.shadowColor = col; ctx.shadowBlur = 9;
+    ctx.beginPath(); ctx.arc(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 2.3, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawSubstrate(th, subtitle) {
+    ctx.fillStyle = th.substrate; ctx.strokeStyle = '#253854'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); safeRoundRect(ctx, 22, 22, DIE_W - 44, DIE_H - 44, 16); ctx.fill(); ctx.stroke();
+
+    const sheen = ctx.createRadialGradient(DIE_W * 0.35 + Math.sin(globalTime * 0.35) * 140, DIE_H * 0.3, 40, DIE_W * 0.5, DIE_H * 0.5, 950);
+    sheen.addColorStop(0, th.sheen1); sheen.addColorStop(0.5, th.sheen2); sheen.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sheen; ctx.fillRect(26, 26, DIE_W - 52, DIE_H - 52);
+
+    ctx.strokeStyle = th.grid; ctx.lineWidth = 1;
+    for (let x = 60; x < DIE_W - 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, 28); ctx.lineTo(x, DIE_H - 28); ctx.stroke(); }
+    for (let y = 60; y < DIE_H - 40; y += 40) { ctx.beginPath(); ctx.moveTo(28, y); ctx.lineTo(DIE_W - 28, y); ctx.stroke(); }
+
+    // Perimeter Gold Bond Pads + Bond Wires (BUG #32 polish!)
+    ctx.fillStyle = '#223147'; ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+    for (let x = 88; x <= DIE_W - 88; x += 64) {
+      ctx.fillRect(x - 10, 28, 20, 10); ctx.fillRect(x - 10, DIE_H - 38, 20, 10);
+    }
+    const node = PROCESS_NODES[chipConfig.node];
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.3)';
+    ctx.font = '800 12.5px "SF Mono", ui-monospace, monospace';
+    ctx.fillText(`DIE: ${chipConfig.name.toUpperCase()}  ·  ${subtitle}  ·  ${node.label} (${node.year})`, 62, 56);
+  }
+
+  function renderGpuFractalDie(th) {
+    drawSubstrate(th, `GPU FRACTAL CO-PROCESSOR · ${gpu.smCount} SMs · ${gpu.shader.toUpperCase()}`);
+    // HBM3 Memory Controllers on Left/Right
+    const drawMem = (x, lbl) => {
+      for (let i = 0; i < 5; i++) {
+        const y = 135 + i * 168;
+        ctx.fillStyle = gpu.memPulse > 0.25 ? 'rgba(245,158,11,0.18)' : '#0c1421';
+        ctx.strokeStyle = gpu.memPulse > 0.25 ? th.busHi : '#24354f'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); safeRoundRect(ctx, x, y, 105, 138, 8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = th.busHi; ctx.font = '700 10px monospace'; ctx.fillText(`${lbl}-${i}`, x + 14, y + 22);
+        ctx.strokeStyle = gpu.memPulse > 0.25 ? th.busHi : th.busLo; ctx.lineWidth = 2;
+        for (let k = 0; k < 4; k++) {
+          const ly = y + 40 + k * 22;
+          ctx.beginPath();
+          if (x < 500) { ctx.moveTo(x + 105, ly); ctx.lineTo(195, ly); }
+          else { ctx.moveTo(x, ly); ctx.lineTo(1465, ly); }
+          ctx.stroke();
+        }
+      }
+    };
+    drawMem(60, 'HBM-L'); drawMem(1495, 'HBM-R');
+
+    // Central L2 Texture & Warp Scheduler Crossbar
+    ctx.fillStyle = 'rgba(12, 20, 34, 0.92)'; ctx.strokeStyle = th.polyHi; ctx.lineWidth = 2;
+    ctx.beginPath(); safeRoundRect(ctx, 775, 125, 110, 825, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = th.polyHi; ctx.font = '800 10.5px monospace';
+    ctx.fillText('L2 CACHE', 798, 150); ctx.fillText('WARP BUS', 798, 166);
+
+    for (let i = 0; i < 16; i++) {
+      const y = 195 + i * 46, act = (gpu.scanRow >> 2) === i;
+      ctx.strokeStyle = act ? th.polyHi : th.polyLo; ctx.lineWidth = act ? 3 : 1.3;
+      ctx.beginPath(); ctx.moveTo(195, y); ctx.lineTo(1465, y); ctx.stroke();
+      if (act) { drawPhoton(830, y, 195, y, th.polyHi, i * 0.1); drawPhoton(830, y, 1465, y, th.polyHi, i * 0.1); }
+    }
+
+    for (const sm of gpu.sms) {
+      const [r, g, b] = sm.rgb;
+      const border = layers.heat ? '#64748b' : `rgb(${r},${g},${b})`;
+      ctx.fillStyle = layers.heat ? heatColor(sm.heat) : `rgba(${Math.floor(r * 0.35)},${Math.floor(g * 0.35)},${Math.floor(b * 0.35)},0.85)`;
+      ctx.strokeStyle = sm.load > 0.35 ? border : '#1e2e44'; ctx.lineWidth = sm.load > 0.35 ? 2 : 1.1;
+      ctx.beginPath(); safeRoundRect(ctx, sm.x, sm.y, sm.w, sm.h, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#f8fafc'; ctx.font = '700 9.5px monospace';
+      ctx.fillText(`SM${sm.id} · W${sm.warp}`, sm.x + 7, sm.y + 15);
+      const lw = (sm.w - 16) / 8;
+      for (let l = 0; l < 8; l++) {
+        ctx.fillStyle = layers.heat ? heatColor(sm.heat) : (sm.lanes[l] > 0.22 ? border : '#0a111c');
+        ctx.fillRect(sm.x + 8 + l * lw, sm.y + 23, Math.max(4, lw - 3), Math.max(8, sm.h - 32));
+      }
+    }
+  }
+
+  function renderCpuDie(th) {
+    drawSubstrate(th, `${chipConfig.bits}-BIT ${chipConfig.adder.toUpperCase()}${chipConfig.shifter ? ' + SHIFTER' : ''}`);
+    const node = PROCESS_NODES[chipConfig.node];
+
+    const titles = {
+      bus: `${chipConfig.bits}-BIT METAL-2 COMMON DATA BUS`,
+      alu: `${chipConfig.bits}-BIT ${chipConfig.adder === 'cla' ? 'CARRY-LOOKAHEAD (CLA)' : 'RIPPLE-CARRY'} ALU`,
+      ram: `${cpu.ramSize}-BYTE SRAM${chipConfig.display ? ' & 8×8 PIXEL MATRIX' : ' & OUT'}`
+    };
+    for (const blk of BLOCKS) {
+      ctx.fillStyle = 'rgba(11, 18, 29, 0.86)';
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); safeRoundRect(ctx, blk.x, blk.y, blk.w, blk.h, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = blk.color; ctx.font = '700 10.5px "SF Mono", ui-monospace, monospace';
+      ctx.fillText(titles[blk.id] || blk.name, blk.x + 12, blk.y + 18);
+    }
+
+    drawROMVisual();
+    drawPLAVisual();
+    drawRegistersVisual();
+    drawRAMAndPixelsVisual(th);
+
+    // Lithography Wires + Neon Bloom + Animated Signal Photons (BUG #30 FIXED!)
+    const layerOrder = ['poly', 'm1', 'cla', 'bus'];
+    const ws = node.wireScale * (cpu.bits >= 24 ? 0.8 : 1.0);
+    const prevComp = ctx.globalCompositeOperation;
+    for (const lyr of layerOrder) {
+      if (lyr === 'bus' && !layers.m2) continue;
+      if ((lyr === 'm1' || lyr === 'cla') && !layers.m1) continue;
+      if (lyr === 'poly' && !layers.poly) continue;
+      for (const net of cpu.netlist.nets) {
+        if (net.layer !== lyr || net.segments.length === 0) continue;
+        const isHov = hoveredNet && hoveredNet.id === net.id;
+        const hi = net.val === 1;
+        const col = isHov ? '#ffffff' : wireColor(net, th);
+
+        if (layers.bloom && (hi || net.pulse > 0.15 || isHov) && !layers.heat) ctx.globalCompositeOperation = 'lighter';
+        else ctx.globalCompositeOperation = prevComp;
+
+        ctx.strokeStyle = col;
+        ctx.lineWidth = isHov ? 4 : ((lyr === 'bus' ? (hi ? 2.5 : 1.5) : (hi ? 2.0 : 1.15)) * ws);
+        ctx.lineCap = 'round';
+        if (net.fault === 0) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
+        ctx.beginPath();
+        for (const s of net.segments) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (hi && (lyr === 'bus' || net.pulse > 0.35)) {
+          const s = net.segments[0];
+          drawPhoton(s[0], s[1], s[2], s[3], col, (net.id * 0.17) % 1);
+        }
+        if (net.vias.length > 0) {
+          ctx.fillStyle = hi ? '#fde68a' : '#2b3d57';
+          for (const v of net.vias) { ctx.beginPath(); ctx.arc(v[0], v[1], (hi ? 2.1 : 1.4) * ws, 0, Math.PI * 2); ctx.fill(); }
+        }
+        if (net.fault !== null && net.faultPt) {
+          ctx.globalCompositeOperation = prevComp;
+          ctx.fillStyle = net.fault === 0 ? '#ef4444' : '#fde047';
+          ctx.font = '800 14px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(net.fault === 0 ? '✕' : '⚡', net.faultPt.x, net.faultPt.y + 5);
+          ctx.textAlign = 'left';
+        }
+      }
+    }
+    ctx.globalCompositeOperation = prevComp;
+
+    // Logic Gate Cells
+    for (const g of cpu.netlist.gates) {
+      const outVal = cpu.netlist.nets[g.out].val;
+      const isHov = hoveredGate && hoveredGate.id === g.id;
+      const isSel = selectedGate && selectedGate.id === g.id;
+      let fill = '#0d1624', stroke = outVal ? th.m1Hi : '#263852';
+      if (layers.heat) { fill = heatColor(g.heat); stroke = '#475569'; }
+      else if (g.label === 'CLA' || g.label.startsWith('C')) { fill = outVal ? '#10332a' : '#0a1716'; stroke = outVal ? th.claHi : '#1f3d34'; }
+      else if (g.label === '<<') { fill = outVal ? '#2b1c3d' : '#120e1c'; stroke = outVal ? th.polyHi : '#3b2654'; }
+      else if (outVal) fill = '#132d46';
+      if (isSel) stroke = '#e879f9';
+      if (isHov) stroke = '#ffffff';
+
+      ctx.fillStyle = fill; ctx.strokeStyle = stroke;
+      ctx.lineWidth = (isHov || isSel) ? 2 : (outVal ? 1.25 : 0.8);
+      ctx.beginPath(); safeRoundRect(ctx, g.x, g.y, g.w, g.h, 2.5); ctx.fill(); ctx.stroke();
+
+      if (g.w >= 12 && g.h >= 9 && (cam.zoom > 0.55 || cpu.bits <= 16)) {
+        ctx.fillStyle = outVal ? '#f8fafc' : '#64748b';
+        ctx.font = `700 ${g.w < 17 ? 6 : 7.5}px "SF Mono", ui-monospace, monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(g.label, g.x + g.w / 2, g.y + g.h / 2 + 0.5);
+      }
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+    // Bit-Slice Headers & Carry Indicators
+    const aluRows = cpu.bits <= 12 ? 1 : (cpu.bits <= 32 ? 2 : (cpu.bits <= 48 ? 3 : 4));
+    const colsPerRow = Math.ceil(cpu.bits / aluRows);
+    const sliceW = 762 / colsPerRow;
+    const rowH = aluRows === 1 ? 340 : (aluRows === 2 ? 176 : (aluRows === 3 ? 116 : 86));
+    ctx.font = `700 ${colsPerRow >= 12 ? 7.5 : 9.5}px "SF Mono", ui-monospace, monospace`;
+    for (let b = 0; b < cpu.bits; b++) {
+      const row = Math.floor(b / colsPerRow), col = b % colsPerRow;
+      const sx = 418 + col * sliceW, sy = 554 + row * rowH;
+      const oVal = cpu.netlist.nets[cpu.aluOutNets[b]].val;
+      const cVal = cpu.netlist.nets[cpu.aluCarryNets[b]].val;
+      ctx.fillStyle = oVal ? th.m1Hi : '#64748b';
+      ctx.fillText(`B${b}`, sx + 4, sy - 5);
+      if (colsPerRow <= 12) {
+        ctx.fillStyle = cVal ? th.busHi : '#475569';
+        ctx.fillText(`C${cVal}`, sx + sliceW - 18, sy - 5);
+      }
+    }
+  }
+
+  function drawDie(dt = 0.016) {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    const th = WAFER_THEMES[chipConfig.theme] || WAFER_THEMES.silicon;
+    ctx.clearRect(0, 0, w, h);
+
+    clampCam();
+    const k = 1 - Math.exp(-10 * Math.max(0.001, Math.min(0.05, dt)));
+    cam.x += (cam.tx - cam.x) * k;
+    cam.y += (cam.ty - cam.y) * k;
+    cam.zoom += (cam.tzoom - cam.zoom) * k;
+
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(cam.zoom, cam.zoom);
+    ctx.translate(-cam.x, -cam.y);
+
+    if (activeMode === 'cpu') renderCpuDie(th);
+    else {
+      renderGpuFractalDie(th);
+      gpu.flushFramebuffer();
+    }
+
+    if (fabSweep > 0) {
+      ctx.save();
+      ctx.beginPath();
+      safeRoundRect(ctx, 22, 22, DIE_W - 44, DIE_H - 44, 16);
+      ctx.clip();
+      const sx = 22 + (1 - fabSweep) * (DIE_W - 44);
+      const grad = ctx.createLinearGradient(sx - 100, 0, sx + 20, 0);
+      grad.addColorStop(0, 'rgba(56,189,248,0)'); grad.addColorStop(0.85, 'rgba(56,189,248,0.42)'); grad.addColorStop(1, 'rgba(255,255,255,0.9)');
+      ctx.fillStyle = grad; ctx.fillRect(sx - 100, 22, 120, DIE_H - 44);
+      ctx.restore();
+    }
+    ctx.restore();
+    drawScope();
+  }
+
+  function drawROMVisual() {
+    const pc = cpu.readInt(cpu.pcNets), startRow = Math.max(0, Math.min(48, pc - 4));
+    ctx.font = '600 9.5px "SF Mono", ui-monospace, monospace';
+    for (let r = 0; r < 10; r++) {
+      const idx = startRow + r, y = 104 + r * 17, active = idx === pc, slot = cpu.rom[idx];
+      ctx.fillStyle = active ? 'rgba(56,189,248,0.25)' : 'rgba(15,23,42,0.7)';
+      ctx.strokeStyle = active ? '#38bdf8' : '#1e293b'; ctx.lineWidth = active ? 1.4 : 0.8;
+      ctx.fillRect(440, y, 275, 14); ctx.strokeRect(440, y, 275, 14);
+      ctx.fillStyle = active ? '#f8fafc' : '#64748b';
+      ctx.fillText(`${String(idx).padStart(2, '0')}: ${slot.text}`, 448, y + 10.5);
+    }
+    ctx.fillStyle = '#94a3b8'; ctx.font = '700 9px monospace'; ctx.fillText('IR_OP', 746, 104);
+    for (let i = 0; i < 4; i++) {
+      const v = cpu.netlist.nets[cpu.irOpNets[i]].val;
+      ctx.fillStyle = v ? '#e879f9' : '#1e293b'; ctx.fillRect(746, 110 + i * 24, 42, 14);
+      ctx.fillStyle = v ? '#090e16' : '#64748b'; ctx.fillText(`OP${i}=${v}`, 751, 120 + i * 24);
+    }
+    // BUG #6 FIXED: Visible live glowing IR_IMM bit cells!
+    ctx.fillStyle = '#94a3b8'; ctx.fillText(`IR_IMM`, 440, 294);
+    const cellStep = 348 / cpu.bits;
+    const cellW = Math.max(3, cellStep - 2);
+    for (let i = 0; i < cpu.bits; i++) {
+      const v = cpu.netlist.nets[cpu.irImmNets[i]].val;
+      const x = 492 + i * cellStep;
+      ctx.fillStyle = v ? '#38bdf8' : '#1a2538';
+      ctx.fillRect(x, 282, cellW, 14);
+    }
+  }
+
+  function drawPLAVisual() {
+    const keys = Object.keys(cpu.ctrlNets);
+    ctx.font = '600 8.8px "SF Mono", ui-monospace, monospace';
+    keys.forEach((k, idx) => {
+      const y = 104 + idx * 15.5, active = cpu.netlist.nets[cpu.ctrlNets[k]].val === 1;
+      ctx.fillStyle = active ? '#f5d0fe' : '#64748b';
+      ctx.fillText(k.replace('CTRL_', ''), 1028, y + 3);
+      for (let c = 0; c < 4; c++) {
+        if (active && cpu.netlist.nets[cpu.irOpNets[c]].val) {
+          ctx.fillStyle = '#f0abfc'; ctx.beginPath(); ctx.arc(922 + c * 22, y, 3.2, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    });
+  }
+
+  function drawRegistersVisual() {
+    const B = cpu.bits, regA = cpu.readBits(cpu.regANets), regB = cpu.readBits(cpu.regBNets);
+    const fmtReg = (v) => { const s = v.toLocaleString(); return s.length > 18 ? '0x' + v.toString(16).toUpperCase() : s; };
+    ctx.font = '700 9.5px "SF Mono", ui-monospace, monospace';
+    ctx.fillStyle = '#34d399'; ctx.fillText(`REG A = ${fmtReg(regA)}`, 76, 530, 290);
+    ctx.fillText(`REG B = ${fmtReg(regB)}`, 76, 726, 290);
+    const rowH = 162 / B;
+    for (let b = 0; b < B; b++) {
+      const aV = cpu.netlist.nets[cpu.regANets[b]].val, bV = cpu.netlist.nets[cpu.regBNets[b]].val;
+      const yA = 540 + b * rowH, yB = 736 + b * rowH, bh = B > 32 ? Math.max(1.5, rowH - 0.7) : Math.max(3.0, rowH - 1.4);
+      ctx.fillStyle = aV ? '#34d399' : '#122030'; ctx.fillRect(186, yA, 80, bh);
+      ctx.fillStyle = bV ? '#38bdf8' : '#122030'; ctx.fillRect(186, yB, 80, bh);
+      if (B <= 16) {
+        ctx.fillStyle = aV ? '#06120c' : '#64748b'; ctx.font = `700 ${B === 16 ? 7.5 : 9}px monospace`;
+        ctx.fillText(`A${b}:${aV}`, 192, yA + bh - 1.5);
+        ctx.fillStyle = bV ? '#06101a' : '#64748b';
+        ctx.fillText(`B${b}:${bV}`, 192, yB + bh - 1.5);
+      }
+    }
+    // BUG #7 FIXED: Hex readout beside 24/32-bit bit strips
+    if (B > 16) {
+      ctx.fillStyle = '#94a3b8'; ctx.font = '700 9px monospace';
+      ctx.fillText(`0x${regA.toString(16).toUpperCase()}`, 76, 550);
+      ctx.fillText(`0x${regB.toString(16).toUpperCase()}`, 76, 746);
+    }
+    const fZ = cpu.netlist.nets[cpu.flagZNet].val, fC = cpu.netlist.nets[cpu.flagCNet].val;
+    ctx.font = '700 10px monospace';
+    ctx.fillStyle = fC ? '#f59e0b' : '#1e293b'; ctx.fillRect(76, 916, 82, 20);
+    ctx.fillStyle = fC ? '#070a0f' : '#94a3b8'; ctx.fillText(`CARRY:${fC}`, 88, 930);
+    ctx.fillStyle = fZ ? '#34d399' : '#1e293b'; ctx.fillRect(166, 952, 82, 20);
+    ctx.fillStyle = fZ ? '#070a0f' : '#94a3b8'; ctx.fillText(`ZERO:${fZ}`, 180, 966);
+  }
+
+  function drawRAMAndPixelsVisual(th) {
+    const immIdx = cpu.irAddr & (cpu.ramSize - 1);
+    const isRamOp = cpu.netlist.nets[cpu.ctrlNets['CTRL_BUS_RAM']].val || cpu.netlist.nets[cpu.ctrlNets['CTRL_RAM_WE']].val;
+    const twoCol = cpu.ramSize > 16;
+    const hexW = Math.ceil(cpu.bits / 4);
+    ctx.font = `600 ${twoCol ? 7.8 : 8.5}px "SF Mono", ui-monospace, monospace`;
+    for (let r = 0; r < cpu.ramSize; r++) {
+      const col = twoCol ? (r >= 16 ? 1 : 0) : 0;
+      const row = r & 15;
+      const x = twoCol ? (1228 + col * 182) : 1228;
+      const w = twoCol ? 176 : 360;
+      const y = 528 + row * 14.5, val = cpu.ram[r], active = isRamOp && (r === immIdx);
+      ctx.fillStyle = active ? 'rgba(245,158,11,0.25)' : 'rgba(15,23,42,0.65)';
+      ctx.fillRect(x, y, w, 12.5);
+      ctx.fillStyle = active ? '#fde68a' : (r >= 8 && r < 16 && chipConfig.display ? '#7dd3fc' : '#64748b');
+      const hex = val.toString(16).toUpperCase().padStart(hexW, '0');
+      const decStr = (twoCol || cpu.bits > 32) ? '' : `  (${val.toLocaleString()})`;
+      ctx.fillText(`${r.toString(16).toUpperCase().padStart(2, '0')}: 0x${hex}${decStr}`, x + 5, y + 9.5, w - 10);
+    }
+    if (chipConfig.display) {
+      const px = 1236, py = 788, cell = 17;
+      ctx.fillStyle = '#04070b'; ctx.strokeStyle = '#334155';
+      ctx.fillRect(px - 6, py - 6, cell * 8 + 12, cell * 8 + 12); ctx.strokeRect(px - 6, py - 6, cell * 8 + 12, cell * 8 + 12);
+      for (let row = 0; row < 8; row++) {
+        const byte = Number(cpu.ram[8 + row] & 0xFFn);
+        for (let col = 0; col < 8; col++) {
+          const on = (byte >> (7 - col)) & 1;
+          ctx.fillStyle = on ? th.pixelOn : '#111827';
+          if (on) { ctx.shadowColor = th.pixelOn; ctx.shadowBlur = 7; }
+          ctx.fillRect(px + col * cell + 2, py + row * cell + 2, cell - 4, cell - 4);
+          ctx.shadowBlur = 0;
+        }
+      }
+    }
+    ctx.fillStyle = '#04070b'; ctx.strokeStyle = th.outColor;
+    ctx.fillRect(1408, 788, 180, 136); ctx.strokeRect(1408, 788, 180, 136);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '700 10px monospace'; ctx.fillText('OUT REGISTER', 1456, 812);
+    ctx.fillStyle = th.outColor;
+    const outStr = String(cpu.outReg);
+    ctx.font = `800 ${outStr.length > 14 ? 11 : (outStr.length > 9 ? 14 : (outStr.length > 6 ? 17 : (outStr.length > 4 ? 24 : 34)))}px monospace`;
+    ctx.textAlign = 'center'; ctx.fillText(outStr, 1498, 864);
+    ctx.fillStyle = '#64748b'; ctx.font = '600 9.5px monospace';
+    ctx.fillText(`0x${cpu.outReg.toString(16).toUpperCase()}`, 1498, 896);
+    ctx.textAlign = 'left';
+  }
+
+  // BUG #20 FIXED: Accurate CMOS schematic for 1-input NOT, 2-input Gates, AND 3-input MUX2!
+  function renderCmosCutaway() {
+    if (!selectedGate) return;
+    const g = selectedGate, nl = cpu.netlist, node = PROCESS_NODES[chipConfig.node] || PROCESS_NODES['180nm'];
+    if (!nl.nets[g.out]) { selectedGate = null; return; }
+    const inCount = g.inputs.length;
+    const a = (inCount > 0 && nl.nets[g.inputs[0]]) ? nl.nets[g.inputs[0]].val : 0;
+    const b = (inCount > 1 && nl.nets[g.inputs[1]]) ? nl.nets[g.inputs[1]].val : 0;
+    const s = (inCount > 2 && nl.nets[g.inputs[2]]) ? nl.nets[g.inputs[2]].val : 0;
+    const out = nl.nets[g.out].val;
+    document.getElementById('cmosTitle').textContent = `CMOS X-Ray: ${g.type} (${nl.nets[g.out].name})`;
+    const inDesc = inCount === 1 ? `IN=${a}` : (inCount === 2 ? `A=${a}, B=${b}` : `D0=${a}, D1=${b}, SEL=${s}`);
+    document.getElementById('cmosNote').textContent = `${node.label} (${node.voltage}V, ${node.gateDelayNs >= 1 ? node.gateDelayNs + ' ns' : (node.gateDelayNs * 1000) + ' ps'}/gate). ${inDesc} → OUT=${out}.`;
+
+    const c = cmosCtx;
+    c.clearRect(0, 0, 260, 170);
+    c.strokeStyle = '#f59e0b'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(24, 18); c.lineTo(236, 18); c.stroke();
+    c.fillStyle = '#f59e0b'; c.font = '700 10px monospace'; c.fillText(`VDD (${node.voltage}V)`, 96, 12);
+    c.strokeStyle = '#64748b'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(24, 155); c.lineTo(236, 155); c.stroke();
+    c.fillStyle = '#94a3b8'; c.fillText('GND (0V)', 104, 167);
+    c.strokeStyle = out ? '#fbbf24' : '#38bdf8'; c.lineWidth = 3; c.beginPath(); c.moveTo(40, 86); c.lineTo(242, 86); c.stroke();
+
+    const drawMos = (x, y, lbl, on, isP) => {
+      c.fillStyle = on ? (isP ? 'rgba(245,158,11,0.28)' : 'rgba(56,189,248,0.28)') : '#0f172a';
+      c.strokeStyle = on ? (isP ? '#fbbf24' : '#38bdf8') : '#334155';
+      c.beginPath(); safeRoundRect(c, x - 28, y - 14, 56, 28, 5); c.fill(); c.stroke();
+      c.fillStyle = on ? '#fff' : '#64748b'; c.font = '700 8.5px monospace'; c.textAlign = 'center';
+      c.fillText(lbl, x, y + 3); c.textAlign = 'left';
+    };
+    if (inCount === 1) {
+      drawMos(130, 50, `PMOS=${a}`, a === 0, true);
+      drawMos(130, 122, `NMOS=${a}`, a === 1, false);
+    } else if (inCount === 2) {
+      drawMos(85, 50, `PMOS A=${a}`, a === 0, true); drawMos(175, 50, `PMOS B=${b}`, b === 0, true);
+      drawMos(85, 122, `NMOS A=${a}`, a === 1, false); drawMos(175, 122, `NMOS B=${b}`, b === 1, false);
+    } else {
+      drawMos(62, 50, `TG0:${s===0?'ON':'OFF'}`, s === 0, true);
+      drawMos(130, 50, `SEL=${s}`, s === 1, false);
+      drawMos(198, 50, `TG1:${s===1?'ON':'OFF'}`, s === 1, true);
+      drawMos(85, 122, `D0=${a}`, a === 1, false);
+      drawMos(175, 122, `D1=${b}`, b === 1, false);
+    }
+  }
+
+  // =========================================================================
+  // 7. UI SYNC, BUILDER DIRTY-STATE & KEYBOARD SHORTCUTS
+  // =========================================================================
+  function markBuilderDirty() {
+    // BUG #25 FIXED: compare cleanly ignoring theme-only instant preview
+    const keys = ['name', 'bits', 'adder', 'node', 'shifter', 'bigRam', 'display'];
+    const dirty = keys.some(k => pendingConfig[k] !== chipConfig[k]);
+    const btn = document.getElementById('btnFabChip');
+    const badge = document.getElementById('fabStatusBadge');
+    btn.classList.toggle('dirty', dirty);
+    btn.textContent = dirty ? `Fabricate ${pendingConfig.bits}-Bit ${pendingConfig.adder.toUpperCase()} Die` : 'Fabricate Custom Silicon Die';
+    badge.textContent = dirty ? 'PENDING FAB' : 'SYNCED';
+    badge.style.color = dirty ? '#fbbf24' : '#38bdf8';
+    const maxVal = (1n << BigInt(pendingConfig.bits)) - 1n;
+    document.getElementById('bitRangeBadge').textContent = pendingConfig.bits <= 32 ? `0 – ${maxVal.toLocaleString()}` : `0 – 2^${pendingConfig.bits}−1`;
+  }
+
+  function syncBuilderControls() {
+    document.getElementById('cfgName').value = pendingConfig.name;
+    document.getElementById('cfgNode').value = pendingConfig.node;
+    document.getElementById('cfgShifter').checked = pendingConfig.shifter;
+    document.getElementById('cfgBigRam').checked = pendingConfig.bigRam;
+    document.getElementById('cfgDisplay').checked = pendingConfig.display;
+    document.querySelectorAll('#cfgBitsGroup .bit-tile').forEach(b => b.classList.toggle('active', Number(b.dataset.bits) === pendingConfig.bits));
+    document.querySelectorAll('#cfgAdderGroup .arch-card').forEach(b => b.classList.toggle('active', b.dataset.adder === pendingConfig.adder));
+    document.querySelectorAll('#cfgThemeGroup .swatch-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === pendingConfig.theme));
+    markBuilderDirty();
+  }
+
+  function updateUI() {
+    const nl = cpu.netlist, node = PROCESS_NODES[chipConfig.node];
+    const regA = cpu.readBits(cpu.regANets), regB = cpu.readBits(cpu.regBNets);
+    const bus = cpu.readBits(cpu.busNets), pc = cpu.readInt(cpu.pcNets);
+    const fZ = nl.nets[cpu.flagZNet].val, fC = nl.nets[cpu.flagCNet].val;
+    const hexW = Math.ceil(cpu.bits / 4);
+
+    // BUG #18 FIXED: Auto-sync Run button when CPU halts!
+    if (cpu.halted && running && activeMode === 'cpu') {
+      running = false;
+      document.getElementById('btnRun').textContent = 'Run';
+    }
+
+    document.getElementById('gpuDock').classList.toggle('visible', activeMode === 'gpu');
+    document.getElementById('gpuDockTitle').textContent = `GPU · ${gpu.shader.toUpperCase()} (64×64)`;
+    document.getElementById('gpuDockFrame').textContent = `F${gpu.frameCount}`;
+    const simdBadge = document.getElementById('gpuSimdBadge');
+    if (simdBadge) simdBadge.textContent = `SIMD ${gpu.smCount}-SM`;
+    document.getElementById('headerChipTag').textContent =
+      activeMode === 'gpu' ? `GPU Fractal · ${gpu.smCount} SMs` : `${chipConfig.bits}-Bit · ${chipConfig.adder === 'cla' ? 'CLA' : 'Ripple'} · ${node.label}`;
+
+    const outDecEl = document.getElementById('outDec');
+    const outDecStr = cpu.outReg.toLocaleString();
+    outDecEl.textContent = outDecStr;
+    outDecEl.style.fontSize = outDecStr.length > 16 ? '13px' : (outDecStr.length > 11 ? '16px' : '22px');
+    document.getElementById('outHex').textContent = `0x${cpu.outReg.toString(16).toUpperCase().padStart(hexW, '0')}`;
+    document.getElementById('regADec').textContent = regA.toLocaleString();
+    document.getElementById('regAHex').textContent = '0x' + regA.toString(16).toUpperCase().padStart(hexW, '0');
+    document.getElementById('regABits').textContent = formatBitsNibbles(regA, cpu.bits); // BUG #27 FIXED!
+    document.getElementById('regBDec').textContent = regB.toLocaleString();
+    document.getElementById('regBHex').textContent = '0x' + regB.toString(16).toUpperCase().padStart(hexW, '0');
+    document.getElementById('regBBits').textContent = formatBitsNibbles(regB, cpu.bits);
+    document.getElementById('busDec').textContent = bus.toLocaleString();
+    document.getElementById('busHex').textContent = '0x' + bus.toString(16).toUpperCase().padStart(hexW, '0');
+    document.getElementById('busBits').textContent = formatBitsNibbles(bus, cpu.bits);
+    document.getElementById('pcVal').textContent = String(pc).padStart(2, '0');
+    document.getElementById('pcBits').textContent = pc.toString(2).padStart(6, '0');
+    document.getElementById('flagsText').textContent = `Z:${fZ} C:${fC}`;
+
+    if (activeMode === 'cpu') {
+      const pNames = ['T0 FETCH', 'T1 DECODE', 'T2 EXEC', 'T3 WRITE'];
+      document.getElementById('statusPhase').textContent = cpu.halted ? 'HALTED' : pNames[cpu.phase];
+      document.getElementById('statusInstr').textContent = (cpu.rom[pc & 63] || { text: 'NOP' }).text;
+      document.getElementById('statusGates').textContent = `${cpu.lastWaves} waves`;
+      document.getElementById('statusDot').className = 'dot' + (cpu.halted ? ' halted' : (!running ? ' paused' : ''));
+    } else {
+      document.getElementById('statusPhase').textContent = `GPU ${gpu.smCount}-SM`;
+      document.getElementById('statusInstr').textContent = gpu.shader.toUpperCase();
+      document.getElementById('statusGates').textContent = `Row ${gpu.scanRow}/64`;
+      document.getElementById('statusDot').className = 'dot' + (!running ? ' paused' : '');
+    }
+
+    const activeCtrls = Object.keys(cpu.ctrlNets).filter(k => nl.nets[cpu.ctrlNets[k]].val === 1);
+    document.getElementById('activeCtrlList').innerHTML = activeCtrls.length
+      ? activeCtrls.map(k => `<span style="background:rgba(232,121,249,0.18);border:1px solid #e879f9;color:#f5d0fe;padding:2px 6px;border-radius:4px;">${k.replace('CTRL_', '')}</span>`).join('')
+      : '<span style="color:var(--muted)">Idle</span>';
+
+    miniCtx.fillStyle = '#04070b'; miniCtx.fillRect(0, 0, 8, 8);
+    if (chipConfig.display) {
+      miniCtx.fillStyle = WAFER_THEMES[chipConfig.theme].pixelOn;
+      for (let r = 0; r < 8; r++) {
+        const byte = Number(cpu.ram[8 + r] & 0xFFn);
+        for (let c = 0; c < 8; c++) if ((byte >> (7 - c)) & 1) miniCtx.fillRect(c, r, 1, 1);
+      }
+    }
+
+    const faults = nl.nets.filter(n => n.fault !== null).length;
+    const repBtn = document.getElementById('toolRepair');
+    repBtn.style.display = faults > 0 ? 'inline-block' : 'none';
+    repBtn.textContent = `Repair (${faults})`;
+
+    const critStages = chipConfig.adder === 'cla' ? (4 + Math.ceil(chipConfig.bits / 4)) : (2 * chipConfig.bits + 2);
+    const critNs = critStages * node.gateDelayNs;
+    const critLabel = critNs >= 1 ? `${critNs.toFixed(1)} ns (${critStages} stg)` : `${(critNs * 1000).toFixed(0)} ps (${critStages} stg)`;
+    const dynPowerMw = (nl.gates.length * node.powerFactor * 0.012).toFixed(2);
+
+    document.getElementById('fabGates').textContent = nl.gates.length.toLocaleString();
+    document.getElementById('fabTransistors').textContent = nl.estimateTransistors(cpu.bits, cpu.ramSize).toLocaleString();
+    document.getElementById('fabWires').textContent = nl.nets.length.toLocaleString();
+    document.getElementById('fabCritPath').textContent = critLabel;
+    document.getElementById('fabPower').textContent = `${node.voltage}V · ${dynPowerMw} mW`;
+    document.getElementById('statGateEvals').textContent = nl.totalGateEvals.toLocaleString();
+    document.getElementById('statFlips').textContent = nl.totalFlips.toLocaleString();
+    document.getElementById('statCycles').textContent = cpu.cycles.toLocaleString();
+    document.getElementById('statGpuFlops').textContent = gpu.totalFlops.toLocaleString();
+    document.getElementById('statFaults').textContent = faults;
+    if (selectedGate) renderCmosCutaway();
+  }
+
+  let isUsingPreset = true;
+  let phoneMode = false;
+
+  function setAsmStatus(messages, isError = false) {
+    const host = document.getElementById('asmStatus');
+    host.textContent = '';
+    const box = document.createElement('div');
+    box.className = isError ? 'asm-err' : 'asm-ok';
+    const list = Array.isArray(messages) ? messages : [messages];
+    list.forEach((msg, idx) => {
+      if (idx > 0) box.appendChild(document.createElement('br'));
+      box.appendChild(document.createTextNode(String(msg)));
+    });
+    host.appendChild(box);
+  }
+
+  function saveState() {
+    try {
+      const payload = {
+        chipConfig,
+        activeMode,
+        gpuShader: gpu.shader,
+        gpuSms: gpu.smCount,
+        speedSlider: Number(document.getElementById('speedSlider').value),
+        rippleMode,
+        layers,
+        preset: document.getElementById('presetSelect').value,
+        isUsingPreset,
+        asmCode: isUsingPreset ? null : document.getElementById('asmEditor').value,
+        phoneMode,
+        soundEnabled: SiliconAudio.enabled
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function loadSavedState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return null;
+      if (d.chipConfig && typeof d.chipConfig === 'object') {
+        const c = d.chipConfig;
+        if (VALID_BITS.includes(Number(c.bits))) chipConfig.bits = Number(c.bits);
+        if (c.adder === 'ripple' || c.adder === 'cla') chipConfig.adder = c.adder;
+        if (c.node && c.node in PROCESS_NODES) chipConfig.node = c.node;
+        if (c.theme && c.theme in WAFER_THEMES) chipConfig.theme = c.theme;
+        if (typeof c.name === 'string' && c.name.trim()) chipConfig.name = c.name.trim().slice(0, 22);
+        if (typeof c.shifter === 'boolean') chipConfig.shifter = c.shifter;
+        if (typeof c.bigRam === 'boolean') chipConfig.bigRam = c.bigRam;
+        if (typeof c.display === 'boolean') chipConfig.display = c.display;
+        Object.assign(pendingConfig, chipConfig);
+      }
+      if (typeof d.speedSlider === 'number' && Number.isFinite(d.speedSlider)) {
+        document.getElementById('speedSlider').value = String(Math.max(0, Math.min(100, d.speedSlider)));
+      }
+      if (typeof d.rippleMode === 'boolean') {
+        rippleMode = d.rippleMode;
+        const wb = document.getElementById('btnWaveMode');
+        wb.textContent = rippleMode ? 'Ripple: ON' : 'Ripple: OFF';
+        wb.className = rippleMode ? 'gold-active' : '';
+      }
+      if (d.layers && typeof d.layers === 'object') {
+        for (const k of Object.keys(layers)) {
+          if (typeof d.layers[k] === 'boolean') layers[k] = d.layers[k];
+        }
+        const map = { layerM2: 'm2', layerM1: 'm1', layerPoly: 'poly', layerBloom: 'bloom', layerPhotons: 'photons', layerHeat: 'heat' };
+        for (const [id, k] of Object.entries(map)) {
+          document.getElementById(id).classList.toggle('active', layers[k]);
+        }
+      }
+      if (VALID_SHADERS.includes(d.gpuShader)) {
+        gpu.shader = d.gpuShader;
+        document.getElementById('gpuShaderSelect').value = d.gpuShader;
+      }
+      if (d.gpuSms === 16 || d.gpuSms === 32) {
+        gpu.buildSMs(d.gpuSms);
+        document.querySelectorAll('#gpuSmGroup .arch-card').forEach(b => b.classList.toggle('active', Number(b.dataset.sms) === d.gpuSms));
+      }
+      if (typeof d.phoneMode === 'boolean') phoneMode = d.phoneMode;
+      if (typeof d.soundEnabled === 'boolean') {
+        SiliconAudio.enabled = d.soundEnabled;
+        const sb = document.getElementById('btnSound');
+        sb.textContent = SiliconAudio.enabled ? 'Sound: ON' : 'Sound: OFF';
+        sb.classList.toggle('active', SiliconAudio.enabled);
+      }
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function applyPhoneMode(on) {
+    phoneMode = !!on;
+    document.body.classList.toggle('phone-mode', phoneMode);
+    const btn = document.getElementById('btnPhoneMode');
+    btn.classList.toggle('active', phoneMode);
+    btn.textContent = phoneMode ? 'Desktop' : 'Phone';
+    requestAnimationFrame(() => { resizeCanvas(); setCameraPreset('full'); });
+  }
+
+  function fabricateChip() {
+    Object.assign(chipConfig, pendingConfig);
+    selectedGate = null; hoveredNet = null; hoveredGate = null;
+    document.getElementById('cmosModal').classList.remove('visible');
+    document.getElementById('probeTooltip').style.display = 'none';
+    cpu = new SiliconCPU(chipConfig);
+    clearScope();
+    accumTime = 0;
+    const presetKey = document.getElementById('presetSelect').value;
+    if (isUsingPreset && presetKey === 'ripple') {
+      document.getElementById('asmEditor').value = getPresetCode('ripple', cpu.bits);
+    }
+    const { rom, errors } = assemble(document.getElementById('asmEditor').value, cpu.mask, cpu.ramSize);
+    if (errors.length) {
+      cpu.loadProgram([{ op: OPCODES.HLT, imm: 0n, text: 'HLT' }]);
+      setAsmStatus(errors, true);
+    } else {
+      cpu.loadProgram(rom);
+      setAsmStatus(`Flashed ${rom.length} instructions to ${cpu.bits}-Bit ROM.`, false);
+    }
+    fabSweep = 1.0;
+    SiliconAudio.beep(740, 0.06, 0.03, 'triangle');
+    markBuilderDirty();
+    updateUI();
+    saveState();
+  }
+
+  // Lessons
+  const LESSONS = [
+    {
+      title: '1. Scale from 1-Bit to 64-Bit Real Silicon',
+      body: 'Pick any of 12 bit-widths from 1-Bit all the way to 64-Bit in Chip Builder. Every bit-slice, Metal-2 bus rail, CLA lookahead strip, and Zero-Flag NOR tree is synthesized with zero overlapping gates.',
+      cam: 'full', actionLabel: 'Fab 64-Bit CLA (2 nm)',
+      action: () => { Object.assign(pendingConfig, ERA_TEMPLATES['64bit']); syncBuilderControls(); fabricateChip(); }
+    },
+    {
+      title: '2. GPU Fractal Co-Processor',
+      body: 'Switch to the GPU Fractal Engine tab to watch 32 Streaming Multiprocessors rasterize live Mandelbrot & Julia fractals in parallel warps.',
+      cam: 'full', actionLabel: 'Open GPU Fractal',
+      action: () => { switchMode('gpu'); running = true; document.getElementById('btnRun').textContent = 'Pause'; updateUI(); }
+    },
+    {
+      title: '3. Inject Real Hardware Faults (Laser Cut)',
+      body: 'Click "Laser Cut (0)" in the toolbar and click any carry wire on the ALU to sever it—then run Fibonacci to see real hardware bit corruption!',
+      cam: 'alu', actionLabel: 'Activate Laser Cutter',
+      action: () => { switchMode('cpu'); setTool('cut'); setCameraPreset('alu'); }
+    },
+    {
+      title: '4. Inside a Single Gate (CMOS X-Ray)',
+      body: 'Switch to Probe and click any gate (NOT, XOR, AND, or MUX2) to inspect its live P-MOS / N-MOS transistor schematic at your chosen process node voltage.',
+      cam: 'alu', actionLabel: 'Inspect ALU Gate',
+      action: () => {
+        switchMode('cpu'); setTool('probe');
+        selectedGate = cpu.netlist.gates.find(g => g.block === 'alu' && g.type === 'XOR') || cpu.netlist.gates[0] || null;
+        if (selectedGate) {
+          document.getElementById('cmosModal').classList.add('visible');
+          setCameraPreset('alu'); renderCmosCutaway();
+        }
+      }
+    }
+  ];
+  let lessonIdx = 0;
+  function renderLesson(moveCam = true) {
+    const l = LESSONS[lessonIdx];
+    document.getElementById('lessonBadge').textContent = `Lesson ${lessonIdx + 1} of ${LESSONS.length}`;
+    document.getElementById('lessonTitle').textContent = l.title;
+    document.getElementById('lessonBody').textContent = l.body;
+    document.getElementById('btnLessonAction').textContent = l.actionLabel;
+    if (moveCam) setCameraPreset(l.cam);
+  }
+
+  function switchMode(m) {
+    activeMode = m === 'gpu' ? 'gpu' : 'cpu';
+    accumTime = 0;
+    hoveredNet = null; hoveredGate = null;
+    document.getElementById('probeTooltip').style.display = 'none';
+    if (activeMode === 'gpu') {
+      selectedGate = null;
+      document.getElementById('cmosModal').classList.remove('visible');
+      document.getElementById('viewport').className = '';
+      running = true; document.getElementById('btnRun').textContent = 'Pause';
+    } else {
+      setTool(activeTool);
+      if (cpu.halted && running) { running = false; document.getElementById('btnRun').textContent = 'Run'; }
+    }
+    document.querySelectorAll('.mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === activeMode));
+    document.getElementById('cpuCamRow').style.display = activeMode === 'cpu' ? 'flex' : 'none';
+    setCameraPreset('full');
+    updateUI();
+    saveState();
+  }
+
+  function setTool(t) {
+    activeTool = t;
+    document.getElementById('viewport').className = activeMode === 'cpu' ? (t === 'cut' ? 'tool-cut' : (t === 'vdd' ? 'tool-vdd' : '')) : '';
+    document.getElementById('toolProbe').classList.toggle('active', t === 'probe');
+    document.getElementById('toolCut').classList.toggle('danger-active', t === 'cut');
+    document.getElementById('toolVdd').classList.toggle('gold-active', t === 'vdd');
+  }
+
+  function loadPreset(key) {
+    const safeKey = (key in PRESETS) ? key : 'ripple';
+    const code = getPresetCode(safeKey, cpu.bits);
+    isUsingPreset = true;
+    document.getElementById('presetSelect').value = safeKey;
+    document.getElementById('asmEditor').value = code;
+    const { rom, errors } = assemble(code, cpu.mask, cpu.ramSize);
+    if (errors.length) {
+      setAsmStatus(errors, true);
+    } else {
+      cpu.loadProgram(rom);
+      clearScope();
+      setAsmStatus(`Flashed ${rom.length} instructions to ROM.`, false);
+    }
+    updateUI();
+    saveState();
+  }
+
+  function updateSpeedFromSlider() {
+    const v = Number(document.getElementById('speedSlider').value);
+    const clamped = Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 40;
+    speedHz = Math.round(0.5 * Math.pow(1200, clamped / 100) * 10) / 10;
+    document.getElementById('speedLabel').textContent = speedHz >= 10 ? `${Math.round(speedHz)} Hz` : `${speedHz.toFixed(1)} Hz`;
+  }
+
+  // Event Bindings
+  document.querySelectorAll('.mode-tab').forEach(b => b.addEventListener('click', () => switchMode(b.dataset.mode)));
+  document.querySelectorAll('.era-btn').forEach(btn => btn.addEventListener('click', () => {
+    const tpl = ERA_TEMPLATES[btn.dataset.era];
+    if (!tpl) return;
+    Object.assign(pendingConfig, tpl); syncBuilderControls(); fabricateChip();
+  }));
+  document.querySelectorAll('#cfgBitsGroup .bit-tile').forEach(btn => btn.addEventListener('click', () => {
+    pendingConfig.bits = Number(btn.dataset.bits); syncBuilderControls();
+  }));
+  document.querySelectorAll('#cfgAdderGroup .arch-card').forEach(btn => btn.addEventListener('click', () => {
+    pendingConfig.adder = btn.dataset.adder; syncBuilderControls();
+  }));
+  document.querySelectorAll('#cfgThemeGroup .swatch-btn').forEach(btn => btn.addEventListener('click', () => {
+    pendingConfig.theme = btn.dataset.theme; chipConfig.theme = btn.dataset.theme; syncBuilderControls(); saveState();
+  }));
+  document.getElementById('cfgNode').addEventListener('change', (e) => { pendingConfig.node = e.target.value; markBuilderDirty(); });
+  document.getElementById('cfgName').addEventListener('input', (e) => { pendingConfig.name = e.target.value.trim() || 'CUSTOM-CPU'; markBuilderDirty(); });
+  document.getElementById('cfgShifter').addEventListener('change', (e) => { pendingConfig.shifter = e.target.checked; markBuilderDirty(); });
+  document.getElementById('cfgBigRam').addEventListener('change', (e) => { pendingConfig.bigRam = e.target.checked; markBuilderDirty(); });
+  document.getElementById('cfgDisplay').addEventListener('change', (e) => { pendingConfig.display = e.target.checked; markBuilderDirty(); });
+  document.getElementById('btnFabChip').addEventListener('click', fabricateChip);
+
+  document.getElementById('gpuShaderSelect').addEventListener('change', (e) => {
+    gpu.shader = e.target.value;
+    if (!running) { gpu.stepCycle(); gpu.flushFramebuffer(); }
+    updateUI(); saveState();
+  });
+  document.querySelectorAll('#gpuSmGroup .arch-card').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#gpuSmGroup .arch-card').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); gpu.buildSMs(Number(btn.dataset.sms)); updateUI(); saveState();
+  }));
+
+  document.getElementById('btnRun').addEventListener('click', () => {
+    if (cpu.halted && activeMode === 'cpu') { cpu.reset(); clearScope(); }
+    running = !running;
+    accumTime = 0;
+    document.getElementById('btnRun').textContent = running ? 'Pause' : 'Run';
+    if (running) SiliconAudio.ensureContext();
+    updateUI();
+  });
+  document.getElementById('btnStepWave').addEventListener('click', () => {
+    running = false; accumTime = 0; document.getElementById('btnRun').textContent = 'Run';
+    if (activeMode === 'cpu') cpu.stepWave(true); else { gpu.stepCycle(); gpu.flushFramebuffer(); }
+    SiliconAudio.beep(480, 0.02, 0.015, 'sine');
+    sampleScope(); updateUI();
+  });
+  document.getElementById('btnStepPhase').addEventListener('click', () => {
+    running = false; accumTime = 0; document.getElementById('btnRun').textContent = 'Run';
+    if (activeMode === 'cpu') cpu.stepPhase(rippleMode); else { gpu.stepCycle(); gpu.flushFramebuffer(); }
+    SiliconAudio.beep(560, 0.02, 0.018, 'sine');
+    sampleScope(); updateUI();
+  });
+  document.getElementById('btnStepInstr').addEventListener('click', () => {
+    running = false; accumTime = 0; document.getElementById('btnRun').textContent = 'Run';
+    if (activeMode === 'cpu') cpu.stepInstruction(); else { gpu.stepCycle(); gpu.flushFramebuffer(); }
+    SiliconAudio.beep(660, 0.025, 0.02, 'triangle');
+    sampleScope(); updateUI();
+  });
+  document.getElementById('btnReset').addEventListener('click', () => {
+    running = false; accumTime = 0; document.getElementById('btnRun').textContent = 'Run';
+    if (activeMode === 'cpu') cpu.reset(); else gpu.reset();
+    clearScope();
+    SiliconAudio.beep(320, 0.04, 0.02, 'sine');
+    updateUI();
+  });
+  document.getElementById('speedSlider').addEventListener('input', () => { updateSpeedFromSlider(); saveState(); });
+  document.getElementById('btnWaveMode').addEventListener('click', (e) => {
+    rippleMode = !rippleMode;
+    e.target.textContent = rippleMode ? 'Ripple: ON' : 'Ripple: OFF';
+    e.target.className = rippleMode ? 'gold-active' : '';
+    saveState();
+  });
+  document.getElementById('btnSound').addEventListener('click', (e) => {
+    SiliconAudio.enabled = !SiliconAudio.enabled;
+    e.target.textContent = SiliconAudio.enabled ? 'Sound: ON' : 'Sound: OFF';
+    e.target.classList.toggle('active', SiliconAudio.enabled);
+    if (SiliconAudio.enabled) SiliconAudio.beep(640, 0.04, 0.025, 'triangle');
+    else SiliconAudio.suspend();
+    saveState();
+  });
+  document.getElementById('btnPhoneMode').addEventListener('click', () => {
+    applyPhoneMode(!phoneMode);
+    saveState();
+  });
+
+  document.getElementById('toolProbe').addEventListener('click', () => setTool('probe'));
+  document.getElementById('toolCut').addEventListener('click', () => setTool('cut'));
+  document.getElementById('toolVdd').addEventListener('click', () => setTool('vdd'));
+  document.getElementById('toolRepair').addEventListener('click', () => {
+    for (const n of cpu.netlist.nets) { n.fault = null; n.faultPt = null; }
+    cpu.netlist.settle(cpu.maxSettleWaves); cpu.driveBusFromActiveSource();
+    SiliconAudio.beep(820, 0.04, 0.025, 'sine');
+    updateUI();
+  });
+
+  document.querySelectorAll('[data-cam]').forEach(b => b.addEventListener('click', () => setCameraPreset(b.dataset.cam)));
+  const bindL = (id, k) => document.getElementById(id).addEventListener('click', (e) => {
+    layers[k] = !layers[k]; e.target.classList.toggle('active', layers[k]); saveState();
+  });
+  bindL('layerM2', 'm2'); bindL('layerM1', 'm1'); bindL('layerPoly', 'poly');
+  bindL('layerBloom', 'bloom'); bindL('layerPhotons', 'photons'); bindL('layerHeat', 'heat');
+
+  document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  }));
+
+  document.getElementById('asmEditor').addEventListener('input', () => { isUsingPreset = false; });
+  document.getElementById('presetSelect').addEventListener('change', (e) => loadPreset(e.target.value));
+  document.getElementById('btnAssemble').addEventListener('click', () => {
+    const { rom, errors } = assemble(document.getElementById('asmEditor').value, cpu.mask, cpu.ramSize);
+    if (errors.length) {
+      setAsmStatus(errors, true);
+    } else {
+      cpu.loadProgram(rom);
+      clearScope();
+      setAsmStatus(`Flashed ${rom.length} instructions to ROM.`, false);
+      updateUI();
+      saveState();
+    }
+  });
+
+  document.getElementById('btnTour').addEventListener('click', () => {
+    const b = document.getElementById('lessonBanner');
+    b.classList.toggle('visible');
+    const vis = b.classList.contains('visible');
+    document.getElementById('btnTour').classList.toggle('active', vis);
+    if (vis) renderLesson(true);
+  });
+  document.getElementById('btnCloseLesson').addEventListener('click', () => {
+    document.getElementById('lessonBanner').classList.remove('visible');
+    document.getElementById('btnTour').classList.remove('active');
+  });
+  document.getElementById('btnLessonPrev').addEventListener('click', () => { lessonIdx = (lessonIdx + LESSONS.length - 1) % LESSONS.length; renderLesson(true); });
+  document.getElementById('btnLessonNext').addEventListener('click', () => { lessonIdx = (lessonIdx + 1) % LESSONS.length; renderLesson(true); });
+  document.getElementById('btnLessonAction').addEventListener('click', () => LESSONS[lessonIdx].action());
+  document.getElementById('btnCloseCmos').addEventListener('click', () => { selectedGate = null; document.getElementById('cmosModal').classList.remove('visible'); });
+
+  // Keyboard shortcuts with modifier & contentEditable guards + Escape modal dismissal
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (e.code === 'Space') { e.preventDefault(); document.getElementById('btnRun').click(); }
+    else if (e.key === 's' || e.key === 'S') document.getElementById('btnStepWave').click();
+    else if (e.key === 'r' || e.key === 'R') document.getElementById('btnReset').click();
+    else if (e.key === 'f' || e.key === 'F') setCameraPreset('full');
+    else if (e.key === 'Escape') {
+      selectedGate = null;
+      document.getElementById('cmosModal').classList.remove('visible');
+      document.getElementById('lessonBanner').classList.remove('visible');
+      document.getElementById('btnTour').classList.remove('active');
+      setTool('probe');
+    }
+  });
+
+  function sampleScope() {
+    if (activeMode === 'gpu') {
+      pushScope(
+        (gpu.scanRow >> 2) & 1,
+        gpu.memPulse > 0.3 ? 1 : 0,
+        gpu.sms.length > 0 && gpu.sms[0].load > 0.5 ? 1 : 0,
+        gpu.frameCount & 1,
+        (gpu.scanRow & 4) ? 1 : 0
+      );
+      return;
+    }
+    const nl = cpu.netlist;
+    const carryIdx = cpu.aluCarryNets[cpu.bits - 1];
+    pushScope(
+      nl.nets[cpu.clkNet] ? nl.nets[cpu.clkNet].val : 0,
+      nl.nets[cpu.busNets[0]] ? nl.nets[cpu.busNets[0]].val : 0,
+      (carryIdx !== undefined && nl.nets[carryIdx]) ? nl.nets[carryIdx].val : 0,
+      nl.nets[cpu.aluZeroNet] ? nl.nets[cpu.aluZeroNet].val : 0,
+      nl.nets[cpu.phaseNets[2]] ? nl.nets[cpu.phaseNets[2]].val : 0
+    );
+  }
+
+  // Boot with saved state restoration
+  const saved = loadSavedState();
+  if (saved && saved.chipConfig) {
+    cpu = new SiliconCPU(chipConfig);
+  }
+  updateSpeedFromSlider();
+  syncBuilderControls();
+  if (saved && saved.isUsingPreset === false && typeof saved.asmCode === 'string' && saved.asmCode.trim()) {
+    isUsingPreset = false;
+    document.getElementById('asmEditor').value = saved.asmCode;
+    const { rom, errors } = assemble(saved.asmCode, cpu.mask, cpu.ramSize);
+    if (!errors.length) {
+      cpu.loadProgram(rom);
+      setAsmStatus(`Restored ${rom.length} instructions from saved state.`, false);
+    } else {
+      loadPreset(saved.preset || 'ripple');
+    }
+  } else {
+    loadPreset((saved && saved.preset) || 'ripple');
+  }
+  if (saved && saved.activeMode === 'gpu') {
+    switchMode('gpu');
+  }
+  if (phoneMode || (!saved && window.innerWidth <= 900)) {
+    applyPhoneMode(true);
+  }
+  renderLesson(false);
+
+  let rafId = 0;
+  let lastTs = performance.now();
+  function frame(ts) {
+    rafId = 0;
+    const rawDt = Number.isFinite(ts) ? (ts - lastTs) / 1000 : 0.016;
+    const dt = Math.max(0, Math.min(0.05, rawDt));
+    lastTs = Number.isFinite(ts) ? ts : performance.now();
+    globalTime += dt;
+    if (fabSweep > 0) fabSweep = Math.max(0, fabSweep - dt * 1.6);
+
+    if (running) {
+      accumTime += dt * (activeMode === 'gpu' ? Math.max(12, speedHz) : speedHz);
+      const steps = Math.min(32, Math.floor(accumTime));
+      if (steps > 0) {
+        accumTime -= steps;
+        for (let s = 0; s < steps; s++) {
+          if (activeMode === 'cpu') {
+            if (cpu.halted) break;
+            if (rippleMode && speedHz <= 25) cpu.stepWave(true);
+            else cpu.stepPhase(false);
+          } else {
+            gpu.stepCycle();
+          }
+          sampleScope();
+        }
+        if (SiliconAudio.enabled && speedHz <= 25) {
+          SiliconAudio.beep(activeMode === 'gpu' ? 520 : (cpu.phase === 0 ? 440 : 620), 0.018, 0.012, 'sine');
+        }
+        updateUI();
+      }
+    }
+
+    cpu.netlist.decayVisuals(dt);
+    gpu.decay(dt);
+    drawDie(dt);
+    if (!document.hidden) rafId = requestAnimationFrame(frame);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      SiliconAudio.suspend();
+    } else {
+      lastTs = performance.now();
+      if (!rafId) rafId = requestAnimationFrame(frame);
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    SiliconAudio.close();
+  });
+  rafId = requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

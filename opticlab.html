@@ -980,7 +980,7 @@
               <div class="switch" id="swWavefront"></div>
             </div>
           </div>
-          <div class="seg-group" style="margin-top: 2px;">
+          <div class="seg-group" id="inspActionRow" style="margin-top: 2px;">
             <button class="btn sm" id="btnDuplicateEl">Duplicate</button>
             <button class="btn sm danger" id="btnDeleteEl">Delete</button>
           </div>
@@ -1059,13 +1059,18 @@
     acrylic:      { id: 'acrylic',      name: 'Acrylic',      A: 1.4810, B: 0.00430, abs: 0.0017, tint: 'rgba(56, 189, 248, 0.11)',  tintDeep: 'rgba(14, 165, 233, 0.25)',  stroke: 'rgba(56, 189, 248, 0.66)' }
   };
 
+  function clampWavelength(wl) {
+    return Number.isFinite(wl) ? Math.max(380, Math.min(750, wl)) : 532;
+  }
+
   function cauchyIndex(materialId, wavelengthNm) {
     const mat = MATERIALS[materialId] || MATERIALS.sf11;
-    const um = wavelengthNm * 0.001;
+    const um = clampWavelength(wavelengthNm) * 0.001;
     return mat.A + mat.B / (um * um);
   }
 
   function wavelengthToRGB(wl) {
+    wl = clampWavelength(wl);
     let r = 0, g = 0, b = 0;
     if (wl >= 380 && wl < 440) {
       r = -(wl - 440) / (440 - 380); g = 0; b = 1;
@@ -1139,6 +1144,7 @@
       dispersionSpreadPx: 0,
       peakWavelength: null,
       maxOrder: '--',
+      maxOrderNum: 0,
       detectorBins: new Array(120).fill(null).map(() => ({ r: 0, g: 0, b: 0, total: 0, wlSum: 0, hits: 0 })),
       solvedChallenges: new Set()
     },
@@ -1149,60 +1155,209 @@
       gen: 0,
       maxGen: 60,
       bestFitness: 0,
-      genomes: []
+      genomes: [],
+      elIds: []
     },
     time: 0
   };
 
+  const VALID_LIGHT_TYPES = new Set(['laser', 'white', 'point', 'cone', 'rgb']);
+  const VALID_LIGHT_MODES = new Set(['mono', 'white', 'rgb']);
+  const VALID_EL_TYPES = new Set(PALETTE_DEFS.map(d => d.type));
+  const STORAGE_KEYS = {
+    bench: 'opticlab_v2_bench',
+    solved: 'opticlab_v2_solved',
+    mobile: 'opticlab_v2_mobile'
+  };
+
+  function safeStorageGet(key) {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      return window.localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, val) {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      window.localStorage.setItem(key, val);
+    } catch (_) {
+      // Ignore quota / private browsing errors
+    }
+  }
+
+  function finiteNum(val, fallback, min, max) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return fallback;
+    let out = n;
+    if (min !== undefined) out = Math.max(min, out);
+    if (max !== undefined) out = Math.min(max, out);
+    return out;
+  }
+
+  function wrapAngle(a) {
+    if (!Number.isFinite(a)) return 0;
+    let r = a % (Math.PI * 2);
+    if (r > Math.PI) r -= Math.PI * 2;
+    if (r < -Math.PI) r += Math.PI * 2;
+    return r;
+  }
+
   let nextLightId = 1;
   function createLight(type = 'laser', x = 110, y = 300, angleDeg = 0, opts = {}) {
+    const safeType = VALID_LIGHT_TYPES.has(type) ? type : 'laser';
     const id = 'light_' + (nextLightId++);
-    const isWhite = type === 'white';
-    const isRgb = type === 'rgb';
-    const mode = opts.mode || (isWhite ? 'white' : isRgb ? 'rgb' : 'mono');
+    const isWhite = safeType === 'white';
+    const isRgb = safeType === 'rgb';
+    const rawMode = opts.mode || (isWhite ? 'white' : isRgb ? 'rgb' : 'mono');
+    const mode = VALID_LIGHT_MODES.has(rawMode) ? rawMode : 'mono';
     return {
       id,
-      type, // 'laser' | 'white' | 'point' | 'cone' | 'rgb'
-      x,
-      y,
-      angle: angleDeg * Math.PI / 180,
+      type: safeType, // 'laser' | 'white' | 'point' | 'cone' | 'rgb'
+      x: finiteNum(x, 110),
+      y: finiteNum(y, 300),
+      angle: wrapAngle(finiteNum(angleDeg, 0) * Math.PI / 180),
       mode, // 'mono' | 'white' | 'rgb'
-      wavelength: opts.wavelength !== undefined ? opts.wavelength : 532,
-      beamWidth: opts.beamWidth !== undefined ? opts.beamWidth : (type === 'point' || type === 'cone' ? 0 : 14),
-      coneAngle: opts.coneAngle !== undefined ? opts.coneAngle : (type === 'point' ? 360 : type === 'cone' ? 36 : 0),
-      rayCount: opts.rayCount !== undefined ? opts.rayCount : (type === 'point' ? 28 : type === 'rgb' ? 9 : 15),
-      intensity: opts.intensity !== undefined ? opts.intensity : 1.0,
-      coherent: opts.coherent !== undefined ? opts.coherent : true
+      wavelength: clampWavelength(opts.wavelength !== undefined ? opts.wavelength : 532),
+      beamWidth: finiteNum(opts.beamWidth, (safeType === 'point' || safeType === 'cone' ? 0 : 14), 0, 120),
+      coneAngle: finiteNum(opts.coneAngle, (safeType === 'point' ? 360 : safeType === 'cone' ? 36 : 0), 0, 360),
+      rayCount: Math.round(finiteNum(opts.rayCount, (safeType === 'point' ? 28 : safeType === 'rgb' ? 9 : 15), 1, 60)),
+      intensity: finiteNum(opts.intensity, 1.0, 0.2, 2.5),
+      coherent: opts.coherent !== undefined ? Boolean(opts.coherent) : true
     };
   }
 
   let nextElId = 1;
   function createElement(type, x, y, angleDeg = 0, opts = {}) {
+    const safeType = VALID_EL_TYPES.has(type) ? type : 'convex_lens';
     const id = 'el_' + (nextElId++);
     const defaultParam =
-      type === 'mirror' ? 0 :
-      type === 'parabolic_mirror' ? 140 :
-      type === 'waveguide' ? 54 :
-      type === 'aperture' ? 28 :
-      type === 'meniscus' ? 135 : 155;
+      safeType === 'mirror' ? 0 :
+      safeType === 'parabolic_mirror' ? 140 :
+      safeType === 'waveguide' ? 54 :
+      safeType === 'aperture' ? 28 :
+      safeType === 'meniscus' ? 135 : 155;
+    const defaultSize = safeType === 'waveguide' ? 210 : safeType === 'detector' ? 190 : safeType === 'ball_lens' ? 110 : 120;
+    const size = finiteNum(opts.size, defaultSize, 44, 260);
+    let param = finiteNum(opts.param, defaultParam, 0, 500);
+    if (safeType === 'aperture') param = Math.min(Math.max(4, param), Math.max(4, size - 10));
     return {
       id,
-      type,
-      x,
-      y,
-      angle: angleDeg * Math.PI / 180,
-      material: opts.material || state.activeMaterial,
-      size: opts.size || (type === 'waveguide' ? 210 : type === 'detector' ? 190 : type === 'ball_lens' ? 110 : 120),
-      param: opts.param !== undefined ? opts.param : defaultParam,
-      param2: opts.param2 !== undefined ? opts.param2 : 225,
-      slitA: opts.slitA || 1.6,
-      slitD: opts.slitD || 3.2,
-      slitN: opts.slitN !== undefined ? opts.slitN : 2,
-      maxOrder: opts.maxOrder || 2,
-      centerWl: opts.centerWl !== undefined ? opts.centerWl : 532,
-      bandwidth: opts.bandwidth !== undefined ? opts.bandwidth : 55,
-      hits: 0
+      type: safeType,
+      x: finiteNum(x, 400),
+      y: finiteNum(y, 300),
+      angle: wrapAngle(finiteNum(angleDeg, 0) * Math.PI / 180),
+      material: MATERIALS[opts.material] ? opts.material : state.activeMaterial,
+      size,
+      param,
+      param2: finiteNum(opts.param2, 225, 80, 500),
+      slitA: finiteNum(opts.slitA, 1.6, 0.4, 8.0),
+      slitD: finiteNum(opts.slitD, 3.2, 1.2, 20.0),
+      slitN: Math.round(finiteNum(opts.slitN, 2, 1, 30)),
+      maxOrder: Math.round(finiteNum(opts.maxOrder, 2, 1, 5)),
+      centerWl: clampWavelength(opts.centerWl !== undefined ? opts.centerWl : 532),
+      bandwidth: finiteNum(opts.bandwidth, 55, 15, 160),
+      hits: 0,
+      bins: null
     };
+  }
+
+  let saveBenchTimer = null;
+  function scheduleSaveBench() {
+    if (saveBenchTimer !== null) clearTimeout(saveBenchTimer);
+    saveBenchTimer = setTimeout(() => {
+      saveBenchTimer = null;
+      saveBenchNow();
+    }, 250);
+  }
+
+  function saveBenchNow() {
+    const payload = {
+      v: 2,
+      benchW: state.benchW,
+      benchH: state.benchH,
+      activeMaterial: state.activeMaterial,
+      activePreset: state.activePreset,
+      fresnelEnabled: state.fresnelEnabled,
+      wavefrontEnabled: state.wavefrontEnabled,
+      normalsEnabled: state.normalsEnabled,
+      lights: state.lights.map(l => ({
+        type: l.type, x: l.x, y: l.y, angleDeg: l.angle * 180 / Math.PI,
+        mode: l.mode, wavelength: l.wavelength, beamWidth: l.beamWidth,
+        coneAngle: l.coneAngle, rayCount: l.rayCount, intensity: l.intensity, coherent: l.coherent
+      })),
+      elements: state.elements.map(e => ({
+        type: e.type, x: e.x, y: e.y, angleDeg: e.angle * 180 / Math.PI,
+        material: e.material, size: e.size, param: e.param, param2: e.param2,
+        slitA: e.slitA, slitD: e.slitD, slitN: e.slitN, maxOrder: e.maxOrder,
+        centerWl: e.centerWl, bandwidth: e.bandwidth
+      }))
+    };
+    safeStorageSet(STORAGE_KEYS.bench, JSON.stringify(payload));
+  }
+
+  function saveSolvedChallenges() {
+    safeStorageSet(STORAGE_KEYS.solved, JSON.stringify(Array.from(state.telemetry.solvedChallenges)));
+  }
+
+  function loadSolvedChallenges() {
+    const raw = safeStorageGet(STORAGE_KEYS.solved);
+    if (!raw) return;
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const validIds = new Set(CHALLENGES.map(c => c.id));
+        arr.forEach(id => { if (validIds.has(id)) state.telemetry.solvedChallenges.add(id); });
+      }
+    } catch (_) {
+      // Ignore corrupt storage
+    }
+  }
+
+  function tryLoadSavedBench() {
+    const raw = safeStorageGet(STORAGE_KEYS.bench);
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      if (!data || data.v !== 2 || !Array.isArray(data.lights) || !Array.isArray(data.elements)) return false;
+      if (data.lights.length === 0 && data.elements.length === 0) return false;
+      const savedW = finiteNum(data.benchW, state.benchW, 100, 10000);
+      const savedH = finiteNum(data.benchH, state.benchH, 100, 10000);
+      const scaleX = state.benchW / savedW;
+      const scaleY = state.benchH / savedH;
+      const marginX = Math.min(24, state.benchW * 0.1);
+      const marginY = Math.min(24, state.benchH * 0.1);
+      state.activeMaterial = MATERIALS[data.activeMaterial] ? data.activeMaterial : 'sf11';
+      state.activePreset = PRESETS.some(p => p.id === data.activePreset) ? data.activePreset : 'newton_prism';
+      state.fresnelEnabled = Boolean(data.fresnelEnabled);
+      state.wavefrontEnabled = Boolean(data.wavefrontEnabled);
+      state.normalsEnabled = Boolean(data.normalsEnabled);
+      state.lights = data.lights.slice(0, 24).map(l => createLight(
+        l.type,
+        Math.max(marginX, Math.min(state.benchW - marginX, finiteNum(l.x, 110) * scaleX)),
+        Math.max(marginY, Math.min(state.benchH - marginY, finiteNum(l.y, 300) * scaleY)),
+        finiteNum(l.angleDeg, 0),
+        l
+      ));
+      state.elements = data.elements.slice(0, 64).map(e => createElement(
+        e.type,
+        Math.max(marginX, Math.min(state.benchW - marginX, finiteNum(e.x, 400) * scaleX)),
+        Math.max(marginY, Math.min(state.benchH - marginY, finiteNum(e.y, 300) * scaleY)),
+        finiteNum(e.angleDeg, 0),
+        e
+      ));
+      state.selectedId = state.elements[0] ? state.elements[0].id : (state.lights[0] ? state.lights[0].id : null);
+      const p = PRESETS.find(pr => pr.id === state.activePreset) || PRESETS[0];
+      document.getElementById('activePresetName').textContent = p.name;
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === p.id));
+      syncGlobalToggles();
+      syncAllUI();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // =========================================================================
@@ -1392,7 +1547,7 @@
       id: 'ch_fringe',
       title: '4. Coherent Diffraction',
       goal: 'Use a Grating/Slit with Mono Laser to excite ≥1st order.',
-      check: (t) => state.lights.some(l => l.mode === 'mono') && state.elements.some(e => e.type === 'grating') && t.detectorPowerPct >= 15
+      check: (t) => state.lights.some(l => l.mode === 'mono' && l.coherent !== false) && state.elements.some(e => e.type === 'grating') && (t.maxOrderNum || 0) >= 1 && t.detectorPowerPct >= 15
     }
   ];
 
@@ -1442,23 +1597,28 @@
   }
 
   function intersectCircleArc(ox, oy, dx, dy, cx, cy, R, halfH, sideSign, forceFlip = false) {
+    if (!Number.isFinite(R) || R <= EPS) return null;
+    const a = dx * dx + dy * dy;
+    if (a < 1e-12) return null;
     const fx = ox - cx;
     const fy = oy - cy;
     const b = 2 * (fx * dx + fy * dy);
     const c = fx * fx + fy * fy - R * R;
-    const disc = b * b - 4 * c;
+    const disc = b * b - 4 * a * c;
     if (disc < 0) return null;
     const sq = Math.sqrt(disc);
+    const inv2a = 0.5 / a;
     let best = null;
-    const ts = [(-b - sq) * 0.5, (-b + sq) * 0.5];
+    const ts = [(-b - sq) * inv2a, (-b + sq) * inv2a];
     for (let i = 0; i < 2; i++) {
       const t = ts[i];
       if (t <= EPS) continue;
       const hx = ox + t * dx;
       const hy = oy + t * dy;
       if (Math.abs(hy) > halfH + 0.01) continue;
-      if (sideSign < 0 && hx > cx + 0.001 && Math.abs(cx) > 0.1 && cx > 0) continue;
-      if (sideSign > 0 && hx < cx - 0.001 && Math.abs(cx) > 0.1 && cx < 0) continue;
+      // Reject phantom far-side arc of circle for convex, concave, plano-convex, and meniscus lenses
+      if (cx > 0.001 && hx > cx + 0.001) continue;
+      if (cx < -0.001 && hx < cx - 0.001) continue;
       let nx = (hx - cx) / R;
       let ny = (hy - cy) / R;
       if (forceFlip) {
@@ -1473,12 +1633,16 @@
   }
 
   function intersectFullCircle(ox, oy, dx, dy, R) {
+    if (!Number.isFinite(R) || R <= EPS) return null;
+    const a = dx * dx + dy * dy;
+    if (a < 1e-12) return null;
     const b = 2 * (ox * dx + oy * dy);
     const c = ox * ox + oy * oy - R * R;
-    const disc = b * b - 4 * c;
+    const disc = b * b - 4 * a * c;
     if (disc < 0) return null;
     const sq = Math.sqrt(disc);
-    const ts = [(-b - sq) * 0.5, (-b + sq) * 0.5];
+    const inv2a = 0.5 / a;
+    const ts = [(-b - sq) * inv2a, (-b + sq) * inv2a];
     let best = null;
     for (let i = 0; i < 2; i++) {
       const t = ts[i];
@@ -1551,7 +1715,7 @@
 
     if (el.type === 'mirror') {
       const f = el.param;
-      const k = f > 10 ? 1 / (4 * f) : 0;
+      const k = f >= 10 ? 1 / (4 * f) : 0;
       const hit = intersectParabola(ox, oy, dx, dy, k, halfH);
       if (hit) hit.surface = 'mirror';
       return hit;
@@ -1610,6 +1774,7 @@
         const ex = p2.x - p1.x;
         const ey = p2.y - p1.y;
         const len = Math.hypot(ex, ey);
+        if (len < 1e-9) continue;
         const nx = ey / len;
         const ny = -ex / len;
         const hit = intersectSegment(ox, oy, dx, dy, p1.x, p1.y, p2.x, p2.y, nx, ny);
@@ -1629,22 +1794,27 @@
 
     if (el.type === 'half_cylinder') {
       const R = halfH;
+      if (!Number.isFinite(R) || R <= EPS) return null;
       let best = intersectSegment(ox, oy, dx, dy, 0, -R, 0, R, -1, 0);
       // Semicircle x >= 0
-      const b = 2 * (ox * dx + oy * dy);
-      const c = ox * ox + oy * oy - R * R;
-      const disc = b * b - 4 * c;
-      if (disc >= 0) {
-        const sq = Math.sqrt(disc);
-        const ts = [(-b - sq) * 0.5, (-b + sq) * 0.5];
-        for (let i = 0; i < 2; i++) {
-          const t = ts[i];
-          if (t <= EPS) continue;
-          const hx = ox + t * dx;
-          const hy = oy + t * dy;
-          if (hx < -0.001) continue;
-          if (!best || t < best.t) {
-            best = { t, x: hx, y: hy, nx: hx / R, ny: hy / R };
+      const a = dx * dx + dy * dy;
+      if (a >= 1e-12) {
+        const b = 2 * (ox * dx + oy * dy);
+        const c = ox * ox + oy * oy - R * R;
+        const disc = b * b - 4 * a * c;
+        if (disc >= 0) {
+          const sq = Math.sqrt(disc);
+          const inv2a = 0.5 / a;
+          const ts = [(-b - sq) * inv2a, (-b + sq) * inv2a];
+          for (let i = 0; i < 2; i++) {
+            const t = ts[i];
+            if (t <= EPS) continue;
+            const hx = ox + t * dx;
+            const hy = oy + t * dy;
+            if (hx < -0.001) continue;
+            if (!best || t < best.t) {
+              best = { t, x: hx, y: hy, nx: hx / R, ny: hy / R };
+            }
           }
         }
       }
@@ -1750,9 +1920,14 @@
     let fresnelLossPower = 0;
     let maxOrderSeen = 0;
 
-    const bins = options.collectBins
-      ? new Array(120).fill(null).map(() => ({ r: 0, g: 0, b: 0, total: 0, wlSum: 0, hits: 0 }))
-      : null;
+    const makeBins = () => new Array(120).fill(null).map(() => ({ r: 0, g: 0, b: 0, total: 0, wlSum: 0, hits: 0 }));
+    const bins = options.collectBins ? makeBins() : null;
+    if (options.collectBins) {
+      for (let ei = 0; ei < elements.length; ei++) {
+        elements[ei].hits = 0;
+        if (elements[ei].type === 'detector') elements[ei].bins = makeBins();
+      }
+    }
 
     const detYMinMax = { rSum: 0, rPow: 0, bSum: 0, bPow: 0, ySum: 0, ySqSum: 0, detPow: 0 };
 
@@ -1760,35 +1935,39 @@
     const queue = [];
     for (let li = 0; li < lightArr.length; li++) {
       const src = lightArr[li];
+      if (!src) continue;
       const wavelengths = getLightWavelengths(src, options.fast);
-      const rayCount = options.fast ? Math.min(8, src.rayCount) : src.rayCount;
-      const baseDirX = Math.cos(src.angle);
-      const baseDirY = Math.sin(src.angle);
+      const rawCount = Math.max(1, Math.round(Number(src.rayCount) || 1));
+      const rayCount = options.fast ? Math.min(8, rawCount) : Math.min(60, rawCount);
+      const baseAngle = Number.isFinite(src.angle) ? src.angle : 0;
+      const baseDirX = Math.cos(baseAngle);
+      const baseDirY = Math.sin(baseAngle);
       const perpX = -baseDirY;
       const perpY = baseDirX;
-      const intensity = src.intensity !== undefined ? src.intensity : 1.0;
+      const intensity = Math.max(0, Number.isFinite(src.intensity) ? src.intensity : 1.0);
+      if (intensity <= 0 || wavelengths.length === 0) continue;
 
       for (let wi = 0; wi < wavelengths.length; wi++) {
-        const wl = wavelengths[wi];
+        const wl = clampWavelength(wavelengths[wi]);
         const rgb = wavelengthToRGB(wl);
         const wlWeight = intensity / wavelengths.length;
 
         for (let ri = 0; ri < rayCount; ri++) {
-          let ox = src.x;
-          let oy = src.y;
-          let ang = src.angle;
+          let ox = Number.isFinite(src.x) ? src.x : 110;
+          let oy = Number.isFinite(src.y) ? src.y : 300;
+          let ang = baseAngle;
 
           if (src.type === 'point') {
-            ang = src.angle + (ri / rayCount) * Math.PI * 2;
+            ang = baseAngle + (ri / rayCount) * Math.PI * 2;
           } else if (src.type === 'cone') {
-            const coneRad = (src.coneAngle || 36) * Math.PI / 180;
+            const coneRad = finiteNum(src.coneAngle, 36, 0, 360) * Math.PI / 180;
             const frac = rayCount === 1 ? 0 : (ri / (rayCount - 1) - 0.5);
-            ang = src.angle + frac * coneRad;
+            ang = baseAngle + frac * coneRad;
           } else {
             const frac = rayCount === 1 ? 0 : (ri / (rayCount - 1) - 0.5);
-            const offset = frac * (src.beamWidth || 0);
-            ox = src.x + perpX * offset;
-            oy = src.y + perpY * offset;
+            const offset = frac * finiteNum(src.beamWidth, 0, 0, 200);
+            ox = ox + perpX * offset;
+            oy = oy + perpY * offset;
           }
 
           const dx = Math.cos(ang);
@@ -1801,11 +1980,20 @@
     }
 
     const MAX_SEGMENTS = options.fast ? 520 : 3400;
+    const MAX_QUEUE = MAX_SEGMENTS * 4;
+    const pushRay = (r) => {
+      if (queue.length < MAX_QUEUE && Number.isFinite(r.dx) && Number.isFinite(r.dy) && Number.isFinite(r.power) && r.power >= 0.0022) {
+        queue.push(r);
+      }
+    };
+    const farDist = Math.max(2400, Math.hypot(state.benchW || 900, state.benchH || 600) * 3 / Math.max(0.25, viewCam.zoom || 1));
     let qIdx = 0;
+    let processedRays = 0;
 
-    while (qIdx < queue.length && segments.length < MAX_SEGMENTS) {
+    while (qIdx < queue.length && processedRays < MAX_SEGMENTS && segments.length < MAX_SEGMENTS) {
       const ray = queue[qIdx++];
-      if (ray.power < 0.0022 || ray.depth > maxBounces) continue;
+      if (!Number.isFinite(ray.power) || ray.power < 0.0022 || ray.depth > maxBounces) continue;
+      processedRays++;
 
       let closest = null;
       let hitEl = null;
@@ -1815,7 +2003,7 @@
         const lo = toLocal(el, ray.ox, ray.oy);
         const ld = dirToLocal(el, ray.dx, ray.dy);
         const hit = intersectElementLocal(el, lo.x, lo.y, ld.x, ld.y);
-        if (hit && hit.t > 0.05 && (!closest || hit.t < closest.t)) {
+        if (hit && Number.isFinite(hit.t) && hit.t > 0.02 && (!closest || hit.t < closest.t)) {
           closest = hit;
           hitEl = el;
         }
@@ -1823,10 +2011,9 @@
 
       if (!closest) {
         if (collectSegments) {
-          const far = 1600;
           segments.push({
             x1: ray.ox, y1: ray.oy,
-            x2: ray.ox + ray.dx * far, y2: ray.oy + ray.dy * far,
+            x2: ray.ox + ray.dx * farDist, y2: ray.oy + ray.dy * farDist,
             rgb: ray.rgb, power: ray.power, wl: ray.wl
           });
         }
@@ -1842,6 +2029,7 @@
         const alpha = MATERIALS[ray.insideMat].abs || 0.0005;
         rayPower *= Math.exp(-alpha * closest.t);
       }
+      if (!Number.isFinite(rayPower) || rayPower <= 0) continue;
 
       if (collectSegments) {
         segments.push({
@@ -1850,8 +2038,12 @@
         });
       }
 
+      if (options.collectBins) hitEl.hits = (hitEl.hits || 0) + 1;
+
       const wn = dirToWorld(hitEl, closest.nx, closest.ny);
-      const pushEps = 0.08;
+      const wnLen = Math.hypot(wn.x, wn.y);
+      if (wnLen > 1e-12) { wn.x /= wnLen; wn.y /= wnLen; }
+      const pushEps = 0.04;
 
       if (collectNormals && normals.length < 140 && closest.surface !== 'detector' && closest.surface !== 'aperture') {
         normals.push({
@@ -1868,8 +2060,9 @@
 
       if (closest.surface === 'detector') {
         totalDetectorPower += rayPower;
-        const halfH = hitEl.size * 0.5;
-        const normY = (closest.localY + halfH) / hitEl.size;
+        const detSize = Math.max(1, hitEl.size || 1);
+        const halfH = detSize * 0.5;
+        const normY = (closest.localY + halfH) / detSize;
         detYMinMax.ySum += closest.localY * rayPower;
         detYMinMax.ySqSum += closest.localY * closest.localY * rayPower;
         detYMinMax.detPow += rayPower;
@@ -1885,6 +2078,15 @@
           b.total += rayPower;
           b.wlSum += ray.wl * rayPower;
           b.hits += 1;
+          if (hitEl.bins && hitEl.bins[idx]) {
+            const eb = hitEl.bins[idx];
+            eb.r += ray.rgb.r * rayPower;
+            eb.g += ray.rgb.g * rayPower;
+            eb.b += ray.rgb.b * rayPower;
+            eb.total += rayPower;
+            eb.wlSum += ray.wl * rayPower;
+            eb.hits += 1;
+          }
         }
         continue;
       }
@@ -1893,20 +2095,24 @@
         const dot = ray.dx * wn.x + ray.dy * wn.y;
         const rx = ray.dx - 2 * dot * wn.x;
         const ry = ray.dy - 2 * dot * wn.y;
-        queue.push({
-          ox: wx + rx * pushEps, oy: wy + ry * pushEps,
-          dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
-          power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
-        });
+        const rLen = Math.hypot(rx, ry);
+        if (rLen > 1e-12) {
+          const rnx = rx / rLen, rny = ry / rLen;
+          pushRay({
+            ox: wx + rnx * pushEps, oy: wy + rny * pushEps,
+            dx: rnx, dy: rny, wl: ray.wl, rgb: ray.rgb,
+            power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
+          });
+        }
         continue;
       }
 
       if (closest.surface === 'dichroic') {
-        const center = hitEl.centerWl || 532;
-        const halfBw = (hitEl.bandwidth || 55) * 0.5;
+        const center = clampWavelength(hitEl.centerWl || 532);
+        const halfBw = Math.max(1, hitEl.bandwidth || 55) * 0.5;
         if (Math.abs(ray.wl - center) <= halfBw) {
           // Transmit
-          queue.push({
+          pushRay({
             ox: wx + ray.dx * pushEps, oy: wy + ray.dy * pushEps,
             dx: ray.dx, dy: ray.dy, wl: ray.wl, rgb: ray.rgb,
             power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
@@ -1916,11 +2122,15 @@
           const dot = ray.dx * wn.x + ray.dy * wn.y;
           const rx = ray.dx - 2 * dot * wn.x;
           const ry = ray.dy - 2 * dot * wn.y;
-          queue.push({
-            ox: wx + rx * pushEps, oy: wy + ry * pushEps,
-            dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
-            power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
-          });
+          const rLen = Math.hypot(rx, ry);
+          if (rLen > 1e-12) {
+            const rnx = rx / rLen, rny = ry / rLen;
+            pushRay({
+              ox: wx + rnx * pushEps, oy: wy + rny * pushEps,
+              dx: rnx, dy: rny, wl: ray.wl, rgb: ray.rgb,
+              power: rayPower * 0.96, depth: ray.depth + 1, insideMat: ray.insideMat
+            });
+          }
         }
         continue;
       }
@@ -1929,16 +2139,20 @@
         const dot = ray.dx * wn.x + ray.dy * wn.y;
         const rx = ray.dx - 2 * dot * wn.x;
         const ry = ray.dy - 2 * dot * wn.y;
-        queue.push({
+        const rLen = Math.hypot(rx, ry);
+        pushRay({
           ox: wx + ray.dx * pushEps, oy: wy + ray.dy * pushEps,
           dx: ray.dx, dy: ray.dy, wl: ray.wl, rgb: ray.rgb,
           power: rayPower * 0.5, depth: ray.depth + 1, insideMat: ray.insideMat
         });
-        queue.push({
-          ox: wx + rx * pushEps, oy: wy + ry * pushEps,
-          dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
-          power: rayPower * 0.5, depth: ray.depth + 1, insideMat: ray.insideMat
-        });
+        if (rLen > 1e-12) {
+          const rnx = rx / rLen, rny = ry / rLen;
+          pushRay({
+            ox: wx + rnx * pushEps, oy: wy + rny * pushEps,
+            dx: rnx, dy: rny, wl: ray.wl, rgb: ray.rgb,
+            power: rayPower * 0.5, depth: ray.depth + 1, insideMat: ray.insideMat
+          });
+        }
         continue;
       }
 
@@ -1949,10 +2163,10 @@
         const ld = dirToLocal(hitEl, ray.dx, ray.dy);
         const forwardSign = ld.x >= 0 ? 1 : -1;
         const sinI = Math.max(-0.99, Math.min(0.99, ld.y));
-        const wlUm = ray.wl * 0.001;
-        const aUm = hitEl.slitA || 1.6;
-        const dUm = hitEl.slitD || 3.2;
-        const N = hitEl.slitN || 2;
+        const wlUm = Math.max(0.1, ray.wl * 0.001);
+        const dUm = Math.max(0.2, hitEl.slitD || 3.2);
+        const N = Math.max(1, Math.round(hitEl.slitN || 2));
+        const aUm = N >= 2 ? Math.min(Math.max(0.1, hitEl.slitA || 1.6), dUm) : Math.max(0.1, hitEl.slitA || 1.6);
 
         if (N === 1 || N === 2) {
           const fanCount = options.fast ? 9 : 19;
@@ -1975,25 +2189,29 @@
             wSum += I;
           }
           if (wSum > 1e-6) {
-            for (const item of weights) {
-              if (item.I / wSum < 0.015) continue;
-              const wd = dirToWorld(hitEl, forwardSign * Math.cos(item.theta), Math.sin(item.theta));
-              queue.push({
-                ox: wx + wd.x * pushEps, oy: wy + wd.y * pushEps,
-                dx: wd.x, dy: wd.y, wl: ray.wl, rgb: ray.rgb,
-                power: rayPower * (item.I / wSum), depth: ray.depth + 1, insideMat: null
-              });
+            const kept = weights.filter(item => item.I / wSum >= 0.015);
+            const keptSum = kept.reduce((acc, it) => acc + it.I, 0);
+            if (keptSum > 1e-6) {
+              for (const item of kept) {
+                const wd = dirToWorld(hitEl, forwardSign * Math.cos(item.theta), Math.sin(item.theta));
+                pushRay({
+                  ox: wx + wd.x * pushEps, oy: wy + wd.y * pushEps,
+                  dx: wd.x, dy: wd.y, wl: ray.wl, rgb: ray.rgb,
+                  power: rayPower * (item.I / keptSum), depth: ray.depth + 1, insideMat: null
+                });
+              }
+              const maxOrd = N === 2 ? Math.min(2, Math.floor(dUm / wlUm)) : 1;
+              maxOrderSeen = Math.max(maxOrderSeen, maxOrd);
             }
           }
-          maxOrderSeen = Math.max(maxOrderSeen, N === 2 ? 2 : 1);
         } else {
-          const mMax = hitEl.maxOrder || 2;
+          const mMax = Math.max(1, Math.round(hitEl.maxOrder || 2));
           const orders = [];
           let wSum = 0;
           for (let m = -mMax; m <= mMax; m++) {
             const sinM = sinI + (m * wlUm) / dUm;
             if (Math.abs(sinM) >= 0.97) continue;
-            const cosM = Math.sqrt(1 - sinM * sinM);
+            const cosM = Math.sqrt(Math.max(0, 1 - sinM * sinM));
             const beta = Math.PI * aUm * (sinM - sinI) / wlUm;
             const sinc = Math.abs(beta) < 1e-4 ? 1 : Math.sin(beta) / beta;
             const I = sinc * sinc * (m === 0 ? 0.85 : 1.0);
@@ -2005,7 +2223,7 @@
           if (wSum > 1e-6) {
             for (const ord of orders) {
               const wd = dirToWorld(hitEl, forwardSign * ord.cosM, ord.sinM);
-              queue.push({
+              pushRay({
                 ox: wx + wd.x * pushEps, oy: wy + wd.y * pushEps,
                 dx: wd.x, dy: wd.y, wl: ray.wl, rgb: ray.rgb,
                 power: rayPower * (ord.I / wSum), depth: ray.depth + 1, insideMat: null
@@ -2032,19 +2250,25 @@
           tirCount++;
           const rx = ray.dx + 2 * cosI * nx;
           const ry = ray.dy + 2 * cosI * ny;
-          queue.push({
-            ox: wx + rx * pushEps, oy: wy + ry * pushEps,
-            dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
-            power: rayPower * 0.995, depth: ray.depth + 1,
-            insideMat: entering ? null : hitEl.material
-          });
+          const rLen = Math.hypot(rx, ry);
+          if (rLen > 1e-12) {
+            const rnx = rx / rLen, rny = ry / rLen;
+            pushRay({
+              ox: wx + rnx * pushEps, oy: wy + rny * pushEps,
+              dx: rnx, dy: rny, wl: ray.wl, rgb: ray.rgb,
+              power: rayPower * 0.995, depth: ray.depth + 1,
+              insideMat: entering ? null : hitEl.material
+            });
+          }
         } else {
-          const cosT = Math.sqrt(1.0 - sin2T);
+          const cosT = Math.sqrt(Math.max(0, 1.0 - sin2T));
           let R = 0;
           if (fresnelOn) {
-            const rs = (n1 * cosI - n2 * cosT) / (n1 * cosI + n2 * cosT);
-            const rp = (n1 * cosT - n2 * cosI) / (n1 * cosT + n2 * cosI);
-            R = 0.5 * (rs * rs + rp * rp);
+            const denomS = n1 * cosI + n2 * cosT;
+            const denomP = n1 * cosT + n2 * cosI;
+            const rs = denomS > 1e-12 ? (n1 * cosI - n2 * cosT) / denomS : 1.0;
+            const rp = denomP > 1e-12 ? (n1 * cosT - n2 * cosI) / denomP : 1.0;
+            R = Math.max(0, Math.min(1, 0.5 * (rs * rs + rp * rp)));
           }
           const T = 1.0 - R;
           fresnelLossPower += rayPower * R;
@@ -2052,39 +2276,48 @@
           const tx = eta * ray.dx + (eta * cosI - cosT) * nx;
           const ty = eta * ray.dy + (eta * cosI - cosT) * ny;
           const tLen = Math.hypot(tx, ty);
-          queue.push({
-            ox: wx + (tx / tLen) * pushEps, oy: wy + (ty / tLen) * pushEps,
-            dx: tx / tLen, dy: ty / tLen, wl: ray.wl, rgb: ray.rgb,
-            power: rayPower * T, depth: ray.depth + 1,
-            insideMat: entering ? hitEl.material : null
-          });
+          if (tLen > 1e-12) {
+            const tnx = tx / tLen, tny = ty / tLen;
+            pushRay({
+              ox: wx + tnx * pushEps, oy: wy + tny * pushEps,
+              dx: tnx, dy: tny, wl: ray.wl, rgb: ray.rgb,
+              power: rayPower * T, depth: ray.depth + 1,
+              insideMat: entering ? hitEl.material : null
+            });
+          }
 
           if (fresnelOn && rayPower * R > 0.012) {
             const rx = ray.dx + 2 * cosI * nx;
             const ry = ray.dy + 2 * cosI * ny;
-            queue.push({
-              ox: wx + rx * pushEps, oy: wy + ry * pushEps,
-              dx: rx, dy: ry, wl: ray.wl, rgb: ray.rgb,
-              power: rayPower * R, depth: ray.depth + 1,
-              insideMat: entering ? null : hitEl.material
-            });
+            const rLen = Math.hypot(rx, ry);
+            if (rLen > 1e-12) {
+              const rnx = rx / rLen, rny = ry / rLen;
+              pushRay({
+                ox: wx + rnx * pushEps, oy: wy + rny * pushEps,
+                dx: rnx, dy: rny, wl: ray.wl, rgb: ray.rgb,
+                power: rayPower * R, depth: ray.depth + 1,
+                insideMat: entering ? null : hitEl.material
+              });
+            }
           }
         }
       }
     }
 
-    const detPct = totalEmittedPower > 0 ? (totalDetectorPower / totalEmittedPower) * 100 : 0;
-    const fresnelPct = totalEmittedPower > 0 ? (fresnelLossPower / totalEmittedPower) * 100 : 0;
+    const detPct = totalEmittedPower > 0 ? Math.max(0, Math.min(100, (totalDetectorPower / totalEmittedPower) * 100)) : 0;
+    const fresnelPct = totalEmittedPower > 0 ? Math.max(0, Math.min(100, (fresnelLossPower / totalEmittedPower) * 100)) : 0;
     let spreadPx = 0;
     if (detYMinMax.rPow > 0.01 && detYMinMax.bPow > 0.01) {
       const rMean = detYMinMax.rSum / detYMinMax.rPow;
       const bMean = detYMinMax.bSum / detYMinMax.bPow;
-      spreadPx = Math.abs(rMean - bMean);
+      const diff = Math.abs(rMean - bMean);
+      spreadPx = Number.isFinite(diff) ? diff : 0;
     }
     let variance = 9999;
     if (detYMinMax.detPow > 0.01) {
       const meanY = detYMinMax.ySum / detYMinMax.detPow;
-      variance = Math.max(0, detYMinMax.ySqSum / detYMinMax.detPow - meanY * meanY);
+      const v = detYMinMax.ySqSum / detYMinMax.detPow - meanY * meanY;
+      variance = Number.isFinite(v) ? Math.max(0, v) : 9999;
     }
 
     return {
@@ -2110,7 +2343,7 @@
   const waveImg = waveCtx.createImageData(waveCanvas.width, waveCanvas.height);
 
   function renderWavefrontField(ctx, w, h) {
-    if (!state.wavefrontEnabled) return;
+    if (!state.wavefrontEnabled || !Number.isFinite(w) || !Number.isFinite(h) || w < 2 || h < 2) return;
 
     const coherentLights = state.lights.filter(l => l.coherent !== false);
     if (coherentLights.length === 0) return;
@@ -2131,11 +2364,13 @@
       const N = Math.min(7, Math.max(1, g.slitN || 2));
       const apH = g.size * 0.72;
       const pitchPx = Math.min(28, Math.max(10, (g.slitD || 3.2) * 4.5));
-      const wl = primaryLight.mode === 'white' ? 532 : primaryLight.wavelength;
+      const wl = primaryLight.mode === 'white' ? 532 : clampWavelength(primaryLight.wavelength);
       const rgb = primaryLight.mode === 'white' ? { r: 56, g: 189, b: 248 } : wavelengthToRGB(wl);
       const wlPx = Math.max(8, (wl / 532) * 15);
       const k = (2 * Math.PI) / wlPx;
-      const fwd = dirToWorld(g, 1, 0);
+      const lLoc = toLocal(g, primaryLight.x, primaryLight.y);
+      const fSign = lLoc.x <= 0 ? 1 : -1;
+      const fwd = dirToWorld(g, fSign, 0);
       for (let i = 0; i < N; i++) {
         const ly = N === 1 ? 0 : (i - (N - 1) * 0.5) * pitchPx;
         if (Math.abs(ly) <= apH * 0.5) {
@@ -2179,7 +2414,7 @@
         for (let ei = 0; ei < emitters.length; ei++) {
           const em = emitters[ei];
           if (em.halfSpace) {
-            const dotFwd = (px - em.gx) * em.fwdX + (py - em.gy) * em.fwdY;
+            const dotFwd = ((px - em.gx) / sx) * em.fwdX + ((py - em.gy) / sy) * em.fwdY;
             if (dotFwd < 0) continue;
           }
           const dx = (px - em.x) / sx;
@@ -2218,33 +2453,88 @@
   const ctx = benchCanvas.getContext('2d');
   const scopeCanvas = document.getElementById('scopeCanvas');
   const sctx = scopeCanvas.getContext('2d');
+  let scopeW = 276;
+  let scopeH = 98;
+  let hasInitializedBenchSize = false;
+
+  function drawRoundedRect(c, x, y, w, h, r) {
+    if (typeof c.roundRect === 'function') {
+      c.roundRect(x, y, w, h, r);
+      return;
+    }
+    const rad = Math.min(r, w * 0.5, h * 0.5);
+    c.moveTo(x + rad, y);
+    c.arcTo(x + w, y, x + w, y + h, rad);
+    c.arcTo(x + w, y + h, x, y + h, rad);
+    c.arcTo(x, y + h, x, y, rad);
+    c.arcTo(x, y, x + w, y, rad);
+    c.closePath();
+  }
 
   function resizeCanvas() {
     const wrap = document.getElementById('benchWrap');
     const rect = wrap.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    benchCanvas.width = Math.floor(rect.width * dpr);
-    benchCanvas.height = Math.floor(rect.height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    state.benchW = rect.width;
-    state.benchH = rect.height;
+    if (rect.width >= 2 && rect.height >= 2) {
+      const prevW = state.benchW;
+      const prevH = state.benchH;
+      benchCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      benchCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      state.benchW = rect.width;
+      state.benchH = rect.height;
+
+      if (hasInitializedBenchSize && prevW >= 2 && prevH >= 2 &&
+          (Math.abs(prevW - rect.width) > 2 || Math.abs(prevH - rect.height) > 2)) {
+        const sx = rect.width / prevW;
+        const sy = rect.height / prevH;
+        const mx = Math.min(24, rect.width * 0.1);
+        const my = Math.min(24, rect.height * 0.1);
+        for (let i = 0; i < state.elements.length; i++) {
+          state.elements[i].x = Math.max(mx, Math.min(rect.width - mx, state.elements[i].x * sx));
+          state.elements[i].y = Math.max(my, Math.min(rect.height - my, state.elements[i].y * sy));
+        }
+        for (let i = 0; i < state.lights.length; i++) {
+          state.lights[i].x = Math.max(mx, Math.min(rect.width - mx, state.lights[i].x * sx));
+          state.lights[i].y = Math.max(my, Math.min(rect.height - my, state.lights[i].y * sy));
+        }
+      }
+      hasInitializedBenchSize = true;
+    }
+
+    const sRect = scopeCanvas.getBoundingClientRect();
+    if (sRect.width >= 2 && sRect.height >= 2) {
+      scopeW = sRect.width;
+      scopeH = sRect.height;
+      scopeCanvas.width = Math.max(1, Math.floor(scopeW * dpr));
+      scopeCanvas.height = Math.max(1, Math.floor(scopeH * dpr));
+      sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
   }
 
   function drawOpticalBenchGrid(w, h) {
+    const z = Math.max(0.25, viewCam.zoom || 1);
+    const minX = -viewCam.panX / z;
+    const minY = -viewCam.panY / z;
+    const maxX = (w - viewCam.panX) / z;
+    const maxY = (h - viewCam.panY) / z;
+
     ctx.fillStyle = '#06090f';
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
 
     const step = 40;
+    const startX = Math.floor(minX / step) * step;
+    const startY = Math.floor(minY / step) * step;
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.045)';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / z;
     ctx.beginPath();
-    for (let x = step; x < w; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-    for (let y = step; y < h; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    for (let x = startX; x <= maxX; x += step) { ctx.moveTo(x, minY); ctx.lineTo(x, maxY); }
+    for (let y = startY; y <= maxY; y += step) { ctx.moveTo(minX, y); ctx.lineTo(maxX, y); }
     ctx.stroke();
 
     ctx.fillStyle = 'rgba(148, 163, 184, 0.14)';
-    for (let x = step; x < w; x += step) {
-      for (let y = step; y < h; y += step) {
+    for (let x = startX; x <= maxX; x += step) {
+      for (let y = startY; y <= maxY; y += step) {
         ctx.fillRect(x - 1, y - 1, 2, 2);
       }
     }
@@ -2259,7 +2549,9 @@
     // Pass 1: Wide soft outer bloom
     for (let i = 0; i < segments.length; i++) {
       const s = segments[i];
-      const alpha = Math.min(0.85, Math.max(0.04, Math.pow(s.power * 7.2, 0.72)));
+      if (!Number.isFinite(s.x1) || !Number.isFinite(s.y1) || !Number.isFinite(s.x2) || !Number.isFinite(s.y2)) continue;
+      const pow = Math.max(0, Number.isFinite(s.power) ? s.power : 0);
+      const alpha = Math.min(0.85, Math.max(0.04, Math.pow(pow * 7.2, 0.72)));
       ctx.strokeStyle = `rgba(${s.rgb.r}, ${s.rgb.g}, ${s.rgb.b}, ${(alpha * 0.16).toFixed(3)})`;
       ctx.lineWidth = 7.2;
       ctx.beginPath();
@@ -2271,7 +2563,9 @@
     // Pass 2: Medium colored aura
     for (let i = 0; i < segments.length; i++) {
       const s = segments[i];
-      const alpha = Math.min(0.95, Math.max(0.06, Math.pow(s.power * 7.5, 0.72)));
+      if (!Number.isFinite(s.x1) || !Number.isFinite(s.y1) || !Number.isFinite(s.x2) || !Number.isFinite(s.y2)) continue;
+      const pow = Math.max(0, Number.isFinite(s.power) ? s.power : 0);
+      const alpha = Math.min(0.95, Math.max(0.06, Math.pow(pow * 7.5, 0.72)));
       ctx.strokeStyle = `rgba(${s.rgb.r}, ${s.rgb.g}, ${s.rgb.b}, ${(alpha * 0.42).toFixed(3)})`;
       ctx.lineWidth = 3.0;
       ctx.beginPath();
@@ -2283,7 +2577,9 @@
     // Pass 3: Crisp bright inner core
     for (let i = 0; i < segments.length; i++) {
       const s = segments[i];
-      const alpha = Math.min(1.0, Math.max(0.08, Math.pow(s.power * 8.5, 0.75)));
+      if (!Number.isFinite(s.x1) || !Number.isFinite(s.y1) || !Number.isFinite(s.x2) || !Number.isFinite(s.y2)) continue;
+      const pow = Math.max(0, Number.isFinite(s.power) ? s.power : 0);
+      const alpha = Math.min(1.0, Math.max(0.08, Math.pow(pow * 8.5, 0.75)));
       const cr = Math.min(255, Math.round(s.rgb.r * 0.72 + 72));
       const cg = Math.min(255, Math.round(s.rgb.g * 0.72 + 72));
       const cb = Math.min(255, Math.round(s.rgb.b * 0.72 + 72));
@@ -2372,7 +2668,7 @@
       const sag = R - Math.sqrt(R * R - halfH * halfH);
       const xLeft = -sag * 0.5;
       const cxRight = sag * 0.5 - R;
-      const angSpan = Math.asin(halfH / R);
+      const angSpan = Math.asin(Math.max(-1, Math.min(1, halfH / R)));
       ctx.beginPath();
       ctx.moveTo(xLeft, -halfH);
       ctx.arc(cxRight, 0, R, -angSpan, angSpan, false);
@@ -2387,8 +2683,8 @@
       const halfThick = Math.max(8, Math.abs(sag1 - sag2) * 0.5 + 7);
       const cxLeft = -halfThick + R1;
       const cxRight = +halfThick + R2;
-      const a1 = Math.asin(halfH / R1);
-      const a2 = Math.asin(halfH / R2);
+      const a1 = Math.asin(Math.max(-1, Math.min(1, halfH / R1)));
+      const a2 = Math.asin(Math.max(-1, Math.min(1, halfH / R2)));
       ctx.beginPath();
       ctx.arc(cxLeft, 0, R1, Math.PI - a1, Math.PI + a1, false);
       ctx.lineTo(halfThick + sag2, -halfH);
@@ -2400,7 +2696,7 @@
       const sag = R - Math.sqrt(R * R - halfH * halfH);
       const cxLeft = R - sag;
       const cxRight = -R + sag;
-      const angSpan = Math.asin(halfH / R);
+      const angSpan = Math.asin(Math.max(-1, Math.min(1, halfH / R)));
       ctx.beginPath();
       ctx.arc(cxLeft, 0, R, Math.PI - angSpan, Math.PI + angSpan, false);
       ctx.arc(cxRight, 0, R, -angSpan, angSpan, false);
@@ -2412,7 +2708,7 @@
       const minThick = 10;
       const cxLeft = -(minThick * 0.5 + R);
       const cxRight = +(minThick * 0.5 + R);
-      const angSpan = Math.asin(halfH / R);
+      const angSpan = Math.asin(Math.max(-1, Math.min(1, halfH / R)));
       ctx.beginPath();
       ctx.arc(cxLeft, 0, R, -angSpan, angSpan, false);
       ctx.lineTo(minThick * 0.5 + sag, halfH);
@@ -2421,7 +2717,7 @@
       fillGlassPath(mat, halfH, isSelected);
     } else if (el.type === 'mirror' || el.type === 'parabolic_mirror') {
       const f = el.type === 'parabolic_mirror' ? Math.max(30, el.param || 140) : el.param;
-      const k = f > 10 ? 1 / (4 * f) : 0;
+      const k = f >= 10 ? 1 / (4 * f) : 0;
       ctx.beginPath();
       for (let i = 0; i <= 28; i++) {
         const y = -halfH + (i / 28) * el.size;
@@ -2442,7 +2738,7 @@
       }
       ctx.stroke();
 
-      if (f > 10) {
+      if (f >= 10) {
         // Draw focal point indicator F
         ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(56, 189, 248, 0.55)';
         ctx.beginPath();
@@ -2516,7 +2812,7 @@
       ctx.fillRect(0, -halfH, 12, el.size);
       ctx.strokeRect(0, -halfH, 12, el.size);
 
-      const bins = state.telemetry.detectorBins;
+      const bins = el.bins || state.telemetry.detectorBins;
       const binH = el.size / bins.length;
       for (let i = 0; i < bins.length; i++) {
         const b = bins[i];
@@ -2600,7 +2896,7 @@
       ctx.strokeStyle = isSelected ? '#38bdf8' : '#f59e0b';
       ctx.lineWidth = isSelected ? 2.2 : 1.6;
       ctx.beginPath();
-      ctx.roundRect(-24, -15, 40, 30, 6);
+      drawRoundedRect(ctx, -24, -15, 40, 30, 6);
       ctx.fill();
       ctx.stroke();
 
@@ -2636,9 +2932,10 @@
     ctx.restore();
   }
 
+  let lastScopePeakText = '';
   function renderScope() {
-    const w = scopeCanvas.width;
-    const h = scopeCanvas.height;
+    const w = scopeW;
+    const h = scopeH;
     sctx.clearRect(0, 0, w, h);
     sctx.fillStyle = '#05080f';
     sctx.fillRect(0, 0, w, h);
@@ -2649,7 +2946,8 @@
       sctx.beginPath(); sctx.moveTo(0, y); sctx.lineTo(w, y); sctx.stroke();
     }
 
-    const bins = state.telemetry.detectorBins;
+    const selDet = state.elements.find(e => e.id === state.selectedId && e.type === 'detector' && e.bins);
+    const bins = selDet ? selDet.bins : state.telemetry.detectorBins;
     let maxVal = 0.001;
     let peakIdx = -1;
     for (let i = 0; i < bins.length; i++) {
@@ -2671,21 +2969,37 @@
       sctx.fillRect(i * barW, h - barH, Math.max(1.5, barW), barH);
     }
 
-    if (peakIdx >= 0 && bins[peakIdx].total > 0) {
-      const peakWl = Math.round(bins[peakIdx].wlSum / bins[peakIdx].total);
-      document.getElementById('scopePeakBadge').textContent = `Peak: ${peakWl} nm`;
-    } else {
-      document.getElementById('scopePeakBadge').textContent = 'Peak: --';
+    const nextPeakText = (peakIdx >= 0 && bins[peakIdx].total > 0)
+      ? `Peak: ${Math.round(bins[peakIdx].wlSum / bins[peakIdx].total)} nm`
+      : 'Peak: --';
+    if (nextPeakText !== lastScopePeakText) {
+      lastScopePeakText = nextPeakText;
+      document.getElementById('scopePeakBadge').textContent = nextPeakText;
     }
   }
 
   // =========================================================================
   // 9. AI AUTO-ALIGN SWARM (120 CANDIDATE GENOMES)
   // =========================================================================
+  function stopSwarm(resetUI = false) {
+    state.swarm.running = false;
+    state.swarm.genomes = [];
+    state.swarm.elIds = [];
+    document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
+    if (resetUI) {
+      state.swarm.gen = 0;
+      state.swarm.bestFitness = 0;
+      document.getElementById('swarmBar').style.width = '0%';
+      document.getElementById('swarmGenText').textContent = `Gen 0 / ${state.swarm.maxGen}`;
+      document.getElementById('swarmFitText').textContent = 'Fitness: --';
+      document.getElementById('hudSwarm').textContent = 'Idle';
+    }
+  }
+
   function evaluateGenome(angles) {
     const saved = state.elements.map(e => e.angle);
     for (let i = 0; i < state.elements.length; i++) {
-      if (state.elements[i].type !== 'detector') {
+      if (state.elements[i].type !== 'detector' && Number.isFinite(angles[i])) {
         state.elements[i].angle = angles[i];
       }
     }
@@ -2694,46 +3008,70 @@
       state.elements[i].angle = saved[i];
     }
 
+    let rawFit = 0;
     if (state.swarm.goal === 'intensity') {
-      return res.detPct;
+      rawFit = res.detPct;
     } else if (state.swarm.goal === 'focus') {
-      return res.detPct * (1 + 25 / (1 + Math.sqrt(res.variance)));
+      rawFit = res.detPct * (1 + 25 / (1 + Math.sqrt(Math.max(0, res.variance))));
     } else {
-      return (res.detPct > 5 ? res.spreadPx * (0.4 + Math.min(1, res.detPct / 40)) : res.detPct * 0.1);
+      rawFit = (res.detPct > 5 ? res.spreadPx * (0.4 + Math.min(1, res.detPct / 40)) : res.detPct * 0.1);
     }
+    return Number.isFinite(rawFit) ? rawFit : 0;
   }
 
   function startSwarm() {
-    if (state.elements.length === 0) return;
+    const hasDetector = state.elements.some(e => e.type === 'detector');
+    const hasAdjustable = state.elements.some(e => e.type !== 'detector');
+    if (state.lights.length === 0 || !hasDetector || !hasAdjustable) {
+      stopSwarm(true);
+      document.getElementById('swarmFitText').textContent = 'Need light + optic + detector';
+      document.getElementById('hudSwarm').textContent = 'No Target';
+      return;
+    }
     state.swarm.running = true;
     state.swarm.gen = 0;
     state.swarm.bestFitness = 0;
     state.swarm.genomes = [];
-    const baseAngles = state.elements.map(e => e.angle);
+    state.swarm.elIds = state.elements.map(e => e.id);
+    const baseAngles = state.elements.map(e => wrapAngle(e.angle));
     for (let i = 0; i < state.swarm.popSize; i++) {
       const angles = baseAngles.map((a, idx) =>
-        i === 0 ? a : a + (Math.random() - 0.5) * (state.elements[idx].type === 'detector' ? 0 : 1.1)
+        i === 0 ? a : wrapAngle(a + (Math.random() - 0.5) * (state.elements[idx].type === 'detector' ? 0 : 1.1))
       );
       state.swarm.genomes.push({ angles, fitness: 0 });
     }
+    document.getElementById('swarmBar').style.width = '0%';
+    document.getElementById('swarmGenText').textContent = `Gen 0 / ${state.swarm.maxGen}`;
     document.getElementById('btnSwarmRun').textContent = 'Evolving...';
   }
 
   function stepSwarm() {
     if (!state.swarm.running) return;
+    // Guard against element add/remove while swarm is evolving
+    if (state.elements.length !== state.swarm.elIds.length ||
+        state.elements.some((e, i) => e.id !== state.swarm.elIds[i]) ||
+        state.lights.length === 0) {
+      stopSwarm(false);
+      return;
+    }
     const pop = state.swarm.genomes;
+    if (!pop || pop.length === 0) {
+      stopSwarm(false);
+      return;
+    }
     for (let i = 0; i < pop.length; i++) {
       pop[i].fitness = evaluateGenome(pop[i].angles);
     }
-    pop.sort((a, b) => b.fitness - a.fitness);
+    pop.sort((a, b) => (b.fitness || 0) - (a.fitness || 0));
 
     const best = pop[0];
     state.swarm.bestFitness = best.fitness;
     for (let i = 0; i < state.elements.length; i++) {
-      if (state.elements[i].type !== 'detector') {
-        state.elements[i].angle = best.angles[i];
+      if (state.elements[i].type !== 'detector' && Number.isFinite(best.angles[i])) {
+        state.elements[i].angle = wrapAngle(best.angles[i]);
       }
     }
+    updateSelectedBadge();
 
     state.swarm.gen++;
     const pct = Math.round((state.swarm.gen / state.swarm.maxGen) * 100);
@@ -2743,12 +3081,12 @@
     document.getElementById('hudSwarm').textContent = `G${state.swarm.gen} (${best.fitness.toFixed(0)})`;
 
     if (state.swarm.gen >= state.swarm.maxGen) {
-      state.swarm.running = false;
-      document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
+      stopSwarm(false);
+      scheduleSaveBench();
       return;
     }
 
-    const eliteCount = Math.max(8, Math.floor(pop.length * 0.12));
+    const eliteCount = Math.max(8, Math.min(pop.length, Math.floor(pop.length * 0.12)));
     const nextPop = [];
     for (let i = 0; i < eliteCount; i++) {
       nextPop.push({ angles: pop[i].angles.slice(), fitness: pop[i].fitness });
@@ -2757,7 +3095,7 @@
     while (nextPop.length < pop.length) {
       const parent = pop[Math.floor(Math.random() * eliteCount)];
       const childAngles = parent.angles.map((a, idx) =>
-        state.elements[idx].type === 'detector' ? a : a + (Math.random() - 0.5) * 2 * sigma
+        state.elements[idx].type === 'detector' ? a : wrapAngle(a + (Math.random() - 0.5) * 2 * sigma)
       );
       nextPop.push({ angles: childAngles, fitness: 0 });
     }
@@ -2796,10 +3134,29 @@
     return state.lights[0] || null;
   }
 
+  function trySetPointerCapture(ev) {
+    try {
+      if (typeof ev.pointerId === 'number' && typeof benchCanvas.setPointerCapture === 'function') {
+        benchCanvas.setPointerCapture(ev.pointerId);
+      }
+    } catch (_) {
+      // Ignore synthetic events without active pointerId
+    }
+  }
+
+  function clearDragState() {
+    if (dragMode) scheduleSaveBench();
+    dragMode = null;
+    dragTarget = null;
+  }
+
   benchCanvas.addEventListener('pointerdown', (ev) => {
     if (isPinching) return;
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    if (ev.isPrimary === false) return;
     const p = getCanvasPos(ev);
     const touchPad = (ev.pointerType === 'touch' || document.body.classList.contains('mobile-mode')) ? 10 : 0;
+    const padWorld = touchPad / Math.max(0.25, viewCam.zoom);
 
     // Check selected rotation handle first
     if (state.selectedId && state.selectedId.startsWith('light_')) {
@@ -2810,7 +3167,7 @@
         if (Math.hypot(p.x - hx, p.y - hy) <= (13 + touchPad) / viewCam.zoom) {
           dragMode = 'rot_light';
           dragTarget = l;
-          benchCanvas.setPointerCapture(ev.pointerId);
+          trySetPointerCapture(ev);
           return;
         }
       }
@@ -2823,7 +3180,7 @@
         if (Math.hypot(p.x - hx, p.y - hy) <= (13 + touchPad) / viewCam.zoom) {
           dragMode = 'rot_el';
           dragTarget = el;
-          benchCanvas.setPointerCapture(ev.pointerId);
+          trySetPointerCapture(ev);
           return;
         }
       }
@@ -2838,7 +3195,7 @@
         dragTarget = l;
         dragOffset = { x: p.x - l.x, y: p.y - l.y };
         syncAllUI();
-        benchCanvas.setPointerCapture(ev.pointerId);
+        trySetPointerCapture(ev);
         return;
       }
     }
@@ -2847,16 +3204,18 @@
     for (let i = state.elements.length - 1; i >= 0; i--) {
       const el = state.elements[i];
       const lp = toLocal(el, p.x, p.y);
-      const hitW = el.type === 'waveguide' || el.type === 'ball_lens' || el.type === 'half_cylinder'
+      const baseW = el.type === 'waveguide' || el.type === 'ball_lens' || el.type === 'half_cylinder'
         ? el.size * 0.52 : 28;
-      const hitH = el.type === 'waveguide' ? (el.param || 54) * 0.58 : el.size * 0.54;
+      const baseH = el.type === 'waveguide' ? (el.param || 54) * 0.58 : el.size * 0.54;
+      const hitW = Math.max(baseW + padWorld, (24 + touchPad) / viewCam.zoom);
+      const hitH = baseH + padWorld;
       if (Math.abs(lp.x) <= hitW && Math.abs(lp.y) <= hitH) {
         state.selectedId = el.id;
         dragMode = 'move_el';
         dragTarget = el;
         dragOffset = { x: p.x - el.x, y: p.y - el.y };
         syncAllUI();
-        benchCanvas.setPointerCapture(ev.pointerId);
+        trySetPointerCapture(ev);
         return;
       }
     }
@@ -2868,45 +3227,73 @@
   benchCanvas.addEventListener('pointermove', (ev) => {
     if (isPinching || !dragMode || !dragTarget) return;
     const p = getCanvasPos(ev);
+    const mx = Math.min(24, state.benchW * 0.1);
+    const my = Math.min(24, state.benchH * 0.1);
     if (dragMode === 'move_light') {
-      dragTarget.x = Math.max(24, Math.min(state.benchW - 24, p.x - dragOffset.x));
-      dragTarget.y = Math.max(24, Math.min(state.benchH - 24, p.y - dragOffset.y));
+      dragTarget.x = Math.max(mx, Math.min(state.benchW - mx, p.x - dragOffset.x));
+      dragTarget.y = Math.max(my, Math.min(state.benchH - my, p.y - dragOffset.y));
     } else if (dragMode === 'rot_light') {
       let a = Math.atan2(p.y - dragTarget.y, p.x - dragTarget.x);
       if (ev.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12);
-      dragTarget.angle = a;
+      dragTarget.angle = wrapAngle(a);
+      updateSelectedBadge();
     } else if (dragMode === 'move_el') {
-      dragTarget.x = Math.max(24, Math.min(state.benchW - 24, p.x - dragOffset.x));
-      dragTarget.y = Math.max(24, Math.min(state.benchH - 24, p.y - dragOffset.y));
+      dragTarget.x = Math.max(mx, Math.min(state.benchW - mx, p.x - dragOffset.x));
+      dragTarget.y = Math.max(my, Math.min(state.benchH - my, p.y - dragOffset.y));
     } else if (dragMode === 'rot_el') {
       let a = Math.atan2(p.y - dragTarget.y, p.x - dragTarget.x);
       if (ev.shiftKey) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12);
-      dragTarget.angle = a;
+      dragTarget.angle = wrapAngle(a);
+      updateSelectedBadge();
     }
   });
 
-  benchCanvas.addEventListener('pointerup', () => {
-    dragMode = null;
-    dragTarget = null;
-  });
+  benchCanvas.addEventListener('pointerup', clearDragState);
+  benchCanvas.addEventListener('pointercancel', clearDragState);
+  benchCanvas.addEventListener('lostpointercapture', clearDragState);
 
   function deleteSelectedObject() {
     if (!state.selectedId) return;
     if (state.selectedId.startsWith('light_')) {
       state.lights = state.lights.filter(l => l.id !== state.selectedId);
       state.selectedId = state.lights[0] ? state.lights[0].id : null;
+      if (state.swarm.running && state.lights.length === 0) stopSwarm(false);
       syncAllUI();
+      scheduleSaveBench();
     } else if (state.selectedId.startsWith('el_')) {
       state.elements = state.elements.filter(e => e.id !== state.selectedId);
       state.selectedId = null;
+      if (state.swarm.running) stopSwarm(false);
       syncAllUI();
+      scheduleSaveBench();
     }
   }
 
   window.addEventListener('keydown', (ev) => {
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
     if (ev.key === 'Delete' || ev.key === 'Backspace') {
-      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
-      deleteSelectedObject();
+      if (state.selectedId) {
+        ev.preventDefault();
+        deleteSelectedObject();
+      }
+    } else if (ev.key === 'Escape') {
+      clearDragState();
+      if (state.swarm.running) stopSwarm(false);
+      state.selectedId = null;
+      syncAllUI();
+    } else if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && state.selectedId) {
+      const target = state.selectedId.startsWith('light_')
+        ? state.lights.find(l => l.id === state.selectedId)
+        : state.elements.find(e => e.id === state.selectedId);
+      if (target) {
+        ev.preventDefault();
+        const stepDeg = ev.shiftKey ? 15 : 1;
+        const delta = (ev.key === 'ArrowRight' ? stepDeg : -stepDeg) * Math.PI / 180;
+        target.angle = wrapAngle(target.angle + delta);
+        updateSelectedBadge();
+        scheduleSaveBench();
+      }
     }
   });
 
@@ -2929,7 +3316,9 @@
         );
         state.elements.push(el);
         state.selectedId = el.id;
+        if (state.swarm.running) stopSwarm(false);
         syncAllUI();
+        scheduleSaveBench();
       });
       pal.appendChild(btn);
     });
@@ -2947,6 +3336,7 @@
         const sel = state.elements.find(e => e.id === state.selectedId);
         if (sel && GLASS_TYPES.has(sel.type)) sel.material = mat.id;
         syncMaterialUI();
+        scheduleSaveBench();
       });
       matRow.appendChild(chip);
     });
@@ -2985,6 +3375,7 @@
         state.lights.push(nl);
         state.selectedId = nl.id;
         syncAllUI();
+        scheduleSaveBench();
       });
     });
 
@@ -2993,67 +3384,114 @@
       if (!l) return;
       state.lights = state.lights.filter(x => x.id !== l.id);
       state.selectedId = state.lights[0] ? state.lights[0].id : null;
+      if (state.swarm.running && state.lights.length === 0) stopSwarm(false);
       syncAllUI();
+      scheduleSaveBench();
     });
 
     document.getElementById('selLightType').addEventListener('change', (e) => {
       const l = getSelectedLight();
       if (!l) return;
       l.type = e.target.value;
-      if (l.type === 'white') l.mode = 'white';
-      else if (l.type === 'rgb') l.mode = 'rgb';
-      else if (l.type === 'laser') l.mode = 'mono';
-      if (l.type === 'point') { l.coneAngle = 360; l.rayCount = Math.max(l.rayCount, 24); }
-      if (l.type === 'cone' && l.coneAngle === 0) l.coneAngle = 36;
+      if (l.type === 'white') {
+        l.mode = 'white';
+        if (l.beamWidth <= 0) l.beamWidth = 14;
+      } else if (l.type === 'rgb') {
+        l.mode = 'rgb';
+        if (l.beamWidth <= 0) l.beamWidth = 10;
+      } else if (l.type === 'laser') {
+        l.mode = 'mono';
+        if (l.beamWidth <= 0) l.beamWidth = 14;
+      } else if (l.type === 'point') {
+        l.coneAngle = 360;
+        l.rayCount = Math.max(l.rayCount, 24);
+      } else if (l.type === 'cone') {
+        if (l.coneAngle <= 0 || l.coneAngle > 120) l.coneAngle = 36;
+      }
       syncSourceUI();
+      syncMaterialUI();
+      scheduleSaveBench();
     });
 
     document.getElementById('btnLightMono').addEventListener('click', () => {
       const l = getSelectedLight();
-      if (l) { l.mode = 'mono'; syncSourceUI(); }
+      if (l) {
+        l.mode = 'mono';
+        if (l.type === 'white') l.type = 'laser';
+        syncSourceUI();
+        syncMaterialUI();
+        scheduleSaveBench();
+      }
     });
     document.getElementById('btnLightWhite').addEventListener('click', () => {
       const l = getSelectedLight();
-      if (l) { l.mode = 'white'; syncSourceUI(); }
+      if (l) {
+        l.mode = 'white';
+        if (l.type === 'laser') l.type = 'white';
+        syncSourceUI();
+        syncMaterialUI();
+        scheduleSaveBench();
+      }
     });
 
     document.getElementById('swCoherent').addEventListener('click', () => {
       const l = getSelectedLight();
-      if (l) { l.coherent = !l.coherent; syncSourceUI(); }
+      if (l) { l.coherent = !l.coherent; syncSourceUI(); scheduleSaveBench(); }
     });
 
     const bindSlider = (id, fn) => {
-      document.getElementById(id).addEventListener('input', (e) => fn(parseFloat(e.target.value)));
+      document.getElementById(id).addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (Number.isFinite(val)) {
+          fn(val);
+          scheduleSaveBench();
+        }
+      });
     };
 
     bindSlider('slWavelength', v => {
       const l = getSelectedLight();
-      if (l) { l.wavelength = v; l.mode = 'mono'; syncSourceUI(); }
+      if (l) {
+        l.wavelength = clampWavelength(v);
+        l.mode = 'mono';
+        if (l.type === 'white') l.type = 'laser';
+        syncSourceUI();
+        syncMaterialUI();
+      }
     });
     bindSlider('slBeamWidth', v => {
       const l = getSelectedLight();
       if (!l) return;
-      if (l.type === 'cone') l.coneAngle = v;
-      else l.beamWidth = v;
+      if (l.type === 'cone') l.coneAngle = Math.max(4, Math.min(120, v));
+      else l.beamWidth = Math.max(0, Math.min(120, v));
       syncSourceUI();
     });
     bindSlider('slRayCount', v => {
       const l = getSelectedLight();
-      if (l) { l.rayCount = Math.round(v); syncSourceUI(); }
+      if (l) { l.rayCount = Math.max(1, Math.min(60, Math.round(v))); syncSourceUI(); }
     });
     bindSlider('slIntensity', v => {
       const l = getSelectedLight();
-      if (l) { l.intensity = v; syncSourceUI(); }
+      if (l) { l.intensity = Math.max(0.2, Math.min(2.5, v)); syncSourceUI(); }
     });
 
     // Element Inspector sliders
     bindSlider('slSize', v => {
       const el = state.elements.find(e => e.id === state.selectedId);
-      if (el) { el.size = v; syncInspectorUI(); }
+      if (el) {
+        el.size = Math.max(44, Math.min(260, v));
+        if (el.type === 'aperture') {
+          el.param = Math.min(el.param, Math.max(4, el.size - 12));
+        }
+        syncInspectorUI();
+      }
     });
     bindSlider('slParam', v => {
       const el = state.elements.find(e => e.id === state.selectedId);
-      if (el) { el.param = v; syncInspectorUI(); }
+      if (el) {
+        el.param = el.type === 'aperture' ? Math.min(Math.max(4, v), Math.max(4, el.size - 12)) : v;
+        syncInspectorUI();
+      }
     });
     bindSlider('slParam2', v => {
       const el = state.elements.find(e => e.id === state.selectedId);
@@ -3061,7 +3499,7 @@
     });
     bindSlider('slDicWl', v => {
       const el = state.elements.find(e => e.id === state.selectedId && e.type === 'dichroic');
-      if (el) { el.centerWl = v; syncInspectorUI(); }
+      if (el) { el.centerWl = clampWavelength(v); syncInspectorUI(); }
     });
     bindSlider('slDicBw', v => {
       const el = state.elements.find(e => e.id === state.selectedId && e.type === 'dichroic');
@@ -3077,16 +3515,26 @@
     });
     bindSlider('slSlitN', v => {
       const el = getActiveGrating();
-      if (el) { el.slitN = Math.round(v); syncInspectorUI(); }
+      if (el) { el.slitN = Math.max(1, Math.min(30, Math.round(v))); syncInspectorUI(); }
     });
 
     document.getElementById('btnDuplicateEl').addEventListener('click', () => {
       const el = state.elements.find(e => e.id === state.selectedId);
       if (!el) return;
-      const copy = createElement(el.type, el.x + 28, el.y + 28, el.angle * 180 / Math.PI, el);
+      const mx = Math.min(28, state.benchW * 0.1);
+      const my = Math.min(28, state.benchH * 0.1);
+      const cx = Math.max(mx, Math.min(state.benchW - mx, el.x + 28));
+      const cy = Math.max(my, Math.min(state.benchH - my, el.y + 28));
+      const copy = createElement(el.type, cx, cy, el.angle * 180 / Math.PI, {
+        material: el.material, size: el.size, param: el.param, param2: el.param2,
+        slitA: el.slitA, slitD: el.slitD, slitN: el.slitN, maxOrder: el.maxOrder,
+        centerWl: el.centerWl, bandwidth: el.bandwidth
+      });
       state.elements.push(copy);
       state.selectedId = copy.id;
+      if (state.swarm.running) stopSwarm(false);
       syncAllUI();
+      scheduleSaveBench();
     });
     document.getElementById('btnDeleteEl').addEventListener('click', deleteSelectedObject);
 
@@ -3094,6 +3542,7 @@
     const toggleWave = () => {
       state.wavefrontEnabled = !state.wavefrontEnabled;
       syncGlobalToggles();
+      scheduleSaveBench();
     };
     document.getElementById('btnToggleWave').addEventListener('click', toggleWave);
     document.getElementById('swWavefront').addEventListener('click', toggleWave);
@@ -3101,18 +3550,21 @@
     document.getElementById('btnToggleFresnel').addEventListener('click', () => {
       state.fresnelEnabled = !state.fresnelEnabled;
       syncGlobalToggles();
+      scheduleSaveBench();
     });
     document.getElementById('btnToggleNormals').addEventListener('click', () => {
       state.normalsEnabled = !state.normalsEnabled;
       syncGlobalToggles();
+      scheduleSaveBench();
     });
 
     document.getElementById('btnResetPreset').addEventListener('click', () => { resetViewCam(); loadPreset(state.activePreset); });
     document.getElementById('btnClearBench').addEventListener('click', () => {
       state.elements = [];
       state.selectedId = state.lights[0] ? state.lights[0].id : null;
-      state.swarm.running = false;
+      stopSwarm(true);
       syncAllUI();
+      scheduleSaveBench();
     });
 
     document.getElementById('selSwarmGoal').addEventListener('change', (e) => {
@@ -3121,10 +3573,7 @@
       document.getElementById('swarmGoalLabel').textContent = labels[state.swarm.goal] || 'Max Intensity';
     });
     document.getElementById('btnSwarmRun').addEventListener('click', startSwarm);
-    document.getElementById('btnSwarmStop').addEventListener('click', () => {
-      state.swarm.running = false;
-      document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
-    });
+    document.getElementById('btnSwarmStop').addEventListener('click', () => stopSwarm(false));
   }
 
   function getActiveGrating() {
@@ -3140,14 +3589,24 @@
 
   function syncMaterialUI() {
     const mat = MATERIALS[state.activeMaterial] || MATERIALS.sf11;
-    const n550 = cauchyIndex(mat.id, 550);
-    const critDeg = (Math.asin(1 / n550) * 180 / Math.PI).toFixed(1);
-    document.getElementById('matIndexBadge').textContent = `n = ${n550.toFixed(3)}`;
+    const activeL = getSelectedLight();
+    const refWl = (activeL && activeL.mode === 'mono') ? clampWavelength(activeL.wavelength) : 550;
+    const nRef = cauchyIndex(mat.id, refWl);
+    const critDeg = (Math.asin(Math.min(1, 1 / Math.max(1.0001, nRef))) * 180 / Math.PI).toFixed(1);
+    document.getElementById('matIndexBadge').textContent = `n = ${nRef.toFixed(3)}`;
     document.getElementById('cauchyFormula').textContent = `n(λ) = ${mat.A.toFixed(4)} + ${mat.B.toFixed(5)} / λ²`;
     document.getElementById('teleCrit').textContent = critDeg + '°';
     document.querySelectorAll('#materialChips .chip').forEach(c => {
       c.classList.toggle('active', c.dataset.mat === mat.id);
     });
+  }
+
+  function updateSelectedBadge() {
+    const el = state.elements.find(e => e.id === state.selectedId);
+    const selLight = state.selectedId && state.selectedId.startsWith('light_') ? state.lights.find(l => l.id === state.selectedId) : null;
+    document.getElementById('selectedBadge').innerHTML = el
+      ? `Selected: <strong>${el.type.replace(/_/g, ' ')} (${Math.round(el.angle * 180 / Math.PI)}°)</strong>`
+      : (selLight ? `Selected: <strong>Light (${Math.round(selLight.angle * 180 / Math.PI)}°)</strong>` : 'Selected: <strong>None</strong>');
   }
 
   function syncSourceUI() {
@@ -3241,11 +3700,7 @@
   function syncInspectorUI() {
     const el = state.elements.find(e => e.id === state.selectedId);
     const grating = getActiveGrating();
-    const selLight = state.selectedId && state.selectedId.startsWith('light_') ? state.lights.find(l => l.id === state.selectedId) : null;
-
-    document.getElementById('selectedBadge').innerHTML = el
-      ? `Selected: <strong>${el.type.replace(/_/g, ' ')} (${Math.round(el.angle * 180 / Math.PI)}°)</strong>`
-      : (selLight ? `Selected: <strong>Light (${Math.round(selLight.angle * 180 / Math.PI)}°)</strong>` : 'Selected: <strong>None</strong>');
+    updateSelectedBadge();
 
     const inspControls = document.getElementById('inspControls');
     const inspEmpty = document.getElementById('inspEmpty');
@@ -3324,6 +3779,8 @@
       document.getElementById('inspParam2Row').style.display = 'none';
       document.getElementById('dichroicControls').style.display = 'none';
     }
+    const actionRow = document.getElementById('inspActionRow');
+    if (actionRow) actionRow.style.display = el ? 'grid' : 'none';
 
     const gc = document.getElementById('gratingControls');
     if (grating) {
@@ -3342,23 +3799,47 @@
   function loadPreset(presetId) {
     const p = PRESETS.find(pr => pr.id === presetId) || PRESETS[0];
     state.activePreset = p.id;
-    state.swarm.running = false;
-    document.getElementById('btnSwarmRun').textContent = 'Run Swarm (120)';
+    resetViewCam();
+    stopSwarm(true);
     p.load(state.benchW, state.benchH);
+    const mx = Math.min(24, state.benchW * 0.1);
+    const my = Math.min(24, state.benchH * 0.1);
+    state.elements.forEach(e => {
+      e.x = Math.max(mx, Math.min(state.benchW - mx, e.x));
+      e.y = Math.max(my, Math.min(state.benchH - my, e.y));
+    });
+    state.lights.forEach(l => {
+      l.x = Math.max(mx, Math.min(state.benchW - mx, l.x));
+      l.y = Math.max(my, Math.min(state.benchH - my, l.y));
+    });
     state.selectedId = state.elements[0] ? state.elements[0].id : (state.lights[0] ? state.lights[0].id : null);
     document.getElementById('activePresetName').textContent = p.name;
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === p.id));
     syncGlobalToggles();
     syncAllUI();
+    scheduleSaveBench();
   }
 
   // =========================================================================
   // 12. MAIN ANIMATION & SIMULATION LOOP
   // =========================================================================
   let lastTs = performance.now();
+  let rafId = null;
+  const hudCache = {
+    els: null,
+    vals: {}
+  };
+  function setTextIfChanged(key, el, text) {
+    if (el && hudCache.vals[key] !== text) {
+      hudCache.vals[key] = text;
+      el.textContent = text;
+    }
+  }
 
   function frame(now) {
-    const dt = Math.min(0.05, (now - lastTs) * 0.001);
+    rafId = null;
+    if (document.hidden) return;
+    const dt = Math.max(0, Math.min(0.05, (now - lastTs) * 0.001));
     lastTs = now;
     state.time += dt;
 
@@ -3377,30 +3858,56 @@
     state.telemetry.fresnelLossPct = res.fresnelPct;
     state.telemetry.dispersionSpreadPx = res.spreadPx;
     state.telemetry.detectorBins = res.bins;
+    state.telemetry.maxOrderNum = res.maxOrderSeen;
     state.telemetry.maxOrder = res.maxOrderSeen > 0 ? '±' + res.maxOrderSeen : '--';
 
-    document.getElementById('hudSegments').textContent = res.segments.length;
-    document.getElementById('hudTir').textContent = res.tirCount;
-    document.getElementById('hudDetector').textContent = res.detPct.toFixed(1) + '%';
-    document.getElementById('hudSpread').textContent = res.spreadPx.toFixed(1) + ' px';
-    document.getElementById('telePower').textContent = res.detPct.toFixed(1) + '%';
-    document.getElementById('teleFresnel').textContent = res.fresnelPct.toFixed(1) + '%';
-    document.getElementById('teleOrder').textContent = state.telemetry.maxOrder;
+    if (!hudCache.els) {
+      hudCache.els = {
+        segments: document.getElementById('hudSegments'),
+        tir: document.getElementById('hudTir'),
+        detector: document.getElementById('hudDetector'),
+        spread: document.getElementById('hudSpread'),
+        telePower: document.getElementById('telePower'),
+        teleFresnel: document.getElementById('teleFresnel'),
+        teleOrder: document.getElementById('teleOrder'),
+        challengeScore: document.getElementById('challengeScore')
+      };
+    }
+
+    const detStr = res.detPct.toFixed(1) + '%';
+    const fresStr = res.fresnelPct.toFixed(1) + '%';
+    const spreadStr = res.spreadPx.toFixed(1) + ' px';
+    setTextIfChanged('segments', hudCache.els.segments, String(res.segments.length));
+    setTextIfChanged('tir', hudCache.els.tir, String(res.tirCount));
+    setTextIfChanged('detector', hudCache.els.detector, detStr);
+    setTextIfChanged('spread', hudCache.els.spread, spreadStr);
+    setTextIfChanged('telePower', hudCache.els.telePower, detStr);
+    setTextIfChanged('teleFresnel', hudCache.els.teleFresnel, fresStr);
+    setTextIfChanged('teleOrder', hudCache.els.teleOrder, state.telemetry.maxOrder);
 
     let solvedCount = 0;
+    let newlySolved = false;
     CHALLENGES.forEach(ch => {
-      if (ch.check(state.telemetry)) state.telemetry.solvedChallenges.add(ch.id);
+      if (!state.telemetry.solvedChallenges.has(ch.id) && ch.check(state.telemetry)) {
+        state.telemetry.solvedChallenges.add(ch.id);
+        newlySolved = true;
+      }
       const isSolved = state.telemetry.solvedChallenges.has(ch.id);
       if (isSolved) solvedCount++;
-      const card = document.getElementById('card_' + ch.id);
-      const st = document.getElementById('st_' + ch.id);
-      if (card && st) {
-        card.classList.toggle('solved', isSolved);
-        st.className = 'challenge-status ' + (isSolved ? 'pass' : 'pending');
-        st.textContent = isSolved ? 'Solved' : 'Open';
+      const statusKey = 'ch_' + ch.id;
+      if (hudCache.vals[statusKey] !== isSolved) {
+        hudCache.vals[statusKey] = isSolved;
+        const card = document.getElementById('card_' + ch.id);
+        const st = document.getElementById('st_' + ch.id);
+        if (card && st) {
+          card.classList.toggle('solved', isSolved);
+          st.className = 'challenge-status ' + (isSolved ? 'pass' : 'pending');
+          st.textContent = isSolved ? 'Solved' : 'Open';
+        }
       }
     });
-    document.getElementById('challengeScore').textContent = `${solvedCount}/${CHALLENGES.length}`;
+    if (newlySolved) saveSolvedChallenges();
+    setTextIfChanged('challengeScore', hudCache.els.challengeScore, `${solvedCount}/${CHALLENGES.length}`);
 
     ctx.save();
     ctx.fillStyle = '#06090f';
@@ -3424,8 +3931,26 @@
     ctx.restore();
     renderScope();
 
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
   }
+
+  function startLoop() {
+    if (rafId === null && !document.hidden) {
+      lastTs = performance.now();
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    } else {
+      startLoop();
+    }
+  });
 
 
   // =========================================================================
@@ -3433,7 +3958,8 @@
   // =========================================================================
   (function initMobileMode() {
     const btnMobile = document.getElementById('btnMobileToggle');
-    let mobileOverride = null;
+    const savedMobile = safeStorageGet(STORAGE_KEYS.mobile);
+    let mobileOverride = savedMobile === '1' ? true : (savedMobile === '0' ? false : null);
 
     function isAutoMobile() {
       return window.innerWidth <= 860 ||
@@ -3451,12 +3977,14 @@
       }
       if (emitResize && changed) {
         window.dispatchEvent(new Event('resize'));
+        requestAnimationFrame(resizeCanvas);
       }
     }
 
     if (btnMobile) {
       btnMobile.addEventListener('click', () => {
         mobileOverride = !document.body.classList.contains('mobile-mode');
+        safeStorageSet(STORAGE_KEYS.mobile, mobileOverride ? '1' : '0');
         applyMobileMode(true);
       });
     }
@@ -3528,8 +4056,10 @@
         const curSy = curMid.y - rect.top;
         const wx = (prevSx - viewCam.panX) / viewCam.zoom;
         const wy = (prevSy - viewCam.panY) / viewCam.zoom;
-        const scale = curDist / Math.max(1, pinchPrevDist);
-        viewCam.zoom = Math.max(0.5, Math.min(3.0, viewCam.zoom * scale));
+        if (pinchPrevDist > 5 && curDist > 5) {
+          const scale = Math.max(0.5, Math.min(2.0, curDist / pinchPrevDist));
+          viewCam.zoom = Math.max(0.5, Math.min(3.0, viewCam.zoom * scale));
+        }
         viewCam.panX = curSx - wx * viewCam.zoom;
         viewCam.panY = curSy - wy * viewCam.zoom;
         pinchPrevDist = curDist;
@@ -3543,12 +4073,14 @@
     }, { passive: false });
 
     function handleTouchEnd(e) {
-      if (e.touches.length === 0) {
+      const isCancel = e.type === 'touchcancel';
+      if (isCancel || e.touches.length === 0) {
         if (!hasPointerEvents && fallbackTouchDrag) {
           benchCanvas.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, buttons: 0 }));
           fallbackTouchDrag = false;
         }
         isPinching = false;
+        if (isCancel) clearDragState();
       }
     }
     benchCanvas.addEventListener('touchend', handleTouchEnd, { passive: false });
@@ -3556,10 +4088,16 @@
   })();
 
   window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => requestAnimationFrame(resizeCanvas), 120);
+  });
   resizeCanvas();
   buildUI();
-  loadPreset('newton_prism');
-  requestAnimationFrame(frame);
+  loadSolvedChallenges();
+  if (!tryLoadSavedBench()) {
+    loadPreset('newton_prism');
+  }
+  startLoop();
 })();
 </script>
 </body>

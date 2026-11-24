@@ -19,6 +19,7 @@
     --purple: #a855f7;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  input, select, textarea { user-select: text; -webkit-user-select: text; }
   body {
     background: var(--bg);
     color: var(--text);
@@ -773,6 +774,7 @@ const PRESSURE_ANGLE = 20 * Math.PI / 180;
 const TAN_ALPHA = Math.tan(PRESSURE_ANGLE);
 
 const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+const finiteOr = (v, fallback) => (typeof v === 'number' && Number.isFinite(v)) ? v : fallback;
 const hypot = Math.hypot;
 
 let NEXT_ID = 1;
@@ -782,49 +784,49 @@ class RigidBody {
     this.id = NEXT_ID++;
     this.type = opts.type; // 'spur'|'ring'|'carrier'|'sprocket'|'rack'|'sector'|'ratchet'|'pawl'|'pulley'|'winch'
     this.name = opts.name || opts.type;
-    this.x = opts.x || 0;
-    this.y = opts.y || 0;
+    this.x = finiteOr(opts.x, 0);
+    this.y = finiteOr(opts.y, 0);
     this.vx = 0;
     this.vy = 0;
-    this.theta = opts.theta || 0;
+    this.theta = finiteOr(opts.theta, 0);
     this.omega = 0;
-    this.layer = opts.layer || 0;
+    this.layer = opts.layer === 1 ? 1 : 0;
 
-    this.teeth = opts.teeth || 18;
-    this.module = opts.module || MODULE;
-    this.pitch = opts.pitch || SPROCKET_PITCH;
-    this.sectorRatio = opts.sectorRatio || 0.5; // fraction of teeth present on sector gear
+    this.teeth = Math.max(3, Math.round(finiteOr(opts.teeth, 18)));
+    this.module = Math.max(2, finiteOr(opts.module, MODULE));
+    this.pitch = Math.max(6, finiteOr(opts.pitch, SPROCKET_PITCH));
+    this.sectorRatio = clamp(finiteOr(opts.sectorRatio, 0.5), 0.1, 1.0); // fraction of teeth present on sector gear
 
-    this.pinned = opts.pinned !== undefined ? opts.pinned : true;
+    this.pinned = opts.pinned !== undefined ? !!opts.pinned : true;
     this.locked = !!opts.locked;
-    this.massScale = opts.massScale || 1.0;
+    this.massScale = clamp(finiteOr(opts.massScale, 1.0), 0.05, 100);
 
     this.motorOn = !!opts.motorOn;
     this.motorInfinite = !!opts.motorInfinite;
     this.motorOscillate = !!opts.motorOscillate;
     this.oscTimer = 0;
-    this.oscPeriod = opts.oscPeriod || 2.2;
-    this.motorTorque = opts.motorTorque || 250;
-    this.motorMaxRpm = opts.motorMaxRpm || 90;
-    this.motorDir = opts.motorDir || 1;
-    this.brakeTorque = opts.brakeTorque || 0;
-    this.damping = opts.damping !== undefined ? opts.damping : 0.10;
+    this.oscPeriod = Math.max(0.1, finiteOr(opts.oscPeriod, 2.2));
+    this.motorTorque = Math.max(0, finiteOr(opts.motorTorque, 250));
+    this.motorMaxRpm = Math.max(0, finiteOr(opts.motorMaxRpm, 90));
+    this.motorDir = opts.motorDir === -1 ? -1 : 1;
+    this.brakeTorque = Math.max(0, finiteOr(opts.brakeTorque, 0));
+    this.damping = Math.max(0, finiteOr(opts.damping, 0.10));
 
     // Rack
-    this.rackLength = opts.rackLength || 280;
+    this.rackLength = Math.max(120, finiteOr(opts.rackLength, 280));
     this.rackHomeX = this.x;
     this.rackHomeY = this.y;
-    this.rackTravel = opts.rackTravel || 140;
-    this.rackSpring = opts.rackSpring || 0;
+    this.rackTravel = Math.max(10, finiteOr(opts.rackTravel, 140));
+    this.rackSpring = Math.max(0, finiteOr(opts.rackSpring, 0));
 
     // Winch hanging weight
-    this.weightMass = opts.weightMass || 25;
-    this.cableLen = opts.cableLen || 120;
+    this.weightMass = clamp(finiteOr(opts.weightMass, 25), 0, 2000);
+    this.cableLen = clamp(finiteOr(opts.cableLen, 120), 24, 280);
 
     // Pawl
-    this.pawlRestTheta = opts.pawlRestTheta || 0;
-    this.pawlLength = opts.pawlLength || 52;
-    this.pawlSpring = opts.pawlSpring || 45;
+    this.pawlRestTheta = finiteOr(opts.pawlRestTheta, 0);
+    this.pawlLength = Math.max(16, finiteOr(opts.pawlLength, 52));
+    this.pawlSpring = Math.max(0, finiteOr(opts.pawlSpring, 45));
 
     // Planetary metadata
     this.planetaryRole = opts.planetaryRole || null;
@@ -858,7 +860,8 @@ class RigidBody {
 
     if (this.type === 'spur' || this.type === 'sector') {
       const m = this.module;
-      const Z = this.teeth;
+      const Z = clamp(Math.round(finiteOr(this.teeth, 18)), 3, 240);
+      this.teeth = Z;
       this.pitchR = (m * Z) / 2;
       this.addendum = 0.78 * m;
       this.dedendum = 1.15 * m;
@@ -866,9 +869,9 @@ class RigidBody {
       this.outerR = this.pitchR + this.addendum;
 
       const halfPitch = (Math.PI / 4 - 0.035) * m;
-      const maxHalfRoot = this.rootR * Math.sin(Math.PI / Z) * 0.88;
-      const halfRoot = Math.min(halfPitch + this.dedendum * TAN_ALPHA * 0.68, maxHalfRoot);
-      const halfTip = Math.min(halfRoot * 0.85, Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA));
+      const maxHalfRoot = Math.max(0.6, this.rootR * Math.sin(Math.PI / Z) * 0.88);
+      const halfRoot = Math.max(0.5, Math.min(halfPitch + this.dedendum * TAN_ALPHA * 0.68, maxHalfRoot));
+      const halfTip = Math.max(0.3, Math.min(halfRoot * 0.85, Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA)));
 
       const activeCount = this.type === 'sector' ? Math.max(1, Math.round(Z * this.sectorRatio)) : Z;
       this.activeToothMask = this.type === 'sector' ? new Uint8Array(Z) : null;
@@ -889,20 +892,24 @@ class RigidBody {
       this.baseInertia = 0.5 * this.baseMass * this.pitchR * this.pitchR;
     } else if (this.type === 'ratchet') {
       const m = this.module;
-      const Z = this.teeth;
+      const Z = clamp(Math.round(finiteOr(this.teeth, 16)), 4, 120);
+      this.teeth = Z;
       this.pitchR = (m * Z) / 2;
       this.rootR = Math.max(8, this.pitchR - 1.1 * m);
       this.outerR = this.pitchR + 1.0 * m;
       const step = (2 * Math.PI) / Z;
-      // Asymmetric sawtooth: steep lock face on CCW side, gentle ramp on CW side
+      // Asymmetric sawtooth: steep lock face on CCW side, strictly convex ramp on CW side
       for (let i = 0; i < Z; i++) {
         const a0 = i * step;
         const aTip = a0 + step * 0.14;
+        const aMid = a0 + step * 0.5;
         const aEnd = a0 + step * 0.88;
         const p0 = { x: this.rootR * Math.cos(a0),    y: this.rootR * Math.sin(a0) };
         const p1 = { x: this.outerR * Math.cos(aTip), y: this.outerR * Math.sin(aTip) };
-        const p2 = { x: (this.rootR + 0.55 * m) * Math.cos(a0 + step * 0.5), y: (this.rootR + 0.55 * m) * Math.sin(a0 + step * 0.5) };
         const p3 = { x: this.rootR * Math.cos(aEnd),  y: this.rootR * Math.sin(aEnd) };
+        const chordMidR = hypot((p1.x + p3.x) * 0.5, (p1.y + p3.y) * 0.5);
+        const midR = Math.max(this.rootR + 0.55 * m, chordMidR + 0.8);
+        const p2 = { x: midR * Math.cos(aMid), y: midR * Math.sin(aMid) };
         this.localTeeth.push([p0, p1, p2, p3]);
       }
       this.baseMass = Math.max(1.2, (this.pitchR * this.pitchR) / 1300);
@@ -923,7 +930,8 @@ class RigidBody {
       this.baseInertia = 900;
     } else if (this.type === 'ring') {
       const m = this.module;
-      const Z = this.teeth;
+      const Z = clamp(Math.round(finiteOr(this.teeth, 36)), 12, 240);
+      this.teeth = Z;
       this.pitchR = (m * Z) / 2;
       this.addendum = 0.72 * m;
       this.dedendum = 1.15 * m;
@@ -932,8 +940,10 @@ class RigidBody {
       this.outerR = this.rootR + 1.6 * m;
 
       const halfPitch = (Math.PI / 4 - 0.04) * m;
-      const halfTip = Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA);
-      const halfRoot = halfPitch + this.dedendum * TAN_ALPHA * 0.6;
+      const maxHalfRoot = Math.max(0.8, this.rootR * Math.sin(Math.PI / Z) * 0.88);
+      const maxHalfTip = Math.max(0.5, this.innerTipR * Math.sin(Math.PI / Z) * 0.85);
+      const halfRoot = Math.min(halfPitch + this.dedendum * TAN_ALPHA * 0.6, maxHalfRoot);
+      const halfTip = Math.min(maxHalfTip, Math.max(0.14 * m, halfPitch - this.addendum * TAN_ALPHA));
 
       for (let i = 0; i < Z; i++) {
         const a = (i * 2 * Math.PI) / Z;
@@ -956,20 +966,22 @@ class RigidBody {
       this.baseMass = 2.0;
       this.baseInertia = 0.6 * this.baseMass * r * r;
     } else if (this.type === 'sprocket') {
-      const Z = this.teeth;
+      const Z = clamp(Math.round(finiteOr(this.teeth, 12)), 3, 120);
+      this.teeth = Z;
       const P = this.pitch;
-      this.pitchR = P / (2 * Math.sin(Math.PI / Z));
+      const sinTerm = Math.max(1e-4, Math.sin(Math.PI / Z));
+      this.pitchR = P / (2 * sinTerm);
       this.rootR = Math.max(5, this.pitchR - ROLLER_RADIUS);
       this.outerR = this.pitchR + ROLLER_RADIUS * 1.28;
 
-      const maxHalfBase = this.rootR * Math.sin(Math.PI / Z) * 0.86;
-      const halfBase = Math.min(Math.max(2.2, (P * 0.5 - ROLLER_RADIUS * 0.90)), maxHalfBase);
-      const halfTip = Math.max(1.2, halfBase * 0.38);
+      const rIn = Math.max(2, this.rootR - 1.5);
+      const maxHalfBase = Math.max(0.8, rIn * sinTerm * 0.86);
+      const halfBase = Math.min(Math.max(1.0, (P * 0.5 - ROLLER_RADIUS * 0.90)), maxHalfBase);
+      const halfTip = Math.max(0.6, Math.min(halfBase * 0.9, halfBase * 0.38));
       for (let i = 0; i < Z; i++) {
         const a = ((i + 0.5) * 2 * Math.PI) / Z;
         const c = Math.cos(a), s = Math.sin(a);
         const tx = -s, ty = c;
-        const rIn = this.rootR - 1.5;
         const rOut = this.outerR;
         this.localTeeth.push([
           { x: rIn * c - halfBase * tx, y: rIn * s - halfBase * ty },
@@ -981,6 +993,7 @@ class RigidBody {
       this.baseMass = Math.max(1.2, (this.pitchR * this.pitchR) / 1400);
       this.baseInertia = 0.5 * this.baseMass * this.pitchR * this.pitchR;
     } else if (this.type === 'pulley' || this.type === 'winch') {
+      this.teeth = clamp(Math.round(finiteOr(this.teeth, 16)), 3, 240);
       this.pitchR = Math.max(14, (this.module * this.teeth) / 2);
       this.rootR = this.pitchR - 4;
       this.outerR = this.pitchR + 5;
@@ -1018,16 +1031,17 @@ class RigidBody {
   }
 
   updateMassProps() {
+    this.massScale = clamp(finiteOr(this.massScale, 1.0), 0.05, 100);
     if (this.type === 'rack') {
-      this.mass = this.baseMass * this.massScale;
+      this.mass = Math.max(1e-3, finiteOr(this.baseMass, 4.0) * this.massScale);
       this.invMass = this.locked ? 0 : 1 / this.mass;
       this.inertia = 1e9;
       this.invInertia = 0;
       return;
     }
-    this.mass = this.baseMass * this.massScale;
+    this.mass = Math.max(1e-3, finiteOr(this.baseMass, 1.0) * this.massScale);
     this.invMass = (this.pinned || this.locked) ? 0 : 1 / this.mass;
-    this.inertia = this.baseInertia * this.massScale;
+    this.inertia = Math.max(1e-2, finiteOr(this.baseInertia, 100) * this.massScale);
     this.invInertia = this.locked ? 0 : 1 / this.inertia;
   }
 
@@ -1044,8 +1058,12 @@ class RigidBody {
   }
 
   getRPM() {
-    if (this.type === 'rack') return hypot(this.vx, this.vy);
-    return (this.omega * 60) / (2 * Math.PI);
+    if (this.type === 'rack') {
+      const s = hypot(this.vx, this.vy);
+      return Number.isFinite(s) ? s : 0;
+    }
+    const rpm = (this.omega * 60) / (2 * Math.PI);
+    return Number.isFinite(rpm) ? rpm : 0;
   }
 }
 
@@ -1132,6 +1150,8 @@ function satPolyPoly(A, B, out) {
       }
     }
   }
+
+  if (!Number.isFinite(minOverlap) || minOverlap <= 0) return false;
 
   const cAx = (A[0].x + A[1].x + A[2].x + A[3].x) * 0.25;
   const cAy = (A[0].y + A[1].y + A[2].y + A[3].y) * 0.25;
@@ -1227,6 +1247,8 @@ function satCirclePoly(cx, cy, r, poly, out) {
     }
   }
 
+  if (!Number.isFinite(minOverlap) || minOverlap <= 0) return false;
+
   const pcx = (poly[0].x + poly[1].x + poly[2].x + poly[3].x) * 0.25;
   const pcy = (poly[0].y + poly[1].y + poly[2].y + poly[3].y) * 0.25;
   if ((cx - pcx) * bestNx + (cy - pcy) * bestNy < 0) {
@@ -1267,6 +1289,8 @@ class PhysicsWorld {
     this.chains = [];
     this.belts = [];
     this.contacts = [];
+    this.activeContactsCount = 0;
+    this.lastSubstepsUsed = this.substeps;
     this.wrench = null;
   }
 
@@ -1276,31 +1300,43 @@ class PhysicsWorld {
   }
 
   removeBody(body) {
+    const removedChains = this.chains.filter(ch => ch.sprockets.includes(body));
     this.bodies = this.bodies.filter(b => b !== body);
     this.pinJoints = this.pinJoints.filter(j => j.carrier !== body && j.planet !== body);
     this.couplers = this.couplers.filter(c => c.a !== body && c.b !== body);
     this.chains = this.chains.filter(ch => !ch.sprockets.includes(body));
     this.belts = this.belts.filter(bl => bl.a !== body && bl.b !== body);
+    if (this.wrench) {
+      if (this.wrench.body === body) this.wrench = null;
+      else if (this.wrench.chainNode && removedChains.some(ch => ch.nodes.includes(this.wrench.chainNode))) {
+        this.wrench = null;
+      }
+    }
   }
 
   step(dt) {
+    if (!Number.isFinite(dt) || dt <= 1e-6) return;
     // Adaptive anti-tunneling substeps based on fastest rim speed!
-    let N = this.substeps;
+    const baseN = clamp(Math.round(finiteOr(this.substeps, 12)), 1, 48);
+    let N = baseN;
     if (this.adaptiveSubsteps) {
       let maxRimSpeed = 0;
       for (const b of this.bodies) {
         if (b.type === 'rack') {
-          maxRimSpeed = Math.max(maxRimSpeed, hypot(b.vx, b.vy));
+          const sp = hypot(b.vx, b.vy);
+          if (Number.isFinite(sp)) maxRimSpeed = Math.max(maxRimSpeed, sp);
         } else {
-          maxRimSpeed = Math.max(maxRimSpeed, Math.abs(b.omega) * (b.outerR || 40));
+          const sp = Math.abs(b.omega) * (b.outerR || 40);
+          if (Number.isFinite(sp)) maxRimSpeed = Math.max(maxRimSpeed, sp);
         }
       }
       const needed = Math.ceil((maxRimSpeed * dt) / 3.2);
-      N = clamp(Math.max(this.substeps, needed), this.substeps, 48);
+      if (Number.isFinite(needed)) N = clamp(Math.max(baseN, needed), baseN, 48);
     }
     this.lastSubstepsUsed = N;
 
     const h = dt / N;
+    if (!Number.isFinite(h) || h <= 1e-9) return;
     this.contacts.length = 0;
     for (const b of this.bodies) b.contactForceAccum = 0;
 
@@ -1314,7 +1350,28 @@ class PhysicsWorld {
 
     this.activeContactsCount = Math.round(totalContacts / N);
     for (const b of this.bodies) {
-      b.lastContactForce = b.lastContactForce * 0.7 + (b.contactForceAccum / dt) * 0.3;
+      if (!Number.isFinite(b.x)) b.x = b.rackHomeX || 0;
+      if (!Number.isFinite(b.y)) b.y = b.rackHomeY || 0;
+      if (!Number.isFinite(b.vx)) b.vx = 0;
+      if (!Number.isFinite(b.vy)) b.vy = 0;
+      if (!Number.isFinite(b.theta)) b.theta = 0;
+      if (!Number.isFinite(b.omega)) b.omega = 0;
+      const instForce = Number.isFinite(b.contactForceAccum) ? (b.contactForceAccum / dt) : 0;
+      const prevForce = Number.isFinite(b.lastContactForce) ? b.lastContactForce : 0;
+      b.lastContactForce = Math.max(0, prevForce * 0.7 + instForce * 0.3);
+    }
+    for (const ch of this.chains) {
+      for (const n of ch.nodes) {
+        if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) {
+          const refSp = ch.sprockets[0];
+          n.x = refSp ? refSp.x : 0;
+          n.y = refSp ? refSp.y : 0;
+          n.vx = 0; n.vy = 0;
+        }
+        if (!Number.isFinite(n.vx)) n.vx = 0;
+        if (!Number.isFinite(n.vy)) n.vy = 0;
+        if (!Number.isFinite(n.tension)) n.tension = 0;
+      }
     }
   }
 
@@ -1347,34 +1404,38 @@ class PhysicsWorld {
       }
 
       if (b.type === 'pawl') {
-        // Spring presses pawl gently toward its rest engagement angle
-        const err = b.pawlRestTheta - b.theta;
+        // Spring presses pawl gently toward its rest engagement angle (wrapped to [-PI, PI])
+        const err = Math.atan2(Math.sin(b.pawlRestTheta - b.theta), Math.cos(b.pawlRestTheta - b.theta));
         b.omega += err * b.pawlSpring * h;
         b.omega *= Math.exp(-8.5 * h);
         continue;
       }
 
-      if (b.type === 'winch' && this.gravityOn && b.invInertia > 0) {
-        // Real gravity torque from hanging weight on right side of drum!
-        const weightTorque = b.weightMass * this.gravity * b.pitchR * 0.45;
+      if (b.type === 'winch' && this.gravityOn && b.invInertia > 0 && b.cableLen < 280) {
+        // Real gravity torque from hanging weight on right side of drum (stops at floor limit)
+        const weightTorque = Math.max(0, finiteOr(b.weightMass, 0)) * this.gravity * b.pitchR * 0.45;
         b.omega += weightTorque * b.invInertia * h;
       }
 
       if (b.motorOn && b.invInertia > 0) {
+        const dir = b.motorDir < 0 ? -1 : 1;
+        b.motorDir = dir;
         if (b.motorOscillate) {
+          const period = Math.max(0.1, finiteOr(b.oscPeriod, 2.2));
           b.oscTimer += h;
-          if (b.oscTimer >= b.oscPeriod) {
-            b.oscTimer = 0;
-            b.motorDir *= -1;
+          if (b.oscTimer >= period) {
+            b.oscTimer = b.oscTimer % period;
+            b.motorDir = -dir;
           }
         }
-        const targetOmega = (b.motorMaxRpm * 2 * Math.PI / 60) * b.motorDir;
+        const safeMaxRpm = Math.max(0, finiteOr(b.motorMaxRpm, 0));
+        const targetOmega = (safeMaxRpm * 2 * Math.PI / 60) * b.motorDir;
         if (b.motorInfinite) {
           // Unstoppable motor: smoothly locks directly to target RPM
           b.omega += (targetOmega - b.omega) * Math.min(1, 30 * h);
         } else {
-          // Glitch #5 fix: anti-overshoot clamping for ultra-high torque motors on tiny pinions!
-          const stallTorque = b.motorTorque * 1200;
+          // Anti-overshoot clamping for ultra-high torque motors on tiny pinions
+          const stallTorque = Math.max(0, finiteOr(b.motorTorque, 0)) * 1200;
           const err = targetOmega - b.omega;
           const maxDelta = stallTorque * b.invInertia * h;
           if (Math.sign(err) === b.motorDir) {
@@ -1492,6 +1553,7 @@ class PhysicsWorld {
   }
 
   resolveContactImpulse(A, B, hit, h, recordVisuals) {
+    if (h <= 1e-9) return;
     const rAx = hit.px - A.x, rAy = hit.py - A.y;
     const rBx = hit.px - B.x, rBy = hit.py - B.y;
 
@@ -1506,24 +1568,43 @@ class PhysicsWorld {
 
     const rAxn = rAx * hit.ny - rAy * hit.nx;
     const rBxn = rBx * hit.ny - rBy * hit.nx;
-    const kNormal = A.invMass + B.invMass + rAxn * rAxn * A.invInertia + rBxn * rBxn * B.invInertia;
-    if (kNormal < 1e-12) return;
+    const aRack = A.type === 'rack', bRack = B.type === 'rack';
+    const aAx = aRack ? Math.cos(A.theta) : 0, aAy = aRack ? Math.sin(A.theta) : 0;
+    const bAx = bRack ? Math.cos(B.theta) : 0, bAy = bRack ? Math.sin(B.theta) : 0;
+    const nDotA = aRack ? (hit.nx * aAx + hit.ny * aAy) : 1;
+    const nDotB = bRack ? (hit.nx * bAx + hit.ny * bAy) : 1;
+    const invMassAn = aRack ? (nDotA * nDotA * A.invMass) : A.invMass;
+    const invMassBn = bRack ? (nDotB * nDotB * B.invMass) : B.invMass;
+    const kNormal = invMassAn + invMassBn + rAxn * rAxn * A.invInertia + rBxn * rBxn * B.invInertia;
+    if (!Number.isFinite(kNormal) || kNormal < 1e-12) return;
 
     const slop = 0.08;
     const baumgarte = 0.28;
-    const bias = baumgarte * Math.max(0, hit.pen - slop) / h;
+    const bias = Math.min(260, baumgarte * Math.max(0, hit.pen - slop) / h);
     let jn = (-vn + bias) / kNormal;
-    if (jn < 0) jn = 0;
+    if (!Number.isFinite(jn) || jn <= 0) return;
 
     const ix = jn * hit.nx;
     const iy = jn * hit.ny;
 
-    A.vx -= ix * A.invMass;
-    A.vy -= iy * A.invMass;
+    if (aRack) {
+      const iAlong = jn * nDotA * A.invMass;
+      A.vx -= iAlong * aAx;
+      A.vy -= iAlong * aAy;
+    } else {
+      A.vx -= ix * A.invMass;
+      A.vy -= iy * A.invMass;
+    }
     A.omega -= rAxn * jn * A.invInertia;
 
-    B.vx += ix * B.invMass;
-    B.vy += iy * B.invMass;
+    if (bRack) {
+      const iAlong = jn * nDotB * B.invMass;
+      B.vx += iAlong * bAx;
+      B.vy += iAlong * bAy;
+    } else {
+      B.vx += ix * B.invMass;
+      B.vy += iy * B.invMass;
+    }
     B.omega += rBxn * jn * B.invInertia;
 
     if (this.friction > 0 && jn > 0) {
@@ -1531,15 +1612,33 @@ class PhysicsWorld {
       const vt = rvx * tx + rvy * ty;
       const rAxt = rAx * ty - rAy * tx;
       const rBxt = rBx * ty - rBy * tx;
-      const kTan = A.invMass + B.invMass + rAxt * rAxt * A.invInertia + rBxt * rBxt * B.invInertia;
-      if (kTan > 1e-12) {
+      const tDotA = aRack ? (tx * aAx + ty * aAy) : 1;
+      const tDotB = bRack ? (tx * bAx + ty * bAy) : 1;
+      const invMassAt = aRack ? (tDotA * tDotA * A.invMass) : A.invMass;
+      const invMassBt = bRack ? (tDotB * tDotB * B.invMass) : B.invMass;
+      const kTan = invMassAt + invMassBt + rAxt * rAxt * A.invInertia + rBxt * rBxt * B.invInertia;
+      if (Number.isFinite(kTan) && kTan > 1e-12) {
         let jt = clamp(-vt / kTan, -jn * this.friction, jn * this.friction);
-        A.vx -= jt * tx * A.invMass;
-        A.vy -= jt * ty * A.invMass;
-        A.omega -= rAxt * jt * A.invInertia;
-        B.vx += jt * tx * B.invMass;
-        B.vy += jt * ty * B.invMass;
-        B.omega += rBxt * jt * B.invInertia;
+        if (Number.isFinite(jt)) {
+          if (aRack) {
+            const itAlong = jt * tDotA * A.invMass;
+            A.vx -= itAlong * aAx;
+            A.vy -= itAlong * aAy;
+          } else {
+            A.vx -= jt * tx * A.invMass;
+            A.vy -= jt * ty * A.invMass;
+          }
+          A.omega -= rAxt * jt * A.invInertia;
+          if (bRack) {
+            const itAlong = jt * tDotB * B.invMass;
+            B.vx += itAlong * bAx;
+            B.vy += itAlong * bAy;
+          } else {
+            B.vx += jt * tx * B.invMass;
+            B.vy += jt * ty * B.invMass;
+          }
+          B.omega += rBxt * jt * B.invInertia;
+        }
       }
     }
 
@@ -1557,6 +1656,7 @@ class PhysicsWorld {
   }
 
   collideSpurSpur(A, B, h, hit, recordVisuals) {
+    if (A.teeth < 3 || B.teeth < 3) return 0;
     const dx = B.x - A.x, dy = B.y - A.y;
     const dist2 = dx * dx + dy * dy;
     const maxR = A.outerR + B.outerR + 2;
@@ -1588,10 +1688,12 @@ class PhysicsWorld {
   }
 
   collideSpurRing(spur, ring, h, hit, recordVisuals) {
+    if (spur.teeth < 3 || ring.teeth < 12) return 0;
     const dx = spur.x - ring.x, dy = spur.y - ring.y;
     const dist = hypot(dx, dy);
+    if (dist < 1e-4) return 0;
     if (dist + spur.outerR < ring.innerTipR - 2) return 0;
-    if (dist > ring.outerR + spur.outerR) return 0;
+    if (dist > ring.rootR + spur.outerR) return 0;
 
     const angle = Math.atan2(dy, dx);
     const stepS = (2 * Math.PI) / spur.teeth;
@@ -1617,6 +1719,7 @@ class PhysicsWorld {
   }
 
   collideSpurRack(spur, rack, h, hit, recordVisuals) {
+    if (spur.teeth < 3 || rack.teeth < 1) return 0;
     const c = Math.cos(-rack.theta), s = Math.sin(-rack.theta);
     const dx = spur.x - rack.x, dy = spur.y - rack.y;
     const lx = dx * c - dy * s;
@@ -1651,6 +1754,7 @@ class PhysicsWorld {
   }
 
   collideRatchetPawl(ratchet, pawl, h, hit, recordVisuals) {
+    if (ratchet.teeth < 3 || !pawl.localTeeth.length) return 0;
     const dx = pawl.x - ratchet.x, dy = pawl.y - ratchet.y;
     if (hypot(dx, dy) > ratchet.outerR + pawl.outerR + 10) return 0;
 
@@ -1675,13 +1779,18 @@ class PhysicsWorld {
   }
 
   solveBelt(bl, h) {
+    if (h <= 1e-9) return;
     const A = bl.a, B = bl.b;
     const rA = A.pitchR, rB = B.pitchR;
     const dir = bl.crossed ? -1 : 1;
     // Belt surface relative velocity: vB - dir * vA = 0
     const vRel = (B.omega * rB) - dir * (A.omega * rA);
     const k = (rA * rA * A.invInertia) + (rB * rB * B.invInertia);
-    if (k < 1e-12) return;
+    if (!Number.isFinite(k) || k < 1e-12 || rA <= 0 || rB <= 0) {
+      bl.slipping = false;
+      bl.tension = 0;
+      return;
+    }
 
     const maxImpulse = bl.maxFriction * h;
     let j = -vRel / k;
@@ -1700,6 +1809,7 @@ class PhysicsWorld {
   }
 
   solveCarrierPin(j, h) {
+    if (h <= 1e-9) return;
     const C = j.carrier;
     const P = j.planet;
     const cos = Math.cos(C.theta), sin = Math.sin(C.theta);
@@ -1723,7 +1833,7 @@ class PhysicsWorld {
     const k22 = invM + rx * rx * C.invInertia;
     const k12 = -rx * ry * C.invInertia;
     const det = k11 * k22 - k12 * k12;
-    if (det < 1e-12) return;
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return;
 
     const rhsX = -(rvx + errX * baum);
     const rhsY = -(rvy + errY * baum);
@@ -1738,9 +1848,10 @@ class PhysicsWorld {
   }
 
   solveShaftCoupler(c, h) {
+    if (h <= 1e-9) return;
     const A = c.a, B = c.b;
     const invI = A.invInertia + B.invInertia;
-    if (invI < 1e-12) return;
+    if (!Number.isFinite(invI) || invI < 1e-12) return;
     const relOmega = B.omega - A.omega;
     if (c.oneWay) {
       // Freewheel: only locks when A tries to spin faster than B in positive drive direction
@@ -1750,21 +1861,26 @@ class PhysicsWorld {
       B.omega += j * B.invInertia;
       return;
     }
-    // Glitch #6 fix: rigid shaft coupler also eliminates angular drift!
-    const angleErr = (B.theta - A.theta) - c.restAngleDiff;
+    // Rigid shaft coupler eliminates angular drift with clamped error to prevent explosive snaps
+    const rawErr = (B.theta - A.theta) - c.restAngleDiff;
+    const angleErr = clamp(rawErr, -0.5, 0.5);
     const bias = 0.22 * angleErr / h;
     const j = -(relOmega + bias) / invI;
+    if (!Number.isFinite(j)) return;
     A.omega -= j * A.invInertia;
     B.omega += j * B.invInertia;
   }
 
   solveChain(ch, h, hit, recordVisuals) {
+    if (h <= 1e-9) return 0;
     const nodes = ch.nodes;
     const N = nodes.length;
+    if (N < 2) return 0;
     const L = ch.pitch;
     let contacts = 0;
 
     for (const sp of ch.sprockets) {
+      if (sp.teeth < 3) continue;
       const maxR = sp.outerR + ROLLER_RADIUS + 4;
       const maxR2 = maxR * maxR;
       const step = (2 * Math.PI) / sp.teeth;
@@ -1775,8 +1891,13 @@ class PhysicsWorld {
         const d2 = dx * dx + dy * dy;
         if (d2 > maxR2) continue;
 
-        const dist = Math.sqrt(d2) || 1e-4;
-        const nx = dx / dist, ny = dy / dist;
+        let dist, nx, ny;
+        if (d2 < 1e-8) {
+          dist = 1e-4; nx = 1; ny = 0;
+        } else {
+          dist = Math.sqrt(d2);
+          nx = dx / dist; ny = dy / dist;
+        }
 
         const minDist = sp.rootR + ROLLER_RADIUS;
         if (dist < minDist) {
@@ -1833,13 +1954,20 @@ class PhysicsWorld {
         const a = nodes[i];
         const b = nodes[(i + 1) % N];
         const dx = b.x - a.x, dy = b.y - a.y;
-        const d = hypot(dx, dy) || 1e-4;
-        const nx = dx / d, ny = dy / d;
+        const rawD = hypot(dx, dy);
+        let d, nx, ny;
+        if (rawD < 1e-6) {
+          d = 1e-4; nx = 1; ny = 0;
+        } else {
+          d = rawD; nx = dx / d; ny = dy / d;
+        }
         const err = d - L;
 
         const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
         const invM = a.invMass + b.invMass;
+        if (invM < 1e-12) continue;
         const j = -(rv + 0.45 * err / h) / invM;
+        if (!Number.isFinite(j)) continue;
         a.vx -= j * nx * a.invMass;
         a.vy -= j * ny * a.invMass;
         b.vx += j * nx * b.invMass;
@@ -1882,8 +2010,23 @@ class PhysicsWorld {
         b.y += b.vy * h;
       }
       b.theta += b.omega * h;
-      if (b.type === 'winch') {
-        b.cableLen = clamp(b.cableLen + b.omega * b.pitchR * h, 24, 280);
+      if (b.type === 'pawl') {
+        const diff = Math.atan2(Math.sin(b.theta - b.pawlRestTheta), Math.cos(b.theta - b.pawlRestTheta));
+        if (Math.abs(diff) > 1.1) {
+          b.theta = b.pawlRestTheta + Math.sign(diff) * 1.1;
+          b.omega = 0;
+        }
+      } else if (b.type === 'winch') {
+        const nextLen = b.cableLen + b.omega * b.pitchR * h;
+        if (nextLen >= 280) {
+          b.cableLen = 280;
+          if (b.omega > 0) b.omega = 0;
+        } else if (nextLen <= 24) {
+          b.cableLen = 24;
+          if (b.omega < 0) b.omega = 0;
+        } else {
+          b.cableLen = nextLen;
+        }
       }
     }
 
@@ -1899,12 +2042,22 @@ class PhysicsWorld {
 }
 
 function buildPhysicalChain(sprockets, pitch = SPROCKET_PITCH) {
-  if (sprockets.length < 2) return null;
+  const unique = [];
+  for (const s of sprockets) {
+    if (s && !unique.includes(s)) unique.push(s);
+  }
+  if (unique.length < 2) return null;
+  // Reject coincident sprockets
+  for (let i = 0; i < unique.length; i++) {
+    for (let j = i + 1; j < unique.length; j++) {
+      if (hypot(unique[j].x - unique[i].x, unique[j].y - unique[i].y) < 4) return null;
+    }
+  }
 
   let cx = 0, cy = 0;
-  for (const s of sprockets) { cx += s.x; cy += s.y; }
-  cx /= sprockets.length; cy /= sprockets.length;
-  const ordered = sprockets.slice().sort((a, b) =>
+  for (const s of unique) { cx += s.x; cy += s.y; }
+  cx /= unique.length; cy /= unique.length;
+  const ordered = unique.slice().sort((a, b) =>
     Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
   );
 
@@ -1936,7 +2089,10 @@ function buildPhysicalChain(sprockets, pitch = SPROCKET_PITCH) {
     const nextT = tangents[i];
     let aStart = prevT.angle;
     let aEnd = nextT.angle;
-    while (aEnd <= aStart) aEnd += Math.PI * 2;
+    if (!Number.isFinite(aStart) || !Number.isFinite(aEnd)) return null;
+    let guardIter = 0;
+    while (aEnd <= aStart && guardIter++ < 8) aEnd += Math.PI * 2;
+    if (aEnd <= aStart) aEnd = aStart + Math.PI;
     const arcLen = (aEnd - aStart) * S.pitchR;
     const steps = Math.max(4, Math.ceil(arcLen / 4));
     for (let k = 0; k < steps; k++) {
@@ -1962,7 +2118,8 @@ function buildPhysicalChain(sprockets, pitch = SPROCKET_PITCH) {
     cum.push(perim);
   }
 
-  const finalCount = Math.max(12, Math.ceil(perim / pitch));
+  if (!Number.isFinite(perim) || perim < 1e-3) return null;
+  const finalCount = Math.max(12, Math.ceil(perim / Math.max(4, pitch)));
   const nodes = [];
   for (let i = 0; i < finalCount; i++) {
     const targetD = (i / finalCount) * perim;
@@ -1984,8 +2141,17 @@ function buildPhysicalChain(sprockets, pitch = SPROCKET_PITCH) {
 }
 
 function spawnPlanetarySet(world, cx, cy, zSun = 12, zPlanet = 12, numPlanets = 3, layer = 0) {
-  let zS = zSun;
-  while ((zS + (zS + 2 * zPlanet)) % numPlanets !== 0) zS++;
+  const nP = clamp(Math.round(finiteOr(numPlanets, 3)), 1, 8);
+  let zS = clamp(Math.round(finiteOr(zSun, 12)), 6, 72);
+  let zP = clamp(Math.round(finiteOr(zPlanet, 12)), 6, 72);
+  let tries = 0;
+  while ((2 * zS + 2 * zP) % nP !== 0 && tries < nP * 2) {
+    zS++;
+    tries++;
+  }
+  if ((2 * zS + 2 * zP) % nP !== 0) zP++;
+  zPlanet = zP;
+  numPlanets = nP;
   const finalZRing = zS + 2 * zPlanet;
   const groupId = NEXT_ID++;
 
@@ -2066,8 +2232,26 @@ function meshedTheta(sourceGear, targetTeeth, angleToTarget) {
 let activePlanetary = null;
 let refGear = null;
 
+function resetTransientUI() {
+  coupleFirst = null;
+  chainSelection = [];
+  beltSelection = [];
+  draggingBody = null;
+  isPanning = false;
+  const cc = document.getElementById('chain-count');
+  const bc = document.getElementById('belt-count');
+  if (cc) cc.textContent = '0';
+  if (bc) bc.textContent = '0';
+  if (typeof scopeRef !== 'undefined') {
+    scopeRef.fill(0);
+    scopeSel.fill(0);
+    scopeIdx = 0;
+  }
+}
+
 function loadPreset(world, name) {
   world.clear();
+  resetTransientUI();
   activePlanetary = null;
   refGear = null;
   cam.x = 0; cam.y = 0; cam.zoom = 1.0;
@@ -2329,6 +2513,11 @@ function loadPreset(world, name) {
   }
 
   document.getElementById('planetary-quick').classList.toggle('visible', !!activePlanetary);
+  if (activePlanetary && name !== 'planetary' && name !== 'hybrid') {
+    document.querySelectorAll('#planetary-quick button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.pmode === 'reduction');
+    });
+  }
 }
 
 function setPlanetaryMode(mode) {
@@ -2402,15 +2591,18 @@ let scopeIdx = 0;
 
 let mouseScreen = { x: 0, y: 0 };
 let mouseWorld = { x: 0, y: 0 };
+let pointerOverCanvas = false;
 let isPanning = false;
 let panStart = { x: 0, y: 0, camX: 0, camY: 0 };
 let shiftDown = false;
 
 function screenToWorld(sx, sy) {
   const rect = canvas.getBoundingClientRect();
+  const z = clamp(finiteOr(cam.zoom, 1.0), 0.1, 4.0);
+  cam.zoom = z;
   return {
-    x: (sx - rect.width / 2) / cam.zoom + cam.x,
-    y: (sy - rect.height / 2) / cam.zoom + cam.y
+    x: (sx - rect.width / 2) / z + cam.x,
+    y: (sy - rect.height / 2) / z + cam.y
   };
 }
 
@@ -2444,12 +2636,19 @@ function computeSnapForBody(wx, wy, teeth, layer, type, ignoreBody = null) {
           snappedTo = b;
         }
       } else if (b.type === 'rack') {
-        const targetY = b.y - newPitchR;
-        if (Math.abs(wy - targetY) < bestDist && Math.abs(wx - b.x) < b.rackLength * 0.5) {
-          bestDist = Math.abs(wy - targetY);
-          x = wx;
-          y = targetY;
-          theta = Math.PI / 2 + Math.PI / teeth;
+        const cr = Math.cos(-b.theta), sr = Math.sin(-b.theta);
+        const dx = wx - b.x, dy = wy - b.y;
+        const lx = dx * cr - dy * sr;
+        const ly = dx * sr + dy * cr;
+        const targetLy = -newPitchR;
+        if (Math.abs(ly - targetLy) < bestDist && Math.abs(lx) < b.rackLength * 0.5) {
+          bestDist = Math.abs(ly - targetLy);
+          const cw = Math.cos(b.theta), sw = Math.sin(b.theta);
+          x = b.x + lx * cw - targetLy * sw;
+          y = b.y + lx * sw + targetLy * cw;
+          const p = Math.PI * b.module;
+          const rackPhase = ((lx + b.rackLength / 2) / p) - 0.5;
+          theta = b.theta + Math.PI / 2 + ((0.5 - rackPhase) * 2 * Math.PI) / teeth;
           snappedTo = b;
         }
       }
@@ -2458,10 +2657,26 @@ function computeSnapForBody(wx, wy, teeth, layer, type, ignoreBody = null) {
   return { x, y, theta, pitchR: newPitchR, snappedTo };
 }
 
+function clampedPlaceTeethForTool(tool, rawZ) {
+  if (tool === 'ring') return clamp(rawZ, 12, 240);
+  if (tool === 'planetary') {
+    let zS = clamp(rawZ, 6, 72);
+    let tries = 0;
+    while ((2 * zS + 24) % 3 !== 0 && tries++ < 6) zS++;
+    return zS;
+  }
+  if (tool === 'ratchet') return clamp(rawZ, 8, 48);
+  if (tool === 'sprocket') return clamp(rawZ, 3, 120);
+  if (tool === 'pulley') return clamp(rawZ, 6, 120);
+  if (tool === 'winch') return clamp(rawZ, 8, 60);
+  return clamp(rawZ, 3, 240);
+}
+
 function computePlacementPreview(wx, wy) {
   const placeable = ['spur', 'ring', 'sprocket', 'planetary', 'rack', 'sector', 'ratchet', 'pulley', 'winch'];
   if (!placeable.includes(currentTool)) return null;
-  return computeSnapForBody(wx, wy, placeTeeth, placeLayer, currentTool, null);
+  const z = clampedPlaceTeethForTool(currentTool, placeTeeth);
+  return computeSnapForBody(wx, wy, z, placeLayer, currentTool, null);
 }
 
 function rebuildChainsForSprocket(sp) {
@@ -2474,6 +2689,14 @@ function rebuildChainsForSprocket(sp) {
   }
 }
 
+function syncCouplersForBody(body) {
+  for (const c of world.couplers) {
+    if (!c.oneWay && (c.a === body || c.b === body)) {
+      c.restAngleDiff = c.b.theta - c.a.theta;
+    }
+  }
+}
+
 function updateSelectedTeeth(newZ) {
   if (!selectedBody) return;
   const b = selectedBody;
@@ -2481,8 +2704,9 @@ function updateSelectedTeeth(newZ) {
   if (!resizable.includes(b.type)) return;
   const minZ = b.type === 'ring' ? 12 : 3;
   const maxZ = b.type === 'sprocket' ? 120 : 240;
+  if (!Number.isFinite(newZ)) { syncInspector(); return; }
   const clamped = clamp(Math.round(newZ), minZ, maxZ);
-  if (clamped === b.teeth) return;
+  if (clamped === b.teeth) { syncInspector(); return; }
 
   b.teeth = clamped;
   b.rebuildGeometry();
@@ -2504,20 +2728,45 @@ function remeshSelectedToNearest() {
   const b = selectedBody;
   let best = null, bestDist = Infinity;
   for (const other of world.bodies) {
-    if (other === b || other.layer !== b.layer || (other.type !== 'spur' && other.type !== 'sector')) continue;
-    const d = hypot(b.x - other.x, b.y - other.y);
-    if (d < bestDist && d > 1) { bestDist = d; best = other; }
+    if (other === b || other.layer !== b.layer) continue;
+    if (other.type === 'spur' || other.type === 'sector') {
+      const d = hypot(b.x - other.x, b.y - other.y);
+      if (d < bestDist && d > 1) { bestDist = d; best = other; }
+    } else if (other.type === 'rack') {
+      const cr = Math.cos(-other.theta), sr = Math.sin(-other.theta);
+      const dx = b.x - other.x, dy = b.y - other.y;
+      const lx = dx * cr - dy * sr;
+      const ly = dx * sr + dy * cr;
+      if (Math.abs(lx) <= other.rackLength * 0.5) {
+        const d = Math.abs(ly + b.pitchR);
+        if (d < bestDist) { bestDist = d; best = other; }
+      }
+    }
   }
   if (!best) {
-    showToast('No neighbor gear found on same layer');
+    showToast('No neighbor gear or rack found on same layer');
     return;
   }
-  const ang = Math.atan2(b.y - best.y, b.x - best.x);
-  const targetD = best.pitchR + b.pitchR;
-  b.x = best.x + Math.cos(ang) * targetD;
-  b.y = best.y + Math.sin(ang) * targetD;
-  b.theta = meshedTheta(best, b.teeth, ang);
+  if (best.type === 'rack') {
+    const cr = Math.cos(-best.theta), sr = Math.sin(-best.theta);
+    const dx = b.x - best.x, dy = b.y - best.y;
+    const lx = clamp(dx * cr - dy * sr, -best.rackLength * 0.48, best.rackLength * 0.48);
+    const targetLy = -b.pitchR;
+    const cw = Math.cos(best.theta), sw = Math.sin(best.theta);
+    b.x = best.x + lx * cw - targetLy * sw;
+    b.y = best.y + lx * sw + targetLy * cw;
+    const p = Math.PI * best.module;
+    const rackPhase = ((lx + best.rackLength / 2) / p) - 0.5;
+    b.theta = best.theta + Math.PI / 2 + ((0.5 - rackPhase) * 2 * Math.PI) / b.teeth;
+  } else {
+    const ang = Math.atan2(b.y - best.y, b.x - best.x);
+    const targetD = best.pitchR + b.pitchR;
+    b.x = best.x + Math.cos(ang) * targetD;
+    b.y = best.y + Math.sin(ang) * targetD;
+    b.theta = meshedTheta(best, b.teeth, ang);
+  }
   b.vx = 0; b.vy = 0;
+  syncCouplersForBody(b);
   showToast(`Snapped ${b.name} cleanly to ${best.name}`);
 }
 
@@ -2553,7 +2802,10 @@ function findBodiesAt(wx, wy) {
         }
       }
     } else if (b.type === 'pawl') {
-      if (d <= b.pawlLength + 10) {
+      const c = Math.cos(-b.theta), s = Math.sin(-b.theta);
+      const lx = (wx - b.x) * c - (wy - b.y) * s;
+      const ly = (wx - b.x) * s + (wy - b.y) * c;
+      if (lx >= -10 && lx <= b.pawlLength + 6 && Math.abs(ly) <= 12) {
         candidates.push({ b, score: b.layer * 1000 + 15 });
       }
     } else {
@@ -2569,7 +2821,8 @@ function findBodiesAt(wx, wy) {
 function findBodyAt(wx, wy, allowCycle = false) {
   const list = findBodiesAt(wx, wy);
   if (!list.length) return null;
-  if (allowCycle && list.length > 1 && hypot(wx - lastClickPos.x, wy - lastClickPos.y) < 12) {
+  const cycleTol = clamp(12 / Math.max(0.1, cam.zoom), 4, 48);
+  if (allowCycle && list.length > 1 && hypot(wx - lastClickPos.x, wy - lastClickPos.y) < cycleTol) {
     lastClickCycleIdx = (lastClickCycleIdx + 1) % list.length;
   } else {
     lastClickCycleIdx = 0;
@@ -2579,9 +2832,10 @@ function findBodyAt(wx, wy, allowCycle = false) {
 }
 
 function findChainNodeAt(wx, wy) {
+  const grabR = Math.max(ROLLER_RADIUS * 2.4, 14 / Math.max(0.1, cam.zoom));
   for (const ch of world.chains) {
     for (const n of ch.nodes) {
-      if (hypot(wx - n.x, wy - n.y) < ROLLER_RADIUS * 2.4) return n;
+      if (hypot(wx - n.x, wy - n.y) < grabR) return n;
     }
   }
   return null;
@@ -2684,6 +2938,7 @@ function drawBody(b, alpha = 1.0) {
     ctx.stroke();
   } else if (b.type === 'pawl') {
     const t = b.localTeeth[0];
+    if (!t) { ctx.restore(); return; }
     ctx.fillStyle = b.color;
     ctx.strokeStyle = isSelected ? '#38bdf8' : '#475569';
     ctx.lineWidth = 2;
@@ -2882,11 +3137,12 @@ function drawBody(b, alpha = 1.0) {
       ctx.setLineDash([]);
     }
   } else if (b.type === 'rack') {
+    const homeDisp = (b.rackHomeX - b.x) * Math.cos(b.theta) + (b.rackHomeY - b.y) * Math.sin(b.theta);
     ctx.strokeStyle = 'rgba(148,163,184,0.25)';
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.moveTo(-b.rackLength * 0.5 - b.rackTravel, 16);
-    ctx.lineTo(b.rackLength * 0.5 + b.rackTravel, 16);
+    ctx.moveTo(homeDisp - b.rackLength * 0.5 - b.rackTravel, 16);
+    ctx.lineTo(homeDisp + b.rackLength * 0.5 + b.rackTravel, 16);
     ctx.stroke();
 
     ctx.fillStyle = b.color;
@@ -2912,7 +3168,8 @@ function drawBody(b, alpha = 1.0) {
     ctx.fillStyle = 'rgba(245,158,11,0.95)';
     ctx.font = 'bold 10px ui-monospace, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('1:1 REF', 0, -b.outerR - 8);
+    const refY = b.type === 'rack' ? -(b.addendum || 8) - 16 : -b.outerR - 8;
+    ctx.fillText('1:1 REF', 0, refY);
   }
 
   ctx.restore();
@@ -2962,9 +3219,11 @@ function drawBelt(bl) {
 function drawChain(ch) {
   const nodes = ch.nodes;
   const N = nodes.length;
+  if (N < 2) return;
+  ctx.save();
   for (let i = 0; i < N; i++) {
     const a = nodes[i], b = nodes[(i + 1) % N];
-    const tNorm = clamp(a.tension / 150, 0, 1);
+    const tNorm = clamp(finiteOr(a.tension, 0) / 150, 0, 1);
     const r = Math.round(100 + 155 * tNorm);
     const g = Math.round(180 - 110 * tNorm);
     const bl = Math.round(230 - 180 * tNorm);
@@ -2986,16 +3245,27 @@ function drawChain(ch) {
     ctx.fill();
     ctx.stroke();
   }
+  ctx.restore();
 }
 
 function drawScope() {
   if (!showScope) return;
-  const w = scopeCanvas.width, h = scopeCanvas.height;
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const w = scopeCanvas.clientWidth, h = scopeCanvas.clientHeight;
+  if (w < 2 || h < 2) return;
+  const tw = Math.round(w * dpr), th = Math.round(h * dpr);
+  if (scopeCanvas.width !== tw || scopeCanvas.height !== th) {
+    scopeCanvas.width = tw;
+    scopeCanvas.height = th;
+  }
+  scopeCtx.save();
+  scopeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   scopeCtx.fillStyle = '#090d14';
   scopeCtx.fillRect(0, 0, w, h);
 
   // Zero line
   scopeCtx.strokeStyle = 'rgba(148,163,184,0.25)';
+  scopeCtx.lineWidth = 1;
   scopeCtx.beginPath();
   scopeCtx.moveTo(0, h / 2);
   scopeCtx.lineTo(w, h / 2);
@@ -3003,19 +3273,25 @@ function drawScope() {
 
   let maxAbs = 20;
   for (let i = 0; i < SCOPE_LEN; i++) {
-    maxAbs = Math.max(maxAbs, Math.abs(scopeRef[i]), Math.abs(scopeSel[i]));
+    const r = Math.abs(scopeRef[i]);
+    const s = Math.abs(scopeSel[i]);
+    if (Number.isFinite(r) && r > maxAbs) maxAbs = r;
+    if (Number.isFinite(s) && s > maxAbs) maxAbs = s;
   }
-  maxAbs = Math.ceil(maxAbs / 20) * 20;
-  document.getElementById('scope-scale').textContent = `±${maxAbs} RPM`;
+  maxAbs = Math.max(20, Math.ceil(Math.min(maxAbs, 1e6) / 20) * 20);
+  const scaleEl = document.getElementById('scope-scale');
+  if (scaleEl) scaleEl.textContent = `±${maxAbs} RPM`;
 
+  const denom = Math.max(1, SCOPE_LEN - 1);
   const plot = (arr, color) => {
     scopeCtx.strokeStyle = color;
     scopeCtx.lineWidth = 1.7;
     scopeCtx.beginPath();
     for (let i = 0; i < SCOPE_LEN; i++) {
       const idx = (scopeIdx + i) % SCOPE_LEN;
-      const x = (i / (SCOPE_LEN - 1)) * w;
-      const y = h / 2 - (arr[idx] / maxAbs) * (h * 0.44);
+      const v = Number.isFinite(arr[idx]) ? clamp(arr[idx], -maxAbs, maxAbs) : 0;
+      const x = (i / denom) * w;
+      const y = h / 2 - (v / maxAbs) * (h * 0.44);
       if (i === 0) scopeCtx.moveTo(x, y);
       else scopeCtx.lineTo(x, y);
     }
@@ -3023,18 +3299,24 @@ function drawScope() {
   };
   plot(scopeRef, '#f59e0b');
   plot(scopeSel, '#38bdf8');
+  scopeCtx.restore();
 }
 
 function render() {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
   const w = canvas.clientWidth, h = canvas.clientHeight;
-  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
+  if (w < 2 || h < 2) return;
+  const tw = Math.round(w * dpr), th = Math.round(h * dpr);
+  if (canvas.width !== tw || canvas.height !== th) {
+    canvas.width = tw;
+    canvas.height = th;
   }
+  cam.zoom = clamp(finiteOr(cam.zoom, 1.0), 0.1, 4.0);
+  if (!Number.isFinite(cam.x)) cam.x = 0;
+  if (!Number.isFinite(cam.y)) cam.y = 0;
 
   ctx.save();
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#090d14';
   ctx.fillRect(0, 0, w, h);
 
@@ -3050,10 +3332,12 @@ function render() {
   ctx.strokeStyle = 'rgba(38, 51, 77, 0.35)';
   ctx.lineWidth = 1 / cam.zoom;
   ctx.beginPath();
-  for (let gx = Math.floor(left / gridStep) * gridStep; gx <= right; gx += gridStep) {
+  let gridCount = 0;
+  for (let gx = Math.floor(left / gridStep) * gridStep; gx <= right && gridCount++ < 400; gx += gridStep) {
     ctx.moveTo(gx, top); ctx.lineTo(gx, bottom);
   }
-  for (let gy = Math.floor(top / gridStep) * gridStep; gy <= bottom; gy += gridStep) {
+  gridCount = 0;
+  for (let gy = Math.floor(top / gridStep) * gridStep; gy <= bottom && gridCount++ < 400; gy += gridStep) {
     ctx.moveTo(left, gy); ctx.lineTo(right, gy);
   }
   ctx.stroke();
@@ -3079,6 +3363,17 @@ function render() {
     ctx.beginPath();
     ctx.arc(c.a.x, c.a.y, 14, 0, Math.PI * 2);
     ctx.stroke();
+    if (hypot(c.b.x - c.a.x, c.b.y - c.a.y) > 4) {
+      ctx.beginPath();
+      ctx.arc(c.b.x, c.b.y, 14, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(c.a.x, c.a.y);
+      ctx.lineTo(c.b.x, c.b.y);
+      ctx.stroke();
+    }
     ctx.setLineDash([]);
     ctx.restore();
   }
@@ -3099,7 +3394,7 @@ function render() {
     }
   }
 
-  const prev = computePlacementPreview(mouseWorld.x, mouseWorld.y);
+  const prev = pointerOverCanvas ? computePlacementPreview(mouseWorld.x, mouseWorld.y) : null;
   if (prev) {
     ctx.save();
     ctx.translate(prev.x, prev.y);
@@ -3109,7 +3404,8 @@ function render() {
     if (currentTool === 'rack') {
       ctx.strokeRect(-140, -6, 280, 24);
     } else if (currentTool === 'planetary') {
-      const rRing = (MODULE * (placeTeeth + 24)) / 2;
+      const zS = clampedPlaceTeethForTool('planetary', placeTeeth);
+      const rRing = (MODULE * (zS + 24)) / 2;
       ctx.beginPath();
       ctx.arc(0, 0, rRing, 0, Math.PI * 2);
       ctx.stroke();
@@ -3215,35 +3511,92 @@ function syncInspector() {
   document.getElementById('val-mass').textContent = `${b.massScale.toFixed(1)}×`;
 }
 
-function updateLiveTelemetry() {
+const hudEls = {
+  bodies: document.getElementById('hud-bodies'),
+  links: document.getElementById('hud-links'),
+  contacts: document.getElementById('hud-contacts'),
+  sub: document.getElementById('hud-sub'),
+  fps: document.getElementById('hud-fps'),
+  zoom: document.getElementById('hud-zoom'),
+  statRpm: document.getElementById('stat-rpm'),
+  statForce: document.getElementById('stat-force'),
+  statInertia: document.getElementById('stat-inertia'),
+  statRatio: document.getElementById('stat-ratio')
+};
+
+function setPaused(val) {
+  paused = !!val;
+  const btn = document.getElementById('btn-play');
+  if (btn) {
+    btn.textContent = paused ? '▶ Play' : '⏸ Pause';
+    btn.classList.toggle('primary', !paused);
+  }
+}
+
+function handleBodyRemoved(body) {
+  if (!body) return;
+  world.removeBody(body);
+  if (selectedBody === body) selectBody(null);
+  if (refGear === body) refGear = null;
+  if (coupleFirst === body) coupleFirst = null;
+  if (draggingBody === body) draggingBody = null;
+  if (chainSelection.includes(body)) {
+    chainSelection = chainSelection.filter(s => s !== body);
+    document.getElementById('chain-count').textContent = chainSelection.length;
+  }
+  if (beltSelection.includes(body)) {
+    beltSelection = beltSelection.filter(p => p !== body);
+    document.getElementById('belt-count').textContent = beltSelection.length;
+  }
+  if (activePlanetary) {
+    const members = [activePlanetary.sun, activePlanetary.ring, activePlanetary.carrier, ...(activePlanetary.planets || [])];
+    if (members.includes(body)) {
+      activePlanetary = null;
+      document.getElementById('planetary-quick').classList.remove('visible');
+    }
+  }
+}
+
+function sampleScopeNow() {
+  const refRpm = (refGear && world.bodies.includes(refGear)) ? refGear.getRPM() : 0;
+  const selRpm = (selectedBody && world.bodies.includes(selectedBody)) ? selectedBody.getRPM() : 0;
+  scopeRef[scopeIdx] = Number.isFinite(refRpm) ? refRpm : 0;
+  scopeSel[scopeIdx] = Number.isFinite(selRpm) ? selRpm : 0;
+  scopeIdx = (scopeIdx + 1) % SCOPE_LEN;
+}
+
+function updateLiveTelemetry(advanceScope = !paused) {
+  if (selectedBody && !world.bodies.includes(selectedBody)) selectBody(null);
+  if (refGear && !world.bodies.includes(refGear)) refGear = null;
+
   let totalLinks = 0;
   for (const ch of world.chains) totalLinks += ch.nodes.length;
-  document.getElementById('hud-bodies').textContent = world.bodies.length;
-  document.getElementById('hud-links').textContent = totalLinks;
-  document.getElementById('hud-contacts').textContent = world.activeContactsCount;
-  document.getElementById('hud-sub').textContent = world.lastSubstepsUsed;
-  document.getElementById('hud-zoom').textContent = `${Math.round(cam.zoom * 100)}%`;
+  hudEls.bodies.textContent = world.bodies.length;
+  hudEls.links.textContent = totalLinks;
+  hudEls.contacts.textContent = world.activeContactsCount;
+  hudEls.sub.textContent = world.lastSubstepsUsed;
+  hudEls.zoom.textContent = `${Math.round(cam.zoom * 100)}%`;
 
   const refRpm = refGear ? refGear.getRPM() : 0;
   const selRpm = selectedBody ? selectedBody.getRPM() : 0;
-  scopeRef[scopeIdx] = refRpm;
-  scopeSel[scopeIdx] = selRpm;
-  scopeIdx = (scopeIdx + 1) % SCOPE_LEN;
+  if (advanceScope) sampleScopeNow();
 
   if (selectedBody) {
     const b = selectedBody;
-    document.getElementById('stat-rpm').textContent = b.type === 'rack'
+    hudEls.statRpm.textContent = b.type === 'rack'
       ? `${selRpm.toFixed(1)} px/s` : `${selRpm.toFixed(1)}`;
-    document.getElementById('stat-force').textContent = `${b.lastContactForce.toFixed(1)} N`;
-    document.getElementById('stat-inertia').textContent = b.type === 'rack'
+    const fDisplay = Math.max(0, finiteOr(b.lastContactForce, 0));
+    hudEls.statForce.textContent = `${fDisplay.toFixed(1)} N`;
+    hudEls.statInertia.textContent = b.type === 'rack'
       ? `${b.mass.toFixed(1)} kg` : `${(b.inertia / 1000).toFixed(2)}`;
 
-    if (refGear && refGear !== b && Math.abs(selRpm) > 0.2 && Math.abs(refRpm) > 0.2 && b.type !== 'rack') {
-      document.getElementById('stat-ratio').textContent = `${(refRpm / selRpm).toFixed(2)} : 1`;
+    if (refGear && refGear !== b && Math.abs(selRpm) > 0.2 && Math.abs(refRpm) > 0.2 && b.type !== 'rack' && refGear.type !== 'rack') {
+      const ratio = refRpm / selRpm;
+      hudEls.statRatio.textContent = Number.isFinite(ratio) ? `${ratio.toFixed(2)} : 1` : '—';
     } else if (refGear === b) {
-      document.getElementById('stat-ratio').textContent = '1.00 : 1 (Ref)';
+      hudEls.statRatio.textContent = '1.00 : 1 (Ref)';
     } else {
-      document.getElementById('stat-ratio').textContent = '—';
+      hudEls.statRatio.textContent = '—';
     }
   }
 }
@@ -3285,6 +3638,8 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
 });
 
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('mouseenter', () => { pointerOverCanvas = true; });
+canvas.addEventListener('mouseleave', () => { pointerOverCanvas = false; });
 canvas.addEventListener('mousedown', e => {
   const rect = canvas.getBoundingClientRect();
   mouseScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -3319,13 +3674,21 @@ canvas.addEventListener('mousedown', e => {
   } else if (currentTool === 'clone') {
     const hit = findBodyAt(mouseWorld.x, mouseWorld.y, false);
     if (hit && hit.type !== 'carrier' && hit.type !== 'pawl') {
+      const isRack = hit.type === 'rack';
       const copy = world.addBody(new RigidBody({
         type: hit.type, name: hit.name,
-        x: hit.x + hit.outerR + 24, y: hit.y,
+        x: isRack ? hit.x : hit.x + hit.outerR + 24,
+        y: isRack ? hit.y + 56 : hit.y,
+        theta: hit.theta,
         teeth: hit.teeth, layer: hit.layer, color: hit.color,
         sectorRatio: hit.sectorRatio, massScale: hit.massScale,
-        motorOn: hit.motorOn, motorTorque: hit.motorTorque, motorMaxRpm: hit.motorMaxRpm,
-        motorDir: hit.motorDir, brakeTorque: hit.brakeTorque, weightMass: hit.weightMass
+        locked: hit.locked, damping: hit.damping,
+        motorOn: hit.motorOn, motorInfinite: hit.motorInfinite,
+        motorOscillate: hit.motorOscillate, oscPeriod: hit.oscPeriod,
+        motorTorque: hit.motorTorque, motorMaxRpm: hit.motorMaxRpm,
+        motorDir: hit.motorDir, brakeTorque: hit.brakeTorque,
+        weightMass: hit.weightMass, cableLen: hit.cableLen,
+        rackLength: hit.rackLength, rackTravel: hit.rackTravel, rackSpring: hit.rackSpring
       }));
       selectBody(copy);
       showToast(`Cloned ${hit.name}`);
@@ -3407,7 +3770,13 @@ canvas.addEventListener('mousedown', e => {
   } else if (currentTool === 'chain') {
     const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
     if (hit && hit.type === 'sprocket') {
-      if (!chainSelection.includes(hit)) {
+      if (chainSelection.includes(hit)) {
+        chainSelection = chainSelection.filter(s => s !== hit);
+        document.getElementById('chain-count').textContent = chainSelection.length;
+        showToast(`Removed ${hit.name} from chain loop (${chainSelection.length})`);
+      } else if (chainSelection.length > 0 && hit.layer !== chainSelection[0].layer) {
+        showToast('All sprockets in a chain loop must be on the same plane layer');
+      } else {
         chainSelection.push(hit);
         document.getElementById('chain-count').textContent = chainSelection.length;
         showToast(`Added ${hit.name} to chain loop (${chainSelection.length})`);
@@ -3418,7 +3787,15 @@ canvas.addEventListener('mousedown', e => {
   } else if (currentTool === 'belt') {
     const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
     if (hit && hit.type === 'pulley') {
-      if (!beltSelection.includes(hit)) {
+      if (beltSelection.includes(hit)) {
+        beltSelection = beltSelection.filter(p => p !== hit);
+        document.getElementById('belt-count').textContent = beltSelection.length;
+        showToast(`Removed ${hit.name} from belt drive (${beltSelection.length}/2)`);
+      } else if (beltSelection.length >= 2) {
+        showToast('2 pulleys already selected — click Build Belt or click a pulley to deselect');
+      } else if (beltSelection.length > 0 && hit.layer !== beltSelection[0].layer) {
+        showToast('Both pulleys in a belt drive must be on the same plane layer');
+      } else {
         beltSelection.push(hit);
         document.getElementById('belt-count').textContent = beltSelection.length;
         showToast(`Added ${hit.name} to belt drive (${beltSelection.length}/2)`);
@@ -3429,22 +3806,25 @@ canvas.addEventListener('mousedown', e => {
   } else if (currentTool === 'couple' || currentTool === 'oneway') {
     const hit = findBodyAt(mouseWorld.x, mouseWorld.y, true);
     if (!hit) return;
+    if (hit.type === 'rack') {
+      showToast('Linear racks cannot be shaft-coupled');
+      return;
+    }
     if (!coupleFirst) {
       coupleFirst = hit;
       showToast(`Selected ${hit.name} — now click a 2nd coaxial part`);
     } else if (coupleFirst !== hit) {
       const isOneWay = (currentTool === 'oneway');
+      world.couplers = world.couplers.filter(c =>
+        !((c.a === coupleFirst && c.b === hit) || (c.a === hit && c.b === coupleFirst))
+      );
       world.couplers.push(new ShaftCoupler(coupleFirst, hit, isOneWay));
       showToast(`${isOneWay ? 'Freewheel Clutch' : 'Shaft Bolt'}: ${coupleFirst.name} ↔ ${hit.name}`);
       coupleFirst = null;
     }
   } else if (currentTool === 'delete') {
     const hit = findBodyAt(mouseWorld.x, mouseWorld.y);
-    if (hit) {
-      world.removeBody(hit);
-      if (selectedBody === hit) selectBody(null);
-      if (refGear === hit) refGear = null;
-    }
+    if (hit) handleBodyRemoved(hit);
   }
 });
 
@@ -3458,13 +3838,26 @@ window.addEventListener('mousemove', e => {
     cam.y = panStart.camY - (e.clientY - panStart.y) / cam.zoom;
   }
   if (draggingBody) {
+    const prevX = draggingBody.x, prevY = draggingBody.y;
     const snap = computeSnapForBody(mouseWorld.x, mouseWorld.y, draggingBody.teeth, draggingBody.layer, draggingBody.type, draggingBody);
     draggingBody.x = snap.x;
     draggingBody.y = snap.y;
-    if (snap.snappedTo) draggingBody.theta = snap.theta;
+    if (snap.snappedTo) {
+      draggingBody.theta = snap.theta;
+      syncCouplersForBody(draggingBody);
+    }
     if (draggingBody.type === 'rack') {
       draggingBody.rackHomeX = snap.x;
       draggingBody.rackHomeY = snap.y;
+    } else if (draggingBody.type === 'carrier') {
+      const ddx = draggingBody.x - prevX, ddy = draggingBody.y - prevY;
+      for (const j of world.pinJoints) {
+        if (j.carrier === draggingBody) {
+          j.planet.x += ddx;
+          j.planet.y += ddy;
+          j.planet.vx = 0; j.planet.vy = 0;
+        }
+      }
     }
     draggingBody.vx = 0; draggingBody.vy = 0;
   }
@@ -3474,33 +3867,56 @@ window.addEventListener('mousemove', e => {
   }
 });
 
-window.addEventListener('mouseup', () => {
+function releaseActivePointerActions() {
   if (draggingBody && draggingBody.type === 'sprocket') {
     rebuildChainsForSprocket(draggingBody);
   }
   draggingBody = null;
   isPanning = false;
   world.wrench = null;
+}
+
+window.addEventListener('mouseup', releaseActivePointerActions);
+window.addEventListener('blur', () => {
+  releaseActivePointerActions();
+  shiftDown = false;
+  pointerOverCanvas = false;
 });
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
+  if (!Number.isFinite(e.deltaY) || e.deltaY === 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+  const before = screenToWorld(sx, sy);
   const factor = e.deltaY < 0 ? 1.12 : 0.89;
   cam.zoom = clamp(cam.zoom * factor, 0.1, 4.0);
+  const after = screenToWorld(sx, sy);
+  cam.x += before.x - after.x;
+  cam.y += before.y - after.y;
 }, { passive: false });
 
 window.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
   if (e.key === 'Shift') shiftDown = true;
-  if (e.key === ' ') {
+  if (e.key === 'Escape') {
+    coupleFirst = null;
+    chainSelection = [];
+    beltSelection = [];
+    document.getElementById('chain-count').textContent = '0';
+    document.getElementById('belt-count').textContent = '0';
+    return;
+  }
+  if (e.key === ' ' && tag !== 'BUTTON') {
     e.preventDefault();
-    paused = !paused;
-    document.getElementById('btn-play').textContent = paused ? '▶ Play' : '⏸ Pause';
+    setPaused(!paused);
   }
   if ((e.key === 'r' || e.key === 'R') && selectedBody && selectedBody.type === 'rack') {
-    selectedBody.theta += Math.PI / 2;
+    selectedBody.theta = (selectedBody.theta + Math.PI / 2) % (Math.PI * 2);
     selectedBody.rackHomeX = selectedBody.x;
     selectedBody.rackHomeY = selectedBody.y;
+    selectedBody.vx = 0; selectedBody.vy = 0;
   }
 });
 window.addEventListener('keyup', e => {
@@ -3508,15 +3924,17 @@ window.addEventListener('keyup', e => {
 });
 
 document.getElementById('btn-play').addEventListener('click', () => {
-  paused = !paused;
-  document.getElementById('btn-play').textContent = paused ? '▶ Play' : '⏸ Pause';
+  setPaused(!paused);
 });
 document.getElementById('btn-step').addEventListener('click', () => {
-  paused = true;
-  document.getElementById('btn-play').textContent = '▶ Play';
+  setPaused(true);
   world.step((1 / 60) * timeScale);
+  sampleScopeNow();
 });
-document.getElementById('sel-speed').addEventListener('change', e => { timeScale = parseFloat(e.target.value); });
+document.getElementById('sel-speed').addEventListener('change', e => {
+  const v = parseFloat(e.target.value);
+  if (Number.isFinite(v) && v > 0) timeScale = clamp(v, 0.01, 5.0);
+});
 document.getElementById('sel-preset').addEventListener('change', e => {
   loadPreset(world, e.target.value);
   selectBody(world.bodies[0] || null);
@@ -3541,6 +3959,7 @@ document.getElementById('btn-scope').addEventListener('click', e => {
 document.getElementById('btn-center').addEventListener('click', () => { cam.x = 0; cam.y = 0; cam.zoom = 1.0; });
 document.getElementById('btn-clear').addEventListener('click', () => {
   world.clear();
+  resetTransientUI();
   activePlanetary = null;
   refGear = null;
   document.getElementById('planetary-quick').classList.remove('visible');
@@ -3548,7 +3967,10 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 });
 
 function setPlaceTeeth(v) {
-  if (isNaN(v)) return;
+  if (!Number.isFinite(v)) {
+    document.getElementById('num-teeth').value = placeTeeth;
+    return;
+  }
   placeTeeth = clamp(Math.round(v), 3, 240);
   document.getElementById('inp-teeth').value = placeTeeth;
   document.getElementById('num-teeth').value = placeTeeth;
@@ -3576,7 +3998,12 @@ document.getElementById('chk-snap').addEventListener('change', e => { autoSnap =
 document.getElementById('btn-build-chain').addEventListener('click', () => {
   if (chainSelection.length < 2) { showToast('Select at least 2 sprockets first!'); return; }
   const ch = buildPhysicalChain(chainSelection, SPROCKET_PITCH);
-  if (ch) { world.chains.push(ch); showToast(`Built physical ${ch.nodes.length}-link roller chain!`); }
+  if (ch) {
+    world.chains.push(ch);
+    showToast(`Built physical ${ch.nodes.length}-link roller chain!`);
+  } else {
+    showToast('Cannot build chain: sprockets are too close or overlapping');
+  }
   chainSelection = [];
   document.getElementById('chain-count').textContent = '0';
 });
@@ -3588,9 +4015,9 @@ document.getElementById('btn-cancel-chain').addEventListener('click', () => {
 document.getElementById('btn-build-belt').addEventListener('click', () => {
   if (beltSelection.length < 2) { showToast('Select 2 pulleys first!'); return; }
   const crossed = document.getElementById('chk-belt-crossed').checked;
-  for (let i = 0; i < beltSelection.length - 1; i++) {
-    world.belts.push(new BeltDrive(beltSelection[i], beltSelection[i + 1], crossed));
-  }
+  const pA = beltSelection[0], pB = beltSelection[1];
+  world.belts = world.belts.filter(bl => !((bl.a === pA && bl.b === pB) || (bl.a === pB && bl.b === pA)));
+  world.belts.push(new BeltDrive(pA, pB, crossed));
   showToast(`Connected ${crossed ? 'Crossed' : 'Open'} Friction Belt!`);
   beltSelection = [];
   document.getElementById('belt-count').textContent = '0';
@@ -3674,6 +4101,11 @@ document.getElementById('btn-dir-ccw').addEventListener('click', () => { if (sel
 document.getElementById('insp-locked').addEventListener('change', e => {
   if (!selectedBody) return;
   selectedBody.locked = e.target.checked;
+  if (selectedBody.locked) {
+    selectedBody.vx = 0;
+    selectedBody.vy = 0;
+    selectedBody.omega = 0;
+  }
   selectedBody.updateMassProps();
 });
 document.getElementById('insp-brake').addEventListener('input', e => {
@@ -3690,13 +4122,24 @@ document.getElementById('insp-mass').addEventListener('input', e => {
 document.getElementById('btn-flip-layer').addEventListener('click', () => {
   if (!selectedBody) return;
   selectedBody.layer = selectedBody.layer === 0 ? 1 : 0;
+  for (const ch of world.chains) {
+    if (ch.sprockets.includes(selectedBody) && ch.sprockets.every(s => s.layer === selectedBody.layer)) {
+      ch.layer = selectedBody.layer;
+    }
+  }
+  for (const bl of world.belts) {
+    if ((bl.a === selectedBody || bl.b === selectedBody) && bl.a.layer === bl.b.layer) {
+      bl.layer = selectedBody.layer;
+    }
+  }
   syncInspector();
 });
 document.getElementById('btn-rotate-rack').addEventListener('click', () => {
   if (!selectedBody || selectedBody.type !== 'rack') return;
-  selectedBody.theta += Math.PI / 2;
+  selectedBody.theta = (selectedBody.theta + Math.PI / 2) % (Math.PI * 2);
   selectedBody.rackHomeX = selectedBody.x;
   selectedBody.rackHomeY = selectedBody.y;
+  selectedBody.vx = 0; selectedBody.vy = 0;
 });
 document.getElementById('btn-set-ref').addEventListener('click', () => {
   if (!selectedBody) return;
@@ -3705,34 +4148,24 @@ document.getElementById('btn-set-ref').addEventListener('click', () => {
 });
 document.getElementById('btn-del-selected').addEventListener('click', () => {
   if (!selectedBody) return;
-  world.removeBody(selectedBody);
-  selectBody(null);
+  handleBodyRemoved(selectedBody);
 });
 
 loadPreset(world, 'planetary');
 selectBody(world.bodies[0] || null);
 
-let lastTime = performance.now();
-let fpsSmooth = 60;
-
-function loop(now) {
-  const realDt = Math.min(0.033, (now - lastTime) / 1000);
-  lastTime = now;
-  if (realDt > 0) fpsSmooth = fpsSmooth * 0.9 + (1 / realDt) * 0.1;
-  document.getElementById('hud-fps').textContent = Math.round(fpsSmooth);
-
-  if (!paused) {
-    world.step((1 / 60) * timeScale);
-  }
-  render();
-  updateLiveTelemetry();
-  
 // =========================================================================
 // PHONE OPTIMIZED MODE & TOUCH / PINCH-ZOOM BRIDGE
 // =========================================================================
 (function initMobileMode() {
   const btnMobile = document.getElementById('btnMobileToggle');
+  const STORAGE_KEY = 'gearlab_mobile_override';
   let mobileOverride = null;
+  try {
+    const saved = window.localStorage && window.localStorage.getItem(STORAGE_KEY);
+    if (saved === '1') mobileOverride = true;
+    else if (saved === '0') mobileOverride = false;
+  } catch (_) {}
 
   function isAutoMobile() {
     return window.innerWidth <= 860 ||
@@ -3756,6 +4189,9 @@ function loop(now) {
   if (btnMobile) {
     btnMobile.addEventListener('click', () => {
       mobileOverride = !document.body.classList.contains('mobile-mode');
+      try {
+        if (window.localStorage) window.localStorage.setItem(STORAGE_KEY, mobileOverride ? '1' : '0');
+      } catch (_) {}
       applyMobileMode(true);
     });
   }
@@ -3794,7 +4230,8 @@ function loop(now) {
   }
 
   canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
+    pointerOverCanvas = false;
     if (e.touches.length === 1 && !pinching) {
       const t = e.touches[0];
       touchDragging = true;
@@ -3813,15 +4250,17 @@ function loop(now) {
   }, { passive: false });
 
   canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     if (pinching && e.touches.length >= 2) {
       const t0 = e.touches[0], t1 = e.touches[1];
       const curDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
       const curMid = { x: (t0.clientX + t1.clientX) * 0.5, y: (t0.clientY + t1.clientY) * 0.5 };
       const rect = canvas.getBoundingClientRect();
       const worldBefore = screenToWorld(pinchPrevMid.x - rect.left, pinchPrevMid.y - rect.top);
-      const scale = curDist / Math.max(1, pinchPrevDist);
-      cam.zoom = clamp(cam.zoom * scale, 0.1, 4.0);
+      if (pinchPrevDist >= 10 && curDist >= 10) {
+        const scale = clamp(curDist / pinchPrevDist, 0.5, 2.0);
+        cam.zoom = clamp(cam.zoom * scale, 0.1, 4.0);
+      }
       const worldAfter = screenToWorld(curMid.x - rect.left, curMid.y - rect.top);
       cam.x += worldBefore.x - worldAfter.x;
       cam.y += worldBefore.y - worldAfter.y;
@@ -3835,6 +4274,7 @@ function loop(now) {
   }, { passive: false });
 
   function handleTouchEnd(e) {
+    if (e.cancelable) e.preventDefault();
     if (e.touches.length === 0) {
       if (touchDragging) {
         emitMouse(window, 'mouseup', lastTouchPos.x, lastTouchPos.y, 0);
@@ -3851,9 +4291,31 @@ function loop(now) {
   canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 })();
 
-requestAnimationFrame(loop);
+let lastTime = performance.now();
+let fpsSmooth = 60;
+let rafId = null;
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) lastTime = performance.now();
+});
+
+function loop(now) {
+  const ts = Number.isFinite(now) ? now : performance.now();
+  const rawDt = (ts - lastTime) / 1000;
+  lastTime = ts;
+  if (rawDt > 0.001 && rawDt < 1.0) {
+    fpsSmooth = fpsSmooth * 0.9 + (1 / rawDt) * 0.1;
+  }
+  hudEls.fps.textContent = Math.round(clamp(finiteOr(fpsSmooth, 60), 1, 240));
+
+  if (!paused) {
+    world.step((1 / 60) * timeScale);
+  }
+  render();
+  updateLiveTelemetry(!paused);
+  rafId = requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
+rafId = requestAnimationFrame(loop);
 </script>
 </body>
 </html>

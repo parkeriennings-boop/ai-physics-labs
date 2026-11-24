@@ -20,6 +20,7 @@
     --rose: #fb7185;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  input, textarea { user-select: text; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 999px; }
   body {
@@ -67,6 +68,7 @@
   .toolbar { padding: 8px 12px; background: var(--glass); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 50%, #0d1b2a 0%, #04070c 100%); }
   canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  #garageCanvas, #dishCanvas, #courseCanvas { touch-action: none; }
 
   /* ORGANELLE LIST */
   .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -121,14 +123,19 @@
 
   body.mobile-mode { height: auto; min-height: 100dvh; overflow-y: auto; }
   body.mobile-mode header { height: auto; flex-wrap: wrap; padding: 8px 10px; }
+  body.mobile-mode main { overflow: visible; flex: 0 0 auto; }
   body.mobile-mode .view.active { flex-direction: column; height: auto; }
-  body.mobile-mode .stage { height: 56dvh; min-height: 340px; order: 1; }
-  body.mobile-mode .sidebar, body.mobile-mode .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; height: auto; }
+  body.mobile-mode .stage { flex: 0 0 auto; height: 56dvh; min-height: 340px; order: 1; }
+  body.mobile-mode .sidebar, body.mobile-mode .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; height: auto; overflow: visible; }
+  body.mobile-mode .org-list { max-height: 260px; }
   @media (max-width: 980px) {
     body { height: auto; min-height: 100dvh; overflow-y: auto; }
+    header { height: auto; flex-wrap: wrap; padding: 8px 10px; }
+    main { overflow: visible; flex: 0 0 auto; }
     .view.active { flex-direction: column; height: auto; }
-    .stage { height: 56dvh; min-height: 340px; order: 1; }
-    .sidebar, .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; height: auto; }
+    .stage { flex: 0 0 auto; height: 56dvh; min-height: 340px; order: 1; }
+    .sidebar, .right-panel { width: 100%; border: none; border-top: 1px solid var(--border); order: 2; height: auto; overflow: visible; }
+    .org-list { max-height: 260px; }
   }
 </style>
 </head>
@@ -196,8 +203,8 @@
           <button class="g-tool" data-gt="move">✋ Move</button>
           <button class="g-tool" data-gt="bond">🔗 Link</button>
           <button class="g-tool" data-gt="cut">✂️ Cut / Del</button>
-          <button id="btnMirror">🪞 Mirror Y: ON</button>
-          <button id="btnSnap">🧲 Snap: ON</button>
+          <button id="btnMirror" class="active">🪞 Mirror Y: ON</button>
+          <button id="btnSnap" class="active">🧲 Snap: ON</button>
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
           <button id="btnUndo" disabled>↩ Undo</button>
@@ -553,13 +560,43 @@
   let currentTool = 'spawn', paused = false, lastPreset = 'soup_of_life', pilotMode = false;
   let mirrorY = true, snapGrid = true, testPulse = false;
 
+  function safeStorageGet(key, fallback = null) {
+    try { return localStorage.getItem(key); } catch { return fallback; }
+  }
+  function safeStorageSet(key, val) {
+    try { localStorage.setItem(key, val); return true; } catch { return false; }
+  }
+  function pointToSegmentDist(px, py, x1, y1, x2, y2) {
+    const vx = x2 - x1, vy = y2 - y1;
+    const lenSq = vx * vx + vy * vy;
+    if (lenSq <= 1e-8) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * vx + (py - y1) * vy) / lenSq));
+    return Math.hypot(px - (x1 + t * vx), py - (y1 + t * vy));
+  }
+  function syncCanvasDPR(canvas, context, cssW, cssH) {
+    const w = Math.max(0, Math.floor(cssW));
+    const h = Math.max(0, Math.floor(cssH));
+    if (w < 2 || h < 2) return { w: 0, h: 0, dpr: 1 };
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
+    }
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h, dpr };
+  }
+
   function showToast(msg) {
     const t = document.getElementById('toast');
+    if (!t) return;
     t.textContent = msg; t.classList.add('show');
     clearTimeout(t._id); t._id = setTimeout(() => t.classList.remove('show'), 2000);
   }
 
   function renderOrgPalettes() {
+    const safeOrg = ORGANELLES[selectedOrg] ? selectedOrg : 0;
+    selectedOrg = safeOrg;
     // Garage list (filtered by category)
     const gList = document.getElementById('garageOrgList');
     gList.innerHTML = '';
@@ -567,7 +604,10 @@
       const [name] = o[knowledge];
       const b = document.createElement('button');
       b.className = 'org-btn' + (o.id === selectedOrg ? ' active' : '');
-      b.innerHTML = `<span class="dot" style="background:${o.color};color:${o.color}"></span><span>${name}</span>`;
+      const dot = document.createElement('span');
+      dot.className = 'dot'; dot.style.background = o.color; dot.style.color = o.color;
+      const lbl = document.createElement('span'); lbl.textContent = name;
+      b.append(dot, lbl);
       b.onclick = () => { selectedOrg = o.id; renderOrgPalettes(); };
       gList.appendChild(b);
     });
@@ -580,7 +620,10 @@
       const [name] = o[knowledge];
       const b = document.createElement('button');
       b.className = 'org-btn' + (o.id === selectedOrg ? ' active' : '');
-      b.innerHTML = `<span class="dot" style="background:${o.color};color:${o.color}"></span><span>${name}</span>`;
+      const dot = document.createElement('span');
+      dot.className = 'dot'; dot.style.background = o.color; dot.style.color = o.color;
+      const lbl = document.createElement('span'); lbl.textContent = name;
+      b.append(dot, lbl);
       b.onclick = () => { selectedOrg = o.id; renderOrgPalettes(); };
       dList.appendChild(b);
     });
@@ -588,8 +631,10 @@
   }
 
   window.setKnowledge = function(lvl) {
-    knowledge = lvl;
-    const t = UI_TEXT[lvl];
+    knowledge = UI_TEXT[lvl] ? lvl : 'student';
+    const sel = document.getElementById('knowSel');
+    if (sel && sel.value !== knowledge) sel.value = knowledge;
+    const t = UI_TEXT[knowledge];
     document.querySelectorAll('.knowBadge').forEach(el => el.textContent = t.badge);
     document.querySelectorAll('.lblOrg').forEach(el => el.textContent = t.orgs);
     document.querySelectorAll('.lblBonds').forEach(el => el.textContent = t.bonds);
@@ -606,16 +651,56 @@
   // =========================================================================
   const gCanvas = document.getElementById('garageCanvas');
   const gCtx = gCanvas.getContext('2d');
+  let gW = 0, gH = 0, gDpr = 1;
+  let dW = 0, dH = 0, dDpr = 1;
+  let cW = 0, cH = 0, cDpr = 1;
   let bp = { nodes: [], bonds: [] }; // coordinates relative to center (0,0)
   let gUndo = [], gRedo = [], gPulses = [];
-  let gMouse = { x: 0, y: 0, wx: 0, wy: 0, down: false };
-  let gDragNode = null, gLinkStart = null, gHoverNode = null, gPhase = 0;
+  let gMouse = { x: 0, y: 0, wx: 0, wy: 0, down: false, inside: false };
+  let gDragNode = null, gDragMirror = -1, gDragMoved = false, gDragHistPushed = false;
+  let gLinkStart = null, gHoverNode = -1, gPhase = 0;
+
+  function sanitizeBp(src) {
+    if (!src || !Array.isArray(src.nodes)) return { nodes: [], bonds: [] };
+    const cleanNodes = [];
+    const idxMap = new Map();
+    src.nodes.slice(0, 120).forEach((n, oldIdx) => {
+      if (!n || typeof n !== 'object') return;
+      const rx = Number.isFinite(n.ox) ? n.ox : (Number.isFinite(n.x) ? n.x : null);
+      const ry = Number.isFinite(n.oy) ? n.oy : (Number.isFinite(n.y) ? n.y : null);
+      if (rx === null || ry === null) return;
+      const cx = Math.max(-280, Math.min(280, rx));
+      const cy = Math.max(-200, Math.min(200, ry));
+      const t = Number.isInteger(n.type) && n.type >= 0 && n.type < ORGANELLES.length ? n.type : 0;
+      idxMap.set(oldIdx, cleanNodes.length);
+      cleanNodes.push({ x: cx, y: cy, ox: cx, oy: cy, vx: 0, vy: 0, type: t });
+    });
+    const cleanBonds = [];
+    const seen = new Set();
+    if (Array.isArray(src.bonds)) {
+      src.bonds.forEach(b => {
+        if (!Array.isArray(b) || b.length < 2) return;
+        const ia = idxMap.get(b[0]), ib = idxMap.get(b[1]);
+        if (ia === undefined || ib === undefined || ia === ib) return;
+        const key = ia < ib ? `${ia}:${ib}` : `${ib}:${ia}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const rawLen = Number.isFinite(b[2])
+          ? b[2]
+          : Math.hypot(cleanNodes[ib].ox - cleanNodes[ia].ox, cleanNodes[ib].oy - cleanNodes[ia].oy);
+        cleanBonds.push([ia, ib, Math.max(15, Math.min(62, rawLen))]);
+      });
+    }
+    return { nodes: cleanNodes, bonds: cleanBonds };
+  }
 
   function cloneBp(src) {
-    return {
-      nodes: src.nodes.map(n => ({ ...n })),
-      bonds: src.bonds.map(b => [b[0], b[1], b[2]])
-    };
+    return sanitizeBp(src);
+  }
+  function clearGarageTransient() {
+    gPulses = [];
+    gDragNode = null; gDragMirror = -1; gDragMoved = false; gDragHistPushed = false;
+    gLinkStart = null; gHoverNode = -1; gMouse.down = false;
   }
   function pushGarageHist() {
     gUndo.push(cloneBp(bp));
@@ -630,19 +715,19 @@
 
   function resizeCanvases() {
     const gp = gCanvas.parentElement;
-    if (gp && gp.clientWidth > 0) {
-      gCanvas.width = gp.clientWidth;
-      gCanvas.height = gp.clientHeight;
+    if (gp && gp.clientWidth > 0 && gp.clientHeight > 0) {
+      const m = syncCanvasDPR(gCanvas, gCtx, gp.clientWidth, gp.clientHeight);
+      gW = m.w; gH = m.h; gDpr = m.dpr;
     }
     const dp = dishCanvas.parentElement;
-    if (dp && dp.clientWidth > 0) {
-      dishCanvas.width = dp.clientWidth;
-      dishCanvas.height = dp.clientHeight;
+    if (dp && dp.clientWidth > 0 && dp.clientHeight > 0) {
+      const m = syncCanvasDPR(dishCanvas, ctx, dp.clientWidth, dp.clientHeight);
+      dW = m.w; dH = m.h; dDpr = m.dpr;
     }
     const cp = courseCanvas.parentElement;
-    if (cp && cp.clientWidth > 0) {
-      courseCanvas.width = cp.clientWidth;
-      courseCanvas.height = cp.clientHeight;
+    if (cp && cp.clientWidth > 0 && cp.clientHeight > 0) {
+      const m = syncCanvasDPR(courseCanvas, cCtx, cp.clientWidth, cp.clientHeight);
+      cW = m.w; cH = m.h; cDpr = m.dpr;
     }
   }
   window.addEventListener('resize', resizeCanvases);
@@ -650,12 +735,16 @@
   function snapVal(v) { return snapGrid ? Math.round(v / 14) * 14 : v; }
 
   function addBpNode(x, y, type, autoBond = true) {
+    if (bp.nodes.length >= 120) return -1;
+    const cx = Math.max(-270, Math.min(270, x));
+    const cy = Math.max(-190, Math.min(190, y));
+    const safeType = (type >= 0 && type < ORGANELLES.length) ? type : 0;
     const idx = bp.nodes.length;
-    bp.nodes.push({ x, y, ox: x, oy: y, vx: 0, vy: 0, type });
+    bp.nodes.push({ x: cx, y: cy, ox: cx, oy: cy, vx: 0, vy: 0, type: safeType });
     if (autoBond) {
       const dists = [];
       for (let i = 0; i < idx; i++) {
-        const d = Math.hypot(bp.nodes[i].x - x, bp.nodes[i].y - y);
+        const d = Math.hypot(bp.nodes[i].ox - cx, bp.nodes[i].oy - cy);
         if (d < 46) dists.push({ i, d });
       }
       dists.sort((a, b) => a.d - b.d);
@@ -667,22 +756,29 @@
   function addBpBond(ia, ib, len = null) {
     if (ia === ib || ia < 0 || ib < 0 || ia >= bp.nodes.length || ib >= bp.nodes.length) return;
     if (bp.bonds.some(b => (b[0] === ia && b[1] === ib) || (b[0] === ib && b[1] === ia))) return;
-    const d = len ?? Math.hypot(bp.nodes[ib].x - bp.nodes[ia].x, bp.nodes[ib].y - bp.nodes[ia].y);
+    const d = len ?? Math.hypot(bp.nodes[ib].ox - bp.nodes[ia].ox, bp.nodes[ib].oy - bp.nodes[ia].oy);
     bp.bonds.push([ia, ib, Math.max(15, Math.min(62, d))]);
   }
 
   function deleteBpNode(idx) {
+    if (idx < 0 || idx >= bp.nodes.length) return;
     bp.bonds = bp.bonds.filter(b => b[0] !== idx && b[1] !== idx).map(b => [
       b[0] > idx ? b[0] - 1 : b[0],
       b[1] > idx ? b[1] - 1 : b[1],
       b[2]
     ]);
     bp.nodes.splice(idx, 1);
+    gPulses = [];
+    if (gHoverNode === idx) gHoverNode = -1;
+    else if (gHoverNode > idx) gHoverNode--;
+    if (gLinkStart === idx) gLinkStart = null;
+    else if (gLinkStart !== null && gLinkStart > idx) gLinkStart--;
+    if (gDragNode === idx) { gDragNode = null; gDragMirror = -1; }
   }
 
   function updateGarageSpecs() {
     const counts = new Array(16).fill(0);
-    bp.nodes.forEach(n => counts[n.type]++);
+    bp.nodes.forEach(n => { if (n.type >= 0 && n.type < 16) counts[n.type]++; });
     const motors = counts[3] + counts[4] + counts[12];
     const mitoBoost = counts[1] > 0 ? '1.5x' : '1.0x';
     const maxAtp = bp.nodes.reduce((s, n) => s + (n.type === 14 ? 450 : 230), 0);
@@ -703,6 +799,7 @@
   // Generate blueprint from Shit-Lounge builder functions by capturing nodes/bonds around (0,0)
   function capturePresetIntoGarage(name) {
     const tmpNodes = [], tmpBonds = [];
+    const seen = new Set();
     let gid = 1;
     function tAdd(x, y, type) {
       const n = { x, y, type, gid };
@@ -710,10 +807,16 @@
       return n;
     }
     function tBond(a, b, len = null) {
+      const ia = tmpNodes.indexOf(a), ib = tmpNodes.indexOf(b);
+      if (ia < 0 || ib < 0 || ia === ib) return;
+      const key = ia < ib ? `${ia}:${ib}` : `${ib}:${ia}`;
+      if (seen.has(key)) return;
+      seen.add(key);
       const d = len ?? Math.hypot(b.x - a.x, b.y - a.y);
-      tmpBonds.push([tmpNodes.indexOf(a), tmpNodes.indexOf(b), Math.max(15, Math.min(60, d))]);
+      tmpBonds.push([ia, ib, Math.max(15, Math.min(60, d))]);
     }
     buildCreatureInto(name, 0, 0, tAdd, tBond);
+    clearGarageTransient();
     bp = {
       nodes: tmpNodes.map(n => ({ x: n.x, y: n.y, ox: n.x, oy: n.y, vx: 0, vy: 0, type: n.type })),
       bonds: tmpBonds
@@ -726,6 +829,7 @@
     const p = raw.trim().toLowerCase();
     if (!p) return;
     pushGarageHist();
+    clearGarageTransient();
     bp = { nodes: [], bonds: [] };
     const isPred = /pred|hunt|spike|jaw|bite|attack/.test(p);
     const isSolar = /solar|plant|chlor|algae|sun/.test(p);
@@ -744,6 +848,14 @@
     const sL = addBpNode(-6, -20, sideType, false), sR = addBpNode(-6, 20, sideType, false);
     addBpBond(nuc, sL); addBpBond(nuc, sR); addBpBond(eyeL, sL); addBpBond(eyeR, sR);
 
+    if (isSolar && sideType !== 2) {
+      const chL = addBpNode(4, -34, 2, false), chR = addBpNode(4, 34, 2, false);
+      addBpBond(eyeL, chL); addBpBond(sL, chL); addBpBond(eyeR, chR); addBpBond(sR, chR);
+    }
+    if (isMitosis && sideType !== 15) {
+      const bL = addBpNode(-20, -28, 15, false), bR = addBpNode(-20, 28, 15, false);
+      addBpBond(sL, bL); addBpBond(nuc, bL); addBpBond(sR, bR); addBpBond(nuc, bR);
+    }
     if (isPred) {
       const spL = addBpNode(34, -14, 8, false), spR = addBpNode(34, 14, 8, false);
       addBpBond(mouth, spL); addBpBond(mouth, spR); addBpBond(eyeL, spL); addBpBond(eyeR, spR);
@@ -770,51 +882,84 @@
       }
     }
     updateGarageSpecs();
-    document.getElementById('aiLog').innerHTML += `<div>✨ Forged "<em>${raw}</em>" (${bp.nodes.length} organelles, ${bp.bonds.length} bonds)</div>`;
+    const aiLog = document.getElementById('aiLog');
+    const entry = document.createElement('div');
+    const em = document.createElement('em');
+    em.textContent = raw.trim();
+    entry.append('✨ Forged "', em, `" (${bp.nodes.length} organelles, ${bp.bonds.length} bonds)`);
+    aiLog.appendChild(entry);
+    while (aiLog.children.length > 30) aiLog.removeChild(aiLog.firstChild);
+    aiLog.scrollTop = aiLog.scrollHeight;
     showToast('🤖 AI assembled bonded organism!');
   }
 
-  // Garage Canvas Interaction
-  function findBpNode(wx, wy, maxD = 18) {
+  // Garage Canvas Interaction (Pointer Events for Mouse + Touch)
+  function findBpNode(wx, wy, maxD = 18, excludeIdx = -1) {
     let best = -1, bd = maxD;
     bp.nodes.forEach((n, i) => {
-      const d = Math.hypot(n.x - wx, n.y - wy);
+      if (i === excludeIdx) return;
+      const d = Math.hypot(n.ox - wx, n.oy - wy);
       if (d < bd) { bd = d; best = i; }
     });
     return best;
   }
 
-  gCanvas.addEventListener('contextmenu', e => e.preventDefault());
-  gCanvas.addEventListener('mousedown', e => {
+  function garageEventToWorld(e) {
     const r = gCanvas.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return { sx: 0, sy: 0, wx: 0, wy: 0, inside: false };
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    const wx = (sx - gCanvas.width / 2) / 1.5, wy = (sy - gCanvas.height / 2) / 1.5;
-    gMouse = { x: sx, y: sy, wx, wy, down: true };
+    const inside = sx >= 0 && sx <= r.width && sy >= 0 && sy <= r.height;
+    return { sx, sy, wx: (sx - r.width / 2) / 1.5, wy: (sy - r.height / 2) / 1.5, inside };
+  }
+
+  gCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  gCanvas.addEventListener('pointerleave', () => { gMouse.inside = false; gHoverNode = -1; });
+  gCanvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') e.preventDefault();
+    const pos = garageEventToWorld(e);
+    gMouse = { x: pos.sx, y: pos.sy, wx: pos.wx, wy: pos.wy, down: true, inside: pos.inside };
+    const { wx, wy } = pos;
 
     const hit = findBpNode(wx, wy, 16);
     if (e.button === 2 || garageTool === 'cut') {
-      pushGarageHist();
       if (hit !== -1) {
-        const hy = bp.nodes[hit].y;
+        pushGarageHist();
+        const hx = bp.nodes[hit].ox, hy = bp.nodes[hit].oy;
         deleteBpNode(hit);
         if (mirrorY && Math.abs(hy) > 4) {
-          const mir = findBpNode(wx, -hy, 12);
+          const mir = findBpNode(hx, -hy, 14);
           if (mir !== -1) deleteBpNode(mir);
         }
+        updateGarageSpecs();
       } else {
-        // Cut bonds near cursor
-        bp.bonds = bp.bonds.filter(([ia, ib]) => {
-          const a = bp.nodes[ia], b = bp.nodes[ib];
-          if (!a || !b) return false;
-          return Math.hypot((a.x + b.x) * 0.5 - wx, (a.y + b.y) * 0.5 - wy) > 14;
-        });
+        const keep = [];
+        let cutAny = false;
+        for (const b of bp.bonds) {
+          const a = bp.nodes[b[0]], c = bp.nodes[b[1]];
+          if (!a || !c) { cutAny = true; continue; }
+          const dDirect = pointToSegmentDist(wx, wy, a.ox, a.oy, c.ox, c.oy);
+          const dMir = mirrorY ? pointToSegmentDist(wx, -wy, a.ox, a.oy, c.ox, c.oy) : Infinity;
+          if (dDirect <= 9 || dMir <= 9) { cutAny = true; continue; }
+          keep.push(b);
+        }
+        if (cutAny) {
+          pushGarageHist();
+          bp.bonds = keep;
+          gPulses = [];
+          updateGarageSpecs();
+        }
       }
-      updateGarageSpecs();
       return;
     }
     if (garageTool === 'move') {
       gDragNode = hit !== -1 ? hit : null;
-      if (gDragNode !== null) pushGarageHist();
+      gDragMirror = -1;
+      gDragMoved = false;
+      gDragHistPushed = false;
+      if (gDragNode !== null && mirrorY && Math.abs(bp.nodes[gDragNode].oy) > 4) {
+        const dn = bp.nodes[gDragNode];
+        gDragMirror = findBpNode(dn.ox, -dn.oy, 16, gDragNode);
+      }
       return;
     }
     if (garageTool === 'bond') {
@@ -822,47 +967,58 @@
       return;
     }
     if (garageTool === 'place') {
+      const px = snapVal(wx);
+      const rawPy = snapVal(wy);
+      const py = (mirrorY && Math.abs(rawPy) <= 6) ? 0 : rawPy;
+      if (findBpNode(px, py, 10) !== -1) {
+        showToast('Organelle already at that position');
+        return;
+      }
+      if (bp.nodes.length >= 120) {
+        showToast('Blueprint limit reached (120 organelles)');
+        return;
+      }
       pushGarageHist();
-      const px = snapVal(wx), py = snapVal(wy);
       addBpNode(px, py, selectedOrg, true);
-      if (mirrorY && Math.abs(py) > 6) {
+      if (mirrorY && Math.abs(py) > 6 && findBpNode(px, -py, 10) === -1) {
         addBpNode(px, -py, selectedOrg, true);
       }
       updateGarageSpecs();
     }
   });
 
-  window.addEventListener('mousemove', e => {
+  window.addEventListener('pointermove', e => {
     if (!document.getElementById('view-garage').classList.contains('active')) return;
-    const r = gCanvas.getBoundingClientRect();
-    const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    const wx = (sx - gCanvas.width / 2) / 1.5, wy = (sy - gCanvas.height / 2) / 1.5;
-    gMouse.x = sx; gMouse.y = sy; gMouse.wx = wx; gMouse.wy = wy;
-    gHoverNode = findBpNode(wx, wy, 16);
-    if (gMouse.down && garageTool === 'move' && gDragNode !== null) {
-      const nx = snapVal(wx), ny = snapVal(wy);
+    const pos = garageEventToWorld(e);
+    gMouse.x = pos.sx; gMouse.y = pos.sy; gMouse.wx = pos.wx; gMouse.wy = pos.wy;
+    gMouse.inside = pos.inside;
+    gHoverNode = pos.inside ? findBpNode(pos.wx, pos.wy, 16) : -1;
+    if (gMouse.down && garageTool === 'move' && gDragNode !== null && bp.nodes[gDragNode]) {
+      const nx = Math.max(-270, Math.min(270, snapVal(pos.wx)));
+      const rawNy = Math.max(-190, Math.min(190, snapVal(pos.wy)));
+      const ny = (mirrorY && gDragMirror === -1 && Math.abs(rawNy) <= 6) ? 0 : rawNy;
       const n = bp.nodes[gDragNode];
-      const oldY = n.y;
+      if (nx === n.ox && ny === n.oy) return;
+      if (!gDragHistPushed) { pushGarageHist(); gDragHistPushed = true; }
+      gDragMoved = true;
       n.x = nx; n.y = ny; n.ox = nx; n.oy = ny;
-      if (mirrorY && Math.abs(oldY) > 4) {
-        const mir = bp.nodes.findIndex((m, idx) => idx !== gDragNode && Math.abs(m.x - n.x) < 18 && Math.abs(m.y + oldY) < 18);
-        if (mir !== -1) {
-          bp.nodes[mir].x = nx; bp.nodes[mir].y = -ny; bp.nodes[mir].ox = nx; bp.nodes[mir].oy = -ny;
-        }
+      if (mirrorY && gDragMirror !== -1 && bp.nodes[gDragMirror]) {
+        const m = bp.nodes[gDragMirror];
+        m.x = nx; m.y = -ny; m.ox = nx; m.oy = -ny;
       }
-      // Update rest lengths of attached bonds
+      // Update rest lengths of attached bonds for both dragged node and mirror node
       bp.bonds.forEach(b => {
-        if (b[0] === gDragNode || b[1] === gDragNode) {
+        if (b[0] === gDragNode || b[1] === gDragNode || b[0] === gDragMirror || b[1] === gDragMirror) {
           const a = bp.nodes[b[0]], c = bp.nodes[b[1]];
-          b[2] = Math.max(15, Math.min(62, Math.hypot(c.x - a.x, c.y - a.y)));
+          if (a && c) b[2] = Math.max(15, Math.min(62, Math.hypot(c.ox - a.ox, c.oy - a.oy)));
         }
       });
       updateGarageSpecs();
     }
   });
 
-  window.addEventListener('mouseup', () => {
-    if (garageTool === 'bond' && gLinkStart !== null) {
+  function endGaragePointer() {
+    if (document.getElementById('view-garage').classList.contains('active') && garageTool === 'bond' && gLinkStart !== null) {
       const end = findBpNode(gMouse.wx, gMouse.wy, 18);
       if (end !== -1 && end !== gLinkStart) {
         pushGarageHist();
@@ -870,36 +1026,44 @@
         updateGarageSpecs();
       }
     }
-    gMouse.down = false; gDragNode = null; gLinkStart = null;
-  });
+    gMouse.down = false; gDragNode = null; gDragMirror = -1; gDragMoved = false; gDragHistPushed = false; gLinkStart = null;
+  }
+  window.addEventListener('pointerup', endGaragePointer);
+  window.addEventListener('pointercancel', endGaragePointer);
 
-  function drawGarage() {
-    if (gCanvas.width <= 0) return;
-    gPhase += 0.1;
-    // Optional Test Pulse preview animation
+  function drawGarage(dtScale = 1) {
+    if (gW <= 0 || gH <= 0) return;
+    const prevPhase = gPhase;
+    gPhase += 0.1 * dtScale;
+    const pulseWaveTrigger = testPulse && Math.sin(prevPhase * 0.6) <= 0.94 && Math.sin(gPhase * 0.6) > 0.94;
+    // Compute animated display positions locally without mutating blueprint ox/oy rest coordinates
+    const disp = bp.nodes.map((n, i) => {
+      if (!testPulse) return { x: n.ox, y: n.oy };
+      const amp = n.type === 3 ? 4.5 : 1.8;
+      if (n.type === 11 && pulseWaveTrigger && gPulses.length < 40) {
+        bp.bonds.forEach(([ia, ib]) => {
+          if (ia === i) gPulses.push({ ia, ib, t: 0 });
+          else if (ib === i) gPulses.push({ ia: ib, ib: ia, t: 0 });
+        });
+      }
+      return {
+        x: n.ox + Math.sin(gPhase + i * 0.8) * amp,
+        y: n.oy + Math.cos(gPhase * 0.9 + i * 0.7) * amp
+      };
+    });
     if (testPulse) {
-      bp.nodes.forEach((n, i) => {
-        n.x = n.ox + Math.sin(gPhase + i * 0.8) * (n.type === 3 ? 4.5 : 1.8);
-        n.y = n.oy + Math.cos(gPhase * 0.9 + i * 0.7) * (n.type === 3 ? 4.5 : 1.8);
-        if (n.type === 11 && Math.sin(gPhase * 0.6) > 0.94 && gPulses.length < 40) {
-          bp.bonds.forEach(([ia, ib]) => {
-            if (ia === i) gPulses.push({ ia, ib, t: 0 });
-            else if (ib === i) gPulses.push({ ia: ib, ib: ia, t: 0 });
-          });
-        }
-      });
       for (let i = gPulses.length - 1; i >= 0; i--) {
-        gPulses[i].t += 0.08;
+        gPulses[i].t += 0.08 * dtScale;
         if (gPulses[i].t >= 1) gPulses.splice(i, 1);
       }
     } else {
-      bp.nodes.forEach(n => { n.x = n.ox; n.y = n.oy; });
       gPulses = [];
     }
 
-    gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+    gCtx.setTransform(gDpr, 0, 0, gDpr, 0, 0);
+    gCtx.clearRect(0, 0, gW, gH);
     gCtx.save();
-    gCtx.translate(gCanvas.width / 2, gCanvas.height / 2);
+    gCtx.translate(gW / 2, gH / 2);
     gCtx.scale(1.5, 1.5);
 
     // Blueprint grid & symmetry axis
@@ -920,7 +1084,7 @@
     // Bonds + Cytoplasmic hulls
     gCtx.lineCap = 'round';
     bp.bonds.forEach(([ia, ib]) => {
-      const a = bp.nodes[ia], b = bp.nodes[ib];
+      const a = disp[ia], b = disp[ib];
       if (!a || !b) return;
       gCtx.beginPath(); gCtx.moveTo(a.x, a.y); gCtx.lineTo(b.x, b.y);
       gCtx.strokeStyle = 'rgba(56, 189, 248, 0.16)'; gCtx.lineWidth = 18; gCtx.stroke();
@@ -929,7 +1093,7 @@
 
     // Test pulses
     gPulses.forEach(p => {
-      const a = bp.nodes[p.ia], b = bp.nodes[p.ib];
+      const a = disp[p.ia], b = disp[p.ib];
       if (!a || !b) return;
       gCtx.beginPath();
       gCtx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 3.2, 0, Math.PI * 2);
@@ -937,22 +1101,25 @@
     });
 
     // Link drag preview
-    if (garageTool === 'bond' && gLinkStart !== null && bp.nodes[gLinkStart]) {
-      const s = bp.nodes[gLinkStart];
+    if (garageTool === 'bond' && gLinkStart !== null && disp[gLinkStart]) {
+      const s = disp[gLinkStart];
       gCtx.beginPath(); gCtx.moveTo(s.x, s.y); gCtx.lineTo(gMouse.wx, gMouse.wy);
       gCtx.strokeStyle = '#34d399'; gCtx.lineWidth = 2; gCtx.setLineDash([4, 4]); gCtx.stroke(); gCtx.setLineDash([]);
     }
 
     // Nodes
     bp.nodes.forEach((n, idx) => {
-      const def = ORGANELLES[n.type];
-      drawOrganelleArt(gCtx, n.x, n.y, def.r, n.type, def.color, gPhase + idx, 0, 1.0, idx === gHoverNode);
+      const def = ORGANELLES[n.type] || ORGANELLES[0];
+      const pt = disp[idx];
+      drawOrganelleArt(gCtx, pt.x, pt.y, def.r, n.type, def.color, gPhase + idx, 0, 1.0, idx === gHoverNode);
     });
 
-    // Ghost cursor when placing
-    if (garageTool === 'place' && !gMouse.down) {
-      const px = snapVal(gMouse.wx), py = snapVal(gMouse.wy);
-      const def = ORGANELLES[selectedOrg];
+    // Ghost cursor when placing (only when pointer is actually inside canvas)
+    if (garageTool === 'place' && !gMouse.down && gMouse.inside) {
+      const px = snapVal(gMouse.wx);
+      const rawPy = snapVal(gMouse.wy);
+      const py = (mirrorY && Math.abs(rawPy) <= 6) ? 0 : rawPy;
+      const def = ORGANELLES[selectedOrg] || ORGANELLES[0];
       gCtx.globalAlpha = 0.45;
       drawOrganelleArt(gCtx, px, py, def.r, selectedOrg, def.color, gPhase, 0, 1, false);
       if (mirrorY && Math.abs(py) > 6) drawOrganelleArt(gCtx, px, -py, def.r, selectedOrg, def.color, gPhase, 0, 1, false);
@@ -962,22 +1129,56 @@
   }
 
   // Saved Blueprints
+  function loadSavedBlueprintsList() {
+    const raw = safeStorageGet('microlab_blueprints', '[]');
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(item => item && typeof item.name === 'string' && item.bp && Array.isArray(item.bp.nodes));
+    } catch {
+      return [];
+    }
+  }
+
   function renderSavedBlueprints() {
     const box = document.getElementById('savedBlueprints');
-    const list = JSON.parse(localStorage.getItem('microlab_blueprints') || '[]');
-    box.innerHTML = list.length ? '' : '<div style="font-size:11px;color:var(--muted);">No saved blueprints yet.</div>';
+    const list = loadSavedBlueprintsList();
+    box.innerHTML = '';
+    if (!list.length) {
+      const empty = document.createElement('div');
+      empty.style.fontSize = '11px';
+      empty.style.color = 'var(--muted)';
+      empty.textContent = 'No saved blueprints yet.';
+      box.appendChild(empty);
+      return;
+    }
     list.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'saved-item';
-      row.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name} (${item.bp.nodes.length})</span>`;
+      const lbl = document.createElement('span');
+      lbl.style.overflow = 'hidden';
+      lbl.style.textOverflow = 'ellipsis';
+      lbl.style.whiteSpace = 'nowrap';
+      lbl.textContent = `${item.name} (${item.bp.nodes.length})`;
+      row.appendChild(lbl);
       const btns = document.createElement('div');
       btns.style.display = 'flex'; btns.style.gap = '4px';
       const bLoad = document.createElement('button'); bLoad.textContent = 'Load'; bLoad.style.padding = '2px 7px';
-      bLoad.onclick = () => { pushGarageHist(); bp = cloneBp(item.bp); updateGarageSpecs(); showToast(`Loaded "${item.name}"`); };
+      bLoad.onclick = () => {
+        pushGarageHist();
+        clearGarageTransient();
+        bp = cloneBp(item.bp);
+        updateGarageSpecs();
+        showToast(`Loaded "${item.name}"`);
+      };
       const bDel = document.createElement('button'); bDel.textContent = '✕'; bDel.style.padding = '2px 6px';
       bDel.onclick = () => {
-        list.splice(idx, 1);
-        localStorage.setItem('microlab_blueprints', JSON.stringify(list));
+        const fresh = loadSavedBlueprintsList();
+        fresh.splice(idx, 1);
+        if (!safeStorageSet('microlab_blueprints', JSON.stringify(fresh))) {
+          showToast('⚠️ Storage unavailable');
+        }
         renderSavedBlueprints();
       };
       btns.append(bLoad, bDel);
@@ -990,58 +1191,68 @@
   // 3. SHARED ORGANELLE RENDERER (SHIT LOUNGE VECTOR ART)
   // =========================================================================
   function drawOrganelleArt(c, x, y, r, type, color, phase, vAngle, eFrac, highlight = false, lookAngle = null) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const rad = Math.max(3.5, Number.isFinite(r) ? r : 7);
+    const ang = Number.isFinite(vAngle) ? vAngle : 0;
+    const ef = Math.max(0, Math.min(1, Number.isFinite(eFrac) ? eFrac : 0));
+    const col = (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) ? color : '#38bdf8';
+    const ph = Number.isFinite(phase) ? phase : 0;
     c.save();
     c.translate(x, y);
 
-    c.beginPath(); c.arc(0, 0, r + 5, 0, Math.PI * 2);
-    c.fillStyle = color + '24'; c.fill();
+    c.beginPath(); c.arc(0, 0, rad + 5, 0, Math.PI * 2);
+    c.fillStyle = col + '24'; c.fill();
 
-    c.beginPath();
-    c.arc(0, 0, r + 3, -Math.PI / 2, -Math.PI / 2 + eFrac * Math.PI * 2);
-    c.strokeStyle = eFrac > 0.35 ? 'rgba(52,211,153,0.48)' : 'rgba(239,68,68,0.7)';
-    c.lineWidth = 1.5; c.stroke();
+    if (ef > 0.001) {
+      c.beginPath();
+      c.arc(0, 0, rad + 3, -Math.PI / 2, -Math.PI / 2 + ef * Math.PI * 2);
+      c.strokeStyle = ef > 0.35 ? 'rgba(52,211,153,0.48)' : 'rgba(239,68,68,0.7)';
+      c.lineWidth = 1.5; c.stroke();
+    }
 
-    c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2);
-    c.fillStyle = color; c.fill();
+    c.beginPath(); c.arc(0, 0, rad, 0, Math.PI * 2);
+    c.fillStyle = col; c.fill();
     c.lineWidth = highlight ? 2.4 : 1.4;
     c.strokeStyle = highlight ? '#facc15' : 'rgba(248,250,252,0.85)';
     c.stroke();
 
     if (type === 0) {
-      c.beginPath(); c.arc(0, 0, 4.5, 0, Math.PI * 2); c.fillStyle = '#f3e8ff'; c.fill();
+      c.beginPath(); c.arc(0, 0, Math.min(4.5, rad * 0.45), 0, Math.PI * 2); c.fillStyle = '#f3e8ff'; c.fill();
     } else if (type === 1) {
       c.beginPath(); c.moveTo(-4, 0); c.lineTo(-2, -3); c.lineTo(0, 3); c.lineTo(2, -3); c.lineTo(4, 0);
       c.strokeStyle = '#fff7ed'; c.lineWidth = 1.4; c.stroke();
     } else if (type === 2) {
       c.fillStyle = '#bbf7d0'; c.fillRect(-4, -3, 8, 2); c.fillRect(-4, 1, 8, 2);
     } else if (type === 3) {
-      c.rotate(vAngle);
+      c.rotate(ang);
       c.beginPath(); c.moveTo(0, 0);
-      c.quadraticCurveTo(-9, Math.sin(phase) * 9, -18, Math.cos(phase) * 9);
+      c.quadraticCurveTo(-9, Math.sin(ph) * 9, -18, Math.cos(ph) * 9);
       c.strokeStyle = '#38bdf8'; c.lineWidth = 2.4; c.stroke();
     } else if (type === 4) {
       for (let k = 0; k < 4; k++) {
-        const ca = k * Math.PI / 2 + Math.sin(phase) * 0.3;
-        c.beginPath(); c.moveTo(Math.cos(ca) * r, Math.sin(ca) * r);
-        c.lineTo(Math.cos(ca) * (r + 4), Math.sin(ca) * (r + 4));
+        const ca = k * Math.PI / 2 + Math.sin(ph) * 0.3;
+        c.beginPath(); c.moveTo(Math.cos(ca) * rad, Math.sin(ca) * rad);
+        c.lineTo(Math.cos(ca) * (rad + 4), Math.sin(ca) * (rad + 4));
         c.strokeStyle = '#99f6e4'; c.lineWidth = 1.2; c.stroke();
       }
     } else if (type === 7) {
-      c.beginPath(); c.arc(0, 0, r - 3, 0, Math.PI * 2); c.strokeStyle = '#e2e8f0'; c.lineWidth = 1.6; c.stroke();
+      c.beginPath(); c.arc(0, 0, Math.max(1.5, rad - 3), 0, Math.PI * 2); c.strokeStyle = '#e2e8f0'; c.lineWidth = 1.6; c.stroke();
     } else if (type === 8) {
-      c.rotate(vAngle + Math.PI / 2);
-      c.beginPath(); c.moveTo(0, -r - 5); c.lineTo(4, 0); c.lineTo(-4, 0); c.closePath();
+      c.rotate(ang + Math.PI / 2);
+      c.beginPath(); c.moveTo(0, -rad - 5); c.lineTo(4, 0); c.lineTo(-4, 0); c.closePath();
       c.fillStyle = '#fca5a5'; c.fill();
     } else if (type === 9) {
       c.beginPath(); c.arc(0, 0, 3.2, 0, Math.PI * 2); c.fillStyle = '#ecfccb'; c.fill();
     } else if (type === 10) {
-      const lk = lookAngle ?? vAngle;
+      const lk = Number.isFinite(lookAngle) ? lookAngle : ang;
       c.beginPath(); c.arc(Math.cos(lk) * 2.5, Math.sin(lk) * 2.5, 2.8, 0, Math.PI * 2);
       c.fillStyle = '#0f172a'; c.fill();
     } else if (type === 12) {
-      c.beginPath(); c.arc(0, 0, 4, 0, Math.PI * 2); c.strokeStyle = '#cffafe'; c.lineWidth = 1.6; c.stroke();
+      c.beginPath(); c.arc(0, 0, Math.min(4, rad * 0.45), 0, Math.PI * 2); c.strokeStyle = '#cffafe'; c.lineWidth = 1.6; c.stroke();
     } else if (type === 14) {
-      c.fillStyle = '#fef3c7'; c.beginPath(); c.arc(-2.5, -2, 2.2, 0, Math.PI * 2); c.arc(2.5, 2, 2.5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#fef3c7';
+      c.beginPath(); c.arc(-2.5, -2, 2.2, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(2.5, 2, 2.5, 0, Math.PI * 2); c.fill();
     } else if (type === 15) {
       c.beginPath(); c.arc(0, 0, 3.5, 0, Math.PI * 2); c.fillStyle = '#fae8ff'; c.fill();
     }
@@ -1054,33 +1265,64 @@
   const dishCanvas = document.getElementById('dishCanvas');
   const ctx = dishCanvas.getContext('2d');
   const WORLD_W = 1280, WORLD_H = 820;
+  const MAX_DISH_NODES = 600, MAX_FOODS = 350, MAX_TOXINS = 220;
   let cam = { x: 0, y: 0, zoom: 1 };
+  let dishCamInited = false;
 
+  function clampCam() {
+    cam.zoom = Math.max(0.35, Math.min(3.5, Number.isFinite(cam.zoom) ? cam.zoom : 1));
+    const limX = WORLD_W * 1.4, limY = WORLD_H * 1.4;
+    cam.x = Math.max(-limX, Math.min(limX, Number.isFinite(cam.x) ? cam.x : 0));
+    cam.y = Math.max(-limY, Math.min(limY, Number.isFinite(cam.y) ? cam.y : 0));
+  }
   function resetCam() {
-    const W = dishCanvas.width || 900, H = dishCanvas.height || 600;
+    const W = dW > 0 ? dW : 900, H = dH > 0 ? dH : 600;
     const fit = Math.min((W - 40) / WORLD_W, (H - 40) / WORLD_H, 1.15);
     cam = { x: W / 2 - WORLD_W / 2, y: H / 2 - WORLD_H / 2, zoom: Math.max(0.45, fit) };
+    clampCam();
+    if (dW > 0 && dH > 0) dishCamInited = true;
     document.getElementById('hZoom').textContent = cam.zoom.toFixed(1) + 'x';
   }
   function toWorld(sx, sy) {
-    const W = dishCanvas.width, H = dishCanvas.height;
-    return { x: (sx - W / 2) / cam.zoom + W / 2 - cam.x, y: (sy - H / 2) / cam.zoom + H / 2 - cam.y };
+    const W = dW > 0 ? dW : (dishCanvas.clientWidth || 900);
+    const H = dH > 0 ? dH : (dishCanvas.clientHeight || 600);
+    const z = Math.max(0.1, cam.zoom);
+    return { x: (sx - W / 2) / z + W / 2 - cam.x, y: (sy - H / 2) / z + H / 2 - cam.y };
   }
 
   let nodes = [], bonds = [], foods = [], toxins = [], sparks = [], pulses = [];
   let bgMotes = Array.from({ length: 65 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 2 + 0.6, s: Math.random() * 0.3 + 0.1 }));
   let nextGroupId = 1, playerGroupId = null, keys = {};
 
+  function updateDishHud() {
+    const aliveGroups = new Set();
+    let aliveNodes = 0;
+    for (const n of nodes) {
+      if (!n.dead) { aliveNodes++; aliveGroups.add(n.groupId); }
+    }
+    document.getElementById('hCre').textContent = aliveGroups.size;
+    document.getElementById('hOrg').textContent = aliveNodes;
+    document.getElementById('hBonds').textContent = bonds.length;
+    document.getElementById('hFood').textContent = foods.length;
+  }
+
   function addNode(x, y, type, groupId = 0) {
-    const def = ORGANELLES[type];
+    const safeType = (Number.isInteger(type) && type >= 0 && type < ORGANELLES.length) ? type : 0;
+    const def = ORGANELLES[safeType];
+    const r = def.r;
+    const cx = Math.max(r + 8, Math.min(WORLD_W - r - 8, Number.isFinite(x) ? x : WORLD_W / 2));
+    const cy = Math.max(r + 8, Math.min(WORLD_H - r - 8, Number.isFinite(y) ? y : WORLD_H / 2));
+    const gid = (Number.isInteger(groupId) && groupId > 0) ? groupId : nextGroupId++;
+    if (gid >= nextGroupId) nextGroupId = gid + 1;
     const n = {
-      x, y, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
-      type, r: def.r, color: def.color,
-      energy: type === 14 ? 200 : 115,
-      maxEnergy: type === 14 ? 450 : 230,
+      x: cx, y: cy, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+      type: safeType, r, color: def.color,
+      energy: safeType === 14 ? 200 : 115,
+      maxEnergy: safeType === 14 ? 450 : 230,
       phase: Math.random() * Math.PI * 2,
-      groupId: groupId || nextGroupId++,
+      groupId: gid,
       angle: Math.random() * Math.PI * 2,
+      jetCd: 0,
       dead: false
     };
     nodes.push(n);
@@ -1088,56 +1330,129 @@
   }
 
   function addBond(a, b, restLen = null) {
-    if (a === b || a.dead || b.dead) return;
+    if (!a || !b || a === b || a.dead || b.dead) return;
     if (bonds.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a))) return;
-    const d = restLen ?? Math.hypot(b.x - a.x, b.y - a.y);
+    const d = Number.isFinite(restLen) ? restLen : Math.hypot(b.x - a.x, b.y - a.y);
     if (b.groupId !== a.groupId) {
       const oldGid = b.groupId;
       for (const n of nodes) if (n.groupId === oldGid) n.groupId = a.groupId;
+      for (const tx of toxins) if (tx.groupId === oldGid) tx.groupId = a.groupId;
+      if (playerGroupId === oldGid) playerGroupId = a.groupId;
     }
     bonds.push({ a, b, len: Math.max(15, Math.min(62, d)) });
   }
 
   function recomputeGroups() {
     const adj = new Map();
-    for (const n of nodes) adj.set(n, []);
-    for (const b of bonds) if (adj.has(b.a) && adj.has(b.b)) { adj.get(b.a).push(b.b); adj.get(b.b).push(b.a); }
+    for (const n of nodes) if (!n.dead) adj.set(n, []);
+    for (const b of bonds) {
+      if (adj.has(b.a) && adj.has(b.b)) { adj.get(b.a).push(b.b); adj.get(b.b).push(b.a); }
+    }
     const visited = new Set();
+    const comps = [];
     for (const n of nodes) {
-      if (visited.has(n)) continue;
-      const gid = nextGroupId++;
-      const q = [n]; visited.add(n);
+      if (n.dead || visited.has(n)) continue;
+      const comp = [], q = [n];
+      visited.add(n);
       while (q.length > 0) {
         const cur = q.pop();
-        cur.groupId = gid;
+        comp.push(cur);
         for (const nb of adj.get(cur)) if (!visited.has(nb)) { visited.add(nb); q.push(nb); }
       }
+      comps.push(comp);
     }
+    // Preserve existing groupIds (prioritizing components with a Nucleus and larger size)
+    comps.sort((a, b) => {
+      const aNuc = a.some(n => n.type === 0) ? 1 : 0;
+      const bNuc = b.some(n => n.type === 0) ? 1 : 0;
+      if (bNuc !== aNuc) return bNuc - aNuc;
+      return b.length - a.length;
+    });
+    const usedGids = new Set();
+    let playerStillExists = false;
+    for (const comp of comps) {
+      let chosen = null;
+      if (playerGroupId !== null && !usedGids.has(playerGroupId) && comp.some(n => n.groupId === playerGroupId)) {
+        chosen = playerGroupId;
+      } else {
+        const counts = new Map();
+        let bestId = null, bestCnt = 0;
+        for (const n of comp) {
+          const c = (counts.get(n.groupId) || 0) + 1;
+          counts.set(n.groupId, c);
+          if (c > bestCnt && !usedGids.has(n.groupId)) { bestCnt = c; bestId = n.groupId; }
+        }
+        chosen = bestId !== null ? bestId : nextGroupId++;
+      }
+      usedGids.add(chosen);
+      if (chosen >= nextGroupId) nextGroupId = chosen + 1;
+      if (chosen === playerGroupId) playerStillExists = true;
+      for (const n of comp) n.groupId = chosen;
+    }
+    if (playerGroupId !== null && !playerStillExists) playerGroupId = null;
   }
 
   function spawnGarageInDish(cx, cy, makePlayer = false) {
-    if (!bp.nodes.length) return;
+    if (!bp.nodes.length) {
+      showToast('⚠️ Garage blueprint is empty!');
+      return false;
+    }
+    if (nodes.length + bp.nodes.length > MAX_DISH_NODES) {
+      showToast(`⚠️ Dish cell limit reached (${MAX_DISH_NODES})`);
+      return false;
+    }
+    const scx = Math.max(60, Math.min(WORLD_W - 60, cx));
+    const scy = Math.max(60, Math.min(WORLD_H - 60, cy));
     const gid = nextGroupId++;
     if (makePlayer) playerGroupId = gid;
-    const created = bp.nodes.map(nd => addNode(cx + nd.ox, cy + nd.oy, nd.type, gid));
+    const created = bp.nodes.map(nd => addNode(scx + nd.ox, scy + nd.oy, nd.type, gid));
     bp.bonds.forEach(([ia, ib, len]) => {
       if (created[ia] && created[ib]) addBond(created[ia], created[ib], len);
     });
-    sparks.push({ x: cx, y: cy, r: 18, color: '#34d399', alpha: 1 });
+    sparks.push({ x: scx, y: scy, r: 18, color: '#34d399', alpha: 1 });
+    updateDishHud();
+    return true;
+  }
+
+  function pushFood(x, y, vx, vy, r, val) {
+    const fx = Math.max(12, Math.min(WORLD_W - 12, Number.isFinite(x) ? x : WORLD_W / 2));
+    const fy = Math.max(12, Math.min(WORLD_H - 12, Number.isFinite(y) ? y : WORLD_H / 2));
+    if (foods.length >= MAX_FOODS) foods.shift();
+    foods.push({
+      x: fx, y: fy,
+      vx: Number.isFinite(vx) ? vx : 0,
+      vy: Number.isFinite(vy) ? vy : 0,
+      r: Math.max(2, Math.min(8, Number.isFinite(r) ? r : 4)),
+      val: Math.max(5, Math.min(120, Number.isFinite(val) ? val : 35))
+    });
   }
 
   function feedDish(count = 35) {
     for (let i = 0; i < count; i++) {
-      foods.push({
-        x: 40 + Math.random() * (WORLD_W - 80),
-        y: 40 + Math.random() * (WORLD_H - 80),
-        vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
-        r: 3.5 + Math.random() * 2, val: 38
-      });
+      pushFood(
+        40 + Math.random() * (WORLD_W - 80),
+        40 + Math.random() * (WORLD_H - 80),
+        (Math.random() - 0.5) * 0.3,
+        (Math.random() - 0.5) * 0.3,
+        3.5 + Math.random() * 2,
+        38
+      );
     }
+    updateDishHud();
   }
 
-  function clearDish() { nodes = []; bonds = []; foods = []; toxins = []; sparks = []; pulses = []; playerGroupId = null; }
+  function clearDish() {
+    nodes = []; bonds = []; foods = []; toxins = []; sparks = []; pulses = [];
+    groupTarget = {};
+    playerGroupId = null; grabbedNode = null; linkStartNode = null;
+    const insp = document.getElementById('inspector');
+    if (insp) insp.style.display = 'none';
+    if (dW > 0 && dH > 0) {
+      ctx.setTransform(dDpr, 0, 0, dDpr, 0, 0);
+      ctx.clearRect(0, 0, dW, dH);
+    }
+    updateDishHud();
+  }
 
   // Shared Creature Builders (used by both Garage & Dish Presets)
   function buildCreatureInto(name, cx, cy, fnAdd, fnBond) {
@@ -1156,7 +1471,7 @@
         const a = (i / N) * Math.PI * 2;
         const type = (i === 0 || i === 1) ? 5 : (i === 11 ? 10 : (i % 2 === 0 ? 4 : 6));
         const n = fnAdd(cx + Math.cos(a) * 34, cy + Math.sin(a) * 20, type);
-        ring.push(n); fnBond(n, i < N / 2 ? c1 : c2);
+        ring.push(n); fnBond(n, Math.cos(a) < 0 ? c1 : c2);
       }
       for (let i = 0; i < N; i++) fnBond(ring[i], ring[(i + 1) % N]);
     } else if (name === 'solar_leviathan' || name === 'volvox_colony') {
@@ -1198,7 +1513,7 @@
       const mouth = fnAdd(cx, cy + 4, 5); fnBond(bell[3], mouth);
       [-20, -7, 7, 20].forEach(ox => {
         let prev = mouth;
-        for (let k = 1; k <= 4; k++) { const t = fnAdd(cx + ox, cy + 6 + k * 14, k === 4 ? 9 : 6); fnBond(prev, t, 14); prev = t; }
+        for (let k = 1; k <= 4; k++) { const t = fnAdd(cx + ox, cy + 6 + k * 14, k === 4 ? 9 : 6); fnBond(prev, t, k === 1 ? null : 14); prev = t; }
       });
     } else if (name === 'amoeba_blob') {
       const nuc = fnAdd(cx, cy, 0), vac = fnAdd(cx + 12, cy - 8, 14), m1 = fnAdd(cx - 12, cy + 8, 5);
@@ -1243,13 +1558,16 @@
   }
 
   function spawnPresetCreature(name, cx, cy) {
+    if (nodes.length >= MAX_DISH_NODES) return false;
     const gid = nextGroupId++;
     buildCreatureInto(name, cx, cy, (x, y, t) => addNode(x, y, t, gid), (a, b, l) => addBond(a, b, l));
+    return true;
   }
 
   function loadDishPreset(name, clear = true) {
     lastPreset = name;
     if (clear) { clearDish(); feedDish(60); }
+    else if (nodes.length >= MAX_DISH_NODES) { showToast(`⚠️ Dish cell limit reached (${MAX_DISH_NODES})`); return; }
     const cx = WORLD_W / 2, cy = WORLD_H / 2;
     if (['flagellate_hunter','ciliate_cruiser','solar_leviathan','jet_squid','spiky_leviathan','toxin_jelly','amoeba_blob','segmented_worm','neural_trilobite','starfish_predator'].includes(name)) {
       spawnPresetCreature(name, cx, cy);
@@ -1291,8 +1609,8 @@
       spawnPresetCreature('jet_squid', WORLD_W * 0.28, WORLD_H * 0.72);
       spawnPresetCreature('toxin_jelly', WORLD_W * 0.72, WORLD_H * 0.72);
     } else if (name === 'chemotaxis_race') {
-      foods = [];
-      for (let i = 0; i < 95; i++) foods.push({ x: WORLD_W - 100 + (Math.random() - 0.5) * 80, y: 70 + Math.random() * (WORLD_H - 140), vx: 0, vy: 0, r: 4.5, val: 45 });
+      if (clear) foods = [];
+      for (let i = 0; i < 95; i++) pushFood(WORLD_W - 100 + (Math.random() - 0.5) * 80, 70 + Math.random() * (WORLD_H - 140), 0, 0, 4.5, 45);
       for (let i = 0; i < 5; i++) spawnPresetCreature('flagellate_hunter', 100, 100 + i * ((WORLD_H - 200) / 4));
     } else if (name === 'division_bloom') {
       for (let i = 0; i < 5; i++) spawnPresetCreature('mitosis_breeder', WORLD_W * (0.2 + i * 0.15), cy + (i % 2 === 0 ? -60 : 60));
@@ -1307,10 +1625,11 @@
       spawnPresetCreature('toxin_jelly', WORLD_W * 0.5, WORLD_H * 0.8);
       feedDish(75);
     }
+    updateDishHud();
   }
 
-  // Dish Input
-  let mouse = { sx: 0, sy: 0, x: 0, y: 0, down: false, right: false, pan: false, px: 0, py: 0 };
+  // Dish Input (Pointer Events for Mouse + Touch)
+  let mouse = { sx: 0, sy: 0, x: 0, y: 0, down: false, right: false, pan: false, px: 0, py: 0, inside: false };
   let grabbedNode = null, linkStartNode = null;
 
   function nearestNode(x, y, maxDist = 28) {
@@ -1323,6 +1642,38 @@
     return best;
   }
 
+  function cutDishBondsAt(wx, wy) {
+    const rad = Math.max(10, 14 / Math.max(0.5, cam.zoom));
+    const prevLen = bonds.length;
+    bonds = bonds.filter(b => pointToSegmentDist(wx, wy, b.a.x, b.a.y, b.b.x, b.b.y) > rad);
+    if (bonds.length !== prevLen) {
+      recomputeGroups();
+      updateDishHud();
+    }
+  }
+
+  function updateDishInspector() {
+    const insp = document.getElementById('inspector');
+    if (!insp) return;
+    if (!mouse.inside || mouse.down || !document.getElementById('view-dish').classList.contains('active')) {
+      insp.style.display = 'none';
+      return;
+    }
+    const hov = nearestNode(mouse.x, mouse.y, 18 / Math.max(0.35, cam.zoom));
+    if (!hov) {
+      insp.style.display = 'none';
+      return;
+    }
+    const orgInfo = ORGANELLES[hov.type] || ORGANELLES[0];
+    insp.style.display = 'block';
+    insp.textContent = '';
+    const title = document.createElement('b');
+    title.textContent = orgInfo[knowledge][0];
+    const line1 = document.createTextNode(`ATP: ${Math.max(0, Math.round(hov.energy))} / ${hov.maxEnergy}`);
+    const line2 = document.createTextNode(`Organism #${hov.groupId}${hov.groupId === playerGroupId && pilotMode ? ' (Piloted)' : ''}`);
+    insp.append(title, document.createElement('br'), line1, document.createElement('br'), line2);
+  }
+
   function setDishTool(t) {
     currentTool = t;
     document.querySelectorAll('.t-btn').forEach(x => x.classList.toggle('active', x.dataset.t === t));
@@ -1331,19 +1682,28 @@
 
   dishCanvas.addEventListener('wheel', e => {
     e.preventDefault();
+    if (dW <= 0 || dH <= 0) return;
     const r = dishCanvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     const before = toWorld(sx, sy);
     cam.zoom = Math.max(0.35, Math.min(3.5, cam.zoom * (e.deltaY < 0 ? 1.12 : 0.89)));
     const after = toWorld(sx, sy);
     cam.x += after.x - before.x; cam.y += after.y - before.y;
+    clampCam();
     document.getElementById('hZoom').textContent = cam.zoom.toFixed(1) + 'x';
   }, { passive: false });
 
   dishCanvas.addEventListener('contextmenu', e => e.preventDefault());
-  dishCanvas.addEventListener('mousedown', e => {
+  dishCanvas.addEventListener('pointerleave', () => {
+    mouse.inside = false;
+    const insp = document.getElementById('inspector');
+    if (insp) insp.style.display = 'none';
+  });
+  dishCanvas.addEventListener('pointerdown', e => {
+    if (e.button === 1 || e.pointerType === 'touch') e.preventDefault();
     const r = dishCanvas.getBoundingClientRect();
     mouse.sx = e.clientX - r.left; mouse.sy = e.clientY - r.top;
+    mouse.inside = mouse.sx >= 0 && mouse.sx <= r.width && mouse.sy >= 0 && mouse.sy <= r.height;
     const w = toWorld(mouse.sx, mouse.sy);
     mouse.x = w.x; mouse.y = w.y; mouse.down = true;
     mouse.right = (e.button === 2);
@@ -1353,91 +1713,114 @@
     if (mouse.pan) return;
     if (mouse.right || currentTool === 'drag') { grabbedNode = nearestNode(mouse.x, mouse.y, 40 / cam.zoom); return; }
     if (currentTool === 'link') { linkStartNode = nearestNode(mouse.x, mouse.y, 30 / cam.zoom); return; }
+    if (currentTool === 'cut') { cutDishBondsAt(mouse.x, mouse.y); return; }
     if (currentTool === 'food') {
-      for (let i = 0; i < 6; i++) foods.push({ x: mouse.x + (Math.random() - 0.5) * 24, y: mouse.y + (Math.random() - 0.5) * 24, vx: 0, vy: 0, r: 4, val: 35 });
+      for (let i = 0; i < 6; i++) pushFood(mouse.x + (Math.random() - 0.5) * 24, mouse.y + (Math.random() - 0.5) * 24, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, 4, 35);
+      updateDishHud();
       return;
     }
     if (currentTool === 'kill') {
       const target = nearestNode(mouse.x, mouse.y, 24 / cam.zoom);
-      if (target) target.dead = true;
+      if (target) { target.dead = true; updateDishHud(); }
       return;
     }
     if (currentTool === 'spawn') {
       const stamp = document.getElementById('stampSel').value;
       if (stamp === 'garage') { spawnGarageInDish(mouse.x, mouse.y, pilotMode); return; }
-      if (stamp === 'ring') { spawnPresetCreature('ciliate_cruiser', mouse.x, mouse.y); return; }
-      if (stamp === 'swimmer') { spawnPresetCreature('flagellate_hunter', mouse.x, mouse.y); return; }
-      if (stamp === 'hunter') { spawnPresetCreature('spiky_leviathan', mouse.x, mouse.y); return; }
-      if (stamp === 'plant') { spawnPresetCreature('solar_leviathan', mouse.x, mouse.y); return; }
+      if (stamp === 'ring') { spawnPresetCreature('ciliate_cruiser', mouse.x, mouse.y); updateDishHud(); return; }
+      if (stamp === 'swimmer') { spawnPresetCreature('flagellate_hunter', mouse.x, mouse.y); updateDishHud(); return; }
+      if (stamp === 'hunter') { spawnPresetCreature('spiky_leviathan', mouse.x, mouse.y); updateDishHud(); return; }
+      if (stamp === 'plant') { spawnPresetCreature('solar_leviathan', mouse.x, mouse.y); updateDishHud(); return; }
 
-      const nearby = nodes.filter(o => !o.dead && Math.hypot(o.x - mouse.x, o.y - mouse.y) < 36);
-      const gid = nearby.length > 0 ? nearby[0].groupId : nextGroupId++;
+      if (nodes.length >= MAX_DISH_NODES) { showToast(`⚠️ Dish cell limit reached (${MAX_DISH_NODES})`); return; }
+      const nearby = nodes
+        .filter(o => !o.dead)
+        .map(o => ({ o, d: Math.hypot(o.x - mouse.x, o.y - mouse.y) }))
+        .filter(item => item.d < 36)
+        .sort((a, b) => a.d - b.d);
+      const gid = nearby.length > 0 ? nearby[0].o.groupId : nextGroupId++;
       const created = addNode(mouse.x, mouse.y, selectedOrg, gid);
-      nearby.slice(0, 3).forEach(nb => addBond(created, nb, Math.max(18, Math.hypot(nb.x - created.x, nb.y - created.y))));
+      nearby.slice(0, 3).forEach(nb => addBond(created, nb.o, Math.max(18, Math.hypot(nb.o.x - created.x, nb.o.y - created.y))));
+      updateDishHud();
     }
   });
 
-  window.addEventListener('mousemove', e => {
+  window.addEventListener('pointermove', e => {
     if (!document.getElementById('view-dish').classList.contains('active')) return;
     const r = dishCanvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    mouse.inside = sx >= 0 && sx <= r.width && sy >= 0 && sy <= r.height;
     if (mouse.pan && mouse.down) {
       cam.x += (sx - mouse.px) / cam.zoom; cam.y += (sy - mouse.py) / cam.zoom;
+      clampCam();
       mouse.px = sx; mouse.py = sy; return;
     }
     mouse.sx = sx; mouse.sy = sy;
     const w = toWorld(sx, sy);
     mouse.x = w.x; mouse.y = w.y;
 
-    const hov = nearestNode(mouse.x, mouse.y, 18 / cam.zoom);
-    const insp = document.getElementById('inspector');
-    if (hov && !mouse.down) {
-      insp.style.display = 'block';
-      insp.innerHTML = `<b>${ORGANELLES[hov.type][knowledge][0]}</b><br>ATP: ${Math.round(hov.energy)} / ${hov.maxEnergy}<br>Organism #${hov.groupId}${hov.groupId === playerGroupId && pilotMode ? ' (Piloted)' : ''}`;
-    } else insp.style.display = 'none';
+    updateDishInspector();
 
     if (!mouse.down) return;
     if (currentTool === 'cut' && !mouse.right) {
-      const prevLen = bonds.length;
-      bonds = bonds.filter(b => Math.hypot((b.a.x + b.b.x) * 0.5 - mouse.x, (b.a.y + b.b.y) * 0.5 - mouse.y) > 18);
-      if (bonds.length !== prevLen) recomputeGroups();
+      cutDishBondsAt(mouse.x, mouse.y);
     } else if (currentTool === 'food' && !mouse.right) {
-      foods.push({ x: mouse.x + (Math.random() - 0.5) * 16, y: mouse.y + (Math.random() - 0.5) * 16, vx: 0, vy: 0, r: 4, val: 35 });
+      pushFood(mouse.x + (Math.random() - 0.5) * 16, mouse.y + (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, 4, 35);
+      updateDishHud();
     } else if (currentTool === 'kill' && !mouse.right) {
       const target = nearestNode(mouse.x, mouse.y, 20 / cam.zoom);
-      if (target) target.dead = true;
+      if (target) { target.dead = true; updateDishHud(); }
     }
   });
 
-  window.addEventListener('mouseup', () => {
-    if (currentTool === 'link' && linkStartNode) {
+  function endDishPointer() {
+    if (document.getElementById('view-dish').classList.contains('active') && currentTool === 'link' && linkStartNode && !linkStartNode.dead) {
       const endNode = nearestNode(mouse.x, mouse.y, 30 / cam.zoom);
-      if (endNode && endNode !== linkStartNode) addBond(linkStartNode, endNode);
+      if (endNode && endNode !== linkStartNode) { addBond(linkStartNode, endNode); updateDishHud(); }
     }
-    mouse.down = false; mouse.pan = false; grabbedNode = null; linkStartNode = null;
-  });
+    mouse.down = false; mouse.right = false; mouse.pan = false; grabbedNode = null; linkStartNode = null;
+  }
+  window.addEventListener('pointerup', endDishPointer);
+  window.addEventListener('pointercancel', endDishPointer);
 
   // Physics Step
   let groupTarget = {};
   function stepDish() {
     if (paused) return;
-    const drag = parseFloat(document.getElementById('sDrag').value);
-    const stiff = parseFloat(document.getElementById('sStiff').value);
-    const thrust = parseFloat(document.getElementById('sThrust').value);
-    const sunlight = parseFloat(document.getElementById('sLight').value);
+    const dragVal = parseFloat(document.getElementById('sDrag').value);
+    const stiffVal = parseFloat(document.getElementById('sStiff').value);
+    const thrustVal = parseFloat(document.getElementById('sThrust').value);
+    const lightVal = parseFloat(document.getElementById('sLight').value);
+    const drag = Number.isFinite(dragVal) ? Math.max(0.8, Math.min(0.995, dragVal)) : 0.96;
+    const stiff = Number.isFinite(stiffVal) ? Math.max(0.02, Math.min(0.6, stiffVal)) : 0.20;
+    const thrust = Number.isFinite(thrustVal) ? Math.max(0.05, Math.min(2.0, thrustVal)) : 0.50;
+    const sunlight = Number.isFinite(lightVal) ? Math.max(0, Math.min(3.0, lightVal)) : 1.0;
     const allowMitosis = document.getElementById('chkMitosis').checked;
     const metabDrain = document.getElementById('chkMetab').checked;
     const useCurrent = document.getElementById('chkCurrent').checked;
 
     if (foods.length < 95 && Math.random() < 0.16) {
-      foods.push({ x: 30 + Math.random() * (WORLD_W - 60), y: 30 + Math.random() * (WORLD_H - 60), vx: 0, vy: 0, r: 3.8, val: 30 });
+      pushFood(30 + Math.random() * (WORLD_W - 60), 30 + Math.random() * (WORLD_H - 60), (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, 3.8, 30);
     }
 
-    const hasMito = {}, hasSpike = {}, uniqueGroups = new Set();
+    // Drift & bound nutrient pellets
+    for (const f of foods) {
+      if (useCurrent) {
+        f.vx += Math.sin(f.y * 0.008) * 0.004;
+        f.vy += Math.cos(f.x * 0.008) * 0.004;
+      }
+      f.vx *= 0.97; f.vy *= 0.97;
+      f.x += f.vx; f.y += f.vy;
+      if (f.x < 12) { f.x = 12; f.vx = Math.abs(f.vx) * 0.5; }
+      else if (f.x > WORLD_W - 12) { f.x = WORLD_W - 12; f.vx = -Math.abs(f.vx) * 0.5; }
+      if (f.y < 12) { f.y = 12; f.vy = Math.abs(f.vy) * 0.5; }
+      else if (f.y > WORLD_H - 12) { f.y = WORLD_H - 12; f.vy = -Math.abs(f.vy) * 0.5; }
+    }
+
+    const hasMito = {}, hasSpike = {};
     groupTarget = {};
     for (const n of nodes) {
       if (n.dead) continue;
-      uniqueGroups.add(n.groupId);
       if (n.type === 1) hasMito[n.groupId] = true;
       if (n.type === 8) hasSpike[n.groupId] = true;
     }
@@ -1453,22 +1836,39 @@
           }
         }
       }
-      if (bestT) groupTarget[n.groupId] = { dx: (bestT.x - n.x) / bd, dy: (bestT.y - n.y) / bd, fx: bestT.x, fy: bestT.y };
+      if (bestT && bd > 1e-4) {
+        const cur = groupTarget[n.groupId];
+        if (!cur || bd < cur.dist) {
+          groupTarget[n.groupId] = { dx: (bestT.x - n.x) / bd, dy: (bestT.y - n.y) / bd, fx: bestT.x, fy: bestT.y, dist: bd };
+        }
+      }
     }
 
     for (let sub = 0; sub < 2; sub++) {
-      for (const b of bonds) {
-        const dx = b.b.x - b.a.x, dy = b.b.y - b.a.y, d = Math.hypot(dx, dy) || 0.001;
-        const nx = dx / d, ny = dy / d;
+      for (let bi = 0; bi < bonds.length; bi++) {
+        const b = bonds[bi];
+        if (b.a.dead || b.b.dead) continue;
+        const dx = b.b.x - b.a.x, dy = b.b.y - b.a.y;
+        const rawD = Math.hypot(dx, dy);
+        let nx, ny, d;
+        if (rawD < 1e-4) {
+          const ang = (bi * 2.39996) % (Math.PI * 2);
+          nx = Math.cos(ang); ny = Math.sin(ang); d = 0.001;
+        } else {
+          d = rawD; nx = dx / d; ny = dy / d;
+        }
         const f = Math.max(-6, Math.min(6, (d - b.len) * stiff * 0.5));
         const rvx = b.b.vx - b.a.vx, rvy = b.b.vy - b.a.vy;
         const damp = (rvx * nx + rvy * ny) * 0.08;
         const fx = nx * (f + damp), fy = ny * (f + damp);
         b.a.vx += fx; b.a.vy += fy; b.b.vx -= fx; b.b.vy -= fy;
         if (sub === 0) {
-          const avgE = (b.a.energy + b.b.energy) * 0.5;
-          b.a.energy = Math.min(b.a.maxEnergy, b.a.energy * 0.88 + avgE * 0.12);
-          b.b.energy = Math.min(b.b.maxEnergy, b.b.energy * 0.88 + avgE * 0.12);
+          // Conserve ATP during bond sharing so Lipid Vacuoles (450 max) don't bleed into full 230-max neighbors
+          let transfer = (b.a.energy - b.b.energy) * 0.06;
+          if (transfer > 0) transfer = Math.min(transfer, Math.max(0, b.b.maxEnergy - b.b.energy));
+          else transfer = -Math.min(-transfer, Math.max(0, b.a.maxEnergy - b.a.energy));
+          b.a.energy -= transfer;
+          b.b.energy += transfer;
         }
       }
     }
@@ -1479,11 +1879,23 @@
 
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i]; if (n.dead) continue;
+      if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) { n.dead = true; continue; }
+      if (!Number.isFinite(n.vx)) n.vx = 0;
+      if (!Number.isFinite(n.vy)) n.vy = 0;
+      if (!Number.isFinite(n.energy)) n.energy = 100;
+
+      const prevPhase = n.phase;
       n.phase += 0.14;
+      if (n.jetCd > 0) n.jetCd--;
       const mBoost = hasMito[n.groupId] ? 1.5 : 1.0;
 
       if (metabDrain) { n.energy -= 0.04; if (n.energy <= 0) { n.dead = true; continue; } }
-      if (n === grabbedNode) { n.vx = (mouse.x - n.x) * 0.25; n.vy = (mouse.y - n.y) * 0.25; }
+      if (n === grabbedNode) {
+        const tx = Math.max(n.r + 8, Math.min(WORLD_W - n.r - 8, mouse.x));
+        const ty = Math.max(n.r + 8, Math.min(WORLD_H - n.r - 8, mouse.y));
+        n.vx = (tx - n.x) * 0.25;
+        n.vy = (ty - n.y) * 0.25;
+      }
 
       if (pilotMode && n.groupId === playerGroupId && (pxIn || pyIn)) {
         n.vx += pxIn * thrust * 0.35 * mBoost;
@@ -1505,16 +1917,21 @@
         const steer = groupTarget[n.groupId];
         if (steer) { n.vx += steer.dx * thrust * 0.3 * mBoost; n.vy += steer.dy * thrust * 0.3 * mBoost; }
         else { n.vx += Math.cos(n.phase * 0.5 + i) * thrust * 0.22 * mBoost; n.vy += Math.sin(n.phase * 0.5 + i) * thrust * 0.22 * mBoost; }
-      } else if (n.type === 11 && Math.sin(n.phase * 0.7) > 0.96 && pulses.length < 200) {
+      } else if (n.type === 11 && Math.sin(prevPhase * 0.7) <= 0.96 && Math.sin(n.phase * 0.7) > 0.96 && pulses.length < 200) {
         for (const b of bonds) {
-          if (b.a === n) pulses.push({ a: b.a, b: b.b, t: 0 });
-          else if (b.b === n) pulses.push({ a: b.b, b: b.a, t: 0 });
+          if (b.a.dead || b.b.dead) continue;
+          if (b.a === n) pulses.push({ a: b.a, b: b.b, t: 0, hop: 0 });
+          else if (b.b === n) pulses.push({ a: b.b, b: b.a, t: 0, hop: 0 });
         }
-      } else if (n.type === 12 && Math.sin(n.phase * 0.7) > 0.92) {
-        const steer = groupTarget[n.groupId];
-        const jx = steer ? steer.dx : Math.cos(n.angle), jy = steer ? steer.dy : Math.sin(n.angle);
-        n.vx += jx * thrust * 2.1 * mBoost; n.vy += jy * thrust * 2.1 * mBoost;
-        sparks.push({ x: n.x, y: n.y, r: 4, color: '#06b6d4', alpha: 0.9 });
+      } else if (n.type === 12) {
+        n.angle += (Math.random() - 0.5) * 0.07;
+        if (n.jetCd <= 0 && Math.sin(prevPhase * 0.7) <= 0.92 && Math.sin(n.phase * 0.7) > 0.92) {
+          const steer = groupTarget[n.groupId];
+          const jx = steer ? steer.dx : Math.cos(n.angle), jy = steer ? steer.dy : Math.sin(n.angle);
+          n.vx += jx * thrust * 4.2 * mBoost; n.vy += jy * thrust * 4.2 * mBoost;
+          n.jetCd = 16;
+          sparks.push({ x: n.x, y: n.y, r: 4, color: '#06b6d4', alpha: 0.9 });
+        }
       }
 
       if (n.type === 5) {
@@ -1531,7 +1948,7 @@
         }
       }
 
-      if (n.type === 9 && Math.random() < 0.025) {
+      if (n.type === 9 && Math.random() < 0.025 && toxins.length < MAX_TOXINS) {
         toxins.push({ x: n.x, y: n.y, vx: (Math.random() - 0.5) * 1.4, vy: (Math.random() - 0.5) * 1.4, groupId: n.groupId, life: 90 });
       }
 
@@ -1542,10 +1959,20 @@
       }
 
       for (let j = i + 1; j < nodes.length; j++) {
+        if (n.dead) break;
         const o = nodes[j]; if (o.dead) continue;
-        const dx = o.x - n.x, dy = o.y - n.y, d = Math.hypot(dx, dy) || 0.01, minD = n.r + o.r;
-        if (d < minD) {
-          const push = (minD - d) * 0.32, nx = dx / d, ny = dy / d;
+        const dx = o.x - n.x, dy = o.y - n.y;
+        const rawD = Math.hypot(dx, dy);
+        const minD = n.r + o.r;
+        if (rawD < minD) {
+          let nx, ny, d;
+          if (rawD < 1e-4) {
+            const ang = ((i * 31 + j * 17) % 360) * (Math.PI / 180);
+            nx = Math.cos(ang); ny = Math.sin(ang); d = 0.01;
+          } else {
+            d = rawD; nx = dx / d; ny = dy / d;
+          }
+          const push = (minD - d) * 0.32;
           n.vx -= nx * push; n.vy -= ny * push; o.vx += nx * push; o.vy += ny * push;
           if ((n.type === 13 || o.type === 13) && bonds.length < 750) addBond(n, o, minD + 2);
           if (n.groupId !== o.groupId) {
@@ -1556,11 +1983,12 @@
             } else if (o.type === 8 && n.type !== 7 && n.type !== 8) {
               n.energy -= 18; o.energy = Math.min(o.maxEnergy, o.energy + 10);
               sparks.push({ x: n.x, y: n.y, r: 4, color: '#ef4444', alpha: 0.9 });
-              if (n.energy <= 0) n.dead = true;
+              if (n.energy <= 0) { n.dead = true; break; }
             }
           }
         }
       }
+      if (n.dead) continue;
 
       if (useCurrent) {
         n.vx += Math.sin(n.y * 0.008 + n.phase * 0.05) * 0.015;
@@ -1578,12 +2006,17 @@
     }
 
     for (const ch of newChildren) {
+      if (ch.parent.dead || nodes.length >= MAX_DISH_NODES) continue;
       const child = addNode(ch.parent.x + (Math.random() - 0.5) * 20, ch.parent.y + (Math.random() - 0.5) * 20, ch.type, ch.parent.groupId);
       addBond(ch.parent, child, 20);
     }
 
     for (let i = toxins.length - 1; i >= 0; i--) {
       const tx = toxins[i]; tx.x += tx.vx; tx.y += tx.vy; tx.life--;
+      if (tx.x < 8 || tx.x > WORLD_W - 8 || tx.y < 8 || tx.y > WORLD_H - 8) {
+        toxins.splice(i, 1);
+        continue;
+      }
       for (const n of nodes) {
         if (!n.dead && n.groupId !== tx.groupId && n.type !== 7 && Math.hypot(n.x - tx.x, n.y - tx.y) < n.r + 5) {
           n.energy -= 22; tx.life = 0; if (n.energy <= 0) n.dead = true; break;
@@ -1593,27 +2026,59 @@
     }
 
     let anyDead = false;
-    for (const n of nodes) if (n.dead) { anyDead = true; foods.push({ x: n.x, y: n.y, vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.5) * 1.2, r: 4.5, val: 30 }); }
-    if (anyDead) { nodes = nodes.filter(n => !n.dead); bonds = bonds.filter(b => !b.a.dead && !b.b.dead); recomputeGroups(); }
+    for (const n of nodes) {
+      if (n.dead) {
+        anyDead = true;
+        pushFood(n.x, n.y, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2, 4.5, 30);
+      }
+    }
+    if (anyDead) {
+      if (grabbedNode && grabbedNode.dead) grabbedNode = null;
+      if (linkStartNode && linkStartNode.dead) linkStartNode = null;
+      nodes = nodes.filter(n => !n.dead);
+      bonds = bonds.filter(b => !b.a.dead && !b.b.dead);
+      pulses = pulses.filter(p => !p.a.dead && !p.b.dead);
+      recomputeGroups();
+    }
     if (sparks.length > 150) sparks.splice(0, sparks.length - 150);
     for (let i = sparks.length - 1; i >= 0; i--) { sparks[i].r += 1.2; sparks[i].alpha -= 0.06; if (sparks[i].alpha <= 0) sparks.splice(i, 1); }
-    for (let i = pulses.length - 1; i >= 0; i--) { pulses[i].t += 0.14; if (pulses[i].t >= 1) pulses.splice(i, 1); }
-
-    document.getElementById('hCre').textContent = uniqueGroups.size;
-    document.getElementById('hOrg').textContent = nodes.length;
-    document.getElementById('hBonds').textContent = bonds.length;
-    document.getElementById('hFood').textContent = foods.length;
+    for (let i = pulses.length - 1; i >= 0; i--) {
+      const p = pulses[i];
+      p.t += 0.14;
+      if (p.t >= 1) {
+        const dest = p.b;
+        if (dest && !dest.dead) {
+          if (dest.type === 12 && dest.jetCd <= 0) {
+            const steer = groupTarget[dest.groupId];
+            const mBoost = hasMito[dest.groupId] ? 1.5 : 1.0;
+            const jx = steer ? steer.dx : Math.cos(dest.angle), jy = steer ? steer.dy : Math.sin(dest.angle);
+            dest.vx += jx * thrust * 4.4 * mBoost;
+            dest.vy += jy * thrust * 4.4 * mBoost;
+            dest.jetCd = 16;
+            sparks.push({ x: dest.x, y: dest.y, r: 4.5, color: '#38bdf8', alpha: 0.95 });
+          } else if (dest.type === 11 && (p.hop || 0) < 2 && pulses.length < 200) {
+            for (const b of bonds) {
+              if (b.a.dead || b.b.dead) continue;
+              if (b.a === dest && b.b !== p.a) pulses.push({ a: dest, b: b.b, t: 0, hop: (p.hop || 0) + 1 });
+              else if (b.b === dest && b.a !== p.a) pulses.push({ a: dest, b: b.a, t: 0, hop: (p.hop || 0) + 1 });
+            }
+          }
+        }
+        pulses.splice(i, 1);
+      }
+    }
   }
 
-  function drawDish() {
-    const W = dishCanvas.width, H = dishCanvas.height;
-    if (W <= 0) return;
+  function drawDish(dtScale = 1) {
+    const W = dW, H = dH;
+    if (W <= 0 || H <= 0) return;
+    ctx.setTransform(dDpr, 0, 0, dDpr, 0, 0);
     if (document.getElementById('chkTrails').checked) {
       ctx.fillStyle = 'rgba(5, 8, 15, 0.24)'; ctx.fillRect(0, 0, W, H);
     } else ctx.clearRect(0, 0, W, H);
 
     for (const m of bgMotes) {
-      m.y -= m.s * 0.0005; if (m.y < 0) m.y = 1;
+      m.y -= m.s * 0.0005 * dtScale; if (m.y < 0) m.y = 1;
       ctx.beginPath(); ctx.arc(m.x * W, m.y * H, m.r, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(56, 189, 248, 0.07)'; ctx.fill();
     }
@@ -1625,79 +2090,113 @@
     ctx.strokeStyle = 'rgba(52, 211, 153, 0.28)'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
 
     for (const f of foods) {
-      ctx.beginPath(); ctx.arc(f.x, f.y, f.r + 2, 0, Math.PI * 2); ctx.fillStyle = 'rgba(74, 222, 128, 0.22)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fillStyle = '#4ade80'; ctx.fill();
+      const fr = Math.max(1.5, f.r);
+      ctx.beginPath(); ctx.arc(f.x, f.y, fr + 2, 0, Math.PI * 2); ctx.fillStyle = 'rgba(74, 222, 128, 0.22)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x, f.y, fr, 0, Math.PI * 2); ctx.fillStyle = '#4ade80'; ctx.fill();
     }
     for (const tx of toxins) {
-      ctx.beginPath(); ctx.arc(tx.x, tx.y, 5, 0, Math.PI * 2); ctx.fillStyle = `rgba(163, 230, 53, ${tx.life / 90})`; ctx.fill();
+      const a = Math.max(0, Math.min(1, tx.life / 90));
+      ctx.beginPath(); ctx.arc(tx.x, tx.y, 5, 0, Math.PI * 2); ctx.fillStyle = `rgba(163, 230, 53, ${a.toFixed(3)})`; ctx.fill();
     }
 
     ctx.lineCap = 'round';
     for (const b of bonds) {
+      if (b.a.dead || b.b.dead) continue;
       ctx.beginPath(); ctx.moveTo(b.a.x, b.a.y); ctx.lineTo(b.b.x, b.b.y);
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)'; ctx.lineWidth = 18; ctx.stroke();
       ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)'; ctx.lineWidth = 4; ctx.stroke();
     }
 
     for (const p of pulses) {
+      if (p.a.dead || p.b.dead) continue;
       ctx.beginPath(); ctx.arc(p.a.x + (p.b.x - p.a.x) * p.t, p.a.y + (p.b.y - p.a.y) * p.t, 3.5, 0, Math.PI * 2);
       ctx.fillStyle = '#93c5fd'; ctx.fill();
     }
 
-    if (grabbedNode && mouse.down) {
+    if (grabbedNode && !grabbedNode.dead && mouse.down) {
       ctx.beginPath(); ctx.moveTo(grabbedNode.x, grabbedNode.y); ctx.lineTo(mouse.x, mouse.y);
       ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
-    } else if (currentTool === 'link' && linkStartNode && mouse.down) {
+    } else if (currentTool === 'link' && linkStartNode && !linkStartNode.dead && mouse.down) {
       ctx.beginPath(); ctx.moveTo(linkStartNode.x, linkStartNode.y); ctx.lineTo(mouse.x, mouse.y);
       ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
     }
 
     for (const n of nodes) {
+      if (n.dead) continue;
       const vAngle = Math.hypot(n.vx, n.vy) > 0.15 ? Math.atan2(n.vy, n.vx) : n.angle;
-      const eFrac = Math.max(0, Math.min(1, n.energy / n.maxEnergy));
+      const eFrac = Math.max(0, Math.min(1, n.energy / Math.max(1, n.maxEnergy)));
       const t = groupTarget[n.groupId];
       const look = t ? Math.atan2(t.fy - n.y, t.fx - n.x) : vAngle;
       drawOrganelleArt(ctx, n.x, n.y, n.r, n.type, n.color, n.phase, vAngle, eFrac, pilotMode && n.groupId === playerGroupId, look);
     }
 
     for (const sp of sparks) {
-      ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
-      ctx.strokeStyle = sp.color; ctx.globalAlpha = sp.alpha; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
+      const sr = Math.max(0.5, sp.r);
+      const sa = Math.max(0, Math.min(1, sp.alpha));
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, sr, 0, Math.PI * 2);
+      ctx.strokeStyle = sp.color; ctx.globalAlpha = sa; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
     }
     ctx.restore();
+
+    updateDishHud();
+    updateDishInspector();
   }
 
   // =========================================================================
   // 5. WIRING & EVENTS
   // =========================================================================
+  function setDishPaused(val) {
+    paused = !!val;
+    const b = document.getElementById('pauseBtn');
+    b.textContent = paused ? '▶ Play' : '⏸ Pause';
+    b.classList.toggle('active', paused);
+    if (paused) dishAccum = 0;
+  }
+
   function switchTab(tab) {
+    endGaragePointer();
+    endDishPointer();
+    const insp = document.getElementById('inspector');
+    if (insp) insp.style.display = 'none';
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${tab}`));
+    dishAccum = 0;
+    courseAccum = 0;
     resizeCanvases();
-    if (tab === 'dish') resetCam();
+    if (tab === 'dish' && !dishCamInited) resetCam();
+    requestAnimationFrame(() => {
+      resizeCanvases();
+      if (tab === 'dish' && !dishCamInited) resetCam();
+    });
   }
 
   document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
   document.getElementById('btnLaunchDish').onclick = () => {
+    if (!bp.nodes.length) { showToast('⚠️ Add organelles in Garage before launching!'); return; }
     switchTab('dish');
+    setDishPaused(false);
     clearDish();
     feedDish(65);
     spawnGarageInDish(WORLD_W / 2, WORLD_H / 2, true);
     spawnPresetCreature('ciliate_cruiser', WORLD_W * 0.25, WORLD_H * 0.35);
     spawnPresetCreature('solar_leviathan', WORLD_W * 0.75, WORLD_H * 0.65);
+    updateDishHud();
     showToast('🧪 Launched Garage organism into Petri Dish!');
   };
 
   document.getElementById('btnSpawnInDish').onclick = () => {
+    if (!bp.nodes.length) { showToast('⚠️ Garage blueprint is empty!'); return; }
     switchTab('dish');
-    spawnGarageInDish(WORLD_W / 2 + (Math.random() - 0.5) * 160, WORLD_H / 2 + (Math.random() - 0.5) * 120, true);
-    showToast('➕ Added Garage organism to live Dish!');
+    if (spawnGarageInDish(WORLD_W / 2 + (Math.random() - 0.5) * 160, WORLD_H / 2 + (Math.random() - 0.5) * 120, true)) {
+      showToast('➕ Added Garage organism to live Dish!');
+    }
   };
 
   document.getElementById('btnAddGarage').onclick = () => {
-    spawnGarageInDish(WORLD_W / 2 + (Math.random() - 0.5) * 200, WORLD_H / 2 + (Math.random() - 0.5) * 160, true);
-    showToast('🔧 Spawned your Garage Cell!');
+    if (spawnGarageInDish(WORLD_W / 2 + (Math.random() - 0.5) * 200, WORLD_H / 2 + (Math.random() - 0.5) * 160, true)) {
+      showToast('🔧 Spawned your Garage Cell!');
+    }
   };
 
   document.querySelectorAll('#garageCatRow .chip').forEach(c => {
@@ -1718,33 +2217,36 @@
 
   document.getElementById('btnMirror').onclick = e => {
     mirrorY = !mirrorY;
-    e.target.textContent = `🪞 Mirror Y: ${mirrorY ? 'ON' : 'OFF'}`;
-    e.target.classList.toggle('active', mirrorY);
+    e.currentTarget.textContent = `🪞 Mirror Y: ${mirrorY ? 'ON' : 'OFF'}`;
+    e.currentTarget.classList.toggle('active', mirrorY);
   };
   document.getElementById('btnSnap').onclick = e => {
     snapGrid = !snapGrid;
-    e.target.textContent = `🧲 Snap: ${snapGrid ? 'ON' : 'OFF'}`;
-    e.target.classList.toggle('active', snapGrid);
+    e.currentTarget.textContent = `🧲 Snap: ${snapGrid ? 'ON' : 'OFF'}`;
+    e.currentTarget.classList.toggle('active', snapGrid);
   };
   document.getElementById('btnTestPulse').onclick = e => {
     testPulse = !testPulse;
-    e.target.classList.toggle('active', testPulse);
-    e.target.textContent = testPulse ? '⏹ Stop Pulse' : '⚡ Test Pulse';
+    e.currentTarget.classList.toggle('active', testPulse);
+    e.currentTarget.textContent = testPulse ? '⏹ Stop Pulse' : '⚡ Test Pulse';
   };
   document.getElementById('btnUndo').onclick = () => {
     if (!gUndo.length) return;
     gRedo.push(cloneBp(bp));
+    clearGarageTransient();
     bp = gUndo.pop();
     updGarageHistBtns(); updateGarageSpecs();
   };
   document.getElementById('btnRedo').onclick = () => {
     if (!gRedo.length) return;
     gUndo.push(cloneBp(bp));
+    clearGarageTransient();
     bp = gRedo.pop();
     updGarageHistBtns(); updateGarageSpecs();
   };
   document.getElementById('btnGarageClear').onclick = () => {
     pushGarageHist();
+    clearGarageTransient();
     bp = { nodes: [], bonds: [] };
     addBpNode(0, 0, 0, false);
     updateGarageSpecs();
@@ -1765,58 +2267,88 @@
   document.querySelectorAll('#aiQuick .chip').forEach(c => c.onclick = () => forgeGarageOrganism(c.dataset.p));
 
   document.getElementById('btnSaveBlueprint').onclick = () => {
-    const name = prompt('Blueprint name:', `Organism ${bp.nodes.length}-Cell`) || `Organism ${bp.nodes.length}-Cell`;
-    const list = JSON.parse(localStorage.getItem('microlab_blueprints') || '[]');
+    if (!bp.nodes.length) { showToast('⚠️ Cannot save an empty blueprint'); return; }
+    const defName = `Organism ${bp.nodes.length}-Cell`;
+    const rawName = prompt('Blueprint name:', defName);
+    if (rawName === null) return;
+    const name = rawName.trim() || defName;
+    const list = loadSavedBlueprintsList();
     list.unshift({ name, bp: cloneBp(bp) });
-    localStorage.setItem('microlab_blueprints', JSON.stringify(list.slice(0, 12)));
+    if (!safeStorageSet('microlab_blueprints', JSON.stringify(list.slice(0, 12)))) {
+      showToast('⚠️ Could not save (storage full or blocked)');
+      return;
+    }
     renderSavedBlueprints();
     showToast(`Saved "${name}" to Garage`);
   };
 
   // Dish Toolbar Wiring
   document.querySelectorAll('.t-btn').forEach(b => b.onclick = () => setDishTool(b.dataset.t));
-  document.getElementById('pauseBtn').onclick = () => {
-    paused = !paused;
-    const b = document.getElementById('pauseBtn');
-    b.textContent = paused ? '▶ Play' : '⏸ Pause';
-    b.classList.toggle('active', paused);
-  };
+  document.getElementById('pauseBtn').onclick = () => setDishPaused(!paused);
   document.getElementById('presetSel').onchange = e => { if (e.target.value) { loadDishPreset(e.target.value); e.target.value = ''; } };
   document.getElementById('btnAddPreset').onclick = () => loadDishPreset(lastPreset, false);
   document.getElementById('btnPilot').onclick = e => {
     pilotMode = !pilotMode;
-    e.target.textContent = `🎮 Pilot WASD: ${pilotMode ? 'ON' : 'OFF'}`;
-    e.target.classList.toggle('active', pilotMode);
+    e.currentTarget.textContent = `🎮 Pilot WASD: ${pilotMode ? 'ON' : 'OFF'}`;
+    e.currentTarget.classList.toggle('active', pilotMode);
     if (pilotMode && !playerGroupId && nodes.length) playerGroupId = nodes[0].groupId;
   };
   document.getElementById('btnFeed').onclick = () => feedDish(45);
   document.getElementById('btnMutate').onclick = () => {
-    for (const n of nodes) if (Math.random() < 0.25) {
+    for (const n of nodes) if (!n.dead && Math.random() < 0.25) {
       const nt = Math.floor(Math.random() * ORGANELLES.length);
       n.type = nt; n.r = ORGANELLES[nt].r; n.color = ORGANELLES[nt].color;
       n.maxEnergy = nt === 14 ? 450 : 230;
+      n.energy = Math.min(n.energy, n.maxEnergy);
     }
     showToast('☢️ Mutated 25% of dish organelles!');
   };
   document.getElementById('btnSaveDish').onclick = () => {
+    const alive = nodes.filter(n => !n.dead);
+    const idxOf = new Map(alive.map((n, idx) => [n, idx]));
     const payload = {
-      nodes: nodes.map(n => ({ x: n.x, y: n.y, type: n.type, groupId: n.groupId, energy: n.energy })),
-      bonds: bonds.map(b => [nodes.indexOf(b.a), nodes.indexOf(b.b), b.len]),
+      nodes: alive.map(n => ({ x: n.x, y: n.y, type: n.type, groupId: n.groupId, energy: n.energy })),
+      bonds: bonds
+        .filter(b => idxOf.has(b.a) && idxOf.has(b.b))
+        .map(b => [idxOf.get(b.a), idxOf.get(b.b), b.len]),
       foods: foods.slice(0, 120)
     };
-    localStorage.setItem('microlab_dish_save', JSON.stringify(payload));
-    showToast('💾 Dish saved to browser');
+    if (safeStorageSet('microlab_dish_save', JSON.stringify(payload))) {
+      showToast('💾 Dish saved to browser');
+    } else {
+      showToast('⚠️ Could not save dish (storage unavailable)');
+    }
   };
   document.getElementById('btnLoadDish').onclick = () => {
-    const raw = localStorage.getItem('microlab_dish_save');
+    const raw = safeStorageGet('microlab_dish_save');
     if (!raw) return showToast('No saved dish found');
     try {
-      const p = JSON.parse(raw); clearDish();
-      const created = p.nodes.map(nd => { const n = addNode(nd.x, nd.y, nd.type, nd.groupId); n.energy = nd.energy; return n; });
-      p.bonds.forEach(([ia, ib, len]) => { if (created[ia] && created[ib]) addBond(created[ia], created[ib], len); });
-      foods = p.foods || [];
+      const p = JSON.parse(raw);
+      if (!p || !Array.isArray(p.nodes)) throw new Error('Invalid dish save');
+      clearDish();
+      const created = p.nodes.slice(0, MAX_DISH_NODES).map(nd => {
+        if (!nd || typeof nd !== 'object') return null;
+        const n = addNode(nd.x, nd.y, nd.type, nd.groupId);
+        if (Number.isFinite(nd.energy)) n.energy = Math.max(1, Math.min(n.maxEnergy, nd.energy));
+        return n;
+      });
+      if (Array.isArray(p.bonds)) {
+        p.bonds.forEach(b => {
+          if (!Array.isArray(b) || b.length < 2) return;
+          const a = created[b[0]], c = created[b[1]];
+          if (a && c) addBond(a, c, b[2]);
+        });
+      }
+      if (Array.isArray(p.foods)) {
+        p.foods.slice(0, MAX_FOODS).forEach(f => {
+          if (f && typeof f === 'object') pushFood(f.x, f.y, f.vx, f.vy, f.r, f.val);
+        });
+      }
+      updateDishHud();
       showToast('📂 Loaded saved dish');
-    } catch {}
+    } catch {
+      showToast('⚠️ Saved dish data is corrupted');
+    }
   };
   document.getElementById('btnCenter').onclick = resetCam;
   document.getElementById('btnClearDish').onclick = clearDish;
@@ -1828,32 +2360,83 @@
   });
 
   document.getElementById('btnExport').onclick = () => {
+    if (!bp.nodes.length) { showToast('⚠️ Nothing to export — Garage is empty'); return; }
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ bp: cloneBp(bp) }, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify({ bp })]));
-    a.download = 'microlab-blueprint.json'; a.click();
+    a.href = url;
+    a.download = 'microlab-blueprint.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   document.getElementById('btnImport').onclick = () => {
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
     inp.onchange = async () => {
+      if (!inp.files || !inp.files[0]) return;
       try {
         const d = JSON.parse(await inp.files[0].text());
-        if (d.bp && Array.isArray(d.bp.nodes)) { pushGarageHist(); bp = cloneBp(d.bp); updateGarageSpecs(); showToast('📂 Imported blueprint!'); }
+        if (d && d.bp && Array.isArray(d.bp.nodes)) {
+          const clean = sanitizeBp(d.bp);
+          if (!clean.nodes.length) { showToast('⚠️ Blueprint file contains no valid organelles'); return; }
+          pushGarageHist();
+          clearGarageTransient();
+          bp = clean;
+          updateGarageSpecs();
+          showToast('📂 Imported blueprint!');
+        } else {
+          showToast('Invalid blueprint JSON');
+        }
       } catch { showToast('Invalid blueprint JSON'); }
     };
     inp.click();
   };
-  document.getElementById('btnMobile').onclick = () => {
-    document.body.classList.toggle('mobile-mode');
+  document.getElementById('btnMobile').onclick = e => {
+    const on = document.body.classList.toggle('mobile-mode');
+    e.currentTarget.classList.toggle('active', on);
     resizeCanvases();
-    showToast(document.body.classList.contains('mobile-mode') ? '📱 Phone Mode ON' : '💻 Desktop Mode ON');
+    requestAnimationFrame(() => {
+      resizeCanvases();
+      if (document.getElementById('view-dish').classList.contains('active')) resetCam();
+    });
+    showToast(on ? '📱 Phone Mode ON' : '💻 Desktop Mode ON');
   };
-  document.getElementById('btnHelp').onclick = () => document.getElementById('helpModal').classList.add('open');
-  document.getElementById('btnCloseHelp').onclick = () => document.getElementById('helpModal').classList.remove('open');
+  const helpModal = document.getElementById('helpModal');
+  document.getElementById('btnHelp').onclick = () => helpModal.classList.add('open');
+  document.getElementById('btnCloseHelp').onclick = () => helpModal.classList.remove('open');
+  helpModal.addEventListener('click', e => { if (e.target === helpModal) helpModal.classList.remove('open'); });
+
+  function releaseAllInputs() {
+    keys = {};
+    endGaragePointer();
+    endDishPointer();
+    gMouse.inside = false;
+    mouse.inside = false;
+    lastLoopTs = 0;
+  }
+  window.addEventListener('blur', releaseAllInputs);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllInputs(); });
 
   window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && helpModal.classList.contains('open')) {
+      helpModal.classList.remove('open');
+      return;
+    }
+    if (helpModal.classList.contains('open')) return;
+    const tgt = e.target;
+    if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT' || tgt.isContentEditable)) return;
+
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.altKey && document.getElementById('view-garage').classList.contains('active')) {
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); document.getElementById('btnUndo').click(); return; }
+      if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); document.getElementById('btnRedo').click(); return; }
+    }
+    if (mod || e.altKey) return;
+
     keys[e.code] = true;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (document.getElementById('view-dish').classList.contains('active')) {
+      if (pilotMode && (e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+        e.preventDefault();
+      }
       if (e.code === 'Space') { e.preventDefault(); document.getElementById('pauseBtn').click(); }
       else if (e.key === '1') setDishTool('spawn');
       else if (e.key === '2') setDishTool('drag');
@@ -1863,6 +2446,8 @@
       else if (e.key === '6') setDishTool('kill');
       else if (e.key === 'f' || e.key === 'F') feedDish(35);
       else if (e.key === 'r' || e.key === 'R') resetCam();
+    } else if (document.getElementById('view-course').classList.contains('active')) {
+      if (e.code === 'Space') { e.preventDefault(); document.getElementById('coursePauseBtn').click(); }
     }
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -1884,28 +2469,50 @@
     while (!v) v = Math.random();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   }
+  function clampWeight(v) {
+    return Number.isFinite(v) ? Math.max(-12, Math.min(12, v)) : 0;
+  }
+  function safeFit(g) {
+    return (g && Number.isFinite(g.fitness)) ? g.fitness : -1e9;
+  }
 
   class CourseNN {
-    constructor() {
+    constructor(skipInit = false) {
       this.w1 = new Float32Array(120); this.b1 = new Float32Array(12);
       this.w2 = new Float32Array(36);  this.b2 = new Float32Array(3);
       this.lastIn = new Float32Array(10); this.lastHid = new Float32Array(12); this.lastOut = new Float32Array(3);
-      for (let i = 0; i < this.w1.length; i++) this.w1[i] = randn() * 0.38;
-      for (let i = 0; i < this.w2.length; i++) this.w2[i] = randn() * 0.38;
+      if (!skipInit) {
+        for (let i = 0; i < this.w1.length; i++) this.w1[i] = randn() * 0.38;
+        for (let i = 0; i < this.b1.length; i++) this.b1[i] = randn() * 0.15;
+        for (let i = 0; i < this.w2.length; i++) this.w2[i] = randn() * 0.38;
+        for (let i = 0; i < this.b2.length; i++) this.b2[i] = randn() * 0.15;
+      }
     }
-    cloneNoise(sig) {
-      const c = new CourseNN();
-      for (let i = 0; i < this.w1.length; i++) c.w1[i] = this.w1[i] + randn() * sig;
-      for (let i = 0; i < this.b1.length; i++) c.b1[i] = this.b1[i] + randn() * sig;
-      for (let i = 0; i < this.w2.length; i++) c.w2[i] = this.w2[i] + randn() * sig;
-      for (let i = 0; i < this.b2.length; i++) c.b2[i] = this.b2[i] + randn() * sig;
+    cloneNoise(sig = 0) {
+      const c = new CourseNN(true);
+      if (sig <= 0) {
+        c.w1.set(this.w1); c.b1.set(this.b1); c.w2.set(this.w2); c.b2.set(this.b2);
+        return c;
+      }
+      for (let i = 0; i < this.w1.length; i++) c.w1[i] = clampWeight(this.w1[i] + randn() * sig);
+      for (let i = 0; i < this.b1.length; i++) c.b1[i] = clampWeight(this.b1[i] + randn() * sig);
+      for (let i = 0; i < this.w2.length; i++) c.w2[i] = clampWeight(this.w2[i] + randn() * sig);
+      for (let i = 0; i < this.b2.length; i++) c.b2[i] = clampWeight(this.b2[i] + randn() * sig);
+      return c;
+    }
+    crossover(other, sig = 0.14) {
+      const c = new CourseNN(true);
+      for (let i = 0; i < this.w1.length; i++) c.w1[i] = clampWeight((Math.random() < 0.5 ? this.w1[i] : other.w1[i]) + randn() * sig);
+      for (let i = 0; i < this.b1.length; i++) c.b1[i] = clampWeight((Math.random() < 0.5 ? this.b1[i] : other.b1[i]) + randn() * sig);
+      for (let i = 0; i < this.w2.length; i++) c.w2[i] = clampWeight((Math.random() < 0.5 ? this.w2[i] : other.w2[i]) + randn() * sig);
+      for (let i = 0; i < this.b2.length; i++) c.b2[i] = clampWeight((Math.random() < 0.5 ? this.b2[i] : other.b2[i]) + randn() * sig);
       return c;
     }
     forward(inp) {
-      this.lastIn.set(inp);
+      for (let i = 0; i < 10; i++) this.lastIn[i] = Number.isFinite(inp[i]) ? inp[i] : 0;
       for (let h = 0; h < 12; h++) {
         let s = this.b1[h], off = h * 10;
-        for (let i = 0; i < 10; i++) s += this.w1[off + i] * inp[i];
+        for (let i = 0; i < 10; i++) s += this.w1[off + i] * this.lastIn[i];
         this.lastHid[h] = Math.tanh(s);
       }
       for (let o = 0; o < 3; o++) {
@@ -2035,40 +2642,50 @@
   let courseGen = 1;
   let courseTime = 0;
   let masterCourseNN = new CourseNN();
+  let eliteCourseNNs = [masterCourseNN.cloneNoise(0)];
   let courseHistory = [];
-  let bestCourseFitness = 0;
+  let bestCourseFitness = -Infinity;
   let fastestCourseFinish = null;
   let ghosts = [];
 
   let courseBodyTemplate = { nodes: [], bonds: [], hasMito: false, motorCount: 0, bodyR: 20 };
 
   function compileCourseBody() {
-    const raw = bp.nodes.length ? bp.nodes : [{ ox: 0, oy: 0, type: 0 }, { ox: -16, oy: 0, type: 3 }];
+    const hasBp = bp.nodes.length > 0;
+    const raw = hasBp ? bp.nodes : [{ ox: 0, oy: 0, type: 0 }, { ox: -16, oy: 0, type: 3 }];
     let mcx = 0, mcy = 0;
-    raw.forEach(n => { mcx += n.ox; mcy += n.oy; });
+    raw.forEach(n => {
+      mcx += Number.isFinite(n.ox) ? n.ox : (Number.isFinite(n.x) ? n.x : 0);
+      mcy += Number.isFinite(n.oy) ? n.oy : (Number.isFinite(n.y) ? n.y : 0);
+    });
     mcx /= raw.length; mcy /= raw.length;
     let maxR = 14;
     const nodesT = raw.map(nd => {
-      const ox = (nd.ox - mcx) * 0.72, oy = (nd.oy - mcy) * 0.72;
-      const d = Math.hypot(ox, oy) + ORGANELLES[nd.type].r * 0.75;
+      const rx = Number.isFinite(nd.ox) ? nd.ox : (Number.isFinite(nd.x) ? nd.x : 0);
+      const ry = Number.isFinite(nd.oy) ? nd.oy : (Number.isFinite(nd.y) ? nd.y : 0);
+      const safeType = (nd.type >= 0 && nd.type < ORGANELLES.length) ? nd.type : 0;
+      const def = ORGANELLES[safeType];
+      const ox = (rx - mcx) * 0.72, oy = (ry - mcy) * 0.72;
+      const d = Math.hypot(ox, oy) + def.r * 0.75;
       if (d > maxR) maxR = d;
-      return { ox, oy, type: nd.type, r: ORGANELLES[nd.type].r * 0.82, color: ORGANELLES[nd.type].color };
+      return { ox, oy, type: safeType, r: def.r * 0.82, color: def.color };
     });
-    const bondsT = bp.bonds.filter(([ia, ib]) => nodesT[ia] && nodesT[ib]);
+    const bondsT = hasBp ? bp.bonds.filter(([ia, ib]) => nodesT[ia] && nodesT[ib]) : [[0, 1, 16]];
     const hasMito = nodesT.some(n => n.type === 1);
     const motorCount = nodesT.filter(n => n.type === 3 || n.type === 4 || n.type === 12).length;
     courseBodyTemplate = { nodes: nodesT, bonds: bondsT, hasMito, motorCount, bodyR: Math.max(15, Math.min(34, maxR * 0.78)) };
   }
 
   function createGhostFromGarage(nn) {
-    const map = COURSE_MAPS[courseMapKey];
+    const map = COURSE_MAPS[courseMapKey] || COURSE_MAPS.channel;
     const sx = map.start.x, sy = map.start.y;
+    const firstTarget = map.gates.length ? map.gates[0] : map.goal;
     return {
       nn,
       cx: sx, cy: sy,
       vx: 0, vy: 0,
       ang: 0,
-      phase: Math.random() * 6.28,
+      phase: 0, // deterministic start phase so elite clone (i=0) reproduces exact champion score
       gateIdx: 0,
       collected: new Set(),
       fitness: 0,
@@ -2076,7 +2693,7 @@
       wallHits: 0,
       finished: false,
       finishTime: null,
-      bestDist: 9999
+      bestDist: Math.hypot(firstTarget.x - sx, firstTarget.y - sy)
     };
   }
 
@@ -2084,18 +2701,35 @@
     compileCourseBody();
     ghosts = [];
     courseTime = 0;
-    for (let i = 0; i < courseGhostCount; i++) {
-      const nn = i === 0 ? masterCourseNN.cloneNoise(0) : masterCourseNN.cloneNoise(i < courseGhostCount * 0.35 ? 0.16 : 0.34);
+    courseAccum = 0;
+    const count = Math.max(1, courseGhostCount);
+    const pool = eliteCourseNNs.length ? eliteCourseNNs : [masterCourseNN];
+    for (let i = 0; i < count; i++) {
+      let nn;
+      if (i === 0) {
+        nn = masterCourseNN.cloneNoise(0);
+      } else if (i < pool.length && i < Math.min(4, count)) {
+        nn = pool[i].cloneNoise(0.05);
+      } else if (i < count * 0.48 && pool.length >= 2) {
+        const pA = pool[i % pool.length];
+        const pB = pool[(i + 1 + (i % (pool.length - 1))) % pool.length];
+        nn = pA.crossover(pB, 0.14);
+      } else if (i < count * 0.85) {
+        const parent = pool[i % pool.length];
+        nn = parent.cloneNoise(0.24);
+      } else {
+        nn = masterCourseNN.cloneNoise(0.42);
+      }
       ghosts.push(createGhostFromGarage(nn));
     }
-    document.getElementById('cTelGhosts').textContent = courseGhostCount;
+    document.getElementById('cTelGhosts').textContent = count;
     document.getElementById('cTelNodes').textContent = bp.nodes.length;
     document.getElementById('cTelMotors').textContent = `${courseBodyTemplate.motorCount} (${courseBodyTemplate.hasMito ? '1.5x' : '1.0x'})`;
   }
 
   function stepCourse(dt) {
-    if (coursePaused) return;
-    const map = COURSE_MAPS[courseMapKey];
+    if (coursePaused || ghosts.length === 0) return;
+    const map = COURSE_MAPS[courseMapKey] || COURSE_MAPS.channel;
     courseTime += dt;
     const scale = dt * 60;
     const { hasMito, motorCount, bodyR } = courseBodyTemplate;
@@ -2118,34 +2752,38 @@
       while (angDiff < -Math.PI) angDiff += Math.PI * 2;
 
       let obsDist = 280, obsAngDiff = 0;
-      for (let pi = 0; pi < map.pillars.length; pi++) {
-        const p = map.pillars[pi];
-        const d = Math.hypot(p.x - g.cx, p.y - g.cy) - p.r - bodyR;
-        if (d < obsDist) {
-          obsDist = d;
-          let oa = Math.atan2(p.y - g.cy, p.x - g.cx) - g.ang;
-          while (oa > Math.PI) oa -= Math.PI * 2; while (oa < -Math.PI) oa += Math.PI * 2;
+      const checkObs = (ox, oy, distClear) => {
+        if (distClear < obsDist) {
+          obsDist = distClear;
+          let oa = Math.atan2(oy - g.cy, ox - g.cx) - g.ang;
+          while (oa > Math.PI) oa -= Math.PI * 2;
+          while (oa < -Math.PI) oa += Math.PI * 2;
           obsAngDiff = oa;
         }
+      };
+      // Include the 4 outer arena walls in obstacle sensor
+      checkObs(8, g.cy, (g.cx - 8) - bodyR);
+      checkObs(COURSE_W - 8, g.cy, (COURSE_W - 8 - g.cx) - bodyR);
+      checkObs(g.cx, 8, (g.cy - 8) - bodyR);
+      checkObs(g.cx, COURSE_H - 8, (COURSE_H - 8 - g.cy) - bodyR);
+
+      for (let pi = 0; pi < map.pillars.length; pi++) {
+        const p = map.pillars[pi];
+        checkObs(p.x, p.y, Math.hypot(p.x - g.cx, p.y - g.cy) - p.r - bodyR);
       }
       for (let wi = 0; wi < map.walls.length; wi++) {
         const w = map.walls[wi];
         const qx = Math.max(w.x, Math.min(g.cx, w.x + w.w));
         const qy = Math.max(w.y, Math.min(g.cy, w.y + w.h));
-        const d = Math.hypot(qx - g.cx, qy - g.cy) - bodyR;
-        if (d < obsDist) {
-          obsDist = d;
-          let oa = Math.atan2(qy - g.cy, qx - g.cx) - g.ang;
-          while (oa > Math.PI) oa -= Math.PI * 2; while (oa < -Math.PI) oa += Math.PI * 2;
-          obsAngDiff = oa;
-        }
+        checkObs(qx, qy, Math.hypot(qx - g.cx, qy - g.cy) - bodyR);
       }
+      const clampedObsDist = Math.max(0, obsDist);
 
       const inp = [
         angDiff / Math.PI,
         Math.min(1, tDist / 500) * 2 - 1,
         obsAngDiff / Math.PI,
-        Math.min(1, obsDist / 160) * 2 - 1,
+        Math.min(1, clampedObsDist / 160) * 2 - 1,
         Math.max(-1, Math.min(1, g.vx / 7)),
         Math.max(-1, Math.min(1, g.vy / 7)),
         Math.cos(g.ang),
@@ -2167,17 +2805,15 @@
       g.cx += g.vx * scale;
       g.cy += g.vy * scale;
 
-      if (g.cx < bodyR + 8) { g.cx = bodyR + 8; g.vx = Math.abs(g.vx) * 0.55; g.wallHits += 0.5; }
-      if (g.cx > COURSE_W - bodyR - 8) { g.cx = COURSE_W - bodyR - 8; g.vx = -Math.abs(g.vx) * 0.55; g.wallHits += 0.5; }
-      if (g.cy < bodyR + 8) { g.cy = bodyR + 8; g.vy = Math.abs(g.vy) * 0.55; g.wallHits += 0.5; }
-      if (g.cy > COURSE_H - bodyR - 8) { g.cy = COURSE_H - bodyR - 8; g.vy = -Math.abs(g.vy) * 0.55; g.wallHits += 0.5; }
-
       for (let pi = 0; pi < map.pillars.length; pi++) {
         const p = map.pillars[pi];
-        const dx = g.cx - p.x, dy = g.cy - p.y, d = Math.hypot(dx, dy) || 0.01;
+        const dx = g.cx - p.x, dy = g.cy - p.y;
+        const rawD = Math.hypot(dx, dy);
         const minD = bodyR + p.r;
-        if (d < minD) {
-          const nx = dx / d, ny = dy / d;
+        if (rawD < minD) {
+          let nx, ny;
+          if (rawD < 1e-4) { nx = Math.cos(g.ang + Math.PI); ny = Math.sin(g.ang + Math.PI); }
+          else { nx = dx / rawD; ny = dy / rawD; }
           g.cx = p.x + nx * minD; g.cy = p.y + ny * minD;
           const vn = g.vx * nx + g.vy * ny;
           if (vn < 0) { g.vx -= 1.5 * vn * nx; g.vy -= 1.5 * vn * ny; }
@@ -2207,6 +2843,12 @@
         }
       }
 
+      // Enforce outer arena boundaries AFTER interior obstacles so ghosts cannot be shoved out of bounds
+      if (g.cx < bodyR + 8) { g.cx = bodyR + 8; g.vx = Math.abs(g.vx) * 0.55; g.wallHits += 0.5; }
+      if (g.cx > COURSE_W - bodyR - 8) { g.cx = COURSE_W - bodyR - 8; g.vx = -Math.abs(g.vx) * 0.55; g.wallHits += 0.5; }
+      if (g.cy < bodyR + 8) { g.cy = bodyR + 8; g.vy = Math.abs(g.vy) * 0.55; g.wallHits += 0.5; }
+      if (g.cy > COURSE_H - bodyR - 8) { g.cy = COURSE_H - bodyR - 8; g.vy = -Math.abs(g.vy) * 0.55; g.wallHits += 0.5; }
+
       for (let rIdx = 0; rIdx < map.rewards.length; rIdx++) {
         const rw = map.rewards[rIdx];
         if (!g.collected.has(rIdx) && Math.hypot(g.cx - rw.x, g.cy - rw.y) < rw.r + bodyR + 8) {
@@ -2220,7 +2862,8 @@
         if (Math.hypot(g.cx - gt.x, g.cy - gt.y) < gt.r + 12) {
           g.gateIdx++;
           g.rewardScore += 150;
-          g.bestDist = 9999;
+          const nextT = g.gateIdx < map.gates.length ? map.gates[g.gateIdx] : map.goal;
+          g.bestDist = Math.hypot(nextT.x - g.cx, nextT.y - g.cy);
         }
       } else if (Math.hypot(g.cx - map.goal.x, g.cy - map.goal.y) < map.goal.r + 14) {
         g.finished = true;
@@ -2229,18 +2872,31 @@
         if (fastestCourseFinish === null || courseTime < fastestCourseFinish) fastestCourseFinish = courseTime;
       }
 
-      if (tDist < g.bestDist) g.bestDist = tDist;
-      const distProgress = Math.max(0, 420 - tDist) * 0.35;
-      g.fitness = g.rewardScore + g.gateIdx * 100 + distProgress - g.wallHits * 1.4;
+      const curTarget = g.gateIdx < map.gates.length ? map.gates[g.gateIdx] : map.goal;
+      const curDist = g.finished ? 0 : Math.hypot(curTarget.x - g.cx, curTarget.y - g.cy);
+      if (curDist < g.bestDist) g.bestDist = curDist;
+      const distProgress = Math.max(0, 750 - g.bestDist) * 0.32 + Math.max(0, 750 - curDist) * 0.12;
+      const rawFit = g.rewardScore + g.gateIdx * 100 + distProgress - g.wallHits * 1.4;
+      g.fitness = Number.isFinite(rawFit) ? rawFit : -1e6;
     }
 
     if (courseTime >= COURSE_DURATION || allDone) {
-      ghosts.sort((a, b) => b.fitness - a.fitness);
+      ghosts.sort((a, b) => safeFit(b) - safeFit(a));
       const best = ghosts[0];
-      const mean = ghosts.reduce((s, g) => s + g.fitness, 0) / Math.max(1, ghosts.length);
-      if (best && best.fitness > bestCourseFitness) bestCourseFitness = best.fitness;
-      if (best) masterCourseNN = best.nn.cloneNoise(0);
-      courseHistory.push({ best: best ? best.fitness : 0, mean });
+      const bestFit = best ? safeFit(best) : 0;
+      const mean = ghosts.reduce((s, g) => s + safeFit(g), 0) / Math.max(1, ghosts.length);
+      if (best && Number.isFinite(best.fitness) && bestFit >= bestCourseFitness) {
+        bestCourseFitness = bestFit;
+        masterCourseNN = best.nn.cloneNoise(0);
+      }
+      const nextElites = [masterCourseNN.cloneNoise(0)];
+      for (let i = 0; i < Math.min(4, ghosts.length); i++) {
+        if (ghosts[i] && Number.isFinite(ghosts[i].fitness) && nextElites.length < 4) {
+          nextElites.push(ghosts[i].nn.cloneNoise(0));
+        }
+      }
+      eliteCourseNNs = nextElites;
+      courseHistory.push({ best: bestFit, mean });
       if (courseHistory.length > 60) courseHistory.shift();
       courseGen++;
       initCourseGen();
@@ -2248,12 +2904,13 @@
   }
 
   function drawCourse() {
-    const W = courseCanvas.width, H = courseCanvas.height;
-    if (W <= 0) return;
-    const map = COURSE_MAPS[courseMapKey];
+    const W = cW, H = cH;
+    if (W < 2 || H < 2) return;
+    const map = COURSE_MAPS[courseMapKey] || COURSE_MAPS.channel;
+    cCtx.setTransform(cDpr, 0, 0, cDpr, 0, 0);
     cCtx.clearRect(0, 0, W, H);
 
-    const scale = Math.min((W - 24) / COURSE_W, (H - 24) / COURSE_H);
+    const scale = Math.max(0.05, Math.min((W - 24) / COURSE_W, (H - 24) / COURSE_H));
     const ox = (W - COURSE_W * scale) / 2, oy = (H - COURSE_H * scale) / 2;
 
     cCtx.save();
@@ -2270,7 +2927,7 @@
     cCtx.fillStyle = 'rgba(56, 189, 248, 0.1)'; cCtx.fill();
     cCtx.strokeStyle = 'rgba(56, 189, 248, 0.45)'; cCtx.lineWidth = 2; cCtx.stroke();
 
-    const ranked = [...ghosts].sort((a, b) => b.fitness - a.fitness);
+    const ranked = [...ghosts].sort((a, b) => safeFit(b) - safeFit(a));
     const champ = ranked[0];
 
     map.gates.forEach((gt, idx) => {
@@ -2337,7 +2994,7 @@
         if (isChamp) {
           drawOrganelleArt(cCtx, p.x, p.y, p.nd.r, p.nd.type, p.nd.color, g.phase + i, g.ang, 1.0, true);
         } else {
-          cCtx.beginPath(); cCtx.arc(p.x, p.y, p.nd.r * 0.8, 0, Math.PI * 2);
+          cCtx.beginPath(); cCtx.arc(p.x, p.y, Math.max(1.5, p.nd.r * 0.8), 0, Math.PI * 2);
           cCtx.fillStyle = p.nd.color; cCtx.fill();
         }
       }
@@ -2346,10 +3003,12 @@
     cCtx.restore();
 
     const finCount = ghosts.filter(g => g.finished).length;
-    const avgFit = ghosts.reduce((s, g) => s + g.fitness, 0) / Math.max(1, ghosts.length);
+    const avgFit = ghosts.length ? ghosts.reduce((s, g) => s + safeFit(g), 0) / ghosts.length : 0;
+    const champFit = champ ? safeFit(champ) : 0;
+    const bestShown = Number.isFinite(bestCourseFitness) ? Math.max(bestCourseFitness, champFit) : champFit;
     document.getElementById('cHudGen').textContent = courseGen;
-    document.getElementById('cHudBest').textContent = Math.round(Math.max(bestCourseFitness, champ ? champ.fitness : 0));
-    document.getElementById('cHudAvg').textContent = Math.round(avgFit);
+    document.getElementById('cHudBest').textContent = (Math.round(bestShown) || 0);
+    document.getElementById('cHudAvg').textContent = (Math.round(avgFit) || 0);
     document.getElementById('cHudGate').textContent = `${champ ? champ.gateIdx : 0} / ${map.gates.length}`;
     document.getElementById('cHudFin').textContent = `${finCount} / ${ghosts.length}`;
     document.getElementById('cHudTime').textContent = Math.max(0, COURSE_DURATION - courseTime).toFixed(1) + 's';
@@ -2361,20 +3020,30 @@
   }
 
   function drawCourseNN(nn) {
-    const r = cNnCanvas.getBoundingClientRect(); if (r.width <= 0) return;
-    if (cNnCanvas.width !== Math.round(r.width) || cNnCanvas.height !== Math.round(r.height)) {
-      cNnCanvas.width = Math.round(r.width); cNnCanvas.height = Math.round(r.height);
-    }
-    cNnCtx.clearRect(0, 0, cNnCanvas.width, cNnCanvas.height);
-    const xs = [24, cNnCanvas.width * 0.5, cNnCanvas.width - 24], counts = [10, 12, 3], pos = [[], [], []];
+    const r = cNnCanvas.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    const { w, h } = syncCanvasDPR(cNnCanvas, cNnCtx, r.width, r.height);
+    if (w < 2 || h < 2) return;
+    cNnCtx.clearRect(0, 0, w, h);
+    const padX = Math.min(24, w * 0.18);
+    const padY = Math.min(9, h * 0.12);
+    const xs = [padX, w * 0.5, w - padX], counts = [10, 12, 3], pos = [[], [], []];
     counts.forEach((n, l) => {
-      const st = (cNnCanvas.height - 18) / Math.max(1, n - 1);
-      for (let i = 0; i < n; i++) pos[l].push({ x: xs[l], y: 9 + i * st });
+      const st = (h - padY * 2) / Math.max(1, n - 1);
+      for (let i = 0; i < n; i++) pos[l].push({ x: xs[l], y: padY + i * st });
     });
-    for (let h = 0; h < 12; h++) for (let i = 0; i < 10; i++) {
-      const w = nn.w1[h * 10 + i]; if (Math.abs(w) < 0.28) continue;
-      cNnCtx.strokeStyle = w > 0 ? 'rgba(52,211,153,0.42)' : 'rgba(251,113,133,0.42)';
-      cNnCtx.beginPath(); cNnCtx.moveTo(pos[0][i].x, pos[0][i].y); cNnCtx.lineTo(pos[1][h].x, pos[1][h].y); cNnCtx.stroke();
+    cNnCtx.lineWidth = 1;
+    // Input -> Hidden (w1)
+    for (let hid = 0; hid < 12; hid++) for (let i = 0; i < 10; i++) {
+      const wt = nn.w1[hid * 10 + i]; if (Math.abs(wt) < 0.28) continue;
+      cNnCtx.strokeStyle = wt > 0 ? 'rgba(52,211,153,0.42)' : 'rgba(251,113,133,0.42)';
+      cNnCtx.beginPath(); cNnCtx.moveTo(pos[0][i].x, pos[0][i].y); cNnCtx.lineTo(pos[1][hid].x, pos[1][hid].y); cNnCtx.stroke();
+    }
+    // Hidden -> Output (w2)
+    for (let o = 0; o < 3; o++) for (let hid = 0; hid < 12; hid++) {
+      const wt = nn.w2[o * 12 + hid]; if (Math.abs(wt) < 0.2) continue;
+      cNnCtx.strokeStyle = wt > 0 ? 'rgba(56,189,248,0.52)' : 'rgba(250,204,21,0.45)';
+      cNnCtx.beginPath(); cNnCtx.moveTo(pos[1][hid].x, pos[1][hid].y); cNnCtx.lineTo(pos[2][o].x, pos[2][o].y); cNnCtx.stroke();
     }
     const acts = [nn.lastIn, nn.lastHid, nn.lastOut];
     counts.forEach((n, l) => {
@@ -2387,21 +3056,31 @@
   }
 
   function drawCourseChart() {
-    const r = cChartCanvas.getBoundingClientRect(); if (r.width <= 0) return;
-    if (cChartCanvas.width !== Math.round(r.width) || cChartCanvas.height !== Math.round(r.height)) {
-      cChartCanvas.width = Math.round(r.width); cChartCanvas.height = Math.round(r.height);
+    const r = cChartCanvas.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    const { w, h } = syncCanvasDPR(cChartCanvas, cChartCtx, r.width, r.height);
+    if (w < 2 || h < 2) return;
+    cChartCtx.clearRect(0, 0, w, h);
+    if (courseHistory.length < 2) {
+      const last = courseHistory[courseHistory.length - 1];
+      document.getElementById('cAvgLbl').textContent = last ? 'Avg: ' + (Math.round(last.mean) || 0) : 'Avg: 0';
+      return;
     }
-    cChartCtx.clearRect(0, 0, cChartCanvas.width, cChartCanvas.height);
-    if (courseHistory.length < 2) return;
-    let mn = 0, mx = 100;
-    for (const p of courseHistory) { mn = Math.min(mn, p.mean); mx = Math.max(mx, p.best); }
-    const mX = i => 8 + (i / (courseHistory.length - 1)) * (cChartCanvas.width - 16);
-    const mY = v => cChartCanvas.height - 8 - ((v - mn) / Math.max(1, mx - mn)) * (cChartCanvas.height - 16);
+    let mn = Infinity, mx = -Infinity;
+    for (const p of courseHistory) {
+      if (Number.isFinite(p.mean)) { mn = Math.min(mn, p.mean); mx = Math.max(mx, p.mean); }
+      if (Number.isFinite(p.best)) { mn = Math.min(mn, p.best); mx = Math.max(mx, p.best); }
+    }
+    if (!Number.isFinite(mn) || !Number.isFinite(mx)) { mn = 0; mx = 100; }
+    mn = Math.min(0, mn);
+    mx = Math.max(mn + 100, mx);
+    const mX = i => 8 + (i / (courseHistory.length - 1)) * (w - 16);
+    const mY = v => h - 8 - ((v - mn) / Math.max(1, mx - mn)) * (h - 16);
     cChartCtx.strokeStyle = '#34d399'; cChartCtx.lineWidth = 2; cChartCtx.beginPath();
     courseHistory.forEach((p, i) => i === 0 ? cChartCtx.moveTo(mX(i), mY(p.mean)) : cChartCtx.lineTo(mX(i), mY(p.mean))); cChartCtx.stroke();
     cChartCtx.strokeStyle = '#facc15'; cChartCtx.beginPath();
     courseHistory.forEach((p, i) => i === 0 ? cChartCtx.moveTo(mX(i), mY(p.best)) : cChartCtx.lineTo(mX(i), mY(p.best))); cChartCtx.stroke();
-    document.getElementById('cAvgLbl').textContent = 'Avg: ' + Math.round(courseHistory[courseHistory.length - 1].mean);
+    document.getElementById('cAvgLbl').textContent = 'Avg: ' + (Math.round(courseHistory[courseHistory.length - 1].mean) || 0);
   }
 
   document.getElementById('coursePauseBtn').onclick = () => {
@@ -2409,26 +3088,43 @@
     const b = document.getElementById('coursePauseBtn');
     b.textContent = coursePaused ? '▶ Play' : '⏸ Pause';
     b.classList.toggle('active', coursePaused);
+    if (coursePaused) courseAccum = 0;
   };
   document.getElementById('courseMapSel').onchange = e => {
-    courseMapKey = e.target.value; fastestCourseFinish = null; bestCourseFitness = 0; courseHistory = []; courseGen = 1; initCourseGen();
+    courseMapKey = COURSE_MAPS[e.target.value] ? e.target.value : 'channel';
+    fastestCourseFinish = null; bestCourseFitness = -Infinity; courseHistory = []; courseGen = 1;
+    initCourseGen();
   };
   document.getElementById('selCourseGhosts').onchange = e => {
-    courseGhostCount = parseInt(e.target.value, 10); initCourseGen();
+    const val = parseInt(e.target.value, 10);
+    courseGhostCount = Number.isFinite(val) && val > 0 ? Math.min(2000, val) : 64;
+    initCourseGen();
   };
-  document.getElementById('selCourseSpeed').onchange = e => { courseSpeed = parseFloat(e.target.value); };
+  document.getElementById('selCourseSpeed').onchange = e => {
+    const val = parseFloat(e.target.value);
+    courseSpeed = Number.isFinite(val) && val > 0 ? val : 1;
+    courseAccum = 0;
+  };
   document.getElementById('selGhostVis').onchange = e => { courseGhostVis = e.target.value; };
   document.getElementById('btnCourseResetGen').onclick = initCourseGen;
   document.getElementById('btnCourseNewBrains').onclick = () => {
-    masterCourseNN = new CourseNN(); courseHistory = []; bestCourseFitness = 0; fastestCourseFinish = null; courseGen = 1; initCourseGen();
+    masterCourseNN = new CourseNN();
+    eliteCourseNNs = [masterCourseNN.cloneNoise(0)];
+    courseHistory = []; bestCourseFitness = -Infinity; fastestCourseFinish = null; courseGen = 1;
+    initCourseGen();
     showToast('🧬 Reset neural population!');
   };
   document.getElementById('btnCourseSyncGarage').onclick = () => { initCourseGen(); showToast('🔧 Synced Garage organism into Course!'); };
-  document.getElementById('selDishSpeed').onchange = e => { dishSpeed = parseFloat(e.target.value); };
+  document.getElementById('selDishSpeed').onchange = e => {
+    const val = parseFloat(e.target.value);
+    dishSpeed = Number.isFinite(val) && val > 0 ? val : 1;
+    dishAccum = 0;
+  };
 
   // =========================================================================
   // 6. BOOTSTRAP & MAIN LOOP
   // =========================================================================
+  let dishAccum = 0, courseAccum = 0, lastLoopTs = 0;
   resizeCanvases();
   setKnowledge('student');
   capturePresetIntoGarage('flagellate_hunter');
@@ -2437,35 +3133,42 @@
   initCourseGen();
   resetCam();
 
-  let dishAccum = 0, courseAccum = 0;
-  function loop() {
+  function loop(ts) {
     const t0 = performance.now();
+    const rawDt = lastLoopTs ? (ts - lastLoopTs) / 1000 : (1 / 60);
+    lastLoopTs = ts;
+    // Clamp dt to max 50ms to prevent tab-switch spikes and normalize 60Hz/120Hz/144Hz monitors
+    const dt = Math.max(0.001, Math.min(0.05, Number.isFinite(rawDt) ? rawDt : (1 / 60)));
+    const dtScale = dt * 60;
+
     if (document.getElementById('view-garage').classList.contains('active')) {
-      drawGarage();
+      drawGarage(dtScale);
     } else if (document.getElementById('view-course').classList.contains('active')) {
-      if (courseSpeed < 1) {
-        courseAccum += courseSpeed;
-        if (courseAccum >= 1) { courseAccum -= 1; stepCourse(1 / 60); }
-      } else {
-        const steps = Math.round(courseSpeed);
-        for (let s = 0; s < steps; s++) {
+      if (!coursePaused) {
+        courseAccum = Math.min(courseSpeed * 2, courseAccum + dtScale * courseSpeed);
+        const maxSteps = Math.max(1, Math.ceil(courseSpeed * 1.5));
+        let ran = 0;
+        while (courseAccum >= 1 && ran < maxSteps) {
+          courseAccum -= 1;
           stepCourse(1 / 60);
-          if (performance.now() - t0 > 13) break;
+          ran++;
+          if (performance.now() - t0 > 13) { courseAccum = Math.min(courseAccum, 1); break; }
         }
       }
       drawCourse();
     } else {
-      if (dishSpeed < 1) {
-        dishAccum += dishSpeed;
-        if (dishAccum >= 1) { dishAccum -= 1; stepDish(); }
-      } else {
-        const steps = Math.round(dishSpeed);
-        for (let s = 0; s < steps; s++) {
+      if (!paused) {
+        dishAccum = Math.min(dishSpeed * 2, dishAccum + dtScale * dishSpeed);
+        const maxSteps = Math.max(1, Math.ceil(dishSpeed * 1.5));
+        let ran = 0;
+        while (dishAccum >= 1 && ran < maxSteps) {
+          dishAccum -= 1;
           stepDish();
-          if (performance.now() - t0 > 13) break;
+          ran++;
+          if (performance.now() - t0 > 13) { dishAccum = Math.min(dishAccum, 1); break; }
         }
       }
-      drawDish();
+      drawDish(dtScale);
     }
     requestAnimationFrame(loop);
   }

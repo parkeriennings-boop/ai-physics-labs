@@ -30,7 +30,7 @@
   }
 
   #simCanvas {
-    display: block; width: 100vw; height: 100vh; cursor: crosshair;
+    display: block; width: 100vw; height: 100vh; cursor: crosshair; touch-action: none;
   }
 
   /* Top Bar */
@@ -41,8 +41,11 @@
     border: 1px solid var(--border); border-radius: var(--radius);
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 12px; gap: 10px; z-index: 30;
+    overflow-x: auto; scrollbar-width: none;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 28px rgba(0,0,0,0.45);
   }
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar > .row, .topbar > .stat-group { flex-shrink: 0; }
   .brand {
     display: flex; align-items: center; gap: 8px; font-weight: 850; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap;
   }
@@ -54,20 +57,21 @@
   .row { display: flex; align-items: center; gap: 6px; }
   .div { width: 1px; height: 24px; background: var(--border); margin: 0 2px; }
 
-  button, select {
+  button, select, a.btn {
     font-family: var(--font); font-size: 12px; font-weight: 700;
     color: var(--text); background: rgba(30, 41, 59, 0.85);
     border: 1px solid var(--border); border-radius: 9px;
     padding: 6px 10px; cursor: pointer; transition: all 0.14s ease;
     display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    text-decoration: none;
   }
-  button:hover, select:hover { background: rgba(51, 65, 85, 0.95); border-color: var(--border-bright); }
+  button:hover, select:hover, a.btn:hover { background: rgba(51, 65, 85, 0.95); border-color: var(--border-bright); }
   button.active { background: linear-gradient(135deg, #f59e0b, #ea580c); color: #0b0f19; border-color: #fde68a; }
   button.emerald.active, button.emerald:hover { background: linear-gradient(135deg, #10b981, #059669); color: #04130d; border-color: #6ee7b7; }
   button.cyan.active { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #03101c; border-color: #bae6fd; }
   button.danger { background: rgba(244,63,94,0.2); border-color: rgba(244,63,94,0.48); color: #fecdd3; }
   button.danger:hover { background: rgba(244,63,94,0.38); }
-  button.sm { padding: 4px 8px; font-size: 11px; border-radius: 7px; }
+  button.sm, a.btn.sm { padding: 4px 8px; font-size: 11px; border-radius: 7px; }
 
   .stat-group { display: flex; align-items: center; gap: 7px; }
   .stat-pill {
@@ -156,7 +160,7 @@
   }
   .garage-title { font-size: 17px; font-weight: 900; display: flex; align-items: center; gap: 10px; }
   .garage-body {
-    flex: 1; display: grid; grid-template-columns: 340px 1fr; overflow: hidden;
+    flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr; overflow: hidden;
   }
   .garage-left {
     border-right: 1px solid var(--border); padding: 14px;
@@ -175,7 +179,7 @@
   .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.2s ease; }
 
   .garage-right {
-    display: flex; flex-direction: column; overflow: hidden;
+    display: flex; flex-direction: column; overflow: hidden; min-height: 0;
   }
   .slot-tabs {
     display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border);
@@ -269,7 +273,7 @@
   body.mobile-mode #rightDock { order: 5; }
   body.mobile-mode .dock-body { max-height: 46dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   body.mobile-mode .dock-toggle { display: none !important; }
-  body.mobile-mode button, body.mobile-mode select { min-height: 36px; font-size: 12px; }
+  body.mobile-mode button, body.mobile-mode select, body.mobile-mode a.btn { min-height: 36px; font-size: 12px; }
   body.mobile-mode .stat-pill { padding: 4px 7px; font-size: 11px; }
   body.mobile-mode #garageOverlay { padding: 6px; }
   body.mobile-mode .garage-modal { width: 100%; height: 94dvh; border-radius: 14px; }
@@ -324,7 +328,7 @@
 <!-- Top Command Bar -->
 <div class="topbar">
   <div class="row">
-    <a href="./index.html" style="text-decoration:none;"><button class="sm" title="Back to AI Physics Labs Hub">← Hub</button></a>
+    <a href="./index.html" class="btn sm" title="Back to AI Physics Labs Hub">← Hub</a>
     <div class="brand">
       <span>🐜 AntLab</span>
       <span class="brand-pill">150 BIO-PARTS</span>
@@ -651,11 +655,23 @@
   const P_COLS = Math.ceil(WORLD_W / P_CELL); // 100
   const P_ROWS = Math.ceil(WORLD_H / P_CELL); // 63
   const P_SIZE = P_COLS * P_ROWS;
+  const MIN_ZOOM = 0.25;
+  const MAX_ZOOM = 2.5;
+  const MAX_FOODS = 650;
+  const MAX_OBSTACLES = 180;
+  const MAX_RIVALS = 24;
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  function wrapAngle(a) {
+    a = (a + Math.PI) % (Math.PI * 2);
+    return a < 0 ? a + Math.PI : a - Math.PI;
+  }
 
   // Dual-channel pheromone fields (Food Trail = green/cyan, Home Trail = amber/violet)
   let pheroFood = new Float32Array(P_SIZE);
   let pheroHome = new Float32Array(P_SIZE);
   let pheroTmp = new Float32Array(P_SIZE);
+  let pheroDirty = true;
 
   // Offscreen pheromone canvas for ultra-fast GPU blitting
   const pheroCanvas = document.createElement('canvas');
@@ -680,8 +696,9 @@
     const w = new Float32Array(NN_WEIGHTS);
     for (let i = 0; i < w.length; i++) {
       let v = Math.random() < 0.5 ? parentA[i] : parentB[i];
+      if (!Number.isFinite(v)) v = 0;
       if (Math.random() < rate) v += (Math.random() * 2 - 1) * 0.45;
-      w[i] = v < -3 ? -3 : v > 3 ? 3 : v;
+      w[i] = Number.isFinite(v) ? clamp(v, -3, 3) : 0;
     }
     return w;
   }
@@ -698,7 +715,7 @@
       let s = 0;
       for (let i = 0; i < NN_IN; i++) s += inp[i] * w[idx++];
       s += w[NN_IN * NN_HID + h];
-      _nnHid[h] = Math.tanh(s);
+      _nnHid[h] = Math.tanh(Number.isFinite(s) ? s : 0);
     }
     idx = NN_IN * NN_HID + NN_HID;
     const bOff = idx + NN_HID * NN_OUT;
@@ -706,7 +723,7 @@
       let s = 0;
       for (let h = 0; h < NN_HID; h++) s += _nnHid[h] * w[idx++];
       s += w[bOff + o];
-      _nnOut[o] = Math.tanh(s);
+      _nnOut[o] = Math.tanh(Number.isFinite(s) ? s : 0);
     }
     if (recordChamp) {
       _champIn.set(inp);
@@ -727,14 +744,31 @@
   const fitCtx = fitCanvas.getContext('2d');
   const prevCanvas = document.getElementById('antPreviewCanvas');
   const prevCtx = prevCanvas.getContext('2d');
+  const garageEl = document.getElementById('garageOverlay');
+
+  let viewW = 1, viewH = 1, dpr = 1;
 
   const equipped = { head: 2, thorax: 2, legs: 3, abdomen: 2, gland: 0, antennae: 0 };
   let antStats = {};
 
+  function syncColonyStats() {
+    if (!state || !state.ants) return;
+    for (let i = 0; i < state.ants.length; i++) {
+      const a = state.ants[i];
+      const oldMax = a.maxHp > 0 ? a.maxHp : antStats.hp;
+      const ratio = clamp(a.hp / oldMax, 0, 1);
+      a.maxHp = antStats.hp;
+      a.hp = a.alive ? clamp(ratio * a.maxHp, 1, a.maxHp) : 0;
+    }
+  }
+
   function recomputeAntStats() {
     let spd = 65, carry = 10, atk = 8, hp = 40, phero = 20, sense = 70;
     for (const s of SLOTS) {
-      const p = PART_CATALOG[s.id][equipped[s.id]];
+      const list = PART_CATALOG[s.id];
+      const idx = clamp(equipped[s.id] | 0, 0, list.length - 1);
+      equipped[s.id] = idx;
+      const p = list[idx];
       spd += p.spd; carry += p.carry; atk += p.atk; hp += p.hp; phero += p.phero; sense += p.sense;
     }
     antStats = {
@@ -749,6 +783,7 @@
       legsColor: PART_CATALOG.legs[equipped.legs].color,
       abdomenColor: PART_CATALOG.abdomen[equipped.abdomen].color
     };
+    syncColonyStats();
     updateEquippedSummary();
   }
 
@@ -778,7 +813,8 @@
     kills: 0,
     bestFitness: 0,
     fitnessHistory: [],
-    championIdx: 0
+    championIdx: 0,
+    aiChampIdx: 0
   };
 
   const cam = { x: WORLD_W / 2, y: WORLD_H / 2, zoom: 0.72, targetZoom: 0.72 };
@@ -789,19 +825,64 @@
     keys: new Set(), lastBrushX: -999, lastBrushY: -999
   };
 
+  function isPointBlocked(x, y, pad = 10, avoidNest = false) {
+    if (avoidNest) {
+      const dx = x - state.nest.x, dy = y - state.nest.y;
+      const nr = state.nest.r + pad + 8;
+      if (dx * dx + dy * dy < nr * nr) return true;
+    }
+    for (let i = 0; i < state.obstacles.length; i++) {
+      const ob = state.obstacles[i];
+      const dx = x - ob.x, dy = y - ob.y;
+      const rr = ob.r + pad;
+      if (dx * dx + dy * dy < rr * rr) return true;
+    }
+    return false;
+  }
+
+  function spawnBiomeRivals(name) {
+    if (!state.rivalsEnabled) return;
+    if (name === 'forest') {
+      spawnRival(940, 380, 'beetle');
+      spawnRival(1120, 610, 'spider');
+    } else if (name === 'antfarm') {
+      spawnRival(980, 500, 'beetle');
+      spawnRival(720, 820, 'spider');
+    } else if (name === 'picnic') {
+      for (let i = 0; i < 4; i++) spawnRival(1180, 350 + i * 95, 'fireant');
+    } else if (name === 'canyon') {
+      spawnRival(780, 500, 'spider');
+      spawnRival(1180, 300, 'spider');
+      spawnRival(1180, 700, 'beetle');
+    }
+  }
+
   // =========================================================================
   // BIOME GENERATOR (4 DISTINCT ARENAS)
   // =========================================================================
   function loadBiome(name) {
     state.biome = name;
+    const biomeSel = document.getElementById('biomeSelect');
+    if (biomeSel && biomeSel.value !== name) biomeSel.value = name;
     state.obstacles = [];
     state.foods = [];
     state.rivals = [];
     state.particles = [];
     pheroFood.fill(0);
     pheroHome.fill(0);
-    state.genFoodDelivered = 0;
+    pheroDirty = true;
+    state.gen = 1;
     state.genTime = 0;
+    state.genFoodDelivered = 0;
+    state.totalFoodDelivered = 0;
+    state.kills = 0;
+    state.bestFitness = 0;
+    state.fitnessHistory = [];
+    state.championIdx = 0;
+    state.aiChampIdx = 0;
+    _champIn.fill(0);
+    _champHid.fill(0);
+    _champOut.fill(0);
 
     if (name === 'forest') {
       state.nest = { x: 240, y: WORLD_H / 2, r: 46 };
@@ -817,10 +898,7 @@
       spawnFoodCluster(1240, 790, 28, '#38bdf8');
       spawnFoodCluster(860, 170, 22, '#a3e635');
       spawnFoodCluster(860, 840, 22, '#f472b6');
-      if (state.rivalsEnabled) {
-        spawnRival(940, 380, 'beetle');
-        spawnRival(1120, 610, 'spider');
-      }
+      spawnBiomeRivals('forest');
     } else if (name === 'antfarm') {
       state.nest = { x: 200, y: 200, r: 44 };
       // Winding underground tunnel walls
@@ -830,10 +908,7 @@
       spawnFoodCluster(320, 500, 26, '#34d399');
       spawnFoodCluster(1360, 840, 42, '#38bdf8');
       spawnFoodCluster(860, 500, 24, '#a3e635');
-      if (state.rivalsEnabled) {
-        spawnRival(980, 500, 'beetle');
-        spawnRival(720, 820, 'spider');
-      }
+      spawnBiomeRivals('antfarm');
     } else if (name === 'picnic') {
       state.nest = { x: 220, y: WORLD_H / 2, r: 44 };
       // Picnic plates / cups as obstacles
@@ -845,9 +920,7 @@
       spawnFoodCluster(1320, 780, 40, '#fbbf24'); // Donut
       spawnFoodCluster(1380, 500, 35, '#f8fafc'); // Sugar cubes
       spawnFoodCluster(840, 500, 22, '#34d399');
-      if (state.rivalsEnabled) {
-        for (let i = 0; i < 4; i++) spawnRival(1180, 350 + i * 95, 'fireant');
-      }
+      spawnBiomeRivals('picnic');
     } else if (name === 'canyon') {
       state.nest = { x: 210, y: WORLD_H / 2, r: 44 };
       for (let y = 80; y <= 380; y += 64) state.obstacles.push({ x: 580, y, r: 40, kind: 'rock' });
@@ -856,11 +929,7 @@
       spawnFoodCluster(1360, 200, 38, '#facc15');
       spawnFoodCluster(1360, 800, 38, '#facc15');
       spawnFoodCluster(1360, 500, 32, '#38bdf8');
-      if (state.rivalsEnabled) {
-        spawnRival(780, 500, 'spider');
-        spawnRival(1180, 300, 'spider');
-        spawnRival(1180, 700, 'beetle');
-      }
+      spawnBiomeRivals('canyon');
     }
 
     fitCamera();
@@ -868,12 +937,19 @@
   }
 
   function spawnFoodCluster(cx, cy, count, color = '#34d399') {
-    for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * 54;
+    for (let i = 0; i < count && state.foods.length < MAX_FOODS; i++) {
+      let fx = 0, fy = 0, ok = false;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()) * 54;
+        fx = clamp(cx + Math.cos(a) * r, 30, WORLD_W - 30);
+        fy = clamp(cy + Math.sin(a) * r, 30, WORLD_H - 30);
+        if (!isPointBlocked(fx, fy, 12, true)) { ok = true; break; }
+      }
+      if (!ok) continue;
       state.foods.push({
-        x: clamp(cx + Math.cos(a) * r, 30, WORLD_W - 30),
-        y: clamp(cy + Math.sin(a) * r, 30, WORLD_H - 30),
+        x: fx,
+        y: fy,
         amount: 3,
         color
       });
@@ -881,14 +957,38 @@
   }
 
   function spawnRival(x, y, type = 'spider') {
+    if (state.rivals.length >= MAX_RIVALS) return;
     const isSpider = type === 'spider';
     const isBeetle = type === 'beetle';
+    const rad = isSpider ? 18 : isBeetle ? 15 : 10;
+    let rx = clamp(x, 40, WORLD_W - 40);
+    let ry = clamp(y, 40, WORLD_H - 40);
+    // Keep newly spawned rival outside nest core & obstacles
+    const ndx = rx - state.nest.x, ndy = ry - state.nest.y;
+    const nMin = state.nest.r + rad + 24;
+    const nd2 = ndx * ndx + ndy * ndy;
+    if (nd2 < nMin * nMin) {
+      const ang = nd2 > 1e-6 ? Math.atan2(ndy, ndx) : 0;
+      rx = clamp(state.nest.x + Math.cos(ang) * nMin, 40, WORLD_W - 40);
+      ry = clamp(state.nest.y + Math.sin(ang) * nMin, 40, WORLD_H - 40);
+    }
+    for (let o = 0; o < state.obstacles.length; o++) {
+      const ob = state.obstacles[o];
+      const dx = rx - ob.x, dy = ry - ob.y;
+      const minD = ob.r + rad + 4;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < minD * minD) {
+        const ang = d2 > 1e-6 ? Math.atan2(dy, dx) : Math.random() * Math.PI * 2;
+        rx = clamp(ob.x + Math.cos(ang) * minD, 40, WORLD_W - 40);
+        ry = clamp(ob.y + Math.sin(ang) * minD, 40, WORLD_H - 40);
+      }
+    }
     state.rivals.push({
-      x, y,
+      x: rx, y: ry,
       vx: 0, vy: 0,
       angle: Math.random() * Math.PI * 2,
       type,
-      r: isSpider ? 18 : isBeetle ? 15 : 10,
+      r: rad,
       hp: isSpider ? 240 : isBeetle ? 180 : 65,
       maxHp: isSpider ? 240 : isBeetle ? 180 : 65,
       speed: isSpider ? 78 : isBeetle ? 55 : 95,
@@ -900,13 +1000,13 @@
   // =========================================================================
   // COLONY & NEURO-EVOLUTION
   // =========================================================================
-  function createAnt(brain, idx) {
+  function createAnt(brain, isElite = false) {
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * 24;
     return {
       x: state.nest.x + Math.cos(a) * r,
       y: state.nest.y + Math.sin(a) * r,
-      angle: a,
+      angle: wrapAngle(a),
       speed: 0,
       hp: antStats.hp,
       maxHp: antStats.hp,
@@ -918,36 +1018,60 @@
       deliveries: 0,
       alive: true,
       atkCd: 0,
-      isElite: idx < 8
+      isElite: Boolean(isElite)
     };
   }
 
+  function respawnAlphaAnt(withEffect = false) {
+    if (!state.ants.length) return;
+    const a = state.ants[0];
+    a.x = state.nest.x;
+    a.y = state.nest.y;
+    a.angle = 0;
+    a.speed = 0;
+    a.maxHp = antStats.hp;
+    a.hp = antStats.hp;
+    a.carrying = 0;
+    a.alive = true;
+    a.atkCd = 0;
+    if (withEffect) spawnParticles(state.nest.x, state.nest.y, '#38bdf8', 10, 85, 0.45, 3.2);
+  }
+
+  function safeFitness(ant) {
+    return ant && Number.isFinite(ant.fitness) ? ant.fitness : 0;
+  }
+
   function spawnColony(evolveFromExisting = false) {
+    const elitesCount = Math.max(4, Math.floor(state.popSize * 0.08));
     if (!evolveFromExisting || state.ants.length === 0) {
       state.ants = [];
-      for (let i = 0; i < state.popSize; i++) state.ants.push(createAnt(null, i));
+      for (let i = 0; i < state.popSize; i++) state.ants.push(createAnt(null, i < elitesCount));
       state.championIdx = 0;
+      state.aiChampIdx = state.ants.length > 1 ? 1 : 0;
       return;
     }
 
-    // Sort by fitness descending
-    const sorted = state.ants.slice().sort((a, b) => b.fitness - a.fitness);
-    const best = sorted[0].fitness;
-    const avg = sorted.reduce((s, a) => s + a.fitness, 0) / sorted.length;
-    state.bestFitness = Math.max(state.bestFitness, best);
-    state.fitnessHistory.push({ best, avg });
+    // Sort by sanitized fitness descending (NaN-safe)
+    const sorted = state.ants.slice().sort((a, b) => safeFitness(b) - safeFitness(a));
+    const best = safeFitness(sorted[0]);
+    const avg = sorted.reduce((s, a) => s + safeFitness(a), 0) / Math.max(1, sorted.length);
+    if (Number.isFinite(best)) state.bestFitness = Math.max(state.bestFitness, best);
+    state.fitnessHistory.push({ best: Number.isFinite(best) ? best : 0, avg: Number.isFinite(avg) ? avg : 0 });
     if (state.fitnessHistory.length > 60) state.fitnessHistory.shift();
 
-    const elitesCount = Math.max(4, Math.floor(state.popSize * 0.08));
     const poolSize = Math.max(8, Math.floor(state.popSize * 0.25));
+    const effectivePool = Math.min(poolSize, sorted.length);
     const nextAnts = [];
     for (let i = 0; i < state.popSize; i++) {
       if (i < elitesCount) {
-        nextAnts.push(createAnt(new Float32Array(sorted[i % sorted.length].brain), i));
+        nextAnts.push(createAnt(new Float32Array(sorted[i % sorted.length].brain), true));
       } else {
-        const pA = sorted[(Math.random() * Math.min(poolSize, sorted.length)) | 0].brain;
-        const pB = sorted[(Math.random() * Math.min(poolSize, sorted.length)) | 0].brain;
-        nextAnts.push(createAnt(mutateBrain(pA, pB, state.mutRate), i));
+        const idxA = (Math.random() * effectivePool) | 0;
+        let idxB = (Math.random() * effectivePool) | 0;
+        if (effectivePool > 1 && idxB === idxA) idxB = (idxA + 1 + ((Math.random() * (effectivePool - 1)) | 0)) % effectivePool;
+        const pA = sorted[idxA].brain;
+        const pB = sorted[idxB].brain;
+        nextAnts.push(createAnt(mutateBrain(pA, pB, state.mutRate), false));
       }
     }
     state.ants = nextAnts;
@@ -955,52 +1079,99 @@
     state.genTime = 0;
     state.genFoodDelivered = 0;
     state.championIdx = 0;
+    state.aiChampIdx = state.ants.length > 1 ? 1 : 0;
 
-    // Replenish food if running low
+    // Replenish food in reachable open space if running low
     if (state.foods.length < 40) {
-      spawnFoodCluster(1280, 260 + Math.random() * 480, 30, '#34d399');
+      let fx = 1280, fy = 260 + Math.random() * 480;
+      for (let t = 0; t < 12; t++) {
+        const tx = 700 + Math.random() * 760;
+        const ty = 120 + Math.random() * (WORLD_H - 240);
+        if (!isPointBlocked(tx, ty, 52, true)) { fx = tx; fy = ty; break; }
+      }
+      spawnFoodCluster(fx, fy, 30, '#34d399');
+    }
+    // Replenish biome predators if all were defeated and predators are enabled
+    if (state.rivalsEnabled && state.rivals.length === 0) {
+      spawnBiomeRivals(state.biome);
     }
     // Soft fade pheromones slightly on new generation
     for (let i = 0; i < P_SIZE; i++) { pheroFood[i] *= 0.4; pheroHome[i] *= 0.4; }
+    pheroDirty = true;
+  }
+
+  function resizePopulation(newPop) {
+    state.popSize = newPop;
+    if (state.ants.length === 0) {
+      spawnColony(false);
+      return;
+    }
+    const elitesCount = Math.max(4, Math.floor(newPop * 0.08));
+    if (newPop > state.ants.length) {
+      const sorted = state.ants.slice().sort((a, b) => safeFitness(b) - safeFitness(a));
+      const pool = Math.min(Math.max(8, Math.floor(sorted.length * 0.25)), sorted.length);
+      while (state.ants.length < newPop) {
+        const idxA = (Math.random() * pool) | 0;
+        let idxB = (Math.random() * pool) | 0;
+        if (pool > 1 && idxB === idxA) idxB = (idxA + 1) % pool;
+        state.ants.push(createAnt(mutateBrain(sorted[idxA].brain, sorted[idxB].brain, state.mutRate), false));
+      }
+    } else if (newPop < state.ants.length) {
+      const alpha = state.ants[0];
+      const rest = state.ants.slice(1).sort((a, b) => safeFitness(b) - safeFitness(a));
+      state.ants = [alpha, ...rest.slice(0, Math.max(0, newPop - 1))];
+    }
+    for (let i = 0; i < state.ants.length; i++) state.ants[i].isElite = i < elitesCount;
+    state.championIdx = clamp(state.championIdx, 0, state.ants.length - 1);
+    state.aiChampIdx = state.ants.length > 1 ? clamp(state.aiChampIdx, 1, state.ants.length - 1) : 0;
   }
 
   // =========================================================================
   // PHEROMONE SAMPLING & DIFFUSION
   // =========================================================================
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-
   function samplePhero(arr, x, y) {
-    const cx = clamp((x / P_CELL) | 0, 0, P_COLS - 1);
-    const cy = clamp((y / P_CELL) | 0, 0, P_ROWS - 1);
+    if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
+    const cx = clamp(Math.floor(x / P_CELL), 0, P_COLS - 1);
+    const cy = clamp(Math.floor(y / P_CELL), 0, P_ROWS - 1);
     return arr[cy * P_COLS + cx];
   }
 
   function depositPhero(arr, x, y, val) {
-    const cx = clamp((x / P_CELL) | 0, 0, P_COLS - 1);
-    const cy = clamp((y / P_CELL) | 0, 0, P_ROWS - 1);
+    if (!Number.isFinite(val) || val <= 0 || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return;
+    const cx = clamp(Math.floor(x / P_CELL), 0, P_COLS - 1);
+    const cy = clamp(Math.floor(y / P_CELL), 0, P_ROWS - 1);
     const idx = cy * P_COLS + cx;
-    const nv = arr[idx] + val;
+    const cur = Number.isFinite(arr[idx]) ? arr[idx] : 0;
+    const nv = cur + val;
     arr[idx] = nv > 1 ? 1 : nv;
+    pheroDirty = true;
   }
 
   function stepPheromones(dt) {
-    const decay = Math.max(0.82, 1 - 0.16 * state.evapRate * dt);
-    const diff = 0.08 * dt * 10;
-    // Fast 4-neighbor diffusion + decay
+    if (dt <= 0) return;
+    const decay = Math.exp(-0.16 * state.evapRate * dt);
+    const diff = clamp(0.8 * dt, 0, 0.45);
+    // Fast 4-neighbor diffusion + frame-rate-independent decay including boundary cells
     for (let ch = 0; ch < 2; ch++) {
       const src = ch === 0 ? pheroFood : pheroHome;
-      for (let y = 1; y < P_ROWS - 1; y++) {
+      for (let y = 0; y < P_ROWS; y++) {
         const row = y * P_COLS;
-        for (let x = 1; x < P_COLS - 1; x++) {
+        const rowUp = (y > 0 ? y - 1 : 0) * P_COLS;
+        const rowDn = (y < P_ROWS - 1 ? y + 1 : P_ROWS - 1) * P_COLS;
+        for (let x = 0; x < P_COLS; x++) {
           const i = row + x;
-          const v = src[i];
-          const avg = (src[i - 1] + src[i + 1] + src[i - P_COLS] + src[i + P_COLS]) * 0.25;
+          const xl = x > 0 ? x - 1 : 0;
+          const xr = x < P_COLS - 1 ? x + 1 : P_COLS - 1;
+          const v = Number.isFinite(src[i]) ? src[i] : 0;
+          const avg = (src[row + xl] + src[row + xr] + src[rowUp + x] + src[rowDn + x]) * 0.25;
           const nv = (v + (avg - v) * diff) * decay;
-          pheroTmp[i] = nv < 0.002 ? 0 : nv;
+          pheroTmp[i] = (!Number.isFinite(nv) || nv < 0.002) ? 0 : (nv > 1 ? 1 : nv);
         }
       }
       src.set(pheroTmp);
     }
+    pheroDirty = true;
   }
 
   // =========================================================================
@@ -1009,38 +1180,49 @@
   const _inp = new Float32Array(NN_IN);
 
   function stepSim(dt) {
-    state.genTime += dt;
-    if (state.genTime >= state.genDuration && !state.manualMode) {
-      spawnColony(true);
+    if (!state.manualMode) {
+      state.genTime += dt;
+      if (state.genTime >= state.genDuration) {
+        spawnColony(true);
+      }
+    } else if (state.ants[0] && !state.ants[0].alive) {
+      respawnAlphaAnt(true);
     }
 
     stepPheromones(dt);
 
     const nestX = state.nest.x, nestY = state.nest.y, nestR2 = (state.nest.r + 8) ** 2;
-    const feelDist = clamp(antStats.sense * 0.45, 24, 72);
+    const feelDist = clamp(antStats.sense * 0.48, 24, 115);
     const maxSpeed = antStats.spd;
     const pheroStrength = (antStats.phero / 90) * dt * 1.4;
     const carryMult = Math.max(1, Math.round(antStats.carry / 18));
+    const garageOpen = garageEl.classList.contains('open');
 
-    let bestFit = -1, bestIdx = 0;
+    let bestFit = -Infinity, bestIdx = -1;
+    let bestAiFit = -Infinity, bestAiIdx = -1;
+    let aliveCount = 0;
 
     // 1. Update Ants
     for (let i = 0; i < state.ants.length; i++) {
       const a = state.ants[i];
       if (!a.alive) continue;
+      aliveCount++;
       if (a.atkCd > 0) a.atkCd -= dt;
 
-      if (state.manualMode && i === 0) {
-        // Direct WASD Control for Alpha Scout Ant
+      const isManualAlpha = state.manualMode && i === 0;
+      if (isManualAlpha) {
+        // Direct WASD Control for Alpha Scout Ant (paused while Bio-Garage modal is open)
         let turn = 0, fwd = 0;
-        if (input.keys.has('KeyA') || input.keys.has('ArrowLeft')) turn -= 1;
-        if (input.keys.has('KeyD') || input.keys.has('ArrowRight')) turn += 1;
-        if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) fwd += 1;
-        if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) fwd -= 0.5;
-        const boost = input.keys.has('ShiftLeft') || input.keys.has('ShiftRight') ? 1.55 : 1.0;
-        a.angle += turn * 4.2 * dt;
+        if (!garageOpen) {
+          if (input.keys.has('KeyA') || input.keys.has('ArrowLeft')) turn -= 1;
+          if (input.keys.has('KeyD') || input.keys.has('ArrowRight')) turn += 1;
+          if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) fwd += 1;
+          if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) fwd -= 0.5;
+        }
+        const boost = !garageOpen && (input.keys.has('ShiftLeft') || input.keys.has('ShiftRight')) ? 1.55 : 1.0;
+        a.angle = wrapAngle(a.angle + turn * 4.2 * dt);
         a.speed = fwd * maxSpeed * 1.25 * boost;
-        const pheroMult = input.keys.has('Space') ? 6.0 : 2.5;
+        const pheroMult = !garageOpen && input.keys.has('Space') ? 6.0 : 2.5;
         depositPhero(a.carrying > 0 ? pheroFood : pheroHome, a.x, a.y, pheroStrength * pheroMult);
       } else {
         // Neural Network Sensor Suite
@@ -1060,28 +1242,42 @@
         const nestSin = Math.sin(toNestA);
         const nestCos = Math.cos(toNestA);
 
-        // Obstacle feeler ahead
+        // Obstacle feeler ray (checks 40%, 70%, 100% along feeler so thin walls aren't missed)
         let obsAhead = 0;
         if (cx < 20 || cx > WORLD_W - 20 || cy < 20 || cy > WORLD_H - 20) obsAhead = 1;
         else {
+          const m1x = a.x + cosA * feelDist * 0.4, m1y = a.y + sinA * feelDist * 0.4;
+          const m2x = a.x + cosA * feelDist * 0.7, m2y = a.y + sinA * feelDist * 0.7;
           for (let o = 0; o < state.obstacles.length; o++) {
             const ob = state.obstacles[o];
-            const dx = cx - ob.x, dy = cy - ob.y;
-            if (dx * dx + dy * dy < (ob.r + 12) * (ob.r + 12)) { obsAhead = 1; break; }
+            const rr = (ob.r + 12) * (ob.r + 12);
+            const dx0 = cx - ob.x, dy0 = cy - ob.y;
+            const dx1 = m1x - ob.x, dy1 = m1y - ob.y;
+            const dx2 = m2x - ob.x, dy2 = m2y - ob.y;
+            if (dx0 * dx0 + dy0 * dy0 < rr || dx1 * dx1 + dy1 * dy1 < rr || dx2 * dx2 + dy2 * dy2 < rr) {
+              obsAhead = 1;
+              break;
+            }
           }
         }
 
-        // Nearest visible food or rival hint
+        // Nearest visible food hint (with rear-facing sign preservation)
         let foodDir = 0;
         if (a.carrying === 0) {
-          const senseR2 = antStats.sense * antStats.sense;
+          let bestFoodD2 = antStats.sense * antStats.sense;
+          let nearFd = null;
           for (let f = 0; f < state.foods.length; f++) {
             const fd = state.foods[f];
             const dx = fd.x - a.x, dy = fd.y - a.y;
-            if (dx * dx + dy * dy < senseR2) {
-              foodDir = Math.sin(Math.atan2(dy, dx) - a.angle);
-              break;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestFoodD2) {
+              bestFoodD2 = d2;
+              nearFd = fd;
             }
+          }
+          if (nearFd) {
+            const rel = wrapAngle(Math.atan2(nearFd.y - a.y, nearFd.x - a.x) - a.angle);
+            foodDir = Math.abs(rel) > Math.PI * 0.5 ? (rel >= 0 ? 1 : -1) : Math.sin(rel);
           }
         }
 
@@ -1094,10 +1290,12 @@
         _inp[6] = obsAhead;
         _inp[7] = foodDir;
 
-        const out = forwardBrain(a.brain, _inp, i === state.championIdx);
-        // Bio-hybrid steering: neural torque + slight pheromone chemotaxis assist
-        const chemoBias = (pR - pL) * 1.35 + (a.carrying > 0 ? nestSin * 0.75 : foodDir * 1.15);
-        a.angle += (out[0] * 3.8 + chemoBias) * dt;
+        const recordThis = state.manualMode ? (i === state.aiChampIdx) : (i === state.championIdx);
+        const out = forwardBrain(a.brain, _inp, recordThis);
+        // Bio-hybrid steering: neural torque + out[3]-modulated chemotaxis gain
+        const chemoGain = 0.65 + 0.7 * ((out[3] + 1) * 0.5);
+        const chemoBias = ((pR - pL) * 1.35 + (a.carrying > 0 ? nestSin * 0.75 : foodDir * 1.15)) * chemoGain;
+        a.angle = wrapAngle(a.angle + (out[0] * 3.8 + chemoBias) * dt);
         const throttle = 0.45 + 0.55 * ((out[1] + 1) * 0.5);
         a.speed = maxSpeed * throttle;
 
@@ -1112,25 +1310,45 @@
       a.x += Math.cos(a.angle) * a.speed * dt;
       a.y += Math.sin(a.angle) * a.speed * dt;
 
-      // World boundaries
-      if (a.x < 12) { a.x = 12; a.angle = Math.PI - a.angle; }
-      else if (a.x > WORLD_W - 12) { a.x = WORLD_W - 12; a.angle = Math.PI - a.angle; }
-      if (a.y < 12) { a.y = 12; a.angle = -a.angle; }
-      else if (a.y > WORLD_H - 12) { a.y = WORLD_H - 12; a.angle = -a.angle; }
+      // World boundaries (manual Alpha Ant clamps smoothly without angle mirror flip)
+      if (a.x < 12) { a.x = 12; if (!isManualAlpha) a.angle = wrapAngle(Math.PI - a.angle); }
+      else if (a.x > WORLD_W - 12) { a.x = WORLD_W - 12; if (!isManualAlpha) a.angle = wrapAngle(Math.PI - a.angle); }
+      if (a.y < 12) { a.y = 12; if (!isManualAlpha) a.angle = wrapAngle(-a.angle); }
+      else if (a.y > WORLD_H - 12) { a.y = WORLD_H - 12; if (!isManualAlpha) a.angle = wrapAngle(-a.angle); }
 
-      // Obstacle collisions
-      for (let o = 0; o < state.obstacles.length; o++) {
-        const ob = state.obstacles[o];
-        const dx = a.x - ob.x, dy = a.y - ob.y;
-        const minD = ob.r + 5;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < minD * minD && d2 > 0.01) {
-          const d = Math.sqrt(d2);
-          a.x = ob.x + (dx / d) * minD;
-          a.y = ob.y + (dy / d) * minD;
-          a.angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.9;
+      // Obstacle collisions (2-pass depenetration prevents tunneling through overlapping walls)
+      let hitObs = false;
+      for (let pass = 0; pass < 2; pass++) {
+        let moved = false;
+        for (let o = 0; o < state.obstacles.length; o++) {
+          const ob = state.obstacles[o];
+          const dx = a.x - ob.x, dy = a.y - ob.y;
+          const minD = ob.r + 5;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < minD * minD) {
+            let nx, ny;
+            if (d2 > 1e-6) {
+              const invD = 1 / Math.sqrt(d2);
+              nx = dx * invD;
+              ny = dy * invD;
+            } else {
+              nx = Math.cos(a.angle);
+              ny = Math.sin(a.angle);
+            }
+            a.x = ob.x + nx * minD;
+            a.y = ob.y + ny * minD;
+            if (!isManualAlpha && !hitObs) {
+              a.angle = wrapAngle(Math.atan2(ny, nx) + (Math.random() - 0.5) * 0.9);
+            }
+            hitObs = true;
+            moved = true;
+          }
         }
+        if (!moved) break;
       }
+      // Re-clamp inside arena after obstacle depenetration
+      a.x = clamp(a.x, 12, WORLD_W - 12);
+      a.y = clamp(a.y, 12, WORLD_H - 12);
 
       // Exploration fitness
       const distNest = Math.hypot(a.x - nestX, a.y - nestY);
@@ -1148,7 +1366,7 @@
             a.carrying = carryMult;
             a.carryColor = fd.color;
             a.fitness += 35;
-            a.angle += Math.PI; // Turn back toward nest
+            if (!isManualAlpha) a.angle = wrapAngle(a.angle + Math.PI); // Turn back toward nest
             fd.amount--;
             if (fd.amount <= 0) state.foods.splice(f, 1);
             depositPhero(pheroFood, a.x, a.y, 0.9);
@@ -1164,58 +1382,126 @@
           a.deliveries += a.carrying;
           a.fitness += 120 * a.carrying;
           a.carrying = 0;
-          a.angle += Math.PI;
+          if (!isManualAlpha) a.angle = wrapAngle(a.angle + Math.PI);
           if (state.simSpeed <= 5) {
             spawnParticles(nestX, nestY, '#34d399', 4, 70, 0.4, 3);
           }
         }
       }
 
-      if (a.fitness > bestFit) { bestFit = a.fitness; bestIdx = i; }
+      const fit = safeFitness(a);
+      if (fit > bestFit) { bestFit = fit; bestIdx = i; }
+      if (i > 0 && fit > bestAiFit) { bestAiFit = fit; bestAiIdx = i; }
     }
-    state.championIdx = bestIdx;
+    if (bestIdx >= 0) state.championIdx = bestIdx;
+    if (bestAiIdx >= 0) state.aiChampIdx = bestAiIdx;
+    else if (bestIdx >= 0) state.aiChampIdx = bestIdx;
+
+    if (aliveCount === 0 && !state.manualMode) {
+      spawnColony(true);
+      return;
+    }
 
     // 2. Update Rivals & Predators
     if (state.rivalsEnabled) {
+      const nSafe = state.nest.r + 6;
       for (let r = state.rivals.length - 1; r >= 0; r--) {
         const rv = state.rivals[r];
         if (rv.cd > 0) rv.cd -= dt;
-        // Hunt nearest ant within 220px
+        // Hunt nearest ant within 220px (full swarm scan with fast AABB rejection)
         let target = null, bestD2 = 220 * 220;
-        for (let i = 0; i < state.ants.length; i += Math.max(1, (state.ants.length / 180) | 0)) {
+        const meleeR = rv.r + 12;
+        const meleeR2 = meleeR * meleeR;
+        for (let i = 0; i < state.ants.length; i++) {
           const a = state.ants[i];
           if (!a.alive) continue;
-          const d2 = (a.x - rv.x) ** 2 + (a.y - rv.y) ** 2;
+          const dx = a.x - rv.x;
+          if (dx > 220 || dx < -220) continue;
+          const dy = a.y - rv.y;
+          if (dy > 220 || dy < -220) continue;
+          const d2 = dx * dx + dy * dy;
           if (d2 < bestD2) { bestD2 = d2; target = a; }
         }
         if (target) {
-          rv.angle = Math.atan2(target.y - rv.y, target.x - rv.x);
-          rv.x += Math.cos(rv.angle) * rv.speed * dt;
-          rv.y += Math.sin(rv.angle) * rv.speed * dt;
-          if (bestD2 < (rv.r + 12) ** 2) {
-            // Ant swarm fights back!
-            if (target.atkCd <= 0) {
-              rv.hp -= antStats.atk;
-              target.atkCd = 0.5;
-              target.fitness += 18;
-            }
-            if (rv.cd <= 0) {
-              target.hp -= rv.dmg;
-              rv.cd = 0.65;
-              if (target.hp <= 0) target.alive = false;
-            }
+          const dx = target.x - rv.x, dy = target.y - rv.y;
+          const dist = Math.sqrt(bestD2);
+          rv.angle = Math.atan2(dy, dx);
+          const stopDist = rv.r + 4;
+          if (dist > stopDist) {
+            const step = Math.min(rv.speed * dt, dist - stopDist);
+            rv.x += Math.cos(rv.angle) * step;
+            rv.y += Math.sin(rv.angle) * step;
           }
         } else {
-          rv.angle += (Math.random() - 0.5) * 1.8 * dt;
-          rv.x = clamp(rv.x + Math.cos(rv.angle) * rv.speed * 0.4 * dt, 40, WORLD_W - 40);
-          rv.y = clamp(rv.y + Math.sin(rv.angle) * rv.speed * 0.4 * dt, 40, WORLD_H - 40);
+          rv.angle = wrapAngle(rv.angle + (Math.random() - 0.5) * 1.8 * dt);
+          rv.x += Math.cos(rv.angle) * rv.speed * 0.4 * dt;
+          rv.y += Math.sin(rv.angle) * rv.speed * 0.4 * dt;
+        }
+
+        // Keep rivals outside solid obstacles & Queen Nest inner sanctuary
+        for (let o = 0; o < state.obstacles.length; o++) {
+          const ob = state.obstacles[o];
+          const dx = rv.x - ob.x, dy = rv.y - ob.y;
+          const minD = ob.r + rv.r;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < minD * minD) {
+            const invD = d2 > 1e-6 ? 1 / Math.sqrt(d2) : 1;
+            const nx = d2 > 1e-6 ? dx * invD : Math.cos(rv.angle);
+            const ny = d2 > 1e-6 ? dy * invD : Math.sin(rv.angle);
+            rv.x = ob.x + nx * minD;
+            rv.y = ob.y + ny * minD;
+          }
+        }
+        const ndx = rv.x - nestX, ndy = rv.y - nestY;
+        const nMin = nSafe + rv.r;
+        const nd2 = ndx * ndx + ndy * ndy;
+        if (nd2 < nMin * nMin) {
+          const ang = nd2 > 1e-6 ? Math.atan2(ndy, ndx) : 0;
+          rv.x = nestX + Math.cos(ang) * nMin;
+          rv.y = nestY + Math.sin(ang) * nMin;
+        }
+        rv.x = clamp(rv.x, 30, WORLD_W - 30);
+        rv.y = clamp(rv.y, 30, WORLD_H - 30);
+
+        // Swarm melee combat: all ants within melee range can fight back!
+        let meleeVictim = null, meleeVictimD2 = meleeR2;
+        for (let i = 0; i < state.ants.length; i++) {
+          const a = state.ants[i];
+          if (!a.alive) continue;
+          const dx = a.x - rv.x;
+          if (dx > meleeR || dx < -meleeR) continue;
+          const dy = a.y - rv.y;
+          if (dy > meleeR || dy < -meleeR) continue;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < meleeR2) {
+            if (a.atkCd <= 0) {
+              rv.hp -= antStats.atk;
+              a.atkCd = 0.5;
+              a.fitness += 18;
+            }
+            if (d2 < meleeVictimD2) { meleeVictimD2 = d2; meleeVictim = a; }
+          }
+        }
+        if (meleeVictim && rv.cd <= 0 && rv.hp > 0) {
+          meleeVictim.hp -= rv.dmg;
+          rv.cd = 0.65;
+          if (meleeVictim.hp <= 0) {
+            meleeVictim.hp = 0;
+            meleeVictim.carrying = 0;
+            meleeVictim.alive = false;
+            if (state.manualMode && meleeVictim === state.ants[0]) {
+              respawnAlphaAnt(true);
+            }
+          }
         }
 
         if (rv.hp <= 0) {
           state.kills++;
           // Defeated predator drops rich food crumbs!
           spawnFoodCluster(rv.x, rv.y, 8, '#f43f5e');
-          spawnParticles(rv.x, rv.y, '#f43f5e', 14, 110, 0.5, 4);
+          if (state.simSpeed <= 5) {
+            spawnParticles(rv.x, rv.y, '#f43f5e', 14, 110, 0.5, 4);
+          }
           state.rivals.splice(r, 1);
         }
       }
@@ -1242,37 +1528,111 @@
   // =========================================================================
   // RENDERING
   // =========================================================================
+  function clampCamera() {
+    cam.x = clamp(cam.x, -200, WORLD_W + 200);
+    cam.y = clamp(cam.y, -200, WORLD_H + 200);
+    cam.zoom = clamp(cam.zoom, MIN_ZOOM, MAX_ZOOM);
+    cam.targetZoom = clamp(cam.targetZoom, MIN_ZOOM, MAX_ZOOM);
+  }
+
+  function syncSubCanvas(cvs, c2d, fallbackW, fallbackH) {
+    const r = cvs.getBoundingClientRect();
+    const cw = Math.max(1, Math.round(r.width || fallbackW));
+    const ch = Math.max(1, Math.round(r.height || fallbackH));
+    const sdpr = Math.min(window.devicePixelRatio || 1, 2);
+    const bw = Math.max(1, Math.round(cw * sdpr));
+    const bh = Math.max(1, Math.round(ch * sdpr));
+    if (cvs.width !== bw || cvs.height !== bh) {
+      cvs.width = bw;
+      cvs.height = bh;
+    }
+    c2d.setTransform(sdpr, 0, 0, sdpr, 0, 0);
+    return { w: cw, h: ch };
+  }
+
   function fitCamera() {
     cam.x = WORLD_W / 2;
     cam.y = WORLD_H / 2;
     const isMob = document.body.classList.contains('mobile-mode');
     const padX = isMob ? 24 : 560;
     const padY = isMob ? 24 : 90;
-    const zx = Math.max(120, canvas.width - padX) / WORLD_W;
-    const zy = Math.max(120, canvas.height - padY) / WORLD_H;
-    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.08, 0.28, 1.15);
+    const zx = Math.max(120, viewW - padX) / WORLD_W;
+    const zy = Math.max(120, viewH - padY) / WORLD_H;
+    cam.zoom = cam.targetZoom = clamp(Math.min(zx, zy) * 1.08, MIN_ZOOM, 1.15);
   }
 
   function screenToWorld(sx, sy) {
     const r = canvas.getBoundingClientRect();
+    const rw = Math.max(1, r.width || viewW);
+    const rh = Math.max(1, r.height || viewH);
+    const lx = ((sx - r.left) / rw) * viewW;
+    const ly = ((sy - r.top) / rh) * viewH;
     return {
-      x: ((sx - r.left) - canvas.width / 2) / cam.zoom + cam.x,
-      y: ((sy - r.top) - canvas.height / 2) / cam.zoom + cam.y
+      x: (lx - viewW * 0.5) / cam.zoom + cam.x,
+      y: (ly - viewH * 0.5) / cam.zoom + cam.y
     };
   }
 
-  function renderWorld() {
-    ctx.fillStyle = '#070b14';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function drawSingleAnt(a, detailed, isChamp) {
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    ctx.rotate(a.angle);
 
-    cam.zoom += (cam.targetZoom - cam.zoom) * 0.22;
-    if (state.manualMode && state.ants[0] && state.ants[0].alive) {
-      cam.x += (state.ants[0].x - cam.x) * 0.14;
-      cam.y += (state.ants[0].y - cam.y) * 0.14;
+    if (isChamp) {
+      ctx.strokeStyle = state.manualMode ? '#38bdf8' : '#facc15';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
+      if (state.showFeelers) {
+        const fd = clamp(antStats.sense * 0.48, 24, 115);
+        ctx.strokeStyle = 'rgba(56,189,248,0.45)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(4, 0); ctx.lineTo(Math.cos(-0.55) * fd, Math.sin(-0.55) * fd);
+        ctx.moveTo(4, 0); ctx.lineTo(fd, 0);
+        ctx.moveTo(4, 0); ctx.lineTo(Math.cos(0.55) * fd, Math.sin(0.55) * fd);
+        ctx.stroke();
+      }
     }
 
+    if (detailed || isChamp) {
+      // Abdomen
+      ctx.fillStyle = antStats.abdomenColor;
+      ctx.beginPath(); ctx.ellipse(-5.5, 0, 4.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      // Thorax
+      ctx.fillStyle = antStats.thoraxColor;
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.0, 2.1, 0, 0, Math.PI * 2); ctx.fill();
+      // Head
+      ctx.fillStyle = antStats.headColor;
+      ctx.beginPath(); ctx.arc(4.5, 0, 2.4, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = a.carrying > 0 ? '#34d399' : antStats.thoraxColor;
+      ctx.fillRect(-5, -2, 10, 4);
+    }
+
+    // Carried Food Crumb
+    if (a.carrying > 0) {
+      ctx.fillStyle = a.carryColor;
+      ctx.beginPath(); ctx.arc(8, 0, 3.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function renderWorld(frameDt = 1 / 60) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#070b14';
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    const zoomAlpha = 1 - Math.exp(-14 * frameDt);
+    cam.zoom += (cam.targetZoom - cam.zoom) * zoomAlpha;
+    if (state.manualMode && !input.panning && state.ants[0] && state.ants[0].alive) {
+      const followAlpha = 1 - Math.exp(-9 * frameDt);
+      cam.x += (state.ants[0].x - cam.x) * followAlpha;
+      cam.y += (state.ants[0].y - cam.y) * followAlpha;
+    }
+    clampCamera();
+
     ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.translate(viewW * 0.5, viewH * 0.5);
     ctx.scale(cam.zoom, cam.zoom);
     ctx.translate(-cam.x, -cam.y);
 
@@ -1294,40 +1654,53 @@
     for (let y = 0; y <= WORLD_H; y += 64) { ctx.moveTo(0, y); ctx.lineTo(WORLD_W, y); }
     ctx.stroke();
 
-    // 2. Pheromone Trails Overlay (blitted smoothly from offscreen ImageData)
+    // 2. Pheromone Trails Overlay (exact 16px cell alignment + unpremultiplied luminous hue)
     if (state.showPhero) {
-      const data = pheroImg.data;
-      for (let i = 0; i < P_SIZE; i++) {
-        const pf = pheroFood[i];
-        const ph = pheroHome[i];
-        const off = i * 4;
-        if (pf > 0.01 || ph > 0.01) {
-          data[off]     = Math.min(255, (ph * 245 + pf * 20) | 0);
-          data[off + 1] = Math.min(255, (pf * 235 + ph * 145) | 0);
-          data[off + 2] = Math.min(255, (pf * 165 + ph * 40) | 0);
-          data[off + 3] = Math.min(210, ((pf + ph) * 200) | 0);
-        } else {
-          data[off + 3] = 0;
+      if (pheroDirty) {
+        const data = pheroImg.data;
+        for (let i = 0; i < P_SIZE; i++) {
+          const pf = pheroFood[i];
+          const ph = pheroHome[i];
+          const sum = pf + ph;
+          const off = i * 4;
+          if (sum > 0.01) {
+            const inv = 1 / sum;
+            const wf = pf * inv;
+            const wh = ph * inv;
+            data[off]     = Math.min(255, (wh * 245 + wf * 24) | 0);
+            data[off + 1] = Math.min(255, (wf * 238 + wh * 158) | 0);
+            data[off + 2] = Math.min(255, (wf * 172 + wh * 42) | 0);
+            data[off + 3] = Math.min(215, (sum * 210) | 0);
+          } else {
+            data[off] = 0;
+            data[off + 1] = 0;
+            data[off + 2] = 0;
+            data[off + 3] = 0;
+          }
         }
+        pheroCtx.putImageData(pheroImg, 0, 0);
+        pheroDirty = false;
       }
-      pheroCtx.putImageData(pheroImg, 0, 0);
       ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, WORLD_W, WORLD_H);
+      ctx.clip();
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(pheroCanvas, 0, 0, WORLD_W, WORLD_H);
+      ctx.drawImage(pheroCanvas, 0, 0, P_COLS * P_CELL, P_ROWS * P_CELL);
       ctx.restore();
     }
 
     // 3. Queen's Nest
     const n = state.nest;
-    const ng = ctx.createRadialGradient(n.x, n.y, 8, n.x, n.y, n.r + 20);
+    const ng = ctx.createRadialGradient(n.x, n.y, 8, n.x, n.y, Math.max(12, n.r + 20));
     ng.addColorStop(0, 'rgba(245,158,11,0.55)');
     ng.addColorStop(0.65, 'rgba(217,119,6,0.25)');
     ng.addColorStop(1, 'rgba(245,158,11,0)');
     ctx.fillStyle = ng;
-    ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 20, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(n.x, n.y, Math.max(12, n.r + 20), 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#fbbf24';
     ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(n.x, n.y, Math.max(4, n.r), 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#fef3c7';
     ctx.font = '800 12px Inter, sans-serif';
     ctx.textAlign = 'center';
@@ -1337,7 +1710,7 @@
     for (let i = 0; i < state.obstacles.length; i++) {
       const ob = state.obstacles[i];
       ctx.fillStyle = ob.kind === 'plate' ? '#334155' : ob.kind === 'dirt' ? '#451a03' : '#1e293b';
-      ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ob.x, ob.y, Math.max(4, ob.r), 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = ob.kind === 'plate' ? '#94a3b8' : ob.kind === 'dirt' ? '#92400e' : '#475569';
       ctx.lineWidth = 2.5;
       ctx.stroke();
@@ -1346,9 +1719,10 @@
     // 5. Food Crumbs
     for (let i = 0; i < state.foods.length; i++) {
       const f = state.foods[i];
+      const rad = Math.max(1.5, 3.2 + Math.max(0, f.amount) * 1.1);
       ctx.fillStyle = f.color;
       ctx.beginPath();
-      ctx.arc(f.x, f.y, 3.2 + f.amount * 1.1, 0, Math.PI * 2);
+      ctx.arc(f.x, f.y, rad, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -1368,12 +1742,12 @@
       }
       ctx.fillStyle = rv.type === 'spider' ? '#9f1239' : rv.type === 'beetle' ? '#7e22ce' : '#dc2626';
       ctx.beginPath();
-      ctx.ellipse(0, 0, rv.r, rv.r * 0.78, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, Math.max(2, rv.r), Math.max(2, rv.r * 0.78), 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#fecdd3'; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.restore();
       // HP bar
-      if (rv.hp < rv.maxHp) {
+      if (rv.maxHp > 0 && rv.hp < rv.maxHp) {
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(rv.x - 16, rv.y - rv.r - 8, 32, 4);
         ctx.fillStyle = '#f43f5e';
@@ -1381,62 +1755,27 @@
       }
     }
 
-    // 7. Ants (crisp 3-segment bio-silhouettes, batched for 1,000-ant speed)
+    // 7. Ants (crisp 3-segment bio-silhouettes, Champion/Alpha rendered on top)
     const detailed = state.ants.length <= 500 || cam.zoom >= 0.85;
+    const highlightIdx = state.manualMode ? 0 : state.championIdx;
     for (let i = 0; i < state.ants.length; i++) {
+      if (i === highlightIdx) continue;
       const a = state.ants[i];
       if (!a.alive) continue;
-      const isChamp = (i === state.championIdx && !state.manualMode) || (state.manualMode && i === 0);
-
-      ctx.save();
-      ctx.translate(a.x, a.y);
-      ctx.rotate(a.angle);
-
-      if (isChamp) {
-        ctx.strokeStyle = state.manualMode ? '#38bdf8' : '#facc15';
-        ctx.lineWidth = 1.8;
-        ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
-        if (state.showFeelers) {
-          const fd = clamp(antStats.sense * 0.45, 24, 72);
-          ctx.strokeStyle = 'rgba(56,189,248,0.45)';
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.moveTo(4, 0); ctx.lineTo(Math.cos(-0.55) * fd, Math.sin(-0.55) * fd);
-          ctx.moveTo(4, 0); ctx.lineTo(fd, 0);
-          ctx.moveTo(4, 0); ctx.lineTo(Math.cos(0.55) * fd, Math.sin(0.55) * fd);
-          ctx.stroke();
-        }
-      }
-
-      if (detailed) {
-        // Abdomen
-        ctx.fillStyle = antStats.abdomenColor;
-        ctx.beginPath(); ctx.ellipse(-5.5, 0, 4.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
-        // Thorax
-        ctx.fillStyle = antStats.thoraxColor;
-        ctx.beginPath(); ctx.ellipse(0, 0, 3.0, 2.1, 0, 0, Math.PI * 2); ctx.fill();
-        // Head
-        ctx.fillStyle = antStats.headColor;
-        ctx.beginPath(); ctx.arc(4.5, 0, 2.4, 0, Math.PI * 2); ctx.fill();
-      } else {
-        ctx.fillStyle = a.carrying > 0 ? '#34d399' : antStats.thoraxColor;
-        ctx.fillRect(-5, -2, 10, 4);
-      }
-
-      // Carried Food Crumb
-      if (a.carrying > 0) {
-        ctx.fillStyle = a.carryColor;
-        ctx.beginPath(); ctx.arc(8, 0, 3.2, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.restore();
+      drawSingleAnt(a, detailed, false);
+    }
+    if (highlightIdx >= 0 && highlightIdx < state.ants.length && state.ants[highlightIdx].alive) {
+      drawSingleAnt(state.ants[highlightIdx], detailed, true);
     }
 
     // 8. Particles
     for (let i = 0; i < state.particles.length; i++) {
       const p = state.particles[i];
-      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      const maxL = p.maxLife > 0 ? p.maxLife : 1;
+      const sz = Math.max(0.5, p.size || 1);
+      ctx.globalAlpha = clamp(p.life / maxL, 0, 1);
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, sz, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
 
@@ -1449,31 +1788,41 @@
   }
 
   function renderBrain() {
-    const w = brainCanvas.width, h = brainCanvas.height;
+    const { w, h } = syncSubCanvas(brainCanvas, brainCtx, 248, 132);
     brainCtx.clearRect(0, 0, w, h);
     const lx = [26, w / 2, w - 26];
     const counts = [NN_IN, NN_HID, NN_OUT];
+    const pads = [12, 12, 24];
     const vals = [_champIn, _champHid, _champOut];
+    const nodeY = (layer, idx) => pads[layer] + (idx / Math.max(1, counts[layer] - 1)) * (h - pads[layer] * 2);
 
-    // Draw subtle synaptic connections
-    brainCtx.lineWidth = 0.8;
+    const champIdx = state.manualMode ? state.aiChampIdx : state.championIdx;
+    const champW = state.ants[champIdx] ? state.ants[champIdx].brain : null;
+    const w2Off = NN_IN * NN_HID + NN_HID;
+
+    // Draw subtle weight-tinted synaptic connections aligned exactly to node centers
+    brainCtx.lineWidth = 0.85;
     for (let i = 0; i < NN_IN; i++) {
-      const y1 = 14 + (i / (NN_IN - 1)) * (h - 28);
+      const y1 = nodeY(0, i);
       for (let j = 0; j < NN_HID; j++) {
-        const y2 = 12 + (j / (NN_HID - 1)) * (h - 24);
-        const act = Math.abs(_champIn[i] * _champHid[j]);
-        if (act < 0.08) continue;
-        brainCtx.strokeStyle = _champIn[i] >= 0 ? `rgba(52,211,153,${act * 0.55})` : `rgba(244,63,94,${act * 0.55})`;
+        const y2 = nodeY(1, j);
+        const wVal = champW ? champW[j * NN_IN + i] : 1;
+        const sig = _champIn[i] * wVal;
+        const act = clamp(Math.abs(sig * _champHid[j]) * 0.45, 0, 0.85);
+        if (act < 0.06) continue;
+        brainCtx.strokeStyle = sig >= 0 ? `rgba(52,211,153,${act.toFixed(3)})` : `rgba(244,63,94,${act.toFixed(3)})`;
         brainCtx.beginPath(); brainCtx.moveTo(lx[0], y1); brainCtx.lineTo(lx[1], y2); brainCtx.stroke();
       }
     }
     for (let j = 0; j < NN_HID; j++) {
-      const y1 = 12 + (j / (NN_HID - 1)) * (h - 24);
+      const y1 = nodeY(1, j);
       for (let k = 0; k < NN_OUT; k++) {
-        const y2 = 24 + (k / (NN_OUT - 1)) * (h - 48);
-        const act = Math.abs(_champHid[j] * _champOut[k]);
-        if (act < 0.08) continue;
-        brainCtx.strokeStyle = _champOut[k] >= 0 ? `rgba(56,189,248,${act * 0.65})` : `rgba(245,158,11,${act * 0.65})`;
+        const y2 = nodeY(2, k);
+        const wVal = champW ? champW[w2Off + k * NN_HID + j] : 1;
+        const sig = _champHid[j] * wVal;
+        const act = clamp(Math.abs(sig * _champOut[k]) * 0.55, 0, 0.9);
+        if (act < 0.06) continue;
+        brainCtx.strokeStyle = sig >= 0 ? `rgba(56,189,248,${act.toFixed(3)})` : `rgba(245,158,11,${act.toFixed(3)})`;
         brainCtx.beginPath(); brainCtx.moveTo(lx[1], y1); brainCtx.lineTo(lx[2], y2); brainCtx.stroke();
       }
     }
@@ -1481,11 +1830,11 @@
     // Draw nodes
     for (let l = 0; l < 3; l++) {
       const n = counts[l];
-      const pad = l === 2 ? 24 : 12;
       for (let i = 0; i < n; i++) {
-        const y = pad + (i / (n - 1)) * (h - pad * 2);
-        const v = clamp(vals[l][i], -1, 1);
-        brainCtx.fillStyle = v >= 0 ? `rgba(52,211,153,${0.25 + v * 0.75})` : `rgba(244,63,94,${0.25 - v * 0.75})`;
+        const y = nodeY(l, i);
+        const v = clamp(Number.isFinite(vals[l][i]) ? vals[l][i] : 0, -1, 1);
+        const alpha = clamp(0.25 + Math.abs(v) * 0.75, 0.25, 1);
+        brainCtx.fillStyle = v >= 0 ? `rgba(52,211,153,${alpha.toFixed(3)})` : `rgba(244,63,94,${alpha.toFixed(3)})`;
         brainCtx.beginPath(); brainCtx.arc(lx[l], y, 4.2, 0, Math.PI * 2); brainCtx.fill();
         brainCtx.strokeStyle = 'rgba(255,255,255,0.45)';
         brainCtx.lineWidth = 1;
@@ -1495,18 +1844,23 @@
   }
 
   function renderFitnessChart() {
-    const w = fitCanvas.width, h = fitCanvas.height;
+    const { w, h } = syncSubCanvas(fitCanvas, fitCtx, 248, 74);
     fitCtx.clearRect(0, 0, w, h);
     const hist = state.fitnessHistory;
     if (hist.length < 2) {
+      fitCtx.save();
       fitCtx.fillStyle = '#64748b';
       fitCtx.font = '600 11px Inter, sans-serif';
       fitCtx.textAlign = 'center';
-      fitCtx.fillText('Evolving Gen 1...', w / 2, h / 2 + 4);
+      fitCtx.fillText(`Evolving Gen ${state.gen}...`, w / 2, h / 2 + 4);
+      fitCtx.restore();
       return;
     }
     let maxV = 10;
-    for (const p of hist) if (p.best > maxV) maxV = p.best;
+    for (const p of hist) {
+      if (Number.isFinite(p.best) && p.best > maxV) maxV = p.best;
+      if (Number.isFinite(p.avg) && p.avg > maxV) maxV = p.avg;
+    }
 
     const drawLine = (key, color) => {
       fitCtx.strokeStyle = color;
@@ -1514,7 +1868,8 @@
       fitCtx.beginPath();
       for (let i = 0; i < hist.length; i++) {
         const x = 6 + (i / (hist.length - 1)) * (w - 12);
-        const y = h - 8 - (hist[i][key] / maxV) * (h - 16);
+        const raw = Number.isFinite(hist[i][key]) ? hist[i][key] : 0;
+        const y = clamp(h - 8 - (clamp(raw, 0, maxV) / maxV) * (h - 16), 4, h - 4);
         if (i === 0) fitCtx.moveTo(x, y); else fitCtx.lineTo(x, y);
       }
       fitCtx.stroke();
@@ -1529,12 +1884,14 @@
   let activeSlot = 'head';
 
   function renderAntPreview() {
-    const w = prevCanvas.width, h = prevCanvas.height;
+    const { w, h } = syncSubCanvas(prevCanvas, prevCtx, 310, 220);
     prevCtx.clearRect(0, 0, w, h);
     const t = performance.now() * 0.004;
+    const scale = Math.min(w / 245, h / 175);
 
     prevCtx.save();
     prevCtx.translate(w / 2, h / 2);
+    prevCtx.scale(scale, scale);
 
     // Animated 6 Legs
     prevCtx.strokeStyle = antStats.legsColor;
@@ -1597,14 +1954,29 @@
     prevCtx.beginPath(); prevCtx.ellipse(46, 0, 22, 18, 0, 0, Math.PI * 2); prevCtx.fill();
     prevCtx.stroke();
 
-    // Compound Eyes
+    // Compound Eyes (separate paths prevent connecting subpath artifact)
     prevCtx.fillStyle = '#0f172a';
-    prevCtx.beginPath(); prevCtx.arc(52, -10, 4.5, 0, Math.PI * 2); prevCtx.arc(52, 10, 4.5, 0, Math.PI * 2); prevCtx.fill();
+    prevCtx.beginPath(); prevCtx.arc(52, -10, 4.5, 0, Math.PI * 2); prevCtx.fill();
+    prevCtx.beginPath(); prevCtx.arc(52, 10, 4.5, 0, Math.PI * 2); prevCtx.fill();
 
     prevCtx.restore();
   }
 
-  function renderGarageUI() {
+  function fmtMod(label, val) {
+    return `${label} ${val > 0 ? '+' : ''}${val}`;
+  }
+
+  function syncPresetHighlights() {
+    const btns = document.querySelectorAll('#presetsStrip button[data-preset]');
+    btns.forEach(btn => {
+      const pr = PRESETS[parseInt(btn.dataset.preset, 10)];
+      if (!pr) return;
+      const match = SLOTS.every(s => equipped[s.id] === pr.parts[s.id]);
+      btn.classList.toggle('active', match);
+    });
+  }
+
+  function renderGarageUI(preserveScroll = false) {
     recomputeAntStats();
     renderAntPreview();
 
@@ -1625,26 +1997,29 @@
       </div>
     `).join('');
 
-    // Slot Tabs
+    // Slot Tabs (preserve horizontal scroll)
     const tabsEl = document.getElementById('slotTabs');
+    const prevTabScroll = tabsEl.scrollLeft;
     tabsEl.innerHTML = SLOTS.map(s => `
       <button class="slot-tab ${s.id === activeSlot ? 'active' : ''}" data-slot="${s.id}">${s.label}</button>
     `).join('');
+    tabsEl.scrollLeft = prevTabScroll;
     tabsEl.querySelectorAll('.slot-tab').forEach(btn => {
-      btn.addEventListener('click', () => { activeSlot = btn.dataset.slot; renderGarageUI(); });
+      btn.addEventListener('click', () => { activeSlot = btn.dataset.slot; renderGarageUI(false); });
     });
 
-    // Parts Grid
+    // Parts Grid (preserve vertical scroll when equipping parts in same slot)
     const gridEl = document.getElementById('partsGrid');
+    const prevGridScroll = preserveScroll ? gridEl.scrollTop : 0;
     const list = PART_CATALOG[activeSlot];
     gridEl.innerHTML = list.map((p, idx) => {
       const mods = [];
-      if (p.spd) mods.push(`Spd ${p.spd > 0 ? '+' : ''}${p.spd}`);
-      if (p.carry) mods.push(`Car +${p.carry}`);
-      if (p.atk) mods.push(`Atk +${p.atk}`);
-      if (p.hp) mods.push(`HP +${p.hp}`);
-      if (p.phero) mods.push(`Ph +${p.phero}`);
-      if (p.sense) mods.push(`Sns +${p.sense}`);
+      if (p.spd) mods.push(fmtMod('Spd', p.spd));
+      if (p.carry) mods.push(fmtMod('Car', p.carry));
+      if (p.atk) mods.push(fmtMod('Atk', p.atk));
+      if (p.hp) mods.push(fmtMod('HP', p.hp));
+      if (p.phero) mods.push(fmtMod('Ph', p.phero));
+      if (p.sense) mods.push(fmtMod('Sns', p.sense));
       return `
         <button class="part-card ${equipped[activeSlot] === idx ? 'equipped' : ''}" data-idx="${idx}">
           <div class="part-name">
@@ -1655,28 +2030,32 @@
         </button>
       `;
     }).join('');
+    gridEl.scrollTop = prevGridScroll;
     gridEl.querySelectorAll('.part-card').forEach(card => {
       card.addEventListener('click', () => {
         equipped[activeSlot] = parseInt(card.dataset.idx, 10);
         document.getElementById('buildBadge').textContent = 'Custom Ant';
-        renderGarageUI();
+        renderGarageUI(true);
       });
     });
+    syncPresetHighlights();
   }
 
   function initPresetsStrip() {
     const strip = document.getElementById('presetsStrip');
-    PRESETS.forEach(pr => {
+    PRESETS.forEach((pr, idx) => {
       const b = document.createElement('button');
       b.className = 'sm';
+      b.dataset.preset = String(idx);
       b.textContent = `${pr.icon} ${pr.name}`;
       b.addEventListener('click', () => {
         Object.assign(equipped, pr.parts);
         document.getElementById('buildBadge').textContent = pr.name.split(' ')[0];
-        renderGarageUI();
+        renderGarageUI(true);
       });
       strip.appendChild(b);
     });
+    syncPresetHighlights();
   }
 
   function updateEquippedSummary() {
@@ -1694,6 +2073,19 @@
   // =========================================================================
   // INTERACTIVE BRUSH & INPUT
   // =========================================================================
+  let antPinchDist = 0, antPinchMidX = 0, antPinchMidY = 0, antTouchActive = false;
+  const touchKeyResetters = [];
+
+  function clearTransientInput() {
+    input.keys.clear();
+    input.left = false;
+    input.panning = false;
+    antTouchActive = false;
+    antPinchDist = 0;
+    for (let i = 0; i < touchKeyResetters.length; i++) touchKeyResetters[i]();
+    document.querySelectorAll('.ant-tkey.pressed').forEach(el => el.classList.remove('pressed'));
+  }
+
   function applyBrush(wx, wy, isDrag = false) {
     if (wx < 10 || wx > WORLD_W - 10 || wy < 10 || wy > WORLD_H - 10) return;
     if (isDrag && Math.hypot(wx - input.lastBrushX, wy - input.lastBrushY) < 22) return;
@@ -1702,7 +2094,34 @@
     if (state.brush === 'food') {
       spawnFoodCluster(wx, wy, isDrag ? 3 : 10, '#34d399');
     } else if (state.brush === 'wall') {
-      state.obstacles.push({ x: wx, y: wy, r: 28, kind: state.biome === 'antfarm' ? 'dirt' : 'rock' });
+      if (state.obstacles.length >= MAX_OBSTACLES) return;
+      // Do not bury the Queen Nest or duplicate an identical wall
+      const nestMin = state.nest.r + 36;
+      if ((wx - state.nest.x) ** 2 + (wy - state.nest.y) ** 2 < nestMin * nestMin) return;
+      for (let i = 0; i < state.obstacles.length; i++) {
+        const ob = state.obstacles[i];
+        if ((wx - ob.x) ** 2 + (wy - ob.y) ** 2 < 14 * 14) return;
+      }
+      const wall = { x: wx, y: wy, r: 28, kind: state.biome === 'antfarm' ? 'dirt' : state.biome === 'picnic' ? 'plate' : 'rock' };
+      state.obstacles.push(wall);
+      // Clear food buried inside newly painted wall & gently push ants out
+      const clearR2 = (wall.r + 10) * (wall.r + 10);
+      for (let f = state.foods.length - 1; f >= 0; f--) {
+        const fd = state.foods[f];
+        if ((fd.x - wall.x) ** 2 + (fd.y - wall.y) ** 2 < clearR2) state.foods.splice(f, 1);
+      }
+      const pushR = wall.r + 6;
+      for (let i = 0; i < state.ants.length; i++) {
+        const a = state.ants[i];
+        if (!a.alive) continue;
+        const dx = a.x - wall.x, dy = a.y - wall.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < pushR * pushR) {
+          const ang = d2 > 1e-6 ? Math.atan2(dy, dx) : a.angle;
+          a.x = clamp(wall.x + Math.cos(ang) * pushR, 12, WORLD_W - 12);
+          a.y = clamp(wall.y + Math.sin(ang) * pushR, 12, WORLD_H - 12);
+        }
+      }
     } else if (state.brush === 'pheromone') {
       for (let dx = -24; dx <= 24; dx += 12) {
         for (let dy = -24; dy <= 24; dy += 12) {
@@ -1710,6 +2129,11 @@
         }
       }
     } else if (state.brush === 'rival' && !isDrag) {
+      if (!state.rivalsEnabled) {
+        state.rivalsEnabled = true;
+        const chk = document.getElementById('chkRivals');
+        if (chk) chk.checked = true;
+      }
       spawnRival(wx, wy, Math.random() < 0.5 ? 'spider' : 'beetle');
     } else if (state.brush === 'erase') {
       for (let i = state.obstacles.length - 1; i >= 0; i--) {
@@ -1721,22 +2145,28 @@
   }
 
   function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
     if (document.body.classList.contains('mobile-mode')) {
-      const r = canvas.getBoundingClientRect();
-      canvas.width = Math.max(1, Math.round(r.width || window.innerWidth));
-      canvas.height = Math.max(1, Math.round(r.height || 360));
+      viewW = Math.max(1, Math.round(r.width || window.innerWidth || 320));
+      viewH = Math.max(1, Math.round(r.height || 360));
     } else {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      viewW = Math.max(1, Math.round(r.width || window.innerWidth || 320));
+      viewH = Math.max(1, Math.round(r.height || window.innerHeight || 240));
     }
+    canvas.width = Math.max(1, Math.round(viewW * dpr));
+    canvas.height = Math.max(1, Math.round(viewH * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   window.addEventListener('resize', resize);
   resize();
 
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('mousedown', e => {
+    if (garageEl.classList.contains('open')) return;
     const w = screenToWorld(e.clientX, e.clientY);
     if (e.button === 1 || e.button === 2) {
+      e.preventDefault();
       input.panning = true; input.panX = e.clientX; input.panY = e.clientY;
       input.camX = cam.x; input.camY = cam.y;
       return;
@@ -1748,32 +2178,65 @@
     }
   });
   window.addEventListener('mousemove', e => {
+    // Recover cleanly if mouse button was released outside browser window
+    if (e.isTrusted && e.buttons === 0 && (input.left || input.panning)) {
+      input.left = false;
+      input.panning = false;
+    }
     const w = screenToWorld(e.clientX, e.clientY);
     input.wx = w.x; input.wy = w.y;
     if (input.panning) {
       cam.x = input.camX - (e.clientX - input.panX) / cam.zoom;
       cam.y = input.camY - (e.clientY - input.panY) / cam.zoom;
+      clampCamera();
       return;
     }
-    if (input.left) applyBrush(w.x, w.y, true);
+    if (input.left && !garageEl.classList.contains('open')) applyBrush(w.x, w.y, true);
   });
-  window.addEventListener('mouseup', () => { input.left = false; input.panning = false; });
+  window.addEventListener('mouseup', e => {
+    if (e.button === 0) input.left = false;
+    else if (e.button === 1 || e.button === 2) input.panning = false;
+    else { input.left = false; input.panning = false; }
+  });
   canvas.addEventListener('wheel', e => {
+    if (garageEl.classList.contains('open')) return;
     e.preventDefault();
+    if (e.deltaY === 0) return;
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) dy *= 16;
+    else if (e.deltaMode === 2) dy *= 400;
+    const factor = Math.exp(-clamp(dy, -180, 180) * 0.0018);
     const before = screenToWorld(e.clientX, e.clientY);
-    cam.targetZoom = clamp(cam.targetZoom * (e.deltaY < 0 ? 1.15 : 0.87), 0.3, 2.4);
+    cam.targetZoom = clamp(cam.targetZoom * factor, MIN_ZOOM, MAX_ZOOM);
     cam.zoom = cam.targetZoom;
     const after = screenToWorld(e.clientX, e.clientY);
-    cam.x += before.x - after.x; cam.y += before.y - after.y;
+    cam.x += before.x - after.x;
+    cam.y += before.y - after.y;
+    clampCamera();
   }, { passive: false });
 
   window.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.code === 'Escape') {
+      if (garageEl.classList.contains('open')) closeGarage();
+      return;
+    }
+    if (garageEl.classList.contains('open')) return;
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+      e.preventDefault();
+    }
     input.keys.add(e.code);
-    if (e.code === 'Space' && !state.manualMode) { e.preventDefault(); togglePause(); }
-    if (e.code === 'Escape') document.getElementById('garageOverlay').classList.remove('open');
+    if (e.code === 'Space' && !state.manualMode && !e.repeat) {
+      togglePause();
+    }
   });
   window.addEventListener('keyup', e => input.keys.delete(e.code));
+  window.addEventListener('blur', clearTransientInput);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearTransientInput();
+    else lastT = performance.now();
+  });
 
   // =========================================================================
   // UI BINDINGS
@@ -1784,7 +2247,10 @@
     b.textContent = state.paused ? '▶ Play' : '⏸ Pause';
     b.classList.toggle('active', state.paused);
   }
-  document.getElementById('btnPause').addEventListener('click', togglePause);
+  document.getElementById('btnPause').addEventListener('click', e => {
+    togglePause();
+    e.currentTarget.blur();
+  });
 
   document.querySelectorAll('.spd-btn').forEach(b => {
     b.addEventListener('click', () => {
@@ -1792,22 +2258,37 @@
       document.querySelectorAll('.spd-btn').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       if (state.paused) togglePause();
+      b.blur();
     });
   });
 
-  document.getElementById('biomeSelect').addEventListener('change', e => loadBiome(e.target.value));
-  document.getElementById('btnNextGen').addEventListener('click', () => spawnColony(true));
-  document.getElementById('btnResetWorld').addEventListener('click', () => loadBiome(state.biome));
+  document.getElementById('biomeSelect').addEventListener('change', e => {
+    loadBiome(e.target.value);
+    e.currentTarget.blur();
+  });
+  document.getElementById('btnNextGen').addEventListener('click', e => {
+    spawnColony(true);
+    e.currentTarget.blur();
+  });
+  document.getElementById('btnResetWorld').addEventListener('click', e => {
+    loadBiome(state.biome);
+    e.currentTarget.blur();
+  });
 
   document.getElementById('btnManual').addEventListener('click', e => {
+    const btn = e.currentTarget;
     state.manualMode = !state.manualMode;
-    e.target.classList.toggle('active', state.manualMode);
+    btn.classList.toggle('active', state.manualMode);
     document.body.classList.toggle('manual-active', state.manualMode);
+    btn.blur();
     if (state.manualMode) {
       state.simSpeed = 1;
       document.querySelectorAll('.spd-btn').forEach(x => x.classList.toggle('active', x.dataset.spd === '1'));
-      document.getElementById('bottomPill').textContent = 'WASD MANUAL MODE: W/S Move · A/D Turn · Shift Sprint · Lay Pheromone Highways for Your Swarm!';
+      if (state.paused) togglePause();
+      if (state.ants[0] && !state.ants[0].alive) respawnAlphaAnt(true);
+      document.getElementById('bottomPill').textContent = 'WASD MANUAL MODE: W/S Move · A/D Turn · Shift Sprint · Space Super-Phero · Lead Your Swarm!';
     } else {
+      clearTransientInput();
       document.getElementById('bottomPill').textContent = 'Click/Drag: Drop Food or Paint Walls · Right-Drag: Pan · Scroll: Zoom · WASD: Control Alpha Ant (in WASD mode)';
     }
   });
@@ -1822,59 +2303,85 @@
 
   document.querySelectorAll('.pop-btn').forEach(b => {
     b.addEventListener('click', () => {
-      state.popSize = parseInt(b.dataset.pop, 10);
+      const nextPop = parseInt(b.dataset.pop, 10);
       document.querySelectorAll('.pop-btn').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
-      document.getElementById('popVal').textContent = state.popSize + ' Ants';
-      spawnColony(false);
+      document.getElementById('popVal').textContent = nextPop + ' Ants';
+      resizePopulation(nextPop);
     });
   });
 
   document.getElementById('slGenTime').addEventListener('input', e => {
-    state.genDuration = parseInt(e.target.value, 10);
-    document.getElementById('valGenTime').textContent = state.genDuration + 's';
+    const v = parseInt(e.target.value, 10);
+    if (Number.isFinite(v)) {
+      state.genDuration = clamp(v, 15, 120);
+      document.getElementById('valGenTime').textContent = state.genDuration + 's';
+    }
   });
   document.getElementById('slMut').addEventListener('input', e => {
-    state.mutRate = parseInt(e.target.value, 10) / 100;
-    document.getElementById('valMut').textContent = e.target.value + '%';
+    const v = parseInt(e.target.value, 10);
+    if (Number.isFinite(v)) {
+      state.mutRate = clamp(v, 2, 50) / 100;
+      document.getElementById('valMut').textContent = Math.round(state.mutRate * 100) + '%';
+    }
   });
   document.getElementById('slEvap').addEventListener('input', e => {
-    state.evapRate = parseFloat(e.target.value);
-    document.getElementById('valEvap').textContent = state.evapRate.toFixed(1) + 'x';
+    const v = parseFloat(e.target.value);
+    if (Number.isFinite(v)) {
+      state.evapRate = clamp(v, 0.2, 3.0);
+      document.getElementById('valEvap').textContent = state.evapRate.toFixed(1) + 'x';
+    }
   });
 
   document.getElementById('chkPhero').addEventListener('change', e => state.showPhero = e.target.checked);
   document.getElementById('chkFeelers').addEventListener('change', e => state.showFeelers = e.target.checked);
-  document.getElementById('chkRivals').addEventListener('change', e => state.rivalsEnabled = e.target.checked);
+  document.getElementById('chkRivals').addEventListener('change', e => {
+    state.rivalsEnabled = e.target.checked;
+    if (!state.rivalsEnabled) {
+      state.rivals = [];
+    } else if (state.rivals.length === 0) {
+      spawnBiomeRivals(state.biome);
+    }
+  });
 
   // Garage modal
-  const garageEl = document.getElementById('garageOverlay');
-  document.getElementById('btnOpenGarage').addEventListener('click', () => {
+  function openGarage() {
+    clearTransientInput();
     garageEl.classList.add('open');
-    renderGarageUI();
-  });
-  document.getElementById('btnGarageApply').addEventListener('click', () => {
+    renderGarageUI(false);
+  }
+  function closeGarage() {
     garageEl.classList.remove('open');
     recomputeAntStats();
-    for (const a of state.ants) { a.maxHp = antStats.hp; a.hp = Math.min(a.hp, a.maxHp); }
+  }
+  document.getElementById('btnOpenGarage').addEventListener('click', e => {
+    openGarage();
+    e.currentTarget.blur();
+  });
+  document.getElementById('btnGarageApply').addEventListener('click', closeGarage);
+  garageEl.addEventListener('click', e => {
+    if (e.target === garageEl) closeGarage();
   });
   function randomizeBuild() {
-    for (const s of SLOTS) equipped[s.id] = (Math.random() * 25) | 0;
+    for (const s of SLOTS) equipped[s.id] = (Math.random() * PART_CATALOG[s.id].length) | 0;
     document.getElementById('buildBadge').textContent = 'Random Hybrid';
     recomputeAntStats();
-    if (garageEl.classList.contains('open')) renderGarageUI();
+    if (garageEl.classList.contains('open')) renderGarageUI(true);
+    else syncPresetHighlights();
   }
   document.getElementById('btnGarageRandom').addEventListener('click', randomizeBuild);
   document.getElementById('btnRandomBuild').addEventListener('click', randomizeBuild);
 
   // Dock collapse
   document.getElementById('tglLeft').addEventListener('click', e => {
+    const btn = e.currentTarget;
     const c = document.getElementById('leftDock').classList.toggle('collapsed');
-    e.target.classList.toggle('collapsed', c); e.target.textContent = c ? '▶' : '◀';
+    btn.classList.toggle('collapsed', c); btn.textContent = c ? '▶' : '◀';
   });
   document.getElementById('tglRight').addEventListener('click', e => {
+    const btn = e.currentTarget;
     const c = document.getElementById('rightDock').classList.toggle('collapsed');
-    e.target.classList.toggle('collapsed', c); e.target.textContent = c ? '◀' : '▶';
+    btn.classList.toggle('collapsed', c); btn.textContent = c ? '◀' : '▶';
   });
 
   // =========================================================================
@@ -1883,42 +2390,63 @@
   let lastT = performance.now(), fpsF = 0, fpsT = 0, uiT = 0;
 
   function loop(now) {
-    const rawDt = Math.min(0.05, (now - lastT) / 1000);
+    const wallDt = Math.max(0, (now - lastT) / 1000);
     lastT = now;
+    const rawDt = clamp(wallDt, 0, 0.05);
 
-    if (!state.paused) {
-      // Smooth lag-free stepping up to 500x (cap substeps for 60 FPS even with 1,000 ants)
-      const maxSteps = state.popSize >= 500 ? 10 : 18;
-      const steps = Math.min(maxSteps, Math.max(1, Math.ceil(state.simSpeed)));
-      const stepDt = Math.min(0.08, (rawDt * state.simSpeed) / steps);
-      for (let s = 0; s < steps; s++) stepSim(stepDt);
+    if (!state.paused && rawDt > 0) {
+      // Time-budgeted safe substepping up to 500x (prevents tunneling & UI freezes)
+      const MAX_STEP_DT = 0.035;
+      let simBudget = rawDt * state.simSpeed;
+      const maxSteps = state.popSize >= 500 ? 40 : 90;
+      const frameStart = performance.now();
+      let executed = 0;
+      while (simBudget > 1e-6 && executed < maxSteps) {
+        const dt = simBudget > MAX_STEP_DT ? MAX_STEP_DT : simBudget;
+        stepSim(dt);
+        simBudget -= dt;
+        executed++;
+        if (executed >= 4 && performance.now() - frameStart > 11) break;
+      }
     }
 
-    renderWorld();
+    renderWorld(rawDt);
     if (garageEl.classList.contains('open')) renderAntPreview();
 
-    fpsF++; fpsT += rawDt; uiT += rawDt;
+    if (wallDt > 1.0) {
+      fpsF = 0; fpsT = 0;
+    } else {
+      fpsF++; fpsT += wallDt;
+    }
+    uiT += rawDt;
     if (fpsT >= 0.5) {
       document.getElementById('stFps').textContent = Math.round(fpsF / fpsT);
       fpsF = 0; fpsT = 0;
     }
     if (uiT >= 0.16) {
       uiT = 0;
-      let alive = 0, carrying = 0;
+      let alive = 0, carrying = 0, speedSum = 0;
       for (let i = 0; i < state.ants.length; i++) {
-        if (state.ants[i].alive) { alive++; if (state.ants[i].carrying > 0) carrying++; }
+        const a = state.ants[i];
+        if (a.alive) {
+          alive++;
+          speedSum += Math.abs(a.speed);
+          if (a.carrying > 0) carrying++;
+        }
       }
       document.getElementById('stGen').textContent = state.gen;
       document.getElementById('stFood').textContent = state.totalFoodDelivered;
       document.getElementById('stAnts').textContent = alive;
-      document.getElementById('stBest').textContent = Math.round(state.bestFitness);
-      document.getElementById('genTimerTxt').textContent = Math.max(0, state.genDuration - state.genTime).toFixed(1) + 's';
+      document.getElementById('stBest').textContent = Math.round(Number.isFinite(state.bestFitness) ? state.bestFitness : 0);
+      document.getElementById('genTimerTxt').textContent = state.manualMode
+        ? 'MANUAL'
+        : Math.max(0, state.genDuration - state.genTime).toFixed(1) + 's';
       document.getElementById('mCarry').textContent = carrying;
       document.getElementById('mRivals').textContent = state.rivals.length;
       document.getElementById('mKills').textContent = state.kills;
-      document.getElementById('mSpd').textContent = Math.round(antStats.spd);
+      document.getElementById('mSpd').textContent = alive > 0 ? Math.round(speedSum / alive) : 0;
       const lastH = state.fitnessHistory[state.fitnessHistory.length - 1];
-      document.getElementById('avgFitTxt').textContent = 'Avg: ' + (lastH ? Math.round(lastH.avg) : 0);
+      document.getElementById('avgFitTxt').textContent = 'Avg: ' + (lastH && Number.isFinite(lastH.avg) ? Math.round(lastH.avg) : 0);
 
       renderBrain();
       renderFitnessChart();
@@ -1939,12 +2467,14 @@
   function applyMobileMode(dispatchResize) {
     if (applyingMobile) return;
     applyingMobile = true;
+    const prevMob = document.body.classList.contains('mobile-mode');
     const isMob = mobileOverride !== null ? mobileOverride : detectPhone();
     document.body.classList.toggle('mobile-mode', isMob);
     document.body.classList.toggle('manual-active', state.manualMode);
     const btn = document.getElementById('btnMobileToggle');
     if (btn) btn.textContent = isMob ? '💻 Desktop' : '📱 Phone';
     resize();
+    if (prevMob !== isMob) fitCamera();
     if (dispatchResize) window.dispatchEvent(new Event('resize'));
     applyingMobile = false;
   }
@@ -1959,9 +2489,8 @@
   window.addEventListener('resize', () => applyMobileMode(false));
 
   // Touch-to-Mouse + Two-Finger Pinch-Zoom & Pan Bridge on simCanvas
-  let antPinchDist = 0, antPinchMidX = 0, antPinchMidY = 0, antTouchActive = false;
   canvas.addEventListener('touchstart', e => {
-    if (!e.touches.length) return;
+    if (garageEl.classList.contains('open') || !e.touches.length) return;
     e.preventDefault();
     if (e.touches.length >= 2) {
       if (antTouchActive) {
@@ -1982,7 +2511,7 @@
   }, { passive: false });
 
   canvas.addEventListener('touchmove', e => {
-    if (!e.touches.length) return;
+    if (garageEl.classList.contains('open') || !e.touches.length) return;
     e.preventDefault();
     if (e.touches.length >= 2) {
       const t0 = e.touches[0], t1 = e.touches[1];
@@ -1990,12 +2519,14 @@
       const midX = (t0.clientX + t1.clientX) * 0.5;
       const midY = (t0.clientY + t1.clientY) * 0.5;
       if (antPinchDist > 0) {
-        const before = screenToWorld(midX, midY);
-        cam.targetZoom = clamp(cam.targetZoom * (dist / antPinchDist), 0.3, 2.4);
+        // Anchor exact world point under previous midpoint onto new midpoint after scaling
+        const before = screenToWorld(antPinchMidX, antPinchMidY);
+        cam.targetZoom = clamp(cam.targetZoom * (dist / antPinchDist), MIN_ZOOM, MAX_ZOOM);
         cam.zoom = cam.targetZoom;
         const after = screenToWorld(midX, midY);
-        cam.x += before.x - after.x - (midX - antPinchMidX) / cam.zoom;
-        cam.y += before.y - after.y - (midY - antPinchMidY) / cam.zoom;
+        cam.x += before.x - after.x;
+        cam.y += before.y - after.y;
+        clampCamera();
       }
       antPinchDist = dist;
       antPinchMidX = midX;
@@ -2020,18 +2551,45 @@
   canvas.addEventListener('touchend', antEndTouch, { passive: false });
   canvas.addEventListener('touchcancel', antEndTouch, { passive: false });
 
-  // Bind Glassmorphic Touch D-Pad + Action Buttons
+  // Bind Glassmorphic Touch D-Pad + Action Buttons (Pointer Events for clean multi-touch & capture)
   function bindAntTouchKey(id, code) {
     const el = document.getElementById(id);
     if (!el) return;
-    const on = e => { e.preventDefault(); input.keys.add(code); el.classList.add('pressed'); };
-    const off = e => { e.preventDefault(); input.keys.delete(code); el.classList.remove('pressed'); };
-    el.addEventListener('touchstart', on, { passive: false });
-    el.addEventListener('touchend', off, { passive: false });
-    el.addEventListener('touchcancel', off, { passive: false });
-    el.addEventListener('mousedown', on);
-    el.addEventListener('mouseup', off);
-    el.addEventListener('mouseleave', off);
+    const activeIds = new Set();
+    touchKeyResetters.push(() => activeIds.clear());
+    const press = e => {
+      e.preventDefault();
+      if (e.pointerId !== undefined) {
+        activeIds.add(e.pointerId);
+        if (el.setPointerCapture) {
+          try { el.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+      }
+      input.keys.add(code);
+      el.classList.add('pressed');
+    };
+    const release = e => {
+      e.preventDefault();
+      if (e.pointerId !== undefined) {
+        activeIds.delete(e.pointerId);
+        if (activeIds.size > 0) return;
+      }
+      input.keys.delete(code);
+      el.classList.remove('pressed');
+    };
+    if (window.PointerEvent) {
+      el.addEventListener('pointerdown', press, { passive: false });
+      el.addEventListener('pointerup', release, { passive: false });
+      el.addEventListener('pointercancel', release, { passive: false });
+      el.addEventListener('lostpointercapture', release);
+    } else {
+      el.addEventListener('touchstart', press, { passive: false });
+      el.addEventListener('touchend', release, { passive: false });
+      el.addEventListener('touchcancel', release, { passive: false });
+      el.addEventListener('mousedown', press);
+      el.addEventListener('mouseup', release);
+      el.addEventListener('mouseleave', release);
+    }
   }
   bindAntTouchKey('antUp', 'KeyW');
   bindAntTouchKey('antDown', 'KeyS');
