@@ -1108,8 +1108,9 @@
     rockets.push(mkRocket(masterNN.cloneNoise(0, makeNoise(), 0), true));
     const blankStart = masterNN.isBlank();
     if (blankStart) {
+      const initSig = Math.max(sigma, 0.55);
       for (let i = 1; i < n; i++) {
-        rockets.push(mkRocket(masterNN.cloneNoise(sigma, makeNoise(), 1), false));
+        rockets.push(mkRocket(masterNN.cloneNoise(initSig, makeNoise(), 1), false));
       }
     } else {
       let startIdx = 1;
@@ -1233,6 +1234,9 @@
     const rewardScale = dt * 60;
     const safeVxLim = getSafeVxLimit();
     const dodgeRange = spec.lidar ? 185 : 120;
+    let curHero = rockets[0] || null;
+    for (const rk of rockets) if (!rk.done && (!curHero || curHero.done || rk.reward > curHero.reward)) curHero = rk;
+    for (const rk of rockets) rk.isHero = (rk === curHero);
 
     for (const r of rockets) {
       if (r.done) continue;
@@ -1279,7 +1283,7 @@
           const tvx = Math.max(-110, Math.min(110, dxPad * 0.55 + dodgeX));
           const tang = Math.max(-0.28, Math.min(0.28, (tvx - r.vx) * 0.0045 - windNow * 0.001));
           steer = Math.max(-1, Math.min(1, (tang - r.ang) * 5.2 - r.angVel * 1.3));
-          const targetVy = r.y < 140 ? -125 : -230;
+          const targetVy = r.y < 145 ? -78 : -175;
           throttle = Math.max(0, Math.min(1, hoverTh + (r.vy - targetVy) * 0.014));
         } else if (mission === 'rings' && skyRings.some((rg, ri) => !r.hitRings[ri])) {
           const nextR = skyRings.find((rg, ri) => !r.hitRings[ri]);
@@ -1416,8 +1420,10 @@
       }
       if (hitHazard) continue;
 
-      // Continuous shaping reward (dt-scaled so slow-mo never inflates reward!)
-      if (mission === 'orbit' && !r.orbitReached) {
+      // Continuous shaping reward (dt-scaled; Hop/Orbit require liftoff so sitting idle on pad cannot farm reward)
+      if ((mission === 'hop' || mission === 'orbit') && !r.launched) {
+        r.reward += (r.throttle * 0.18 - 0.12) * spec.rewMult * rewardScale;
+      } else if (mission === 'orbit' && !r.orbitReached) {
         const climbProg = 1 - Math.min(1, Math.max(0, r.y - 76) / Math.max(100, groundY - 76));
         r.reward += (climbProg * 0.65 + Math.cos(r.ang) * 0.18) * spec.rewMult * rewardScale;
       } else if (mission === 'rings' && skyRings.some((rg, ri) => !r.hitRings[ri])) {
@@ -1460,7 +1466,7 @@
           continue;
         }
       }
-      if (r.x < 12 || r.x > AW - 12 || r.y < -220) {
+      if (r.x < 12 || r.x > AW - 12 || r.y < -420) {
         r.done = true; r.crashed = true; r.throttle = 0; r.steer = 0; r.reward -= 160;
         if (r.isHero) { landingStreak = 0; playSFX('boom'); shake = 7; }
       }
@@ -2151,7 +2157,9 @@
   aCanvas.addEventListener('click', e => {
     unlockAudio();
     if (!isPlaying) return;
-    const r = aCanvas.getBoundingClientRect(), wx = e.clientX - r.left, wy = e.clientY - r.top;
+    const r = aCanvas.getBoundingClientRect();
+    const wx = r.width > 0 ? ((e.clientX - r.left) / r.width) * AW : (e.clientX - r.left);
+    const wy = r.height > 0 ? ((e.clientY - r.top) / r.height) * AH : (e.clientY - r.top);
     if (shockwaves.length < 12) shockwaves.push({ x: wx, y: wy, r: 10, life: 1.0 });
     playSFX('gust');
     rockets.forEach(rk => {
@@ -2290,11 +2298,11 @@
     }
   };
   document.getElementById('btnStepGen').onclick = () => evolveGeneration();
-  document.getElementById('selMission').onchange = e => { mission = e.target.value; spawnSwarm(); };
-  document.getElementById('selWorld').onchange = e => { worldKey = e.target.value; spawnSwarm(); };
-  document.getElementById('selSpeed').onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) { simSpeed = v; simAccum = 0; } };
-  document.getElementById('selDuration').onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) { episodeDuration = v; showToast(episodeDuration >= 99999 ? '∞ Endless Free-Fly enabled!' : `⏱ Episode set to ${episodeDuration}s`); } };
-  document.getElementById('selPop').onchange = e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v) && v >= 2) { popSize = v; spawnSwarm(); } };
+  document.getElementById('selMission').onchange = e => { mission = e.target.value; e.target.blur(); spawnSwarm(); };
+  document.getElementById('selWorld').onchange = e => { worldKey = e.target.value; e.target.blur(); spawnSwarm(); };
+  document.getElementById('selSpeed').onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) { simSpeed = v; simAccum = 0; } e.target.blur(); };
+  document.getElementById('selDuration').onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) { episodeDuration = v; showToast(episodeDuration >= 99999 ? '∞ Endless Free-Fly enabled!' : `⏱ Episode set to ${episodeDuration}s`); } e.target.blur(); };
+  document.getElementById('selPop').onchange = e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v) && v >= 2) { popSize = v; spawnSwarm(); } e.target.blur(); };
   document.getElementById('btnGhosts').onclick = () => { showGhosts = !showGhosts; const b = document.getElementById('btnGhosts'); b.textContent = `👻 Ghosts: ${showGhosts ? 'ON' : 'OFF'}`; b.classList.toggle('active', showGhosts); };
   document.getElementById('btnLoadElite').onclick = () => {
     if (eliteBest === -Infinity) return showToast('Train at least 1 gen first!');

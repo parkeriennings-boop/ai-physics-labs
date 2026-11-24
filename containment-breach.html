@@ -777,6 +777,7 @@
     lastDragX: -999, lastDragY: -999,
     paintTimer: 0
   };
+  let cbPinchDist = 0, cbPinchMidX = 0, cbPinchMidY = 0, cbTouchActive = false;
 
   // Spatial Hash
   const spatialUnits = new Map();
@@ -2523,9 +2524,11 @@
     ctx.scale(cam.zoom, cam.zoom);
     ctx.translate(-cam.x, -cam.y);
 
-    // Visible world bounds
-    const tl = screenToWorld(0, 0);
-    const br = screenToWorld(canvas.width, canvas.height);
+    // Visible world bounds (computed directly from camera to stay aligned in mobile & desktop modes)
+    const halfW = (canvas.width / 2) / cam.zoom;
+    const halfH = (canvas.height / 2) / cam.zoom;
+    const tl = { x: cam.x - halfW, y: cam.y - halfH };
+    const br = { x: cam.x + halfW, y: cam.y + halfH };
     const c0 = Math.max(0, Math.floor(tl.x / TILE));
     const c1 = Math.min(WORLD_COLS - 1, Math.ceil(br.x / TILE));
     const r0 = Math.max(0, Math.floor(tl.y / TILE));
@@ -3165,9 +3168,11 @@
       canvas.width = Math.max(1, Math.round(r.width || window.innerWidth));
       canvas.height = Math.max(1, Math.round(r.height || 360));
     } else {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = Math.max(1, window.innerWidth);
+      canvas.height = Math.max(1, window.innerHeight);
     }
+    viewW = canvas.width;
+    viewH = canvas.height;
   }
   window.addEventListener('resize', resize);
   resize();
@@ -3473,6 +3478,25 @@
   let fpsFrames = 0, fpsTimer = 0;
   let uiTimer = 0;
 
+  function updateTelemetry() {
+    let humans = 0, infected = 0, zombies = 0;
+    for (let i = 0; i < state.units.length; i++) {
+      const u = state.units[i];
+      if (u.faction === 'zombie') zombies++;
+      else {
+        humans++;
+        if (u.infected) infected++;
+      }
+    }
+    const elH = document.getElementById('statHumans'); if (elH) elH.textContent = humans;
+    const elI = document.getElementById('statInfected'); if (elI) elI.textContent = infected;
+    const elZ = document.getElementById('statZombies'); if (elZ) elZ.textContent = zombies;
+    const elE = document.getElementById('statExtracted'); if (elE) elE.textContent = state.extractedCount;
+    const elB = document.getElementById('statBreaches'); if (elB) elB.textContent = state.breachCount;
+    const p = getPossessedUnit();
+    if (p) updatePossessHud(p);
+  }
+
   function loop(now) {
     const rawDt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
@@ -3495,35 +3519,7 @@
     }
     if (uiTimer >= 0.16) {
       uiTimer = 0;
-      let humans = 0, infected = 0, zombies = 0;
-      for (let i = 0; i < state.units.length; i++) {
-        const u = state.units[i];
-        if (u.faction === 'zombie') zombies++;
-        else {
-          humans++;
-          if (u.infected) infected++;
-        }
-      }
-      document.getElementById('statHumans').textContent = humans;
-      document.getElementById('statInfected').textContent = infected;
-      document.getElementById('statZombies').textContent = zombies;
-      document.getElementById('statExtracted').textContent = state.extractedCount;
-      document.getElementById('statBreaches').textContent = state.breachCount;
-
-      const p = getPossessedUnit();
-      if (p) {
-        const pct = clamp((p.hp / p.maxHp) * 100, 0, 100);
-        const bar = document.getElementById('possessHpBar');
-        bar.style.width = pct + '%';
-        bar.style.background = pct > 50 ? '#22c55e' : pct > 25 ? '#f59e0b' : '#ef4444';
-        const aw = document.getElementById('possessAmmoWrap');
-        if (p.faction === 'human' && p.maxAmmo > 0 && p.maxAmmo < 900) {
-          aw.style.display = 'block';
-          document.getElementById('possessAmmoTxt').textContent = rules.ammoLimits ? `${p.ammo}/${p.maxAmmo}` : '∞';
-        } else {
-          aw.style.display = 'none';
-        }
-      }
+      updateTelemetry();
     }
 
     requestAnimationFrame(loop);
@@ -3562,7 +3558,6 @@
   window.addEventListener('resize', () => applyMobileMode(false));
 
   // Touch-to-Mouse + Two-Finger Pinch-Zoom & Pan Bridge on gameCanvas
-  let cbPinchDist = 0, cbPinchMidX = 0, cbPinchMidY = 0, cbTouchActive = false;
   canvas.addEventListener('touchstart', e => {
     if (!e.touches.length) return;
     e.preventDefault();

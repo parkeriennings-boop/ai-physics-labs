@@ -809,7 +809,7 @@
 
   function safeRoundRect(c, x, y, w, h, r) {
     if (typeof c.roundRect === 'function') {
-      safeRoundRect(c, x, y, w, h, r);
+      c.roundRect(x, y, w, h, r);
       return;
     }
     const rad = Math.max(0, Math.min(r, w / 2, h / 2));
