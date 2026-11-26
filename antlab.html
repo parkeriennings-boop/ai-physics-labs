@@ -2255,6 +2255,7 @@
   document.querySelectorAll('.spd-btn').forEach(b => {
     b.addEventListener('click', () => {
       state.simSpeed = parseFloat(b.dataset.spd);
+      simAccum = 0;
       document.querySelectorAll('.spd-btn').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       if (state.paused) togglePause();
@@ -2389,25 +2390,29 @@
   // =========================================================================
   let lastT = performance.now(), fpsF = 0, fpsT = 0, uiT = 0;
 
+  let simAccum = 0;
   function loop(now) {
     const wallDt = Math.max(0, (now - lastT) / 1000);
     lastT = now;
-    const rawDt = clamp(wallDt, 0, 0.05);
+    const rawDt = clamp(wallDt, 0, 0.1);
 
     if (!state.paused && rawDt > 0) {
-      // Time-budgeted safe substepping up to 500x (prevents tunneling & UI freezes)
-      const MAX_STEP_DT = 0.035;
-      let simBudget = rawDt * state.simSpeed;
-      const maxSteps = state.popSize >= 500 ? 40 : 90;
+      const MAX_STEP_DT = state.simSpeed >= 100 ? 0.05 : 0.035;
+      const maxBacklog = Math.max(0.2, state.simSpeed * 0.15);
+      simAccum = Math.min(maxBacklog, simAccum + rawDt * state.simSpeed);
+      const budgetMs = state.simSpeed >= 100 ? 45 : (state.simSpeed >= 20 ? 28 : 16);
+      const maxSteps = Math.max(60, Math.ceil((maxBacklog / MAX_STEP_DT) * 1.25));
       const frameStart = performance.now();
       let executed = 0;
-      while (simBudget > 1e-6 && executed < maxSteps) {
-        const dt = simBudget > MAX_STEP_DT ? MAX_STEP_DT : simBudget;
+      while (simAccum > 1e-6 && executed < maxSteps) {
+        const dt = simAccum > MAX_STEP_DT ? MAX_STEP_DT : simAccum;
         stepSim(dt);
-        simBudget -= dt;
+        simAccum -= dt;
         executed++;
-        if (executed >= 4 && performance.now() - frameStart > 11) break;
+        if ((executed & 3) === 0 && performance.now() - frameStart > budgetMs) break;
       }
+    } else if (state.paused) {
+      simAccum = 0;
     }
 
     renderWorld(rawDt);

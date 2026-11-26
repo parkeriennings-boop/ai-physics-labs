@@ -875,7 +875,10 @@ function showToast(msg, dur = 2800) {
   toastTimer = setTimeout(() => { el.style.display = 'none'; }, dur);
 }
 
-function saveState() {
+let lastSaveMs = 0, stateDirty = false;
+function saveState(force = true) {
+  const now = performance.now();
+  if (!force && now - lastSaveMs < 2500) { stateDirty = true; return; }
   safeStorageSet('flylab3d_v1', JSON.stringify({
     gNodes, gWelds, labBrain, knowledge, arenaScore, currentArena, simSpeed, camMode,
     mirror: document.getElementById('chkMirror').checked,
@@ -884,7 +887,10 @@ function saveState() {
     autoEvo: document.getElementById('chkAutoEvo').checked,
     optic: document.getElementById('chkOptic').checked
   }));
+  stateDirty = false;
+  lastSaveMs = now;
 }
+window.addEventListener('pagehide', () => { if (stateDirty) saveState(true); });
 function loadState() {
   try {
     const raw = safeStorageGet('flylab3d_v1');
@@ -1785,7 +1791,7 @@ window.addEventListener('mouseup', e => {
         const mb = gNodes.findIndex(n => n.gx === nb.gx && n.gy === nb.gy && n.gz === -nb.gz);
         if (ma !== -1 && mb !== -1 && ma !== mb) addLabWeld(ma, mb);
       }
-      saveState();
+      saveState(false);
     }
   }
   dragging = false; weldStart = -1;
@@ -2843,12 +2849,18 @@ function loop(now) {
         stepArena(stepBudget);
         updateFlyBrainViz();
       } else {
-        const maxSteps = 60;
-        simAccum = Math.min(simAccum + stepBudget, maxSteps);
-        const steps = Math.min(maxSteps, Math.floor(simAccum));
-        simAccum -= steps;
-        for (let s = 0; s < steps; s++) stepArena(1);
-        if (steps > 0) updateFlyBrainViz();
+        const maxBacklog = Math.max(60, Math.ceil(simSpeed * 9));
+        simAccum = Math.min(simAccum + stepBudget, maxBacklog);
+        const budgetMs = simSpeed >= 20 ? 35 : 18;
+        const t0 = performance.now();
+        let ran = 0;
+        while (simAccum >= 1 && ran < maxBacklog) {
+          stepArena(1);
+          simAccum -= 1;
+          ran++;
+          if ((ran & 3) === 0 && performance.now() - t0 > budgetMs) break;
+        }
+        if (ran > 0) updateFlyBrainViz();
       }
     } else if (fx.length > 0) {
       // Allow RL/Evolve feedback popups to animate smoothly even while paused

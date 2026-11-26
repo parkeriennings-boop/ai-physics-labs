@@ -1472,13 +1472,15 @@
           if (s >= 4 && performance.now() - tStart > 12) break;
         }
       } else {
-        stepAccum = Math.min(stepAccum + dt * 60 * simSpeed * 2, 120);
-        const steps = Math.floor(stepAccum);
-        stepAccum -= steps;
-        for (let s = 0; s < steps; s++) {
+        const maxBacklog = Math.max(120, Math.ceil(simSpeed * 12));
+        stepAccum = Math.min(stepAccum + dt * 60 * simSpeed * 2, maxBacklog);
+        const budgetMs = simSpeed >= 10 ? 35 : 16;
+        let ran = 0;
+        while (stepAccum >= 1 && ran < maxBacklog) {
           stepWave();
-          if (s >= 2 && performance.now() - tStart > 14) {
-            stepAccum = 0;
+          stepAccum -= 1;
+          ran++;
+          if ((ran & 3) === 0 && performance.now() - tStart > budgetMs) {
             break;
           }
         }

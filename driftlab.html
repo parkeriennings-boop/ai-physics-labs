@@ -3674,7 +3674,7 @@
       lastTs = ts;
       fpsLastTs = ts;
     }
-    const realDt = Math.max(0, Math.min(0.05, (ts - lastTs) / 1000));
+    const realDt = Math.max(0, Math.min(0.1, (ts - lastTs) / 1000));
     lastTs = ts;
 
     fpsCounter++;
@@ -3692,21 +3692,27 @@
       if (!isPaused) {
         const fixedDt = 1 / 60;
         const effectiveSpeed = manualMode ? Math.min(2, simSpeed) : simSpeed;
-        simAccum += realDt * effectiveSpeed;
-        let steps = 0;
-        // Allow true 500x speed while capping per-frame CPU budget to keep UI responsive
-        const maxSteps = Math.max(12, Math.min(500, Math.ceil(effectiveSpeed * 1.25)));
-        const stepStart = performance.now();
-        while (simAccum >= fixedDt && steps < maxSteps) {
-          stepSimulation(fixedDt);
-          simAccum -= fixedDt;
-          steps++;
-          if ((steps & 7) === 0 && (performance.now() - stepStart) > 14) {
-            simAccum = 0;
-            break;
+        if (effectiveSpeed < 1) {
+          simAccum = 0;
+          const slowDt = Math.min(fixedDt, realDt * effectiveSpeed);
+          if (slowDt > 1e-6) stepSimulation(slowDt);
+        } else {
+          const stepDt = effectiveSpeed >= 200 ? (1 / 20) : (effectiveSpeed >= 25 ? (1 / 30) : fixedDt);
+          const maxBacklog = Math.max(fixedDt * 8, effectiveSpeed * 0.15);
+          simAccum = Math.min(maxBacklog, simAccum + realDt * effectiveSpeed);
+          const budgetMs = effectiveSpeed >= 100 ? 45 : (effectiveSpeed >= 20 ? 28 : 16);
+          const maxSteps = Math.max(60, Math.ceil((maxBacklog / stepDt) * 1.25));
+          let steps = 0;
+          const stepStart = performance.now();
+          while (simAccum >= stepDt && steps < maxSteps) {
+            stepSimulation(stepDt);
+            simAccum -= stepDt;
+            steps++;
+            if ((steps & 3) === 0 && (performance.now() - stepStart) > budgetMs) {
+              break;
+            }
           }
         }
-        if (steps >= maxSteps) simAccum = 0;
       } else {
         simAccum = 0;
       }

@@ -3137,35 +3137,45 @@
     const t0 = performance.now();
     const rawDt = lastLoopTs ? (ts - lastLoopTs) / 1000 : (1 / 60);
     lastLoopTs = ts;
-    // Clamp dt to max 50ms to prevent tab-switch spikes and normalize 60Hz/120Hz/144Hz monitors
-    const dt = Math.max(0.001, Math.min(0.05, Number.isFinite(rawDt) ? rawDt : (1 / 60)));
+    // Clamp dt to max 100ms to prevent tab-switch spikes and normalize 60Hz/120Hz/144Hz monitors
+    const dt = Math.max(0.001, Math.min(0.1, Number.isFinite(rawDt) ? rawDt : (1 / 60)));
     const dtScale = dt * 60;
 
     if (document.getElementById('view-garage').classList.contains('active')) {
       drawGarage(dtScale);
     } else if (document.getElementById('view-course').classList.contains('active')) {
       if (!coursePaused) {
-        courseAccum = Math.min(courseSpeed * 2, courseAccum + dtScale * courseSpeed);
-        const maxSteps = Math.max(1, Math.ceil(courseSpeed * 1.5));
-        let ran = 0;
-        while (courseAccum >= 1 && ran < maxSteps) {
-          courseAccum -= 1;
-          stepCourse(1 / 60);
-          ran++;
-          if (performance.now() - t0 > 13) { courseAccum = Math.min(courseAccum, 1); break; }
+        if (courseSpeed < 1) {
+          courseAccum = 0;
+          stepCourse(Math.min(1 / 60, dt * courseSpeed));
+        } else {
+          const stepDt = courseSpeed >= 200 ? (1 / 20) : (courseSpeed >= 25 ? (1 / 30) : (1 / 60));
+          const maxBacklog = Math.max(0.15, courseSpeed * 0.15);
+          courseAccum = Math.min(maxBacklog, courseAccum + dt * courseSpeed);
+          const budgetMs = courseSpeed >= 100 ? 45 : (courseSpeed >= 20 ? 28 : 16);
+          const maxSteps = Math.max(60, Math.ceil((maxBacklog / stepDt) * 1.25));
+          let ran = 0;
+          while (courseAccum >= stepDt && ran < maxSteps) {
+            courseAccum -= stepDt;
+            stepCourse(stepDt);
+            ran++;
+            if ((ran & 3) === 0 && performance.now() - t0 > budgetMs) break;
+          }
         }
       }
       drawCourse();
     } else {
       if (!paused) {
-        dishAccum = Math.min(dishSpeed * 2, dishAccum + dtScale * dishSpeed);
-        const maxSteps = Math.max(1, Math.ceil(dishSpeed * 1.5));
+        const maxBacklog = Math.max(8, dishSpeed * 9);
+        dishAccum = Math.min(maxBacklog, dishAccum + dtScale * dishSpeed);
+        const budgetMs = dishSpeed >= 100 ? 45 : (dishSpeed >= 20 ? 28 : 16);
+        const maxSteps = Math.max(60, Math.ceil(maxBacklog * 1.25));
         let ran = 0;
         while (dishAccum >= 1 && ran < maxSteps) {
           dishAccum -= 1;
           stepDish();
           ran++;
-          if (performance.now() - t0 > 13) { dishAccum = Math.min(dishAccum, 1); break; }
+          if ((ran & 3) === 0 && performance.now() - t0 > budgetMs) break;
         }
       }
       drawDish(dtScale);

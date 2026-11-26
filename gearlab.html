@@ -4309,7 +4309,13 @@ function loop(now) {
   hudEls.fps.textContent = Math.round(clamp(finiteOr(fpsSmooth, 60), 1, 240));
 
   if (!paused) {
-    world.step((1 / 60) * timeScale);
+    const frameDt = clamp(Number.isFinite(rawDt) && rawDt > 0 ? rawDt : (1 / 60), 0, 0.05);
+    const totalSimDt = frameDt * timeScale;
+    const subChunks = Math.max(1, Math.ceil(totalSimDt / (1 / 60)));
+    const chunkDt = totalSimDt / subChunks;
+    for (let c = 0; c < subChunks; c++) {
+      world.step(chunkDt);
+    }
   }
   render();
   updateLiveTelemetry(!paused);

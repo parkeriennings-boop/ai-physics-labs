@@ -1509,7 +1509,7 @@
             blueWins++; winStreak = 0;
             document.getElementById('roundLbl').textContent = timeUp ? '⏱️ TIME OVER' : '💥 ELIMINATED';
           }
-          saveState(true);
+          saveState(false);
         }
         roundTimer += Math.max(1 / 60, dt);
         if (roundTimer > 2.0) startArena();
@@ -1564,7 +1564,7 @@
               else { document.getElementById('roundLbl').textContent = '⏱️ TIME DRAW!'; }
             }
             for (const d of duels) { d.done = true; d.red.done = true; d.blue.done = true; }
-            saveState(true);
+            saveState(false);
           }
           roundTimer += Math.max(1 / 60, dt);
           if (roundTimer > 1.6) startArena();
@@ -2389,7 +2389,7 @@
   document.getElementById('btnPlayPause').onclick = () => { isPlaying = !isPlaying; document.getElementById('btnPlayPause').textContent = isPlaying ? '⏸ Pause' : '▶ Brawl'; };
   document.getElementById('btnStepGen').onclick = () => mode === 'ml' ? evolveGeneration() : startArena();
   document.getElementById('selArena').onchange = e => { if (ARENAS[e.target.value]) { arenaKey = e.target.value; startArena(); } };
-  document.getElementById('selSpeed').onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) simSpeed = v; };
+  document.getElementById('selSpeed').onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) { simSpeed = v; simAccum = 0; } };
   document.getElementById('selTimeLimit').onchange = e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v) && v >= 0) { timeLimit = v; startArena(); } };
   document.getElementById('selPop').onchange = e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v) && v >= 2) { popSize = v; if (mode === 'ml') startArena(); } };
   document.getElementById('selRoyaleBots').onchange = e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v) && v >= 2) { royaleCount = v; if (mode === 'royale') startArena(); } };
@@ -2626,7 +2626,7 @@
       if (paused) {
         lastFrameMs = 0; simAccum = 0;
       } else {
-        const frameDt = lastFrameMs ? Math.min(0.05, Math.max(0, (now - lastFrameMs) / 1000)) : (1 / 60);
+        const frameDt = lastFrameMs ? Math.min(0.1, Math.max(0, (now - lastFrameMs) / 1000)) : (1 / 60);
         lastFrameMs = now;
         const FIXED_DT = 1 / 60;
         const t0 = performance.now();
@@ -2638,15 +2638,17 @@
             rem -= sub;
           }
         } else {
-          const maxSteps = Math.min(1000, Math.max(1, Math.ceil(simSpeed * 2)));
-          simAccum = Math.min(simAccum + frameDt * simSpeed, FIXED_DT * maxSteps);
+          const stepDt = simSpeed >= 200 ? (1 / 20) : (simSpeed >= 25 ? (1 / 30) : FIXED_DT);
+          const maxBacklog = Math.max(FIXED_DT * 8, simSpeed * 0.15);
+          simAccum = Math.min(maxBacklog, simAccum + frameDt * simSpeed);
+          const budgetMs = simSpeed >= 100 ? 45 : (simSpeed >= 20 ? 28 : 16);
+          const maxSteps = Math.max(60, Math.ceil((maxBacklog / stepDt) * 1.25));
           let stepsRun = 0;
-          while (simAccum >= FIXED_DT && stepsRun < maxSteps) {
-            stepArena(FIXED_DT);
-            simAccum -= FIXED_DT;
+          while (simAccum >= stepDt && stepsRun < maxSteps) {
+            stepArena(stepDt);
+            simAccum -= stepDt;
             stepsRun++;
-            if (stepsRun > 2 && performance.now() - t0 > 14) {
-              simAccum = 0;
+            if ((stepsRun & 3) === 0 && performance.now() - t0 > budgetMs) {
               break;
             }
           }

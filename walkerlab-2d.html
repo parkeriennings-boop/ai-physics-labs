@@ -2931,12 +2931,15 @@
     history.push({ gen: generation, best: bestRew, mean, fallRate });
     if (history.length > 80) history.shift();
 
-    saveState();
+    saveState(false);
     generation++;
     spawnGeneration();
   }
 
-  function saveState() {
+  let lastSaveMs = 0, stateDirty = false;
+  function saveState(force = true) {
+    const now = performance.now();
+    if (!force && now - lastSaveMs < 2500) { stateDirty = true; return; }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         grid,
@@ -2955,8 +2958,11 @@
           standWeight, walkWeight, fallPenaltyMag, learningRate, sigma
         }
       }));
+      stateDirty = false;
+      lastSaveMs = now;
     } catch (_) {}
   }
+  window.addEventListener('pagehide', () => { if (stateDirty) saveState(true); });
 
   function loadState() {
     try {
@@ -4400,6 +4406,7 @@
     const applySimSpeed = (val, quiet = false) => {
       const s = Math.max(0.01, Math.min(1000, Number(val) || 1));
       simSpeed = Math.round(s * 1000) / 1000;
+      simAccum = 0;
       syncSwarmTimeUI();
       saveState();
       if (!quiet) showToast(`⚡ Speed set to ${simSpeed}x`);
@@ -4724,27 +4731,41 @@
   }
 
   let lastFrame = performance.now();
+  let simAccum = 0;
   let rafId = 0;
   function loop(now) {
     rafId = 0;
     if (document.hidden) return;
     const dRaw = (now - lastFrame) / 1000;
-    const rawDt = Number.isFinite(dRaw) ? Math.max(0, Math.min(0.033, dRaw)) : 0;
+    const rawDt = Number.isFinite(dRaw) ? Math.max(0, Math.min(0.1, dRaw)) : 0;
     lastFrame = now;
     rafId = requestAnimationFrame(loop);
 
-    if (!document.getElementById('view-arena').classList.contains('active')) return;
+    if (!document.getElementById('view-arena').classList.contains('active')) { simAccum = 0; return; }
 
     if (isPlaying || pendingStepFrames > 0) {
       const singleStep = !isPlaying && pendingStepFrames > 0;
       const fixedStep = 1 / physicsHz;
-      const steps = singleStep ? 1 : Math.min(1000, Math.max(1, Math.round(simSpeed)));
-      const dtScale = singleStep ? 1 : (simSpeed < 1 ? simSpeed : 1);
-      const dt = fixedStep * dtScale;
-      if (singleStep) pendingStepFrames--;
+      let dt = fixedStep;
+      let steps = 0;
+      if (singleStep) {
+        pendingStepFrames--;
+        steps = 1;
+        dt = fixedStep;
+      } else if (simSpeed < 1) {
+        simAccum = 0;
+        const slowDt = Math.min(fixedStep, rawDt * simSpeed);
+        if (slowDt > 1e-6) { steps = 1; dt = slowDt; }
+      } else {
+        const maxBacklog = Math.max(fixedStep * 8, simSpeed * 0.15);
+        simAccum = Math.min(maxBacklog, simAccum + rawDt * simSpeed);
+        steps = Math.min(Math.max(60, Math.ceil((maxBacklog / fixedStep) * 1.25)), Math.floor(simAccum / fixedStep));
+      }
+      const budgetMs = simSpeed >= 100 ? 45 : (simSpeed >= 20 ? 28 : 16);
       const frameStart = performance.now();
 
       for (let s = 0; s < steps; s++) {
+        if (!singleStep && simSpeed >= 1) simAccum -= dt;
         simTime += dt;
         let anyAlive = false;
         let uprightCount = 0;
@@ -4804,9 +4825,8 @@
         const hitTimer = episodeDuration < 99999 && simTime >= episodeDuration;
         if (hitEarlyEnd || hitTimer) {
           evolveGeneration();
-          break;
         }
-        if (s >= 1 && performance.now() - frameStart > 16) break;
+        if ((s & 3) === 3 && performance.now() - frameStart > budgetMs) break;
       }
 
       for (let i = particles.length - 1; i >= 0; i--) {
