@@ -1172,6 +1172,7 @@
     adam.step(masterNN.b1, gb1, adam.mb1, adam.vb1, effLR);
     adam.step(masterNN.w2, gw2, adam.mw2, adam.vw2, effLR);
     adam.step(masterNN.b2, gb2, adam.mb2, adam.vb2, effLR);
+    masterNN.b2[0] = Math.max(-2.2, Math.min(2.2, masterNN.b2[0]));
 
     if (wasBlank && bestI > 0 && simTime > 0) {
       const bnn = rockets[bestI].nn;
@@ -1311,7 +1312,7 @@
         }
         r.nn.lastOut[0] = throttle * 2 - 1; r.nn.lastOut[1] = steer;
       } else {
-        throttle = Math.max(0, nnOut[0]);
+        throttle = (nnOut[0] + 1) * 0.5;
         steer = nnOut[1];
         r.aiMode = 'NEURAL';
       }
