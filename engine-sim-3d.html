@@ -424,9 +424,11 @@
         <div class="alert-tag vtec" id="hudVtec">VTEC: HIGH CAM</div>
         <div class="alert-tag" id="hudKnock">DETONATION / KNOCK</div>
         <div class="alert-tag warn" id="hudLimiter">REV LIMITER HARD CUT</div>
+        <div class="alert-tag vtec" id="hudNitrous" style="border-color:#38bdf8;color:#7dd3fc;">N₂O INJECTION ACTIVE</div>
+        <div class="alert-tag warn" id="hudAls" style="border-color:#f97316;color:#fdba74;">ANTI-LAG BURBLE</div>
       </div>
 
-      <div class="cam-hint">Drag: Orbit · Scroll: Zoom · Right/Shift-Drag: Pan · Space: Crank · W/S: Throttle</div>
+      <div class="cam-hint">Drag: Orbit · Scroll: Zoom · Right/Shift-Drag: Pan · Space: Crank · W/S: Throttle · N: Nitrous (N₂O)</div>
     </div>
 
     <div class="mobile-drive-bar" id="mobileDriveBar">
@@ -480,18 +482,22 @@
           </div>
         </div>
 
-        <!-- 2. PISTON LAYOUTS (9 LAYOUTS + INVERTED!) -->
+        <!-- 2. PISTON LAYOUTS (13 LAYOUTS + INVERTED!) -->
         <div class="section" id="secLayout">
-          <div class="section-title"><span>2. Cylinder Layout (9 Layouts)</span></div>
+          <div class="section-title"><span>2. Cylinder Layout (13 Layouts)</span></div>
           <div class="choice-row" id="layoutChoices">
             <button class="choice-btn active" data-layout="inline">Inline</button>
             <button class="choice-btn" data-layout="v">V-Eng</button>
             <button class="choice-btn" data-layout="vr">VR 15°</button>
             <button class="choice-btn" data-layout="boxer">Boxer</button>
+            <button class="choice-btn" data-layout="flat180">Flat-180°</button>
+            <button class="choice-btn" data-layout="opposed">Opposed-P</button>
             <button class="choice-btn" data-layout="u">U-Eng</button>
             <button class="choice-btn" data-layout="h">H-Eng</button>
             <button class="choice-btn" data-layout="w">W-Eng</button>
+            <button class="choice-btn" data-layout="fan">Fan W3</button>
             <button class="choice-btn" data-layout="x">X-Eng</button>
+            <button class="choice-btn" data-layout="deltic">Deltic Δ</button>
             <button class="choice-btn" data-layout="radial">Radial</button>
           </div>
 
@@ -719,9 +725,11 @@
         <div class="section">
           <div class="section-title"><span>Exhaust Acoustics &amp; Audio</span></div>
           <div class="choice-row" id="exhaustChoices">
+            <button class="choice-btn" data-exh="stock">Touring</button>
             <button class="choice-btn active" data-exh="sport">Sport</button>
             <button class="choice-btn" data-exh="deep">Deep Muscle</button>
             <button class="choice-btn" data-exh="straight">Raw Pipe</button>
+            <button class="choice-btn" data-exh="f1">F1 Titanium</button>
           </div>
           <div class="slider-row">
             <div class="slider-head"><span>Master Volume</span><span class="slider-val" id="valVol">65%</span></div>
@@ -741,6 +749,11 @@
             <button class="preset-btn" data-archetype="airlinerJet">Airliner Jet<span class="preset-sub">Turbofan · BPR 9.0 · 2.4m</span></button>
             <button class="preset-btn" data-archetype="locoSteam">90° Steam Loco<span class="preset-sub">Steam · I2 · 16b · Rev</span></button>
             <button class="preset-btn" data-archetype="stirlingAlpha">Alpha Stirling<span class="preset-sub">Stirling · 980K · Helium</span></button>
+            <button class="preset-btn" data-archetype="f1v10">F1 Screamer V10<span class="preset-sub">4S · 72° V10 · 15k · Ti</span></button>
+            <button class="preset-btn" data-archetype="flat12">Ferrari Flat-12<span class="preset-sub">4S · 180° Flat-12 · 8.5k</span></button>
+            <button class="preset-btn" data-archetype="deltic18">Napier Deltic-18<span class="preset-sub">2S Diesel · Δ-18 · SC</span></button>
+            <button class="preset-btn" data-archetype="hellcatV8">Hellcat SC V8<span class="preset-sub">4S · V8 · Roots Whine</span></button>
+            <button class="preset-btn" data-archetype="jz2turbo">2JZ-GTE Turbo I6<span class="preset-sub">4S · I6 · 1.7b · ALS</span></button>
           </div>
         </div>
       </div>
@@ -755,6 +768,11 @@
           <div class="action-row">
             <button class="starter-btn" id="starterBtn">HOLD TO CRANK</button>
             <button class="ign-btn on" id="ignBtn">IGNITION: ON</button>
+          </div>
+          <div class="action-row" style="margin-top:6px;">
+            <button class="btn" id="nitrousBtn" style="flex:1;padding:6px 8px;font-weight:700;">N₂O: OFF</button>
+            <button class="btn" id="alsBtn" style="flex:1;padding:6px 8px;font-weight:700;">Anti-Lag: OFF</button>
+            <button class="btn" id="dynoPullBtn" style="flex:1;padding:6px 8px;font-weight:700;border-color:rgba(56,189,248,0.45);color:#7dd3fc;">Dyno Pull</button>
           </div>
           <div class="spark-toggles" id="sparkToggles"></div>
           <div class="slider-row">
@@ -1031,6 +1049,57 @@
           out.push({ bankDeg: bank, pinDeg: ((fire - bank) % 360 + 360) % 360, fireOffset: fire, zSlot: q, zSub: subs[b], xOff: 0, yOff: 0 });
         }
       }
+    } else if (layout === 'flat180') {
+      // 180-deg V / Flat-12 (shared crankpins, Ferrari 512BB / Testarossa style)
+      const N = build.numCyl, pairs = N / 2, pinStep = pairs === 1 ? 0 : (360 / pairs);
+      for (let p = 0; p < pairs; p++) {
+        const pin = (p * pinStep) % 360;
+        const fL = ((pin + 90) % 360) + ((p % 2 === 1 && cyc === 720) ? 360 : 0);
+        const fR = ((pin + 270) % 360) + ((p % 2 === 0 && cyc === 720) ? 360 : 0);
+        out.push({ bankDeg: -90, pinDeg: pin, fireOffset: fL % cyc, zSlot: p, zSub: -1, xOff: 0, yOff: 0 });
+        out.push({ bankDeg:  90, pinDeg: pin, fireOffset: fR % cyc, zSlot: p, zSub:  1, xOff: 0, yOff: 0 });
+      }
+    } else if (layout === 'opposed') {
+      // Twin-crankshaft Opposed-Piston (Junkers Jumo / Achates style: upper & lower cranks facing inward)
+      const N = build.numCyl, pairs = N / 2, step = cyc / N;
+      const deckSep = (build.stroke + conrodLen()) * 0.92;
+      for (let p = 0; p < pairs; p++) {
+        const fBot = (p * 2 * step) % cyc;
+        const fTop = (fBot + 15) % cyc;
+        out.push({ bankDeg: 0, pinDeg: fBot % 360, fireOffset: fBot, zSlot: p, zSub: 0, xOff: 0, yOff: -deckSep });
+        out.push({ bankDeg: 180, pinDeg: (fTop + 180) % 360, fireOffset: fTop, zSlot: p, zSub: 0, xOff: 0, yOff: deckSep });
+      }
+    } else if (layout === 'deltic') {
+      // Napier Deltic triangular 3-crankshaft opposed-piston engine (6 pistons per slice)
+      const N = build.numCyl, slices = Math.max(1, Math.round(N / 6)), step = cyc / N;
+      const triR = (build.stroke + conrodLen()) * 0.68;
+      const verts = [
+        { x: 0, y: triR, b1: 150, b2: -150 },
+        { x: -triR * 0.866, y: -triR * 0.5, b1: 30, b2: 90 },
+        { x:  triR * 0.866, y: -triR * 0.5, b1: -90, b2: -30 }
+      ];
+      for (let s = 0; s < slices; s++) {
+        let idx = 0;
+        for (let v = 0; v < 3; v++) {
+          const vt = verts[v];
+          for (const bDeg of [vt.b1, vt.b2]) {
+            const fire = ((s * 6 + idx) * step) % cyc;
+            out.push({ bankDeg: bDeg, pinDeg: ((fire - bDeg) % 360 + 360) % 360, fireOffset: fire, zSlot: s, zSub: (idx % 2 === 0 ? -0.45 : 0.45), xOff: vt.x, yOff: vt.y });
+            idx++;
+          }
+        }
+      }
+    } else if (layout === 'fan') {
+      // Napier Lion / Broad-Arrow 3-bank Fan W3 (-60, 0, +60 shared crankpins)
+      const N = build.numCyl, triples = Math.max(1, Math.round(N / 3)), step = cyc / N;
+      const banks = [-60, 0, 60], subs = [-1, 0, 1];
+      for (let t = 0; t < triples; t++) {
+        const pin = (t * (360 / triples)) % 360;
+        for (let b = 0; b < 3; b++) {
+          const fire = ((t * 3 + b) * step) % cyc;
+          out.push({ bankDeg: banks[b], pinDeg: pin, fireOffset: fire, zSlot: t, zSub: subs[b], xOff: 0, yOff: 0 });
+        }
+      }
     } else if (layout === 'radial') {
       const perRow = build.numCyl, rows = build.radialRows;
       for (let rIdx = 0; rIdx < rows; rIdx++) {
@@ -1154,8 +1223,10 @@
   const ctrl = {
     starter: false, ignition: true, throttle: 0.0, load: 0.0,
     sparkAdvance: 20.0, lambdaTarget: 0.96, idleBypass: 0.18, revLimiter: 7000,
-    timeScale: 1.0, paused: false, blockMode: 0, showParticles: true, showVectors: true, audioOn: false, selectedCyl: 0
+    timeScale: 1.0, paused: false, blockMode: 0, showParticles: true, showVectors: true, audioOn: false, selectedCyl: 0,
+    nitrous: false, antiLag: false, dynoActive: false, dynoPeakHP: 0, dynoPeakHPRpm: 0, dynoPeakTq: 0, dynoPeakTqRpm: 0
   };
+  let dynoCurve = [];
 
   let eng = null, pvHistory = [], ptHistory = [];
   const MAX_PV = 340, MAX_PT = 300;
@@ -1257,7 +1328,7 @@
   }
 
   function onGeometryChanged() {
-    if (eng && eng.cyls && eng.cyls.length && (build.layout === 'u' || build.layout === 'h')) {
+    if (eng && eng.cyls && eng.cyls.length && (build.layout === 'u' || build.layout === 'h' || build.layout === 'opposed' || build.layout === 'deltic')) {
       const specs = generateCylinderSpecs();
       const actualN = specs.length;
       for (let i = 0; i < eng.cyls.length; i++) {
@@ -1322,9 +1393,24 @@
       eng.Tboost = T_AMB + (tComp - T_AMB) * 0.30;
       if (eng.omega > 5 && eng.mdotThr > 0) tauSC = Math.min(250, (eng.mdotThr * 1005 * (tComp - T_AMB) / 0.74) / safeW);
     } else if (asp === 'turbo' || asp === 'twin') {
+      const prevThr = eng._prevThr ?? ctrl.throttle;
+      if (prevThr - ctrl.throttle > 0.14 && eng.turboSpool > 0.35) {
+        eng.bovTimer = Math.min(0.42, 0.18 + eng.turboSpool * 0.24);
+        eng.bovStrength = Math.min(1.0, eng.turboSpool);
+      }
+      eng._prevThr = ctrl.throttle;
+      if (eng.bovTimer > 0) eng.bovTimer = Math.max(0, eng.bovTimer - dt);
       const exhDrive = Math.max(0, (eng.Pexh - P_ATM * 0.98) / 35000) * (eng.Texh / 800) * (Math.abs(eng.omega) / 400);
-      const targetSpool = Math.min(1.0, Math.pow(exhDrive, 0.85));
-      eng.turboSpool += (targetSpool - eng.turboSpool) * Math.min(1, dt * (targetSpool > eng.turboSpool ? 1.6 : 2.8));
+      let targetSpool = Math.min(1.0, Math.pow(exhDrive, 0.85));
+      if (ctrl.antiLag && ctrl.ignition && ctrl.throttle < 0.14 && rpmNow > 2200) {
+        targetSpool = Math.max(targetSpool, 0.82);
+        eng.alsPopTimer = (eng.alsPopTimer || 0) - dt;
+        if (eng.alsPopTimer <= 0) {
+          eng.limiterPopTimer = Math.max(eng.limiterPopTimer || 0, 0.055);
+          eng.alsPopTimer = 0.045 + Math.random() * 0.095;
+        }
+      }
+      eng.turboSpool += (targetSpool - eng.turboSpool) * Math.min(1, dt * (targetSpool > eng.turboSpool ? 1.8 : (ctrl.antiLag ? 0.9 : 2.8)));
       let boostG = build.targetBoost * eng.turboSpool * eng.turboSpool;
       if (asp === 'twin') {
         const scBoost = build.targetBoost * 0.55 * Math.pow(Math.min(1.0, Math.max(0, rpmNow / 2000)), 0.5) * (0.2 + 0.8 * ctrl.throttle);
@@ -1336,6 +1422,17 @@
       eng.Pboost = P_ATM + boostG * 1e5;
       const tComp = T_AMB * Math.pow(eng.Pboost / P_ATM, 0.286);
       eng.Tboost = T_AMB + (tComp - T_AMB) * 0.32;
+    }
+    if (ctrl.antiLag && asp !== 'turbo' && asp !== 'twin' && ctrl.ignition && ctrl.throttle < 0.14 && rpmNow > 2400) {
+      eng.alsPopTimer = (eng.alsPopTimer || 0) - dt;
+      if (eng.alsPopTimer <= 0) {
+        eng.limiterPopTimer = Math.max(eng.limiterPopTimer || 0, 0.05);
+        eng.alsPopTimer = 0.055 + Math.random() * 0.11;
+      }
+    }
+    if (ctrl.nitrous && ctrl.throttle > 0.08 && rpmNow > 900) {
+      eng.Pboost = Math.min(build.unrealistic ? 1e9 : 460000, eng.Pboost + 42000 * Math.min(1, ctrl.throttle));
+      eng.Tboost = Math.max(245, eng.Tboost - 28.0 * Math.min(1, ctrl.throttle));
     }
     return tauSC;
   }
@@ -2173,7 +2270,7 @@
   // =========================================================================
   // 5. ZERO-WHINE 44.1 kHz ACOUSTIC SYNTHESIZER (ALL 7 ENGINE TYPES!)
   // =========================================================================
-  let audioCtx = null, audioNode = null, resetAudioState = () => {};
+  let audioCtx = null, audioNode = null, audioComp = null, audioTone = null, resetAudioState = () => {};
 
   function toggleAudio() {
     if (!audioCtx) {
@@ -2182,24 +2279,56 @@
         if (!AC) return;
         audioCtx = new AC();
         const sr = audioCtx.sampleRate;
-        audioNode = audioCtx.createScriptProcessor(512, 0, 1);
+        audioNode = audioCtx.createScriptProcessor(1024, 0, 2);
 
-        const dPipe = Math.max(48, Math.round(sr * 0.0062));
-        const bufPipe = new Float32Array(dPipe);
-        let idxP = 0, pipeDamp = 0, lp1 = 0, lp2 = 0, subLP = 0, hpOut = 0, prevOut = 0, noiseLP1 = 0, noiseLP2 = 0, smoothTheta = 0;
+        // Master studio dynamics & tone shaping chain (warmth + zero harsh clipping)
+        audioTone = audioCtx.createBiquadFilter();
+        audioTone.type = 'lowshelf';
+        audioTone.frequency.value = 115;
+        audioTone.gain.value = 3.5;
+
+        audioComp = audioCtx.createDynamicsCompressor();
+        audioComp.threshold.value = -10;
+        audioComp.knee.value = 16;
+        audioComp.ratio.value = 4.5;
+        audioComp.attack.value = 0.004;
+        audioComp.release.value = 0.14;
+
+        // Coupled 3-stage stereo waveguide resonators (Left Header, Right Header, Tailpipe)
+        const dPipeL = Math.max(48, Math.round(sr * 0.0058));
+        const dPipeR = Math.max(48, Math.round(sr * 0.0067));
+        const dTail  = Math.max(64, Math.round(sr * 0.0112));
+        const bufPipeL = new Float32Array(dPipeL);
+        const bufPipeR = new Float32Array(dPipeR);
+        const bufTail  = new Float32Array(dTail);
+
+        let idxL = 0, idxR = 0, idxT = 0;
+        let dampL = 0, dampR = 0, dampT = 0;
+        let lpL1 = 0, lpL2 = 0, lpR1 = 0, lpR2 = 0, subLP = 0;
+        let hpL = 0, prevL = 0, hpR = 0, prevR = 0;
+        let noiseLP1 = 0, noiseLP2 = 0, noiseBP = 0, noiseHP = 0, prevW = 0;
+        let smoothTheta = 0, scPhase = 0, turboPhase = 0, jetN1Phase = 0, jetN2Phase = 0, intakePhase = 0, bovPhase = 0;
+        let f1ResY1 = 0, f1ResY2 = 0;
 
         resetAudioState = () => {
-          bufPipe.fill(0);
-          idxP = 0; pipeDamp = 0; lp1 = 0; lp2 = 0; subLP = 0; hpOut = 0; prevOut = 0; noiseLP1 = 0; noiseLP2 = 0;
+          bufPipeL.fill(0); bufPipeR.fill(0); bufTail.fill(0);
+          idxL = 0; idxR = 0; idxT = 0;
+          dampL = 0; dampR = 0; dampT = 0;
+          lpL1 = 0; lpL2 = 0; lpR1 = 0; lpR2 = 0; subLP = 0;
+          hpL = 0; prevL = 0; hpR = 0; prevR = 0;
+          noiseLP1 = 0; noiseLP2 = 0; noiseBP = 0; noiseHP = 0; prevW = 0;
+          f1ResY1 = 0; f1ResY2 = 0;
           smoothTheta = eng ? eng.theta : 0;
         };
 
         audioNode.onaudioprocess = (e) => {
-          const out = e.outputBuffer.getChannelData(0);
-          if (!ctrl.audioOn || ctrl.paused || !eng || build.volume <= 0.001) { out.fill(0); return; }
+          const outL = e.outputBuffer.getChannelData(0);
+          const outR = e.outputBuffer.getChannelData(1);
+          if (!ctrl.audioOn || ctrl.paused || !eng || build.volume <= 0.001) { outL.fill(0); outR.fill(0); return; }
           const dtA = (1.0 / sr) * ctrl.timeScale, mode = build.cycleMode;
+          const vol = Math.min(1, build.volume);
 
-          if (!Number.isFinite(pipeDamp) || !Number.isFinite(lp1) || !Number.isFinite(lp2) || !Number.isFinite(subLP) || !Number.isFinite(hpOut) || !Number.isFinite(prevOut) || !Number.isFinite(noiseLP1) || !Number.isFinite(noiseLP2) || !Number.isFinite(smoothTheta)) {
+          if (!Number.isFinite(dampL) || !Number.isFinite(lpL1) || !Number.isFinite(subLP) || !Number.isFinite(hpL) || !Number.isFinite(smoothTheta) || !Number.isFinite(f1ResY1)) {
             resetAudioState();
           }
 
@@ -2207,18 +2336,29 @@
             const j = eng.jet;
             const n1 = Math.max(0, Math.min(1.5, (Number.isFinite(j.n1Pct) ? j.n1Pct : 0) / 100));
             const n2 = Math.max(0, Math.min(1.5, (Number.isFinite(j.n2Pct) ? j.n2Pct : 0) / 100));
-            const abBoost = (build.afterburner && ctrl.throttle > 0.5 && n2 > 0.2) ? 1.55 : 1.0;
-            const amp = Math.min(1.3, (n1 * 0.75 + n2 * 0.35) * abBoost);
-            const k1 = Math.min(0.85, 0.04 + 0.06 * n1), k2 = Math.min(0.85, 0.03 + 0.04 * n2);
-            for (let s = 0; s < out.length; s++) {
+            const abOn = build.afterburner && ctrl.throttle > 0.5 && n2 > 0.2;
+            const abBoost = abOn ? 1.55 : 1.0;
+            const amp = Math.min(1.35, (n1 * 0.72 + n2 * 0.38) * abBoost);
+            const k1 = Math.min(0.85, 0.035 + 0.075 * n1), k2 = Math.min(0.85, 0.025 + 0.05 * n2);
+            const fFan = (220 + n1 * 980) * (2 * Math.PI / sr);
+            const fCore = (1150 + n2 * 3400) * (2 * Math.PI / sr);
+            for (let s = 0; s < outL.length; s++) {
               const w = Math.random() * 2 - 1;
+              const w2 = Math.random() * 2 - 1;
               noiseLP1 += (w - noiseLP1) * k1;
               noiseLP2 += (noiseLP1 - noiseLP2) * k2;
-              subLP += (noiseLP2 - subLP) * 0.012;
-              const roar = (noiseLP2 * 1.4 + subLP * 2.2) * amp;
-              hpOut = 0.995 * (hpOut + roar - prevOut); prevOut = roar;
-              const sample = Math.tanh(hpOut * 1.8) * 0.50 * Math.min(1, build.volume);
-              out[s] = Number.isFinite(sample) ? sample : 0;
+              subLP += (noiseLP2 - subLP) * 0.010;
+              jetN1Phase += fFan; if (jetN1Phase > 6.2831853) jetN1Phase -= 6.2831853;
+              jetN2Phase += fCore; if (jetN2Phase > 6.2831853) jetN2Phase -= 6.2831853;
+              const fanBuzz = (Math.sin(jetN1Phase) * 0.6 + Math.sin(jetN1Phase * 2) * 0.25) * n1 * 0.14;
+              const coreWhine = Math.sin(jetN2Phase) * n2 * 0.065;
+              const abCrackle = abOn ? (w2 * Math.max(0, w) * 0.55) : 0;
+              const roarL = (noiseLP2 * 1.35 + subLP * 2.4 + abCrackle) * amp + fanBuzz + coreWhine;
+              const roarR = (noiseLP2 * 1.30 + subLP * 2.4 + abCrackle * 0.9 + (w2 - w) * 0.06 * amp) * amp + fanBuzz * 0.95 + coreWhine * 1.05;
+              hpL = 0.995 * (hpL + roarL - prevL); prevL = roarL;
+              hpR = 0.995 * (hpR + roarR - prevR); prevR = roarR;
+              outL[s] = Math.tanh(hpL * 1.45) * 0.52 * vol;
+              outR[s] = Math.tanh(hpR * 1.45) * 0.52 * vol;
             }
             return;
           }
@@ -2229,11 +2369,17 @@
           else smoothTheta += thetaErr * 0.22;
 
           if (mode === 'stirling') {
-            const amp = Math.min(0.4, omegaAbs / 120);
-            for (let s = 0; s < out.length; s++) {
+            const amp = Math.min(0.48, omegaAbs / 100);
+            for (let s = 0; s < outL.length; s++) {
               smoothTheta += omega * dtA;
-              const sig = (Math.sin(smoothTheta) * 0.55 + Math.sin(smoothTheta * 2) * 0.25) * amp;
-              lp1 += (sig - lp1) * 0.06; out[s] = lp1 * 0.35 * build.volume;
+              const w = Math.random() * 2 - 1;
+              noiseLP1 += (w - noiseLP1) * 0.08;
+              const pulse = Math.sin(smoothTheta) * 0.55 + Math.sin(smoothTheta * 2) * 0.24 + Math.cos(smoothTheta * 3) * 0.09;
+              const whoosh = noiseLP1 * (0.14 + 0.18 * Math.abs(Math.cos(smoothTheta)));
+              const sig = (pulse + whoosh) * amp;
+              lpL1 += (sig - lpL1) * 0.08;
+              outL[s] = lpL1 * 0.42 * vol;
+              outR[s] = lpL1 * 0.40 * vol;
             }
             return;
           }
@@ -2244,24 +2390,40 @@
             const chestBar = Math.max(0, (eng.Pman - P_ATM) / 1e5), isDouble = build.steamAction === 'double';
             const revGear = build.cutoff < 0;
             const ex1Deg = revGear ? 6 : 170, ex2Deg = revGear ? 186 : 350;
-            for (let s = 0; s < out.length; s++) {
+            for (let s = 0; s < outL.length; s++) {
               smoothTheta += omega * dtA;
               const baseDeg = smoothTheta * (180 / Math.PI);
-              let blast = 0;
+              let blastL = 0, blastR = 0, clank = 0;
               for (let i = 0; i < N; i += stride) {
-                const d360 = ((baseDeg - eng.cyls[i].fireOffset) % 360 + 360) % 360;
+                const c = eng.cyls[i];
+                const d360 = ((baseDeg - c.fireOffset) % 360 + 360) % 360;
                 const r1 = (d360 - ex1Deg + 360) % 360;
-                if (r1 < 75) blast += Math.exp(-r1 * 0.055) * Math.sin(Math.min(Math.PI, r1 * 0.09));
-                if (isDouble) { const r2 = (d360 - ex2Deg + 360) % 360; if (r2 < 75) blast += Math.exp(-r2 * 0.055) * Math.sin(Math.min(Math.PI, r2 * 0.09)); }
+                let b = 0;
+                if (r1 < 78) b += Math.exp(-r1 * 0.052) * Math.sin(Math.min(Math.PI, r1 * 0.085));
+                if (r1 < 4) clank += 0.25;
+                if (isDouble) {
+                  const r2 = (d360 - ex2Deg + 360) % 360;
+                  if (r2 < 78) b += Math.exp(-r2 * 0.052) * Math.sin(Math.min(Math.PI, r2 * 0.085));
+                  if (r2 < 4) clank += 0.25;
+                }
+                const pan = c.bankDeg < 0 ? 0.72 : (c.bankDeg > 0 ? 0.28 : 0.5);
+                blastL += b * pan * 2; blastR += b * (1 - pan) * 2;
               }
               const w = Math.random() * 2 - 1;
-              noiseLP1 += (w - noiseLP1) * 0.14;
-              const amp = (0.12 + 0.88 * Math.min(1.5, chestBar / 8.0)) * Math.min(1.0, omegaAbs / 5.0 + ctrl.throttle * 0.35);
-              const sig = (blast * normGain * stride) * (noiseLP1 * 1.8 + 0.25) * amp + noiseLP1 * 0.05 * ctrl.throttle;
-              lp1 += (sig - lp1) * 0.16; subLP += (lp1 - subLP) * 0.03;
-              const mix = lp1 * 0.9 + subLP * 0.7;
-              hpOut = 0.994 * (hpOut + mix - prevOut); prevOut = mix;
-              out[s] = Math.tanh(hpOut * 1.6) * 0.52 * build.volume;
+              noiseLP1 += (w - noiseLP1) * 0.16;
+              noiseHP = 0.86 * (noiseHP + w - prevW); prevW = w;
+              const amp = (0.14 + 0.86 * Math.min(1.5, chestBar / 8.0)) * Math.min(1.0, omegaAbs / 4.5 + ctrl.throttle * 0.35);
+              const hiss = noiseHP * 0.045 * ctrl.throttle + clank * noiseHP * 0.12;
+              const sigL = (blastL * normGain * stride) * (noiseLP1 * 1.9 + 0.28) * amp + hiss;
+              const sigR = (blastR * normGain * stride) * (noiseLP1 * 1.9 + 0.28) * amp + hiss * 0.9;
+              lpL1 += (sigL - lpL1) * 0.18; lpR1 += (sigR - lpR1) * 0.18;
+              subLP += ((lpL1 + lpR1) * 0.5 - subLP) * 0.028;
+              const mixL = lpL1 * 0.92 + subLP * 0.72;
+              const mixR = lpR1 * 0.92 + subLP * 0.72;
+              hpL = 0.994 * (hpL + mixL - prevL); prevL = mixL;
+              hpR = 0.994 * (hpR + mixR - prevR); prevR = mixR;
+              outL[s] = Math.tanh(hpL * 1.45) * 0.54 * vol;
+              outR[s] = Math.tanh(hpR * 1.45) * 0.54 * vol;
             }
             return;
           }
@@ -2271,44 +2433,140 @@
           const cycDeg = (mode === 'ic2' || mode === 'rotary') ? 360 : 720;
           const exhOpenDeg = (mode === 'ic2' || mode === 'rotary') ? 115 : cam.evo;
           const exhMode = build.exhaustMode;
-          const fc = (exhMode === 'deep' ? 520 : (exhMode === 'sport' ? 880 : 1350)) * (eng.vtecActive ? 1.25 : 1.0);
-          const alphaLP = Math.min(0.45, (2 * Math.PI * fc) / (sr + 2 * Math.PI * fc));
-          const reflect = exhMode === 'deep' ? -0.42 : (exhMode === 'sport' ? -0.48 : -0.55);
+          const fcBase = exhMode === 'stock' ? 380 : (exhMode === 'deep' ? 540 : (exhMode === 'sport' ? 980 : (exhMode === 'f1' ? 2450 : 1550)));
+          const fc = fcBase * (eng.vtecActive ? 1.28 : 1.0) * (0.75 + 0.5 * Math.min(1, rpmNow / 6500));
+          const alphaLP = Math.min(0.62, (2 * Math.PI * fc) / (sr + 2 * Math.PI * fc));
+          const reflect = exhMode === 'stock' ? -0.28 : (exhMode === 'deep' ? -0.46 : (exhMode === 'sport' ? -0.52 : (exhMode === 'f1' ? -0.68 : -0.58)));
+          const tailReflect = exhMode === 'stock' ? 0.12 : (exhMode === 'deep' ? 0.34 : (exhMode === 'f1' ? 0.42 : 0.24));
 
-          for (let s = 0; s < out.length; s++) {
+          const f1Freq = Math.min(sr * 0.35, 1600 + rpmNow * 0.18);
+          const f1W0 = 2 * Math.PI * f1Freq / sr;
+          const f1R = exhMode === 'f1' ? 0.935 : 0.0;
+          const f1A1 = -2 * f1R * Math.cos(f1W0), f1A2 = f1R * f1R;
+
+          const asp = build.aspiration;
+          const hasSC = asp === 'roots' || asp === 'centrif' || asp === 'twin';
+          const hasTurbo = asp === 'turbo' || asp === 'twin';
+          const boostBar = Math.max(0, (eng.Pboost - P_ATM) / 1e5);
+          const scInc = hasSC ? ((asp === 'centrif' ? 0.48 : 0.34) * Math.max(120, rpmNow) * 2 * Math.PI / sr) : 0;
+          const scAmp = hasSC ? Math.min(0.18, (0.025 + boostBar * 0.085) * (0.35 + 0.65 * ctrl.throttle) * Math.min(1, rpmNow / 1400)) : 0;
+          const turboSpool = Math.max(0, Math.min(1, eng.turboSpool || 0));
+          const turboInc = hasTurbo ? ((2400 + turboSpool * 6800) * 2 * Math.PI / sr) : 0;
+          const turboAmp = hasTurbo ? Math.min(0.12, turboSpool * turboSpool * 0.095) : 0;
+          const bovActive = hasTurbo && (eng.bovTimer || 0) > 0;
+          const bovAmp = bovActive ? Math.min(0.32, (eng.bovStrength || 0.5) * Math.min(1, (eng.bovTimer || 0) * 4.0) * 0.34) : 0;
+
+          const fireHz = Math.max(12, (rpmNow / 60) * (N / (cycDeg === 360 ? 1 : 2)));
+          const intakeInc = Math.min(sr * 0.25, fireHz * (eng.vtecActive ? 2.0 : 1.0)) * 2 * Math.PI / sr;
+          const intakeAmp = (0.04 + 0.22 * Math.pow(Math.min(1, ctrl.throttle), 1.4)) * Math.min(1, rpmNow / 2400) * (eng.vtecActive ? 1.45 : 1.0);
+          const n2oHiss = (ctrl.nitrous && ctrl.throttle > 0.08) ? 0.14 : 0;
+          const isRotary = mode === 'rotary', isDiesel = mode === 'diesel';
+
+          for (let s = 0; s < outL.length; s++) {
             smoothTheta += omega * dtA;
             const baseDeg = smoothTheta * (180 / Math.PI);
-            let exhIn = 0;
+            let exhL = 0, exhR = 0, clatter = 0;
             for (let i = 0; i < N; i += stride) {
               const c = eng.cyls[i];
-              const bankDelay = c.bankDeg < 0 ? 0 : (c.bankDeg > 0 ? 11.0 : (c.zSlot * 1.3));
+              const bankDelay = c.bankDeg < 0 ? 0 : (c.bankDeg > 0 ? 9.5 : (c.zSlot * 1.4));
               const deg = ((baseDeg - c.fireOffset - bankDelay) % cycDeg + cycDeg) % cycDeg;
               const relEx = (deg - exhOpenDeg + cycDeg) % cycDeg;
               if (relEx < 155) {
-                const blowAmp = Math.max(0.08, Math.min(3.2, (c.lastPeakP - P_ATM) / 1.5e6));
+                const blowAmp = Math.max(0.08, Math.min(3.4, (c.lastPeakP - P_ATM) / 1.4e6));
                 const u = relEx / 155;
-                exhIn += blowAmp * Math.sin(Math.PI * Math.pow(u, 0.55)) * Math.exp(-u * 1.8) * (mode === 'diesel' ? 1.25 : 1.0);
+                let pulse = blowAmp * (Math.sin(Math.PI * Math.pow(u, 0.48)) * Math.exp(-u * 1.75) + 0.24 * Math.sin(3 * Math.PI * u) * Math.exp(-u * 2.8));
+                if (isRotary) pulse *= (1.0 + 0.28 * Math.sin(u * Math.PI * 5));
+                if (isDiesel) pulse *= 1.18;
+                const panL = c.bankDeg < -5 ? 0.66 : (c.bankDeg > 5 ? 0.34 : 0.50);
+                exhL += pulse * panL * 2;
+                exhR += pulse * (1 - panL) * 2;
+              }
+              if (isDiesel && deg < 14) {
+                clatter += Math.exp(-deg * 0.38) * 0.45;
               }
             }
+
             const w = Math.random() * 2 - 1;
-            noiseLP1 += (w - noiseLP1) * 0.09;
-            const pop = eng.limiterPopTimer > 0 ? (noiseLP1 * 2.2) : 0;
-            const raw = (exhIn * normGain * stride) + noiseLP1 * (0.06 + 0.14 * ctrl.throttle) * Math.min(1, omegaAbs / 240) + pop;
-            const delayed = bufPipe[idxP];
-            pipeDamp += (delayed - pipeDamp) * 0.22;
-            const wave = raw + reflect * pipeDamp;
-            bufPipe[idxP] = Math.tanh(wave * 0.80);
-            idxP = (idxP + 1) % dPipe;
-            lp1 += (wave - lp1) * alphaLP; lp2 += (lp1 - lp2) * alphaLP; subLP += (wave - subLP) * 0.025;
-            const mixed = (lp2 * 1.25 + subLP * 0.95) * Math.min(1.0, omegaAbs / 12.0 + (ctrl.starter ? 0.22 : 0));
-            hpOut = 0.995 * (hpOut + mixed - prevOut); prevOut = mixed;
-            const sample = Math.tanh(hpOut * 1.5) * 0.55 * Math.min(1, build.volume);
-            out[s] = Number.isFinite(sample) ? sample : 0;
+            noiseLP1 += (w - noiseLP1) * 0.11;
+            noiseHP = 0.84 * (noiseHP + w - prevW); prevW = w;
+            noiseBP += (noiseHP - noiseBP) * 0.28;
+
+            const popEnv = eng.limiterPopTimer > 0 ? (noiseLP1 * 2.8 + noiseBP * 1.6) : 0;
+            const gasTurb = noiseLP1 * (0.05 + 0.15 * Math.min(1, ctrl.throttle)) * Math.min(1, omegaAbs / 210);
+
+            const rawL = (exhL * normGain * stride) + gasTurb + popEnv;
+            const rawR = (exhR * normGain * stride) + gasTurb * 0.96 + popEnv * 0.92;
+
+            const delL = bufPipeL[idxL];
+            const delR = bufPipeR[idxR];
+            dampL += (delL - dampL) * 0.24;
+            dampR += (delR - dampR) * 0.24;
+            const waveL = rawL + reflect * dampL;
+            const waveR = rawR + reflect * dampR;
+            bufPipeL[idxL] = Math.tanh(waveL * 0.82);
+            bufPipeR[idxR] = Math.tanh(waveR * 0.82);
+            idxL = (idxL + 1) % dPipeL;
+            idxR = (idxR + 1) % dPipeR;
+
+            const tailDel = bufTail[idxT];
+            dampT += (tailDel - dampT) * 0.22;
+            const monoColl = (waveL + waveR) * 0.5 + tailReflect * dampT;
+            bufTail[idxT] = Math.tanh(monoColl * 0.78);
+            idxT = (idxT + 1) % dTail;
+
+            let filtL = waveL * 0.78 + monoColl * 0.22;
+            let filtR = waveR * 0.78 + monoColl * 0.22;
+
+            if (f1R > 0) {
+              const f1Out = (filtL + filtR) * 0.14 - f1A1 * f1ResY1 - f1A2 * f1ResY2;
+              f1ResY2 = f1ResY1; f1ResY1 = Math.max(-3, Math.min(3, f1Out));
+              filtL += f1ResY1 * 0.35;
+              filtR += f1ResY1 * 0.35;
+            }
+
+            lpL1 += (filtL - lpL1) * alphaLP; lpL2 += (lpL1 - lpL2) * alphaLP;
+            lpR1 += (filtR - lpR1) * alphaLP; lpR2 += (lpR1 - lpR2) * alphaLP;
+            subLP += (monoColl - subLP) * (exhMode === 'deep' ? 0.024 : 0.018);
+
+            intakePhase += intakeInc; if (intakePhase > 6.2831853) intakePhase -= 6.2831853;
+            const intakeSig = (Math.sin(intakePhase) * 0.65 + Math.sin(intakePhase * 2) * 0.35) * intakeAmp;
+
+            let fiSig = 0;
+            if (scAmp > 0) {
+              scPhase += scInc; if (scPhase > 6.2831853) scPhase -= 6.2831853;
+              fiSig += (Math.sin(scPhase) * 0.72 + Math.sin(scPhase * 2.0) * 0.28) * scAmp;
+            }
+            if (turboAmp > 0) {
+              turboPhase += turboInc; if (turboPhase > 6.2831853) turboPhase -= 6.2831853;
+              fiSig += Math.sin(turboPhase) * turboAmp;
+            }
+            if (bovAmp > 0) {
+              bovPhase += 2 * Math.PI * 19 / sr;
+              if (bovPhase > 6.2831853) bovPhase -= 6.2831853;
+              const flutter = 0.5 + 0.5 * Math.sin(bovPhase);
+              fiSig += noiseBP * bovAmp * (0.45 + 0.55 * flutter);
+            }
+            const mechSig = (clatter * noiseBP * 0.32 * normGain * stride) + (n2oHiss * noiseHP);
+            const spinEnv = Math.min(1.0, omegaAbs / 11.0 + (ctrl.starter ? 0.24 : 0));
+            const subGain = exhMode === 'deep' ? 1.25 : (exhMode === 'stock' ? 0.70 : 0.92);
+
+            const mixL = (lpL2 * 1.18 + subLP * subGain + intakeSig) * spinEnv + fiSig + mechSig;
+            const mixR = (lpR2 * 1.18 + subLP * subGain + intakeSig * 0.96) * spinEnv + fiSig * 0.95 + mechSig;
+            hpL = 0.995 * (hpL + mixL - prevL); prevL = mixL;
+            hpR = 0.995 * (hpR + mixR - prevR); prevR = mixR;
+            const sL = Math.tanh(hpL * 1.38) * 0.56 * vol;
+            const sR = Math.tanh(hpR * 1.38) * 0.56 * vol;
+            outL[s] = Number.isFinite(sL) ? sL : 0;
+            outR[s] = Number.isFinite(sR) ? sR : 0;
           }
         };
-        audioNode.connect(audioCtx.destination);
+        audioNode.connect(audioTone);
+        audioTone.connect(audioComp);
+        audioComp.connect(audioCtx.destination);
       } catch (_) {
         if (audioNode) { try { audioNode.disconnect(); } catch (__) {} audioNode = null; }
+        if (audioTone) { try { audioTone.disconnect(); } catch (__) {} audioTone = null; }
+        if (audioComp) { try { audioComp.disconnect(); } catch (__) {} audioComp = null; }
         if (audioCtx) { try { audioCtx.close(); } catch (__) {} audioCtx = null; }
         ctrl.audioOn = false;
         document.getElementById('audioBtn').textContent = 'Audio: OFF';
@@ -2600,7 +2858,7 @@
 
     const N = eng.cyls.length;
     const isRadial = build.layout === 'radial' && build.cycleMode !== 'stirling';
-    const isCenteredY = isRadial || (build.cycleMode !== 'stirling' && (build.layout === 'boxer' || build.layout === 'x' || build.layout === 'h'));
+    const isCenteredY = isRadial || (build.cycleMode !== 'stirling' && (build.layout === 'boxer' || build.layout === 'flat180' || build.layout === 'opposed' || build.layout === 'deltic' || build.layout === 'x' || build.layout === 'h'));
     const isSteam = build.cycleMode === 'steam', isStirling = build.cycleMode === 'stirling', is2S = build.cycleMode === 'ic2';
     const lowPoly = N > 16, ultraPoly = N > 36, segs = ultraPoly ? 10 : (lowPoly ? 14 : 20);
 
@@ -2617,7 +2875,7 @@
     const hasPaired = eng.cyls.some(c => c.zSub !== 0);
     const slotSpacing = isRadial ? (build.bore * 1.18 + 0.025) : (build.bore + (hasPaired ? 0.036 : 0.022));
     const zCenter = (maxSlot * slotSpacing) * 0.5;
-    const rodStagger = build.layout === 'x' ? 0.0085 : (build.layout === 'w' ? 0.011 : 0.012);
+    const rodStagger = build.layout === 'x' ? 0.0085 : ((build.layout === 'w' || build.layout === 'fan' || build.layout === 'deltic') ? 0.011 : 0.012);
 
     if (resetCamera) {
       const lengthSpan = (maxSlot + 1) * slotSpacing + 0.14;
@@ -2626,7 +2884,7 @@
       camState.dist = Math.max(0.58, span * 1.38 + (isCenteredY ? 0.22 : 0.12));
       camState.orthoZoom = Math.max(0.22, span * 0.45);
       camState.target.set(0, isCenteredY ? 0.0 : (isInverted ? -cylHeadY * 0.44 : cylHeadY * 0.44), 0);
-      if (isRadial || build.layout === 'x') { camState.yaw = 0.45; camState.pitch = 0.18; }
+      if (isRadial || build.layout === 'x' || build.layout === 'deltic' || build.layout === 'opposed') { camState.yaw = 0.45; camState.pitch = 0.18; }
       updateCameraTransform();
     }
 
@@ -3234,7 +3492,9 @@
     const invTxt = (build.inverted && (build.layout === 'inline' || build.layout === 'v' || build.layout === 'u')) ? ' INV' : '';
     const layoutLbl = mode === 'rotary' ? `${N}-ROTOR` : (mode === 'stirling' ? 'ALPHA 90°' : (
       build.layout === 'v' ? `${build.vAngle}° V${N}${invTxt}` : build.layout === 'vr' ? `15° VR${N}` :
-      build.layout === 'boxer' ? `BOXER-${N}` : build.layout === 'u' ? `U-${N}${invTxt}` : build.layout === 'h' ? `H-${N}` :
+      build.layout === 'boxer' ? `BOXER-${N}` : build.layout === 'flat180' ? `FLAT-${N}` : build.layout === 'opposed' ? `OPPOSED-${N}` :
+      build.layout === 'deltic' ? `DELTIC-${N}` : build.layout === 'fan' ? `FAN-W${N}` :
+      build.layout === 'u' ? `U-${N}${invTxt}` : build.layout === 'h' ? `H-${N}` :
       build.layout === 'w' ? `W${N}` : build.layout === 'x' ? `X${N}` : build.layout === 'radial' ? `RADIAL ${build.numCyl}×${build.radialRows}` : `INLINE-${N}${invTxt}`
     ));
     badge.textContent = `${modeNames[mode]} · ${layoutLbl} · ${dispTxt}`;
@@ -3243,7 +3503,7 @@
     document.getElementById('valLambda').textContent = `${ctrl.lambdaTarget.toFixed(2)} λ (${(ctrl.lambdaTarget * fuel.stoich).toFixed(1)}:1)`;
     const selName = mode === 'stirling' ? (ctrl.selectedCyl === 0 ? 'HOT' : 'COLD') : `${mode === 'rotary' ? 'Rotor' : 'Cyl'} ${ctrl.selectedCyl + 1}`;
     document.getElementById('pvTitle').textContent = `P–V Indicator Diagram · ${selName}`;
-    document.getElementById('ptTitle').textContent = is360Cycle() ? 'Pressure vs Shaft Angle (0°–360°)' : 'Pressure vs Crank Angle (0°–720°)';
+    if (dynoCurve.length < 2) document.getElementById('ptTitle').textContent = is360Cycle() ? 'Pressure vs Shaft Angle (0°–360°)' : 'Pressure vs Crank Angle (0°–720°)';
   }
 
   function formatCutoffText(pct) {
@@ -3307,9 +3567,10 @@
     const slCyl = document.getElementById('slCylCount');
     const cylMult = isBigUnrealistic() ? 1000 : 1;
     if (L === 'radial') { slCyl.dataset.normMin = 3; slCyl.dataset.normMax = 18; slCyl.dataset.normStep = 1; slCyl.min = 3; slCyl.max = 18 * cylMult; slCyl.step = 1; build.numCyl = Math.max(3, Math.min(18 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders per Row (3–${18 * cylMult})`; }
-    else if (L === 'v' || L === 'boxer' || L === 'u') { slCyl.dataset.normMin = 2; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 2; slCyl.min = 2; slCyl.max = 30 * cylMult; slCyl.step = 2; build.numCyl = Math.max(2, Math.min(30 * cylMult, Math.round(build.numCyl / 2) * 2)); document.getElementById('lblCylSlider').textContent = `Cylinders (2–${30 * cylMult})`; }
+    else if (L === 'v' || L === 'boxer' || L === 'flat180' || L === 'opposed' || L === 'u') { slCyl.dataset.normMin = 2; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 2; slCyl.min = 2; slCyl.max = 30 * cylMult; slCyl.step = 2; build.numCyl = Math.max(2, Math.min(30 * cylMult, Math.round(build.numCyl / 2) * 2)); document.getElementById('lblCylSlider').textContent = `Cylinders (2–${30 * cylMult})`; }
     else if (L === 'vr') { slCyl.dataset.normMin = 4; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 1; slCyl.min = 4; slCyl.max = 30 * cylMult; slCyl.step = 1; build.numCyl = Math.max(4, Math.min(30 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders (4–${30 * cylMult})`; }
-    else if (L === 'w') { slCyl.dataset.normMin = 3; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 3; slCyl.min = 3; slCyl.max = 30 * cylMult; slCyl.step = 3; build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(build.numCyl / 3) * 3)); document.getElementById('lblCylSlider').textContent = `Cylinders (3–${30 * cylMult}, 3-Bank)`; }
+    else if (L === 'w' || L === 'fan') { slCyl.dataset.normMin = 3; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 3; slCyl.min = 3; slCyl.max = 30 * cylMult; slCyl.step = 3; build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(build.numCyl / 3) * 3)); document.getElementById('lblCylSlider').textContent = `Cylinders (3–${30 * cylMult}, 3-Bank)`; }
+    else if (L === 'deltic') { slCyl.dataset.normMin = 6; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 6; slCyl.min = 6; slCyl.max = 30 * cylMult; slCyl.step = 6; build.numCyl = Math.max(6, Math.min(30 * cylMult, Math.round(Math.max(6, build.numCyl) / 6) * 6)); document.getElementById('lblCylSlider').textContent = `Cylinders (6–${30 * cylMult}, Δ-6)`; }
     else if (L === 'x' || L === 'h') { slCyl.dataset.normMin = 4; slCyl.dataset.normMax = 28; slCyl.dataset.normStep = 4; slCyl.min = 4; slCyl.max = 28 * cylMult; slCyl.step = 4; build.numCyl = Math.max(4, Math.min(28 * cylMult, Math.round(build.numCyl / 4) * 4)); document.getElementById('lblCylSlider').textContent = `Cylinders (4–${28 * cylMult}, 4-Bank)`; }
     else { slCyl.dataset.normMin = 1; slCyl.dataset.normMax = 30; slCyl.dataset.normStep = 1; slCyl.min = 1; slCyl.max = 30 * cylMult; slCyl.step = 1; build.numCyl = Math.max(1, Math.min(30 * cylMult, Math.round(build.numCyl))); document.getElementById('lblCylSlider').textContent = `Cylinders (1–${30 * cylMult})`; }
     const INT_SLIDERS = new Set(['slCylCount', 'slRadialRows', 'slRotors', 'slPorting']);
@@ -3478,6 +3739,45 @@
     }
   }
 
+  function renderDynoCurveOnPT() {
+    if (dynoCurve.length < 2 || build.cycleMode === 'turbofan') return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = ptCanvas.width / dpr, H = ptCanvas.height / dpr;
+    ptCtx.save(); ptCtx.scale(dpr, dpr); ptCtx.clearRect(0, 0, W, H);
+    const padL = 42, padR = 42, padT = 22, padB = 20, plotW = W - padL - padR, plotH = H - padT - padB;
+    if (plotW <= 4 || plotH <= 4) { ptCtx.restore(); return; }
+    const maxRpm = Math.max(1000, ...dynoCurve.map(d => d.rpm));
+    const minRpm = Math.min(500, ...dynoCurve.map(d => d.rpm));
+    const maxHP = Math.max(10, ...dynoCurve.map(d => d.hp)) * 1.12;
+    const maxTq = Math.max(10, ...dynoCurve.map(d => d.tq)) * 1.12;
+    ptCtx.strokeStyle = 'rgba(148,163,184,0.14)'; ptCtx.lineWidth = 1;
+    for (let g = 0; g <= 3; g++) {
+      const y = padT + (g / 3) * plotH;
+      ptCtx.beginPath(); ptCtx.moveTo(padL, y); ptCtx.lineTo(padL + plotW, y); ptCtx.stroke();
+    }
+    ptCtx.strokeStyle = '#38bdf8'; ptCtx.lineWidth = 2; ptCtx.beginPath();
+    dynoCurve.forEach((pt, idx) => {
+      const x = padL + ((pt.rpm - minRpm) / Math.max(1, maxRpm - minRpm)) * plotW;
+      const y = padT + plotH - Math.max(0, Math.min(1, pt.tq / maxTq)) * plotH;
+      if (idx === 0) ptCtx.moveTo(x, y); else ptCtx.lineTo(x, y);
+    });
+    ptCtx.stroke();
+    ptCtx.strokeStyle = '#fb7185'; ptCtx.lineWidth = 2.2; ptCtx.beginPath();
+    dynoCurve.forEach((pt, idx) => {
+      const x = padL + ((pt.rpm - minRpm) / Math.max(1, maxRpm - minRpm)) * plotW;
+      const y = padT + plotH - Math.max(0, Math.min(1, pt.hp / maxHP)) * plotH;
+      if (idx === 0) ptCtx.moveTo(x, y); else ptCtx.lineTo(x, y);
+    });
+    ptCtx.stroke();
+    ptCtx.font = '9.5px ui-monospace, monospace';
+    ptCtx.fillStyle = '#38bdf8'; ptCtx.fillText(`${Math.round(maxTq)} ${build.imperial ? 'lb-ft' : 'N·m'}`, 3, padT + 8);
+    ptCtx.fillStyle = '#fb7185'; ptCtx.fillText(`${Math.round(maxHP)} HP`, W - padR + 3, padT + 8);
+    ptCtx.fillStyle = '#94a3b8'; ptCtx.fillText(`${Math.round(minRpm)}`, padL, H - 5);
+    ptCtx.fillText(`${Math.round(maxRpm)} RPM`, padL + plotW - 46, H - 5);
+    ptCtx.restore();
+    document.getElementById('ptTitle').textContent = `Dyno Curve · Peak ${ctrl.dynoPeakHP.toFixed(0)} HP @ ${Math.round(ctrl.dynoPeakHPRpm)} | ${ctrl.dynoPeakTq.toFixed(0)} ${build.imperial ? 'lb-ft' : 'N·m'} @ ${Math.round(ctrl.dynoPeakTqRpm)}`;
+  }
+
   function updateHUD() {
     const mode = build.cycleMode;
     document.getElementById('pTauGas').textContent = eng.instTauGas.toFixed(1);
@@ -3526,6 +3826,8 @@
 
     document.getElementById('hudKnock').classList.toggle('show', anyKnock);
     document.getElementById('hudLimiter').classList.toggle('show', eng.limiterLatched);
+    const hn = document.getElementById('hudNitrous'); if (hn) hn.classList.toggle('show', ctrl.nitrous && ctrl.throttle > 0.08);
+    const ha = document.getElementById('hudAls'); if (ha) ha.classList.toggle('show', ctrl.antiLag && ctrl.throttle < 0.14 && Math.abs(eng.omega) * 60 / (2 * Math.PI) > 2200);
 
     const sel = eng.cyls[ctrl.selectedCyl] || eng.cyls[0];
     document.getElementById('mPress').textContent = fmtP(sel.P);
@@ -3608,7 +3910,7 @@
     e.target.classList.toggle('active', build.imperial);
     syncAllControls();
     updateHUD();
-    renderCharts();
+    renderCharts(); renderDynoCurveOnPT();
   });
   document.getElementById('bounceTestBtn').addEventListener('click', () => {
     if (build.cycleMode === 'turbofan') return;
@@ -3640,10 +3942,11 @@
     build.layout = btn.dataset.layout;
     const cylMult = isBigUnrealistic() ? 1000 : 1;
     if (build.layout === 'radial') build.numCyl = Math.max(3, Math.min(18 * cylMult, build.numCyl < 3 ? 5 : build.numCyl));
-    else if (build.layout === 'w') build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(Math.max(6, build.numCyl) / 3) * 3));
+    else if (build.layout === 'w' || build.layout === 'fan') build.numCyl = Math.max(3, Math.min(30 * cylMult, Math.round(Math.max(6, build.numCyl) / 3) * 3));
+    else if (build.layout === 'deltic') build.numCyl = Math.max(6, Math.min(30 * cylMult, Math.round(Math.max(12, build.numCyl) / 6) * 6));
     else if (build.layout === 'x' || build.layout === 'h') build.numCyl = Math.max(4, Math.min(28 * cylMult, Math.round(Math.max(8, build.numCyl) / 4) * 4));
     else if (build.layout === 'vr') build.numCyl = Math.max(4, Math.min(30 * cylMult, Math.max(6, build.numCyl)));
-    else if (build.layout === 'v' || build.layout === 'boxer' || build.layout === 'u') build.numCyl = Math.max(2, Math.min(30 * cylMult, Math.round(Math.max(4, build.numCyl) / 2) * 2));
+    else if (build.layout === 'v' || build.layout === 'boxer' || build.layout === 'flat180' || build.layout === 'opposed' || build.layout === 'u') build.numCyl = Math.max(2, Math.min(30 * cylMult, Math.round(Math.max(4, build.numCyl) / 2) * 2));
     build.I_flywheel = Math.min(0.40 * cylMult, 0.024 + totalCylCount() * 0.005);
     syncAllControls(); initEngine(true);
   }));
@@ -3693,16 +3996,26 @@
     fighterJet:    { cycleMode: 'turbofan', bpr: 0.5, opr: 24, fanDia: 1.00, maxTit: 1850, afterburner: true },
     airlinerJet:   { cycleMode: 'turbofan', bpr: 9.0, opr: 36, fanDia: 2.40, maxTit: 1700, afterburner: false },
     locoSteam:     { cycleMode: 'steam', layout: 'inline', numCyl: 2, inverted: false, bore: 0.120, stroke: 0.125, I_flywheel: 0.160, steamAction: 'double', boilerBar: 16.0, superheatK: 100, cutoff: 0.60, condenserBar: 1.01 },
-    stirlingAlpha: { cycleMode: 'stirling', bore: 0.090, stroke: 0.070, I_flywheel: 0.055, stirlingGas: 'he', tHot: 980, tCold: 285, sChargeBar: 14.0, sRegen: 0.86 }
+    stirlingAlpha: { cycleMode: 'stirling', bore: 0.090, stroke: 0.070, I_flywheel: 0.055, stirlingGas: 'he', tHot: 980, tCold: 285, sChargeBar: 14.0, sRegen: 0.86 },
+    f1v10:         { cycleMode: 'ic4', layout: 'v', numCyl: 10, vAngle: 72, crankType: 'shared', bore: 0.096, stroke: 0.042, cr: 13.5, massScale: 0.55, I_flywheel: 0.022, valvetrain: 'dohc', valvesPerCyl: 4, camDuration: 290, lsa: 104, maxLiftIn: 0.0135, aspiration: 'na', tbScale: 1.50, fuelKey: 'race116', exhaustMode: 'f1', revLim: 15000 },
+    flat12:        { cycleMode: 'ic4', layout: 'flat180', numCyl: 12, bore: 0.082, stroke: 0.078, cr: 10.5, massScale: 0.80, I_flywheel: 0.068, valvetrain: 'dohc', valvesPerCyl: 4, camDuration: 255, maxLiftIn: 0.0110, aspiration: 'na', tbScale: 1.25, fuelKey: 'gas93', exhaustMode: 'f1', revLim: 8500 },
+    deltic18:      { cycleMode: 'diesel', layout: 'deltic', numCyl: 18, bore: 0.115, stroke: 0.130, cr: 18.0, I_flywheel: 0.280, aspiration: 'centrif', targetBoost: 1.45, exhaustMode: 'deep', revLim: 3200 },
+    hellcatV8:     { cycleMode: 'ic4', layout: 'v', numCyl: 8, vAngle: 90, crankType: 'even', bore: 0.104, stroke: 0.091, cr: 9.5, I_flywheel: 0.095, valvetrain: 'ohv', valvesPerCyl: 2, camDuration: 245, maxLiftIn: 0.0125, aspiration: 'roots', targetBoost: 1.15, tbScale: 1.30, fuelKey: 'gas93', exhaustMode: 'deep', revLim: 6500 },
+    jz2turbo:      { cycleMode: 'ic4', layout: 'inline', numCyl: 6, bore: 0.086, stroke: 0.086, cr: 8.8, I_flywheel: 0.058, valvetrain: 'dohc', valvesPerCyl: 4, camDuration: 255, maxLiftIn: 0.0110, aspiration: 'turbo', targetBoost: 1.70, tbScale: 1.35, fuelKey: 'e85', exhaustMode: 'straight', revLim: 8200, antiLagOn: true }
   };
   document.querySelectorAll('[data-archetype]').forEach(btn => btn.addEventListener('click', () => {
     const a = ARCHETYPES[btn.dataset.archetype];
     Object.assign(build, PRESET_DEFAULTS, a);
     if (a.maxLiftIn) build.maxLiftEx = a.maxLiftIn * 0.93;
     ctrl.revLimiter = a.revLim || 7000;
-    ctrl.sparkAdvance = 20;
+    ctrl.sparkAdvance = a.cycleMode === 'diesel' ? 14 : 20;
     ctrl.lambdaTarget = 0.96;
     ctrl.ignition = true;
+    ctrl.antiLag = Boolean(a.antiLagOn);
+    ctrl.nitrous = false;
+    ctrl.dynoActive = false;
+    dynoCurve = [];
+    if (typeof syncBoostFeatureUI === 'function') syncBoostFeatureUI();
     clampToActiveRanges();
     syncAllControls(); initEngine(true);
   }));
@@ -3822,6 +4135,46 @@
   }));
   document.getElementById('pauseBtn').addEventListener('click', (e) => { ctrl.paused = !ctrl.paused; e.target.textContent = ctrl.paused ? 'Resume' : 'Pause'; e.target.classList.toggle('active', ctrl.paused); });
   document.getElementById('audioBtn').addEventListener('click', toggleAudio);
+
+  function syncBoostFeatureUI() {
+    const nb = document.getElementById('nitrousBtn');
+    if (nb) { nb.textContent = ctrl.nitrous ? 'N₂O: ACTIVE' : 'N₂O: OFF'; nb.classList.toggle('active', ctrl.nitrous); }
+    const ab = document.getElementById('alsBtn');
+    if (ab) { ab.textContent = ctrl.antiLag ? 'Anti-Lag: ON' : 'Anti-Lag: OFF'; ab.classList.toggle('active', ctrl.antiLag); }
+    const db = document.getElementById('dynoPullBtn');
+    if (db) { db.textContent = ctrl.dynoActive ? 'Stop Dyno' : 'Dyno Pull'; db.classList.toggle('active', ctrl.dynoActive); }
+  }
+  document.getElementById('nitrousBtn').addEventListener('click', () => {
+    ctrl.nitrous = !ctrl.nitrous;
+    syncBoostFeatureUI();
+  });
+  document.getElementById('alsBtn').addEventListener('click', () => {
+    ctrl.antiLag = !ctrl.antiLag;
+    syncBoostFeatureUI();
+  });
+  document.getElementById('dynoPullBtn').addEventListener('click', () => {
+    if (build.cycleMode === 'turbofan') return;
+    if (ctrl.dynoActive) {
+      ctrl.dynoActive = false;
+      ctrl.throttle = 0; ctrl.load = 0;
+      syncThrottleUI();
+      document.getElementById('slLoad').value = 0; document.getElementById('valLoad').textContent = '0%';
+      syncBoostFeatureUI();
+      return;
+    }
+    ctrl.dynoActive = true;
+    ctrl.ignition = true;
+    ctrl.paused = false;
+    dynoCurve = [];
+    ctrl.dynoPeakHP = 0; ctrl.dynoPeakHPRpm = 0; ctrl.dynoPeakTq = 0; ctrl.dynoPeakTqRpm = 0;
+    const startRpm = Math.max(1200, Math.min(2200, ctrl.revLimiter * 0.22));
+    if (eng.omega * 60 / (2 * Math.PI) < startRpm) eng.omega = startRpm * (2 * Math.PI / 60);
+    ctrl.throttle = 1.0;
+    ctrl.load = 0.22;
+    syncIgnitionUI(); syncThrottleUI();
+    document.getElementById('slLoad').value = 22; document.getElementById('valLoad').textContent = '22%';
+    syncBoostFeatureUI();
+  });
   document.getElementById('resetBtn').addEventListener('click', () => initEngine(false));
   document.getElementById('pillBlock').addEventListener('click', () => { ctrl.blockMode = (ctrl.blockMode + 1) % 3; applyBlockMode(); });
   document.getElementById('pillParticles').addEventListener('click', (e) => { ctrl.showParticles = !ctrl.showParticles; e.target.classList.toggle('on', ctrl.showParticles); });
@@ -3844,6 +4197,7 @@
       keyStarter = true;
       updateStarterState();
     }
+    if (e.code === 'KeyN' && !e.repeat) { ctrl.nitrous = !ctrl.nitrous; syncBoostFeatureUI(); }
     if (e.code === 'ArrowUp' || e.code === 'ArrowDown') e.preventDefault();
     keys[e.code] = true;
   });
@@ -3985,6 +4339,26 @@
       syncThrottleUI();
     }
 
+    if (ctrl.dynoActive && !ctrl.paused && build.cycleMode !== 'turbofan') {
+      const rpmNow = Math.abs(eng.omega) * 60 / (2 * Math.PI);
+      const tqVal = build.imperial ? (eng.avgTorque * 0.737562) : eng.avgTorque;
+      const hpVal = eng.avgPowerW / 745.7;
+      if (rpmNow >= 900 && Number.isFinite(hpVal) && Number.isFinite(tqVal) && hpVal > 0) {
+        const lastR = dynoCurve.length ? dynoCurve[dynoCurve.length - 1].rpm : 0;
+        if (rpmNow >= lastR + 80) {
+          dynoCurve.push({ rpm: rpmNow, tq: Math.max(0, tqVal), hp: Math.max(0, hpVal) });
+          if (hpVal > ctrl.dynoPeakHP) { ctrl.dynoPeakHP = hpVal; ctrl.dynoPeakHPRpm = rpmNow; }
+          if (tqVal > ctrl.dynoPeakTq) { ctrl.dynoPeakTq = tqVal; ctrl.dynoPeakTqRpm = rpmNow; }
+        }
+      }
+      if (rpmNow >= ctrl.revLimiter * 0.97 || dynoCurve.length > 220) {
+        ctrl.dynoActive = false;
+        ctrl.throttle = 0; ctrl.load = 0;
+        syncThrottleUI();
+        document.getElementById('slLoad').value = 0; document.getElementById('valLoad').textContent = '0%';
+        syncBoostFeatureUI();
+      }
+    }
     if (!ctrl.paused && dtReal > 0) {
       const dtSim = dtReal * ctrl.timeScale;
       const N = Math.max(1, eng.cyls.length);
@@ -4021,7 +4395,7 @@
       sync3DFromPhysics();
       renderer.render(scene, activeCam);
     }
-    renderCharts();
+    renderCharts(); renderDynoCurveOnPT();
 
     uiAccum += dtReal;
     if (uiAccum >= 0.05) { updateHUD(); uiAccum = 0; }
